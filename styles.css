@@ -1,8 +1,9 @@
 body {
     margin: 0;
     overflow: hidden;
+    background: url('homescreen.png') no-repeat center center fixed; /* Screenshot as background */
+    background-size: cover; /* Fill the screen */
 }
-
 canvas {
     display: block;
 }
@@ -13,7 +14,7 @@ canvas {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(50, 50, 50, 0.8); /* Grey translucent background */
+    background: rgba(50, 50, 50, 0.8); /* Grey translucent overlay */
     display: flex;
     justify-content: center;
     align-items: center;
@@ -65,4 +66,12 @@ canvas {
 #play-button:hover {
     background: rgba(0, 255, 0, 0.2); /* Slight green fill on hover */
     box-shadow: 0 0 10px #00ff00;
+}
+
+#game-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
 }
