@@ -133,12 +133,12 @@ export function updateMovement() {
  topRightWing.rotation.z = Math.max(topRightWing.rotation.z - angleStep, -Math.PI / 8);
  bottomRightWing.rotation.z = Math.min(bottomRightWing.rotation.z + angleStep, Math.PI / 8); // Fixed to bottomRightWing
  topLeftWing.rotation.z = Math.min(topLeftWing.rotation.z + angleStep, Math.PI + Math.PI / 8);
- bottomLeftWing.rotation.z = Math.max(customLeftWing.rotation.z - angleStep, Math.PI - Math.PI / 8); // Fixed to bottomLeftWing
+ bottomLeftWing.rotation.z = Math.max(bottomLeftWing.rotation.z - angleStep, Math.PI - Math.PI / 8); // Fixed to bottomLeftWing
  } else {
  topRightWing.rotation.z = Math.min(topRightWing.rotation.z + angleStep, 0);
  bottomRightWing.rotation.z = Math.max(bottomRightWing.rotation.z - angleStep, 0); // Fixed to bottomRightWing
  topLeftWing.rotation.z = Math.max(topLeftWing.rotation.z - angleStep, Math.PI);
- bottomLeftWing.rotation.z = Math.min(customLeftWing.rotation.z + angleStep, Math.PI); // Fixed to bottomLeftWing
+ bottomLeftWing.rotation.z = Math.min(bottomLeftWing.rotation.z + angleStep, Math.PI); // Fixed to bottomLeftWing
  }
  wingAnimation--;
  }
