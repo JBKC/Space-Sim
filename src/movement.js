@@ -1,4 +1,5 @@
 // src/movement.js
+import { scene } from './setup.js'; // Added import for scene
 import { spacecraft, engineGlowMaterial, lightMaterial, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing } from './setup.js';
 
 // Movement and boost variables
@@ -74,7 +75,7 @@ spacecraft.add(cameraTarget);
 cameraTarget.position.set(0, 0, 0);
 
 export const cameraRig = new THREE.Object3D();
-scene.add(cameraRig);
+scene.add(cameraRig); // Line 77 - Now scene is defined
 
 export function updateCamera(camera) {
     const targetPosition = new THREE.Vector3();
@@ -130,14 +131,14 @@ export function updateMovement() {
 
         if (wingsOpen) {
             topRightWing.rotation.z = Math.max(topRightWing.rotation.z - angleStep, -Math.PI / 8);
-            bottomRightWing.rotation.z = Math.min(bottomRightWing.rotation.z + angleStep, Math.PI / 8); // Fix typo
+            bottomRightWing.rotation.z = Math.min(bottomRightWing.rotation.z + angleStep, Math.PI / 8); // Should be bottomRightWing
             topLeftWing.rotation.z = Math.min(topLeftWing.rotation.z + angleStep, Math.PI + Math.PI / 8);
-            bottomLeftWing.rotation.z = Math.max(bottomLeftWing.rotation.z - angleStep, Math.PI - Math.PI / 8); // Fix typo
+            bottomLeftWing.rotation.z = Math.max(customLeftWing.rotation.z - angleStep, Math.PI - Math.PI / 8); // Should be bottomLeftWing
         } else {
             topRightWing.rotation.z = Math.min(topRightWing.rotation.z + angleStep, 0);
-            bottomRightWing.rotation.z = Math.max(bottomRightWing.rotation.z - angleStep, 0); // Fix typo
+            bottomRightWing.rotation.z = Math.max(customRightWing.rotation.z - angleStep, 0); // Should be bottomRightWing
             topLeftWing.rotation.z = Math.max(topLeftWing.rotation.z - angleStep, Math.PI);
-            bottomLeftWing.rotation.z = Math.min(bottomLeftWing.rotation.z + angleStep, Math.PI); // Fix typo
+            bottomLeftWing.rotation.z = Math.min(customLeftWing.rotation.z + angleStep, Math.PI); // Should be bottomLeftWing
         }
         wingAnimation--;
     }
