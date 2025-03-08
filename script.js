@@ -397,7 +397,11 @@ function showFinalTime() {
 
         finalTimeElement.innerHTML = `CHALLENGE COMPLETE!<br>Your Time: ${minutes.toString().padStart(2, '0')}:${seconds.padStart(5, '0')}`;
         finalTimeElement.style.display = 'block';
-        // Removed setTimeout to keep the screen visible indefinitely
+
+        setTimeout(() => {
+            finalTimeElement.style.display = 'none';
+            initializeTargetChallenge();
+        }, 20000);
     }
 }
 
