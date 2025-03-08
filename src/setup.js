@@ -135,23 +135,26 @@ export function createWing(x, y, z, rotationZ) {
 }
 
 // Add wings
+// ... Previous code in setup.js up to wing creation ...
+
+// Add wings
 export const topRightWing = createWing(0, 0.3, -0.5, -Math.PI / 8);
 export const bottomRightWing = createWing(0, -0.3, -0.5, Math.PI / 8);
 export const topLeftWing = createWing(0, 0.3, -0.5, Math.PI + Math.PI / 8);
 export const bottomLeftWing = createWing(0, -0.3, -0.5, Math.PI - Math.PI / 8);
 spacecraft.add(topRightWing);
-spacecraft.add(bottomRightWing); // Corrected to bottomRightWing
+spacecraft.add(bottomRightWing); // Fixed to bottomRightWing
 spacecraft.add(topLeftWing);
-spacecraft.add(bottomLeftWing); // Corrected to bottomLeftWing
+spacecraft.add(bottomLeftWing); // Fixed to bottomLeftWing
 
 // Wing struts
 function createStrut(x, y, z, rotationZ) {
-    const strutGeometry = new THREE.BoxGeometry(0.6, 0.05, 0.05);
-    const strutMaterial = new THREE.MeshBasicMaterial({ color: 0x999999 });
-    const strut = new THREE.Mesh(strutGeometry, strutMaterial);
-    strut.position.set(x, y, z - 0.5);
-    strut.rotation.z = rotationZ;
-    return strut;
+ const strutGeometry = new THREE.BoxGeometry(0.6, 0.05, 0.05);
+ const strutMaterial = new THREE.MeshBasicMaterial({ color: 0x999999 });
+ const strut = new THREE.Mesh(strutGeometry, strutMaterial);
+ strut.position.set(x, y, z - 0.5);
+ strut.rotation.z = rotationZ;
+ return strut;
 }
 
 spacecraft.add(createStrut(0, 0.15, 0, 0));
@@ -165,28 +168,28 @@ const starRange = 2000;
 const starPositions = new Float32Array(starCount * 3);
 
 for (let i = 0; i < starCount * 3; i += 3) {
-    starPositions[i] = (Math.random() - 0.5) * starRange;
-    starPositions[i + 1] = (Math.random() - 0.5) * starRange;
-    starPositions[i + 2] = (Math.random() - 0.5) * starRange;
+ starPositions[i] = (Math.random() - 0.5) * starRange;
+ starPositions[i + 1] = (Math.random() - 0.5) * starRange;
+ starPositions[i + 2] = (Math.random() - 0.5) * starRange;
 }
 
 starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
 const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 2 });
 export const stars = new THREE.Points(starGeometry, starMaterial);
-scene.add(stars);
+ scene.add(stars);
 
 export function updateStars() {
-    const spacecraftZ = spacecraft.position.z;
-    const positions = stars.geometry.attributes.position.array;
-    const halfRange = starRange / 2;
+ const spacecraftZ = spacecraft.position.z;
+ const positions = stars.geometry.attributes.position.array;
+ const halfRange = starRange / 2;
 
-    for (let i = 0; i < starCount * 3; i += 3) {
-        const starZ = positions[i + 2];
-        if (starZ < spacecraftZ - halfRange || starZ > spacecraftZ + halfRange) {
-            positions[i] = (Math.random() - 0.5) * starRange;
-            positions[i + 1] = (Math.random() - 0.5) * starRange;
-            positions[i + 2] = spacecraftZ - halfRange + (Math.random() * starRange);
-        }
-    }
-    stars.geometry.attributes.position.needsUpdate = true;
+ for (let i = 0; i < starCount * 3; i += 3) {
+ const starZ = positions[i + 2];
+ if (starZ < spacecraftZ - halfRange || starZ > spacecraftZ + halfRange) {
+ positions[i] = (Math.random() - 0.5) * starRange;
+ positions[i + 1] = (Math.random() - 0.5) * starRange;
+ positions[i + 2] = spacecraftZ - halfRange + (Math.random() * starRange);
+ }
+ }
+ stars.geometry.attributes.position.needsUpdate = true;
 }
