@@ -1,7 +1,9 @@
-// Scene setup
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.getElementById('game-container').appendChild(renderer.domElement); // Append to #game-container
+
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
@@ -676,6 +678,8 @@ setupDirectionalIndicator();
 // Scene setup and all existing code up to the end remains unchanged until animate...
 
 // Move animate into a startGame function
+
+// Start game function
 function startGame() {
     const welcomeScreen = document.getElementById('welcome-screen');
     welcomeScreen.style.display = 'none'; // Hide welcome screen
@@ -742,10 +746,10 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// Replace the direct animate() call with a button listener
+// Add button listener instead of calling animate directly
 document.getElementById('play-button').addEventListener('click', startGame);
 
-// Handle window resize (unchanged)
+// Handle window resize
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
