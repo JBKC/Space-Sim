@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Procedural Skybox Preview</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+    }
+    #preview-container {
+      width: 100vw;
+      height: 100vh;
+    }
+    .controls {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 10px;
+      background-color: rgba(0,0,0,0.7);
+      color: white;
+      border-radius: 5px;
+    }
+    button {
+      margin: 5px;
+      padding: 5px 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="preview-container"></div>
+  <div class="controls">
+    <h3>Procedural Skybox Preview</h3>
+    <p>Drag to rotate the view</p>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/controls/OrbitControls.js"></script>
+  <script type="module">
+  import { createSkyboxPreview } from './procedural-skybox.js';
+
+    // Create the preview
+    const preview = createSkyboxPreview('preview-container');
+
+    // Optional: Add window resize handler
+    window.addEventListener('resize', () => {
+      const container = document.getElementById('preview-container');
+      preview.camera.aspect = container.clientWidth / container.clientHeight;
+      preview.camera.updateProjectionMatrix();
+      preview.renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+  </script>
+</body>
+</html>
