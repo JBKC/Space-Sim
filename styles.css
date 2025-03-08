@@ -1,13 +1,40 @@
-/* Your styles.css is fine as-is, assuming homescreen.png is in the folder */
 body {
     margin: 0;
     overflow: hidden;
-    background: url('homescreen.png') no-repeat center center fixed;
+    position: relative;
+}
+
+body::before {
+    content: "";
+    background: url('homescreen.png') no-repeat center center fixed !important;
     background-size: cover;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 500; /* Higher than canvas but lower than welcome screen */
+    pointer-events: none;
 }
 
 canvas {
     display: block;
+    position: absolute; /* Ensure canvas fills the screen */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 100; /* Lower than the background */
+}
+
+#game-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000; /* Below welcome screen but above background */
+    background: transparent; /* Ensure this is transparent */
 }
 
 #welcome-screen {
@@ -16,7 +43,7 @@ canvas {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(50, 50, 50, 0.8);
+    background: rgba(50, 50, 50, 0.7); /* Slightly more transparent */
     display: flex;
     justify-content: center;
     align-items: center;
@@ -28,6 +55,10 @@ canvas {
     color: #00ff00;
     font-family: 'Courier New', Courier, monospace;
     text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+    background: rgba(0, 0, 0, 0.5); /* Semi-transparent black background */
+    padding: 30px;
+    border-radius: 10px;
+    max-width: 600px;
 }
 
 .welcome-content h1 {
@@ -68,12 +99,4 @@ canvas {
 #play-button:hover {
     background: rgba(0, 255, 0, 0.2);
     box-shadow: 0 0 10px #00ff00;
-}
-
-#game-container {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
 }
