@@ -49,7 +49,7 @@ spacecraft.add(engine3);
 
 const engine4 = new THREE.Mesh(engineGeometry, engineMaterial);
 engine4.position.set(-0.4, -0.3, -1.95);
-engine4.rotation.x = Math.PI / 2; // Corrected line
+engine4.rotation.x = Math.PI / 2;
 spacecraft.add(engine4);
 
 // Engine glow (export material for boost effects)
@@ -140,9 +140,9 @@ export const bottomRightWing = createWing(0, -0.3, -0.5, Math.PI / 8);
 export const topLeftWing = createWing(0, 0.3, -0.5, Math.PI + Math.PI / 8);
 export const bottomLeftWing = createWing(0, -0.3, -0.5, Math.PI - Math.PI / 8);
 spacecraft.add(topRightWing);
-spacecraft.add(bottomRightWing); // Should be bottomRightWing
+spacecraft.add(bottomRightWing); // Corrected to bottomRightWing
 spacecraft.add(topLeftWing);
-spacecraft.add(bottomLeftWing); // Should be bottomLeftWing
+spacecraft.add(bottomLeftWing); // Corrected to bottomLeftWing
 
 // Wing struts
 function createStrut(x, y, z, rotationZ) {
