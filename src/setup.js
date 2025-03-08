@@ -1,4 +1,6 @@
 // src/setup.js
+import * as THREE from 'three'; // Assuming you're using ES modules
+
 export const scene = new THREE.Scene();
 export const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 export const renderer = new THREE.WebGLRenderer();
@@ -135,26 +137,23 @@ export function createWing(x, y, z, rotationZ) {
 }
 
 // Add wings
-// ... Previous code in setup.js up to wing creation ...
-
-// Add wings
 export const topRightWing = createWing(0, 0.3, -0.5, -Math.PI / 8);
 export const bottomRightWing = createWing(0, -0.3, -0.5, Math.PI / 8);
 export const topLeftWing = createWing(0, 0.3, -0.5, Math.PI + Math.PI / 8);
 export const bottomLeftWing = createWing(0, -0.3, -0.5, Math.PI - Math.PI / 8);
 spacecraft.add(topRightWing);
-spacecraft.add(bottomRightWing); // Fixed to bottomRightWing
+spacecraft.add(bottomRightWing); // Fixed typo: bottomRightWing
 spacecraft.add(topLeftWing);
-spacecraft.add(bottomLeftWing); // Fixed to bottomLeftWing
+spacecraft.add(bottomLeftWing); // Fixed typo: bottomLeftWing
 
 // Wing struts
 function createStrut(x, y, z, rotationZ) {
- const strutGeometry = new THREE.BoxGeometry(0.6, 0.05, 0.05);
- const strutMaterial = new THREE.MeshBasicMaterial({ color: 0x999999 });
- const strut = new THREE.Mesh(strutGeometry, strutMaterial);
- strut.position.set(x, y, z - 0.5);
- strut.rotation.z = rotationZ;
- return strut;
+    const strutGeometry = new THREE.BoxGeometry(0.6, 0.05, 0.05);
+    const strutMaterial = new THREE.MeshBasicMaterial({ color: 0x999999 });
+    const strut = new THREE.Mesh(strutGeometry, strutMaterial);
+    strut.position.set(x, y, z - 0.5);
+    strut.rotation.z = rotationZ;
+    return strut;
 }
 
 spacecraft.add(createStrut(0, 0.15, 0, 0));
@@ -168,28 +167,87 @@ const starRange = 2000;
 const starPositions = new Float32Array(starCount * 3);
 
 for (let i = 0; i < starCount * 3; i += 3) {
- starPositions[i] = (Math.random() - 0.5) * starRange;
- starPositions[i + 1] = (Math.random() - 0.5) * starRange;
- starPositions[i + 2] = (Math.random() - 0.5) * starRange;
+    starPositions[i] = (Math.random() - 0.5) * starRange;
+    starPositions[i + 1] = (Math.random() - 0.5) * starRange;
+    starPositions[i + 2] = (Math.random() - 0.5) * starRange;
 }
 
 starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
 const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 2 });
 export const stars = new THREE.Points(starGeometry, starMaterial);
- scene.add(stars);
+scene.add(stars);
 
 export function updateStars() {
- const spacecraftZ = spacecraft.position.z;
- const positions = stars.geometry.attributes.position.array;
- const halfRange = starRange / 2;
+    const spacecraftZ = spacecraft.position.z;
+    const positions = stars.geometry.attributes.position.array;
+    const halfRange = starRange / 2;
 
- for (let i = 0; i < starCount * 3; i += 3) {
- const starZ = positions[i + 2];
- if (starZ < spacecraftZ - halfRange || starZ > spacecraftZ + halfRange) {
- positions[i] = (Math.random() - 0.5) * starRange;
- positions[i + 1] = (Math.random() - 0.5) * starRange;
- positions[i + 2] = spacecraftZ - halfRange + (Math.random() * starRange);
- }
- }
- stars.geometry.attributes.position.needsUpdate = true;
+    for (let i = 0; i < starCount * 3; i += 3) {
+        const starZ = positions[i + 2];
+        if (starZ < spacecraftZ - halfRange || starZ > spacecraftZ + halfRange) {
+            positions[i] = (Math.random() - 0.5) * starRange;
+            positions[i + 1] = (Math.random() - 0.5) * starRange;
+            positions[i + 2] = spacecraftZ - halfRange + (Math.random() * starRange);
+        }
+    }
+    stars.geometry.attributes.position.needsUpdate = true;
 }
+
+// Skybox with planet and blue haze
+const skyboxVertexShader = `
+    varying vec3 vWorldPosition;
+    void main() {
+        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+        vWorldPosition = worldPosition.xyz;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+`;
+
+const skyboxFragmentShader = `
+    varying vec3 vWorldPosition;
+    uniform sampler2D planetTexture;
+
+    void main() {
+        vec3 direction = normalize(vWorldPosition);
+        vec3 color = vec3(0.0, 0.0, 0.0); // Black background
+
+        // Planet on the -z face (behind the spacecraft)
+        float planetRadius = 0.8; // Size of the planet circle
+        vec2 planetPos = vec2(direction.x, direction.y);
+        float dist = length(planetPos);
+
+        if (dist < planetRadius && direction.z < 0.0) {
+            // Simple planet color (replace with texture if desired)
+            vec3 planetColor = vec3(0.2, 0.6, 0.2); // Greenish for Naboo-like planet
+
+            // Blue atmosphere haze
+            float atmosphereStart = 0.7 * planetRadius;
+            float atmosphereStrength = smoothstep(atmosphereStart, planetRadius, dist);
+            vec3 atmosphereColor = vec3(0.4, 0.7, 1.0); // Blue haze
+
+            // Blend planet with atmosphere
+            color = mix(planetColor, atmosphereColor, atmosphereStrength * 0.6);
+
+            // Add a subtle halo
+            if (dist > planetRadius * 0.9 && dist < planetRadius * 1.1) {
+                float halo = (1.0 - abs(dist - planetRadius) / (planetRadius * 0.1)) * 0.3;
+                color += atmosphereColor * halo;
+            }
+        }
+
+        gl_FragColor = vec4(color, 1.0);
+    }
+`;
+
+// Create and add skybox
+const skyboxGeometry = new THREE.BoxGeometry(1000, 1000, 1000); // Large enough to enclose the scene
+const skyboxMaterial = new THREE.ShaderMaterial({
+    vertexShader: skyboxVertexShader,
+    fragmentShader: skyboxFragmentShader,
+    side: THREE.BackSide, // Render inside of the box
+    uniforms: {
+        planetTexture: { value: null } // Placeholder if you add a texture later
+    }
+});
+export const skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
+scene.add(skybox);
