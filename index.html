@@ -3,39 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>X-Wing Game</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-        }
-        #glow-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 255, 0, 0.3);
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.5s ease;
-            z-index: 10;
-        }
-        #score {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            color: white;
-            font-family: Arial, sans-serif;
-            font-size: 24px;
-            text-shadow: 1px 1px 2px black; /* For readability against stars */
-            z-index: 11;
-        }
-    </style>
+    <title>X-Wing Obstacle Course</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div id="glow-overlay"></div>
-    <div id="score">Rings Passed: 0</div>
+    <div id="welcome-screen">
+        <div class="welcome-content">
+            <h1>X-WING OBSTACLE COURSE</h1>
+            <div class="instructions">
+                <h2>GOALS</h2>
+                <p>- Hit all 10 targets in the fastest time possible</p>
+                <p>- Time starts when you hit the first target</p>
+                <h2>CONTROLS</h2>
+                <p>- W / S: Pitch Down / Up</p>
+                <p>- A / D: Roll Left / Right</p>
+                <p>- Left / Right Arrow: Yaw Left / Right</p>
+                <p>- Up Arrow: Boost</p>
+            </div>
+            <button id="play-button">PLAY</button>
+        </div>
+    </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script src="script.js"></script>
 </body>

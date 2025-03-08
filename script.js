@@ -673,7 +673,15 @@ function updateDirectionalIndicator() {
 // Initialize directional indicator
 setupDirectionalIndicator();
 
-// Animation loop
+// Scene setup and all existing code up to the end remains unchanged until animate...
+
+// Move animate into a startGame function
+function startGame() {
+    const welcomeScreen = document.getElementById('welcome-screen');
+    welcomeScreen.style.display = 'none'; // Hide welcome screen
+    animate(); // Start the game
+}
+
 function animate() {
     requestAnimationFrame(animate);
 
@@ -734,9 +742,10 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-animate();
+// Replace the direct animate() call with a button listener
+document.getElementById('play-button').addEventListener('click', startGame);
 
-// Handle window resize
+// Handle window resize (unchanged)
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
