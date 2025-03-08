@@ -49,7 +49,7 @@ spacecraft.add(engine3);
 
 const engine4 = new THREE.Mesh(engineGeometry, engineMaterial);
 engine4.position.set(-0.4, -0.3, -1.95);
-engineCentered.rotation.x = Math.PI / 2;
+engine4.rotation.x = Math.PI / 2; // Corrected line
 spacecraft.add(engine4);
 
 // Engine glow (export material for boost effects)
@@ -136,7 +136,7 @@ export function createWing(x, y, z, rotationZ) {
 
 // Add wings
 export const topRightWing = createWing(0, 0.3, -0.5, -Math.PI / 8);
-export const bottomRightWing = createWing(0, -0.3, -0.5, Math.PI / 8); // Fixed customRightWing typo
+export const bottomRightWing = createWing(0, -0.3, -0.5, Math.PI / 8);
 export const topLeftWing = createWing(0, 0.3, -0.5, Math.PI + Math.PI / 8);
 export const bottomLeftWing = createWing(0, -0.3, -0.5, Math.PI - Math.PI / 8);
 spacecraft.add(topRightWing);
