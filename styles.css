@@ -43,6 +43,8 @@ canvas {
     font-size: 18px;
     margin: 5px 0;
     line-height: 1.5;
+    text-align: left; /* Left-align bullet points */
+    padding-left: 20px; /* Indent for bullet-like spacing */
 }
 
 #play-button {
