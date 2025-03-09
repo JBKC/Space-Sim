@@ -1,12 +1,13 @@
 // src/movement.js
 import { scene } from './setup.js';
-import { spacecraft, engineGlowMaterial, lightMaterial, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing } from './setup.js';
+import { spacecraft, engineGlowMaterial, lightMaterial, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, PLANET_RADIUS, PLANET_POSITION, planet, updateEngineEffects } from './setup.js';
+import { challengeComplete } from './gameLogic.js';
 
-// Movement and boost variables
-export const baseSpeed = 0.3;
-export const boostSpeed = 0.9;
+// Movement and boost variables with very low sensitivity
+export const baseSpeed = 0.4   
+export const boostSpeed = 0.8;   // Moderate boost speed
 export let currentSpeed = baseSpeed;
-export const turnSpeed = 0.015;
+export const turnSpeed = 0.03; 
 export const keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false };
 export let boostDuration = 0;
 export const boostMaxDuration = 120;
@@ -16,44 +17,49 @@ export let wingsOpen = true;
 export let wingAnimation = 0;
 export const wingTransitionFrames = 30;
 
+// Collision and bounce variables
+const BOUNCE_FACTOR = 0.5;
+const COLLISION_THRESHOLD = 20; // Increased safety margin
+const COLLISION_PUSHBACK = 30; // How far to push back from collision
+let lastValidPosition = new THREE.Vector3();
+let lastValidQuaternion = new THREE.Quaternion();
+
 // Keyboard controls
 document.addEventListener('keydown', (event) => {
- switch (event.key) {
- case 'w': keys.w = true; break;
- case 's': keys.s = true; break;
- case 'a': keys.a = true; break;
- case 'd': keys.d = true; break;
- case 'ArrowLeft': keys.left = true; break;
- case 'ArrowRight': keys.right = true; break;
- case 'ArrowUp':
- if (!keys.up && boostDuration === 0) {
- keys.up = true;
- boostDuration = boostMaxDuration;
- if (wingsOpen) {
- wingsOpen = false;
- wingAnimation = wingTransitionFrames;
- }
- }
- break;
- }
+    if (challengeComplete) return; // Disable controls if challenge is complete
+    
+    switch (event.key) {
+        case 'w': keys.w = true; break;
+        case 's': keys.s = true; break;
+        case 'a': keys.a = true; break;
+        case 'd': keys.d = true; break;
+        case 'ArrowLeft': keys.left = true; break;
+        case 'ArrowRight': keys.right = true; break;
+        case 'ArrowUp':
+            if (!keys.up && boostDuration === 0) {
+                keys.up = true;
+                boostDuration = boostMaxDuration;
+                if (wingsOpen) {
+                    wingsOpen = false;
+                    wingAnimation = wingTransitionFrames;
+                }
+            }
+            break;
+    }
 });
 
 document.addEventListener('keyup', (event) => {
- switch (event.key) {
- case 'w': keys.w = false; break;
- case 's': keys.s = false; break;
- case 'a': keys.a = false; break;
- case 'd': keys.d = false; break;
- case 'ArrowLeft': keys.left = false; break;
- case 'ArrowRight': keys.right = false; break;
- case 'ArrowUp':
- keys.up = false;
- if (!wingsOpen) {
- wingsOpen = true;
- wingAnimation = wingTransitionFrames;
- }
- break;
- }
+    if (challengeComplete) return; // Disable controls if challenge is complete
+    
+    switch (event.key) {
+        case 'w': keys.w = false; break;
+        case 's': keys.s = false; break;
+        case 'a': keys.a = false; break;
+        case 'd': keys.d = false; break;
+        case 'ArrowLeft': keys.left = false; break;
+        case 'ArrowRight': keys.right = false; break;
+        case 'ArrowUp': keys.up = false; break;
+    }
 });
 
 // Rotation setup
@@ -94,52 +100,104 @@ export function updateCamera(camera) {
 }
 
 export function updateMovement() {
- if (boostDuration > 0) {
- currentSpeed = boostSpeed;
- engineGlowMaterial.color.setHex(0xff6600);
- lightMaterial.color.setHex(0xff99ff);
- boostDuration--;
- } else {
- currentSpeed = baseSpeed;
- engineGlowMaterial.color.setHex(0xff3300);
- lightMaterial.color.setHex(0xff66ff);
- }
+    if (challengeComplete) {
+        // If challenge is complete, only update camera but no movement
+        return;
+    }
+    
+    // Update boost state
+    const isBoost = boostDuration > 0;
+    if (isBoost) {
+        currentSpeed = boostSpeed;
+        boostDuration--;
+    } else {
+        currentSpeed = baseSpeed;
+    }
 
- spacecraft.translateZ(currentSpeed);
+    // Update engine effects
+    updateEngineEffects(isBoost);
 
- rotation.pitch.identity();
- rotation.yaw.identity();
- rotation.roll.identity();
+    // Store current state
+    lastValidPosition.copy(spacecraft.position);
+    lastValidQuaternion.copy(spacecraft.quaternion);
 
- if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, turnSpeed);
- if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -turnSpeed);
- if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -turnSpeed * 2);
- if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, turnSpeed * 2);
- if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, turnSpeed);
- if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -turnSpeed);
+    // Apply rotations with very low sensitivity
+    rotation.pitch.identity();
+    rotation.yaw.identity();
+    rotation.roll.identity();
 
- const combinedRotation = new THREE.Quaternion()
- .copy(rotation.roll)
- .multiply(rotation.pitch)
- .multiply(rotation.yaw);
+    if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, turnSpeed/2);
+    if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -turnSpeed/2);
+    if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -turnSpeed);
+    if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, turnSpeed);
+    if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, turnSpeed/2);
+    if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -turnSpeed/2);
 
- spacecraft.quaternion.multiply(combinedRotation);
+    const combinedRotation = new THREE.Quaternion()
+        .copy(rotation.roll)
+        .multiply(rotation.pitch)
+        .multiply(rotation.yaw);
 
- if (wingAnimation > 0) {
- const targetAngle = wingsOpen ? Math.PI / 8 : 0;
- const angleStep = (Math.PI / 8) / wingTransitionFrames;
+    spacecraft.quaternion.multiply(combinedRotation);
 
- if (wingsOpen) {
- topRightWing.rotation.z = Math.max(topRightWing.rotation.z - angleStep, -Math.PI / 8);
- bottomRightWing.rotation.z = Math.min(bottomRightWing.rotation.z + angleStep, Math.PI / 8); // Fixed to bottomRightWing
- topLeftWing.rotation.z = Math.min(topLeftWing.rotation.z + angleStep, Math.PI + Math.PI / 8);
- bottomLeftWing.rotation.z = Math.max(bottomLeftWing.rotation.z - angleStep, Math.PI - Math.PI / 8); // Fixed to bottomLeftWing
- } else {
- topRightWing.rotation.z = Math.min(topRightWing.rotation.z + angleStep, 0);
- bottomRightWing.rotation.z = Math.max(bottomRightWing.rotation.z - angleStep, 0); // Fixed to bottomRightWing
- topLeftWing.rotation.z = Math.max(topLeftWing.rotation.z - angleStep, Math.PI);
- bottomLeftWing.rotation.z = Math.min(bottomLeftWing.rotation.z + angleStep, Math.PI); // Fixed to bottomLeftWing
- }
- wingAnimation--;
- }
+    // Get current forward direction
+    const forward = new THREE.Vector3(0, 0, 1);
+    forward.applyQuaternion(spacecraft.quaternion);
+
+    // Calculate next position
+    const nextPosition = spacecraft.position.clone().add(
+        forward.multiplyScalar(currentSpeed)
+    );
+
+    // Check distance to planet for next position
+    const distanceToPlanet = nextPosition.distanceTo(PLANET_POSITION);
+    const minDistance = PLANET_RADIUS + COLLISION_THRESHOLD;
+
+    if (distanceToPlanet < minDistance) {
+        // We would hit the planet - handle collision
+
+        // Get direction from planet center to spacecraft
+        const toSpacecraft = new THREE.Vector3().subVectors(spacecraft.position, PLANET_POSITION).normalize();
+        
+        // Place spacecraft at safe distance
+        spacecraft.position.copy(PLANET_POSITION).add(
+            toSpacecraft.multiplyScalar(minDistance + COLLISION_PUSHBACK)
+        );
+
+        // Calculate bounce direction
+        const normal = toSpacecraft;
+        const incidentDir = forward.normalize();
+        const reflectDir = new THREE.Vector3();
+        reflectDir.copy(incidentDir).reflect(normal);
+
+        // Set new orientation to bounce direction
+        const bounceQuaternion = new THREE.Quaternion();
+        bounceQuaternion.setFromUnitVectors(forward, reflectDir);
+        spacecraft.quaternion.premultiply(bounceQuaternion);
+
+        // Reduce speed
+        currentSpeed *= BOUNCE_FACTOR;
+    } else {
+        // Safe to move
+        spacecraft.position.copy(nextPosition);
+    }
+
+    // Update wing animation if active
+    if (wingAnimation > 0) {
+        const targetAngle = wingsOpen ? Math.PI / 8 : 0;
+        const angleStep = (Math.PI / 8) / wingTransitionFrames;
+
+        if (wingsOpen) {
+            topRightWing.rotation.z = Math.max(topRightWing.rotation.z - angleStep, -Math.PI / 8);
+            bottomRightWing.rotation.z = Math.min(bottomRightWing.rotation.z + angleStep, Math.PI / 8);
+            topLeftWing.rotation.z = Math.min(topLeftWing.rotation.z + angleStep, Math.PI + Math.PI / 8);
+            bottomLeftWing.rotation.z = Math.max(bottomLeftWing.rotation.z - angleStep, Math.PI - Math.PI / 8);
+        } else {
+            topRightWing.rotation.z = Math.min(topRightWing.rotation.z + angleStep, 0);
+            bottomRightWing.rotation.z = Math.max(bottomRightWing.rotation.z - angleStep, 0);
+            topLeftWing.rotation.z = Math.max(topLeftWing.rotation.z - angleStep, Math.PI);
+            bottomLeftWing.rotation.z = Math.min(bottomLeftWing.rotation.z + angleStep, Math.PI);
+        }
+        wingAnimation--;
+    }
 }

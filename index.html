@@ -3,29 +3,151 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FLY LUKE'S X-WING</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>PLANETARY</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; overflow: hidden; }
+        #game-container { width: 100vw; height: 100vh; }
+        #welcome-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #4fc3f7;
+        }
+        .welcome-content {
+            text-align: center;
+            font-family: 'Orbitron', sans-serif;
+        }
+        .welcome-content h1 {
+            font-size: 64px;
+            margin-bottom: 30px;
+            letter-spacing: 8px;
+            text-transform: uppercase;
+            color: #4fc3f7;
+            text-shadow: 0 0 20px rgba(79, 195, 247, 0.5);
+        }
+        .instructions {
+            margin: 40px 0;
+        }
+        .instructions h2 {
+            font-size: 24px;
+            margin: 20px 0 15px;
+            text-transform: uppercase;
+            color: #81d4fa;
+            letter-spacing: 3px;
+        }
+        .instructions p {
+            font-size: 16px;
+            margin: 8px 0;
+            line-height: 1.6;
+            text-align: center;
+            color: #b3e5fc;
+            letter-spacing: 1px;
+        }
+        .mode-buttons {
+            display: flex;
+            gap: 20px;
+            margin-top: 40px;
+            justify-content: center;
+        }
+        .mode-button {
+            padding: 15px 40px;
+            font-size: 18px;
+            color: #4fc3f7;
+            background: transparent;
+            border: 2px solid #4fc3f7;
+            border-radius: 4px;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-family: 'Orbitron', sans-serif;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+        }
+        .mode-button:hover {
+            background: rgba(79, 195, 247, 0.1);
+            box-shadow: 0 0 20px rgba(79, 195, 247, 0.3);
+            transform: scale(1.05);
+        }
+        #victory-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 215, 0, 0.3);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            color: #FFD700;
+            font-family: 'Orbitron', sans-serif;
+            z-index: 1000;
+            animation: fadeIn 1s ease-in;
+        }
+        
+        #victory-screen h1 {
+            font-size: 72px;
+            text-align: center;
+            text-transform: uppercase;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+            margin-bottom: 30px;
+        }
+        
+        #victory-screen .time {
+            font-size: 48px;
+            text-align: center;
+            text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        #glow-overlay.victory {
+            background: radial-gradient(circle, rgba(255, 215, 0, 0.4) 0%, rgba(255, 215, 0, 0) 70%);
+        }
+    </style>
 </head>
 <body>
     <div id="game-container"></div>
     <div id="welcome-screen">
         <div class="welcome-content">
-            <h1>FLY LUKE'S X-WING</h1>
+            <h1>PLANETARY</h1>
             <div class="instructions">
-                <h2>GOAL</h2>
-                <p>- Hit all 10 targets in the fastest time possible</p>
-                <p>- Time starts when you hit the first target</p>
+                <h2>GAME MODES</h2>
+                <p>Challenge Mode: Hit all targets in the fastest time</p>
+                <p>Free Roam: Explore space freely</p>
                 <h2>CONTROLS</h2>
-                <p>- W / S: Pitch Down / Up</p>
-                <p>- A / D: Roll Left / Right</p>
-                <p>- Left / Right Arrow: Yaw Left / Right</p>
-                <p>- Up Arrow: Boost</p>
+                <p>W / S: Pitch Down / Up</p>
+                <p>A / D: Roll Left / Right</p>
+                <p>Left / Right Arrow: Yaw Left / Right</p>
+                <p>Up Arrow: Boost</p>
+                <p>Spacebar: Fire Lasers</p>
             </div>
-            <button id="play-button">PLAY</button>
+            <div class="mode-buttons">
+                <button class="mode-button" id="race-mode">Challenge Mode</button>
+                <button class="mode-button" id="free-roam">Free Roam</button>
+            </div>
         </div>
     </div>
     <div id="finalTime"></div>
+    <div id="victory-screen">
+        <div class="victory-content">
+            <h1>Challenge Complete!</h1>
+            <div class="time">Your Time: <span id="victory-time"></span></div>
+        </div>
+    </div>
+    
+    <!-- Load Three.js first -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    
+    <!-- Load game modules -->
     <script type="module" src="src/main.js"></script>
 </body>
 </html>

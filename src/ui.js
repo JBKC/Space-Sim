@@ -8,10 +8,11 @@ export function setupUIElements() {
         scoreElement.style.top = '20px';
         scoreElement.style.left = '20px';
         scoreElement.style.color = 'white';
-        scoreElement.style.fontFamily = 'Arial, sans-serif';
+        scoreElement.style.fontFamily = 'Orbitron, Arial, sans-serif';
         scoreElement.style.fontSize = '24px';
         scoreElement.style.fontWeight = 'bold';
         scoreElement.style.zIndex = '1001';
+        scoreElement.style.display = 'none'; // Hidden by default
         document.body.appendChild(scoreElement);
     }
 
@@ -23,65 +24,45 @@ export function setupUIElements() {
         timerElement.style.top = '55px';
         timerElement.style.left = '20px';
         timerElement.style.color = 'white';
-        timerElement.style.fontFamily = 'Arial, sans-serif';
+        timerElement.style.fontFamily = 'Orbitron, Arial, sans-serif';
         timerElement.style.fontSize = '24px';
         timerElement.style.fontWeight = 'bold';
         timerElement.style.zIndex = '1001';
+        timerElement.style.display = 'none'; // Hidden by default
         document.body.appendChild(timerElement);
     }
 
-    let finalTimeElement = document.getElementById('finalTime');
-    if (!finalTimeElement) {
-        finalTimeElement = document.createElement('div');
-        finalTimeElement.id = 'finalTime';
-        finalTimeElement.style.position = 'absolute';
-        finalTimeElement.style.top = '50%';
-        finalTimeElement.style.left = '50%';
-        finalTimeElement.style.transform = 'translate(-50%, -50%)';
-        finalTimeElement.style.color = 'gold';
-        finalTimeElement.style.fontFamily = 'Arial, sans-serif';
-        finalTimeElement.style.fontSize = '48px';
-        finalTimeElement.style.fontWeight = 'bold';
-        finalTimeElement.style.textAlign = 'center';
-        finalTimeElement.style.textShadow = '2px 2px 4px rgba(0,0,0,0.7)';
-        finalTimeElement.style.zIndex = '1002';
-        finalTimeElement.style.display = 'none';
-        document.body.appendChild(finalTimeElement);
-    }
-
+    // Create glow overlays
     let glowOverlay = document.getElementById('glow-overlay');
     if (!glowOverlay) {
         glowOverlay = document.createElement('div');
         glowOverlay.id = 'glow-overlay';
-        glowOverlay.style.position = 'absolute';
+        glowOverlay.style.position = 'fixed';
         glowOverlay.style.top = '0';
         glowOverlay.style.left = '0';
         glowOverlay.style.width = '100%';
         glowOverlay.style.height = '100%';
-        glowOverlay.style.backgroundColor = 'rgba(0, 255, 0, 0.3)';
-        glowOverlay.style.pointerEvents = 'none';
+        glowOverlay.style.backgroundColor = 'rgba(0, 183, 255, 0.2)';
         glowOverlay.style.opacity = '0';
-        glowOverlay.style.transition = 'opacity 0.3s ease';
+        glowOverlay.style.transition = 'opacity 0.3s';
+        glowOverlay.style.pointerEvents = 'none';
         glowOverlay.style.zIndex = '1000';
         document.body.appendChild(glowOverlay);
     }
+}
 
-    let goldOverlay = document.getElementById('gold-overlay');
-    if (!goldOverlay) {
-        goldOverlay = document.createElement('div');
-        goldOverlay.id = 'gold-overlay';
-        goldOverlay.style.position = 'absolute';
-        goldOverlay.style.top = '0';
-        goldOverlay.style.left = '0';
-        goldOverlay.style.width = '100%';
-        goldOverlay.style.height = '100%';
-        goldOverlay.style.backgroundColor = 'rgba(255, 215, 0, 0.4)';
-        goldOverlay.style.pointerEvents = 'none';
-        goldOverlay.style.opacity = '0';
-        goldOverlay.style.transition = 'opacity 0.5s ease';
-        goldOverlay.style.zIndex = '1000';
-        document.body.appendChild(goldOverlay);
-    }
+export function showRaceModeUI() {
+    const scoreElement = document.getElementById('score');
+    const timerElement = document.getElementById('timer');
+    if (scoreElement) scoreElement.style.display = 'block';
+    if (timerElement) timerElement.style.display = 'block';
+}
+
+export function hideRaceModeUI() {
+    const scoreElement = document.getElementById('score');
+    const timerElement = document.getElementById('timer');
+    if (scoreElement) scoreElement.style.display = 'none';
+    if (timerElement) timerElement.style.display = 'none';
 }
 
 export function setupDirectionalIndicator() {
@@ -92,7 +73,7 @@ export function setupDirectionalIndicator() {
         arrowIndicator.style.position = 'absolute';
         arrowIndicator.style.width = '60px';
         arrowIndicator.style.height = '60px';
-        arrowIndicator.style.backgroundImage = 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%2300ff00\'><path d=\'M12 2L4 14h16L12 2z\'/></svg>")';
+        arrowIndicator.style.backgroundImage = 'url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%2300B7FF\'><path d=\'M12 2L4 14h16L12 2z\'/></svg>")';
         arrowIndicator.style.backgroundSize = 'contain';
         arrowIndicator.style.backgroundRepeat = 'no-repeat';
         arrowIndicator.style.pointerEvents = 'none';

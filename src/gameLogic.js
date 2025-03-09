@@ -2,15 +2,33 @@
 import { scene, spacecraft } from './setup.js';
 
 export const sphereGeometry = new THREE.SphereGeometry(8, 32, 32);
+export const haloGeometry = new THREE.SphereGeometry(12, 32, 32);
+
+// Main target material (translucent blue matching UI)
 export const regularSphereMaterial = new THREE.MeshBasicMaterial({
-    color: 0x00ff00,
+    color: 0x00B7FF,
     transparent: true,
-    opacity: 0.5
+    opacity: 0.7
 });
+
+// Halo material (more solid blue)
+export const regularHaloMaterial = new THREE.MeshBasicMaterial({
+    color: 0x00B7FF,
+    transparent: true,
+    opacity: 0.4
+});
+
+// Final target materials (golden with halo)
 export const goldSphereMaterial = new THREE.MeshBasicMaterial({
     color: 0xffd700,
     transparent: true,
     opacity: 0.5
+});
+
+export const goldHaloMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffd700,
+    transparent: true,
+    opacity: 0.3
 });
 
 export let targets = [];
@@ -25,48 +43,74 @@ export let currentTargetIndex = 0;
 
 export function createSphereTarget(position, isFinalTarget) {
     const targetMaterial = isFinalTarget ? goldSphereMaterial : regularSphereMaterial;
+    const haloMaterial = isFinalTarget ? goldHaloMaterial : regularHaloMaterial;
+    
+    // Create target group
+    const targetGroup = new THREE.Group();
+    
+    // Create inner sphere (main target)
     const target = new THREE.Mesh(sphereGeometry, targetMaterial);
-    target.position.copy(position);
-    return target;
+    targetGroup.add(target);
+    
+    // Create halo sphere
+    const halo = new THREE.Mesh(haloGeometry, haloMaterial);
+    targetGroup.add(halo);
+    
+    // Position the group
+    targetGroup.position.copy(position);
+    
+    return targetGroup;
 }
 
 export function initializeTargetChallenge() {
+    // Remove existing targets
     targets.forEach(target => scene.remove(target));
     targets = [];
 
+    // Reset game state
     score = 0;
     challengeStarted = false;
     challengeComplete = false;
     currentTargetIndex = 0;
+    startTime = 0;
+    endTime = 0;
+
+    // Reset UI
     updateScoreDisplay();
     updateTimerDisplay();
+    
+    // Show game UI
+    const scoreElement = document.getElementById('score');
+    const timerElement = document.getElementById('timer');
+    if (scoreElement) scoreElement.style.display = 'block';
+    if (timerElement) timerElement.style.display = 'block';
 
+    // Spawn first target
     spawnNextTarget();
 }
 
 const targetPositions = [
-    { x: 0, y: 0, z: 0 },
-    { x: 15, y: 5, z: 15 },
-    { x: -10, y: -10, z: 30 },
-    { x: -25, y: 15, z: 45 },
-    { x: 0, y: 20, z: 60 },
-    { x: 20, y: -15, z: 75 },
-    { x: 30, y: 5, z: 90 },
-    { x: -5, y: -25, z: 105 },
-    { x: -20, y: 0, z: 120 },
-    { x: 0, y: 0, z: 135 }
+    { x: 0, y: 0, z: 100 },          // First target, straight ahead
+    { x: 15, y: 50, z: 175 },       // Start climbing
+    { x: -10, y: 200, z: 250 },      // Continue up
+    { x: -25, y: 300, z: 375 },      // High point
+    { x: 40, y: 400, z: 500 },       // Begin curved descent
+    { x: 20, y: 450, z: 600 },      // Peak height
+    { x: 30, y: 400, z: 700 },      // Start descending
+    { x: -5, y: 300, z: 800 },      // Continuing descent
+    { x: -20, y: 200, z: 850 },     // Final approach
+    { x: 0, y: 100, z: 900 }        // Final target, safe distance from planet
 ];
 
 export function spawnNextTarget() {
     if (currentTargetIndex >= challengeTargetCount) return;
 
     const isFinalTarget = currentTargetIndex === challengeTargetCount - 1;
-    let baseZ = spacecraft.position.z + targetSpawnDistance;
     const targetData = targetPositions[currentTargetIndex];
     const position = new THREE.Vector3(
         targetData.x,
         targetData.y,
-        baseZ + targetData.z
+        targetData.z
     );
 
     const target = createSphereTarget(position, isFinalTarget);
@@ -92,41 +136,30 @@ export function updateTimerDisplay() {
             const elapsedTime = (currentTime - startTime) / 1000;
             const minutes = Math.floor(elapsedTime / 60);
             const seconds = (elapsedTime % 60).toFixed(2);
-            timerElement.textContent = `Time: ${minutes.toString().padStart(2, '0')}:${seconds.padStart(5, '0')}`;
+            timerElement.textContent = `Time: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(5, '0')}`;
         }
     }
 }
 
-export function showFinalTime() {
-    const finalTimeElement = document.getElementById('finalTime');
-    if (finalTimeElement) {
-        const totalTime = ((endTime - startTime) / 1000).toFixed(2);
+export function showVictoryScreen() {
+    const victoryScreen = document.getElementById('victory-screen');
+    const victoryTime = document.getElementById('victory-time');
+    const glowOverlay = document.getElementById('glow-overlay');
+    
+    if (victoryScreen && victoryTime) {
+        const totalTime = (endTime - startTime) / 1000;
         const minutes = Math.floor(totalTime / 60);
         const seconds = (totalTime % 60).toFixed(2);
-
-        finalTimeElement.innerHTML = `CHALLENGE COMPLETE!<br>Your Time: ${minutes.toString().padStart(2, '0')}:${seconds.padStart(5, '0')}`;
-        finalTimeElement.style.display = 'block';
-
-        setTimeout(() => {
-            finalTimeElement.style.display = 'none';
-            initializeTargetChallenge();
-        }, 20000);
-    }
-}
-
-export function triggerGreenGlow() {
-    const glowOverlay = document.getElementById('glow-overlay');
-    if (glowOverlay) {
-        glowOverlay.style.opacity = '1';
-        setTimeout(() => glowOverlay.style.opacity = '0', 300);
-    }
-}
-
-export function triggerGoldGlow() {
-    const goldOverlay = document.getElementById('gold-overlay');
-    if (goldOverlay) {
-        goldOverlay.style.opacity = '1';
-        setTimeout(() => goldOverlay.style.opacity = '0', 1000);
+        victoryTime.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(5, '0')}`;
+        
+        // Show the victory screen with flex display
+        victoryScreen.style.display = 'flex';
+        
+        // Add victory glow effect
+        if (glowOverlay) {
+            glowOverlay.classList.add('victory');
+            glowOverlay.style.opacity = '1';
+        }
     }
 }
 
@@ -151,16 +184,27 @@ export function checkCollisions() {
         targets.shift();
 
         if (wasLastTarget) {
-            triggerGoldGlow();
             endTime = performance.now();
             challengeComplete = true;
-            showFinalTime();
+            showVictoryScreen();
+            // Disable spacecraft controls by setting velocity to 0
+            if (spacecraft.userData && spacecraft.userData.velocity) {
+                spacecraft.userData.velocity.set(0, 0, 0);
+            }
         } else {
             triggerGreenGlow();
             spawnNextTarget();
         }
 
         updateScoreDisplay();
+    }
+}
+
+export function triggerGreenGlow() {
+    const glowOverlay = document.getElementById('glow-overlay');
+    if (glowOverlay) {
+        glowOverlay.style.opacity = '1';
+        setTimeout(() => glowOverlay.style.opacity = '0', 300);
     }
 }
 
