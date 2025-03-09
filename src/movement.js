@@ -110,6 +110,11 @@ export function updateMovement() {
     if (isBoost) {
         currentSpeed = boostSpeed;
         boostDuration--;
+        // Check if boost just ended
+        if (boostDuration === 0 && !wingsOpen) {
+            wingsOpen = true;
+            wingAnimation = wingTransitionFrames;
+        }
     } else {
         currentSpeed = baseSpeed;
     }
