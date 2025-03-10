@@ -24,9 +24,17 @@ const COLLISION_PUSHBACK = 30; // How far to push back from collision
 let lastValidPosition = new THREE.Vector3();
 let lastValidQuaternion = new THREE.Quaternion();
 
+// Track game mode
+let gameMode = null;
+
+// Function to set game mode
+export function setGameMode(mode) {
+    gameMode = mode;
+}
+
 // Keyboard controls
 document.addEventListener('keydown', (event) => {
-    if (challengeComplete) return; // Disable controls if challenge is complete
+    if (!gameMode || challengeComplete) return; // Disable controls if no mode selected or challenge complete
     
     switch (event.key) {
         case 'w': keys.w = true; break;

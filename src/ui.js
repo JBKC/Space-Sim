@@ -168,3 +168,10 @@ export function updateDirectionalIndicator(targets, score, challengeTargetCount,
         activeIndicator.style.transform = `rotate(${smoothedAngle + Math.PI / 2}rad)`;
     }
 }
+
+// Add the missing updateUI function
+export function updateUI() {
+    // Update any UI elements that need to be refreshed each frame
+    // Currently empty as we don't have any UI elements that need constant updates
+    // This function is called in the animation loop for future UI updates
+}
