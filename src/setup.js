@@ -331,49 +331,90 @@ planetGroups.forEach(planet => {
     console.log(`${planet.group.name || 'Planet'} position:`, planet.group.position); // Debug
 });
 
+
+// Concentric circles (already updated to remove radial lines)
 function createConcentricCircles() {
     const sunPosition = sunGroup.position; // (0, 0, 0)
     planetGroups.forEach(planet => {
         const planetPos = planet.group.position;
-        const distance = sunPosition.distanceTo(planetPos); // Radius of the circle
-        const angle = Math.atan2(planetPos.y, planetPos.x); // Polar angle in XY plane
+        const distance = sunPosition.distanceTo(planetPos);
+        const angle = Math.atan2(planetPos.y, planetPos.x);
 
-        // Create a CircleGeometry to get the perimeter vertices
         const circleGeometry = new THREE.CircleGeometry(distance, 64);
         const vertices = circleGeometry.attributes.position.array;
-
-        // Skip the center vertex (first 3 values: x, y, z at origin)
         const ringVertices = new Float32Array(vertices.length - 3);
         for (let i = 3; i < vertices.length; i++) {
             ringVertices[i - 3] = vertices[i];
         }
-
-        // Create a BufferGeometry for the ring (no center vertex)
         const ringGeometry = new THREE.BufferGeometry();
         ringGeometry.setAttribute('position', new THREE.BufferAttribute(ringVertices, 3));
-
         const circleMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
         const circle = new THREE.LineLoop(ringGeometry, circleMaterial);
 
-        // Position at Sun
         circle.position.copy(sunPosition);
-
-        // Rotate to XY plane (Y-up)
         circle.rotation.x = Math.PI / 2;
-
-        // Rotate around Y-axis to match planet's angle
         circle.rotation.y = angle;
-
         scene.add(circle);
-
-        // Debug: Log for verification
-        console.log(`Planet at ${planetPos.x.toFixed(0)}, ${planetPos.y.toFixed(0)}, Distance: ${distance.toFixed(0)}, Angle: ${(angle * 180 / Math.PI).toFixed(2)}°`);
     });
 }
 
 createConcentricCircles();
 
-// ... [Rest of your setup.js code: renderer settings, lighting, spacecraft, hyperspace, exports] ...
+// Planet labels
+const labelData = [
+    { group: mercuryGroup, name: 'Mercury', radius: 1000 },
+    { group: venusGroup, name: 'Venus', radius: 2000 },
+    { group: earthGroup, name: 'Earth', radius: 2000 },
+    { group: marsGroup, name: 'Mars', radius: 1500 },
+    { group: jupiterGroup, name: 'Jupiter', radius: 5000 },
+    { group: saturnGroup, name: 'Saturn', radius: 4000 },
+    { group: uranusGroup, name: 'Uranus', radius: 3000 },
+    { group: neptuneGroup, name: 'Neptune', radius: 3000 }
+];
+
+// Create and store label elements
+const labels = [];
+labelData.forEach(planet => {
+    const label = document.createElement('div');
+    label.className = 'planet-label';
+    label.textContent = planet.name;
+    document.body.appendChild(label); // Add to DOM
+    labels.push({
+        element: label,
+        planetGroup: planet.group,
+        radius: planet.radius
+    });
+});
+
+// Function to update label positions
+export function updatePlanetLabels() {
+    const vector = new THREE.Vector3();
+    labels.forEach(label => {
+        // Get planet's world position
+        label.planetGroup.getWorldPosition(vector);
+        
+        // Offset above the planet's surface
+        vector.y += label.radius * 1.2; // Slightly above (adjust multiplier as needed)
+
+        // Project 3D position to 2D screen coordinates
+        vector.project(camera);
+
+        // Convert to screen space (0 to 1 -> pixel coordinates)
+        const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+        const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
+
+        // Position the label
+        label.element.style.left = `${x}px`;
+        label.element.style.top = `${y}px`;
+        
+        // Center the label horizontally
+        label.element.style.transform = 'translateX(-50%)';
+    });
+}
+
+// ... [Rest of your setup.js: renderer settings, spacecraft, hyperspace] ...
+
+
 
 // Exports
 

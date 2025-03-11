@@ -123,21 +123,35 @@
             background: radial-gradient(circle, rgba(255, 215, 0, 0.4) 0%, rgba(255, 215, 0, 0) 70%);
         }
 
-        /* New styles for coordinates */
+        /* Coordinates styles */
         #coordinates {
             position: absolute;
             top: 10px;
             left: 10px;
-            color: #4fc3f7; /* Matches welcome screen color */
+            color: #4fc3f7;
             font-family: 'Orbitron', sans-serif;
             font-size: 16px;
-            background: rgba(0, 0, 0, 0.5); /* Semi-transparent black background */
+            background: rgba(0, 0, 0, 0.5);
             padding: 5px 10px;
-            border: 1px solid #4fc3f7; /* Border to match theme */
+            border: 1px solid #4fc3f7;
             border-radius: 3px;
-            z-index: 100; /* Above game canvas but below victory screen */
+            z-index: 100;
             letter-spacing: 1px;
-            text-shadow: 0 0 5px rgba(79, 195, 247, 0.7); /* Subtle glow */
+            text-shadow: 0 0 5px rgba(79, 195, 247, 0.7);
+        }
+
+        /* New styles for planet labels */
+        .planet-label {
+            position: absolute;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 24px;
+            font-weight: 700; /* Bold to match welcome screen */
+            color: #ffffff; /* Matches welcome screen */
+            text-shadow: 0 0 10px rgba(79, 195, 247, 0.7); /* Glow effect */
+            pointer-events: none; /* Prevents mouse interaction */
+            z-index: 50; /* Above canvas, below victory screen */
+            text-transform: uppercase; /* Matches UI style */
+            letter-spacing: 2px; /* Matches mode buttons */
         }
     </style>
 </head>
@@ -167,8 +181,8 @@
             <div class="time">Your Time: <span id="victory-time"></span></div>
         </div>
     </div>
-    <!-- New coordinates div -->
     <div id="coordinates">X: 0, Y: 0, Z: 0</div>
+    <!-- Planet labels will be added dynamically by setup.js -->
     
     <!-- Load Three.js first -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>

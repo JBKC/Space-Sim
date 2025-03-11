@@ -1,5 +1,5 @@
 // src/main.js
-import { scene, camera, renderer, updateStars, spacecraft } from './setup.js';
+import { scene, camera, renderer, updateStars, spacecraft, updatePlanetLabels } from './setup.js';
 import { updateCamera, updateMovement, setGameMode } from './movement.js';
 import { initializeTargetChallenge, updateGame, targets, score, challengeTargetCount, challengeComplete } from './gameLogic.js';
 import { setupUIElements, setupDirectionalIndicator, updateDirectionalIndicator, showRaceModeUI, hideRaceModeUI, updateUI } from './ui.js';
@@ -111,6 +111,13 @@ function animate() {
     updateCamera(camera, isHyperspace); // Pass isHyperspace to updateCamera
     updateLasers();
     updateReticle();
+    updatePlanetLabels(); // Add this to animate labels
+
+    const coordsDiv = document.getElementById('coordinates');
+    if (coordsDiv) {
+        const pos = spacecraft.position;
+        coordsDiv.textContent = `X: ${pos.x.toFixed(0)}, Y: ${pos.y.toFixed(0)}, Z: ${pos.z.toFixed(0)}`;
+    }
 
     // Only update game logic and directional indicator in race mode
     if (gameMode === 'race') {
