@@ -9,6 +9,7 @@ import { updateReticle } from './reticle.js';
 let gameMode = null; // 'race' or 'free'
 let isAnimating = false; // Track if animation is running
 let isBoosting = false; // Track if the boost is active
+let isHyperspace = false; // Track if hyperspace is active
 
 // Initialize game
 setupUIElements();
@@ -25,6 +26,11 @@ document.addEventListener('keydown', (event) => {
     // Start boosting when the Up Arrow key is pressed
     if (event.code === 'ArrowUp') {
         isBoosting = true; // Set boosting to true
+    }
+
+    // Start hyperspace when Shift key is pressed
+    if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
+        startHyperspace();
     }
 });
 
@@ -100,9 +106,9 @@ function animate() {
     
     requestAnimationFrame(animate);
 
-    updateMovement(isBoosting); // Pass the boosting state to the movement function
+    updateMovement(isBoosting, isHyperspace); // Pass the boosting and hyperspace state to the movement function
     updateStars();
-    updateCamera(camera);
+    updateCamera(camera, isHyperspace); // Pass isHyperspace to updateCamera
     updateLasers();
     updateReticle();
 
@@ -128,4 +134,25 @@ window.addEventListener('resize', () => {
 function startExploration() {
     console.log('Exploring the galaxy...');
     // Add your exploration logic here
+}
+
+// Function to start hyperspace
+function startHyperspace() {
+    if (isHyperspace) return; // Prevent multiple activations
+    isHyperspace = true; // Set hyperspace to active
+    console.log('Entering hyperspace...');
+
+    // Debugging log
+    console.log('isHyperspace:', isHyperspace);
+
+    // Set the speed to 10x normal speed
+    const originalSpeed = 1.0; // Assuming base speed is 1.0
+    const hyperspaceSpeed = originalSpeed * 10;
+
+    setTimeout(() => {
+        isHyperspace = false; // Reset hyperspace state after 1 second
+        console.log('Exiting hyperspace...');
+        // Debugging log
+        console.log('isHyperspace:', isHyperspace);
+    }, 1000); // Duration of hyperspace effect changed to 1 second
 }

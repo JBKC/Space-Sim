@@ -4,8 +4,8 @@ import { spacecraft, engineGlowMaterial, lightMaterial, topRightWing, bottomRigh
 import { challengeComplete } from './gameLogic.js';
 
 // Movement and boost variables
-export const baseSpeed = 1.0;
-export const boostSpeed = 3.0;
+export const baseSpeed = 2;
+export const boostSpeed = baseSpeed * 5;
 export let currentSpeed = baseSpeed;
 export const turnSpeed = 0.03;
 export const keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false };
@@ -26,10 +26,11 @@ let lastValidQuaternion = new THREE.Quaternion();
 let gameMode = null;
 
 // Camera offsets
-const baseCameraOffset = new THREE.Vector3(0, 2, -2); // Normal offset
-const boostCameraOffset = new THREE.Vector3(0, 3, 5); // Boost offset: farther back and higher
+const baseCameraOffset = new THREE.Vector3(0, 2, 10); // Normal offset
+const boostCameraOffset = new THREE.Vector3(0, 3, 70); // Boost offset: farther back and higher
+const hyperspaceCameraOffset = new THREE.Vector3(0, 2, 1346); // Adjust values as needed
 let currentCameraOffset = baseCameraOffset.clone(); // Dynamic offset
-const smoothFactor = 0.1; // Smoothing factor
+const smoothFactor = 0.1; // Smoothing factor\
 
 // Function to set game mode
 export function setGameMode(mode) {
@@ -87,12 +88,14 @@ cameraTarget.position.set(0, 0, 0);
 export const cameraRig = new THREE.Object3D();
 scene.add(cameraRig);
 
-export function updateCamera(camera) {
+export function updateCamera(camera, isHyperspace) {
     const targetPosition = new THREE.Vector3();
     spacecraft.getWorldPosition(targetPosition);
 
-    const localOffset = currentCameraOffset.clone(); // Use dynamic offset
-    const cameraPosition = localOffset.clone().applyMatrix4(spacecraft.matrixWorld);
+    // Use hyperspace offset if in hyperspace, otherwise check for boosting
+    const localOffset = isHyperspace ? hyperspaceCameraOffset.clone() : (keys.up ? boostCameraOffset.clone() : currentCameraOffset.clone());
+    
+    const cameraPosition = localOffset.applyMatrix4(spacecraft.matrixWorld);
 
     camera.position.lerp(cameraPosition, smoothFactor);
     camera.quaternion.copy(spacecraft.quaternion);
@@ -103,16 +106,18 @@ export function updateCamera(camera) {
     camera.quaternion.multiply(adjustment);
 }
 
-export function updateMovement() {
+export function updateMovement(isBoosting, isHyperspace) {
     if (challengeComplete) {
         return;
     }
     
-    // Update speed based on boost state
-    if (keys.up) {
+    // Update speed based on boost and hyperspace state
+    if (isHyperspace) {
+        currentSpeed = 150;
+    } else if (isBoosting) {
         currentSpeed = boostSpeed; // Set speed to boost speed while the Up Arrow is pressed
     } else {
-        currentSpeed = baseSpeed; // Reset to base speed when not boosting
+        currentSpeed = baseSpeed; // Reset to base speed when not boosting or in hyperspace
     }
 
     // Update engine effects
@@ -190,3 +195,67 @@ export function updateMovement() {
         wingAnimation--;
     }
 }
+
+function activateHyperspace() {
+    if (!isHyperspaceActive) {
+        isHyperspaceActive = true;
+        console.log("Hyperspace activated!");
+
+        // Deactivate hyperspace after 2 seconds
+        setTimeout(() => {
+            deactivateHyperspace();
+        }, 2000); // 2000 milliseconds = 2 seconds
+    }
+}
+
+// Function to create asteroids between Mars and Jupiter
+function createAsteroids() {
+    const asteroidGeometry = new THREE.SphereGeometry(100, 16, 16); // Size of the asteroids
+    const asteroidMaterial = new THREE.MeshStandardMaterial({ color: 0x888888 }); // Material for asteroids
+
+    const marsPositionZ = mars.position.z; // Position of Mars
+    const jupiterPositionZ = jupiter.position.z; // Position of Jupiter
+
+    for (let i = 0; i < 5; i++) {
+        // Generate a random position between Mars and Jupiter
+        const randomZ = marsPositionZ + Math.random() * (jupiterPositionZ - marsPositionZ);
+        const randomX = (Math.random() - 0.5) * 2000; // Random X position
+        const randomY = (Math.random() - 0.5) * 2000; // Random Y position
+
+        const asteroid = new THREE.Mesh(asteroidGeometry, asteroidMaterial);
+        asteroid.position.set(randomX, randomY, randomZ); // Set the position of the asteroid
+        scene.add(asteroid); // Add asteroid to the scene
+    }
+}
+
+// Call the function to create asteroids
+// createAsteroids(); // Commented out to remove asteroids
+
+// Function to create rugged asteroids between Mars and Jupiter
+function createRuggedAsteroids() {
+    const asteroidMaterial = new THREE.MeshStandardMaterial({ map: moonTexture }); // Material for asteroids
+
+    const marsPositionZ = mars.position.z; // Position of Mars
+    const jupiterPositionZ = jupiter.position.z; // Position of Jupiter
+
+    for (let i = 0; i < 15; i++) { // Create 15 asteroids
+        // Generate a random position between Mars and Jupiter
+        const randomZ = marsPositionZ + Math.random() * (jupiterPositionZ - marsPositionZ);
+        const randomX = (Math.random() - 0.5) * 2000; // Random X position
+        const randomY = (Math.random() - 0.5) * 2000; // Random Y position
+
+        // Create an irregular asteroid shape
+        const asteroidGeometry = new THREE.IcosahedronGeometry(100, 1); // Base shape
+        for (let vertex of asteroidGeometry.attributes.position.array) {
+            vertex += (Math.random() - 0.5) * 30; // Random displacement for ruggedness
+        }
+        asteroidGeometry.attributes.position.needsUpdate = true; // Update the geometry
+
+        const asteroid = new THREE.Mesh(asteroidGeometry, asteroidMaterial);
+        asteroid.position.set(randomX, randomY, randomZ); // Set the position of the asteroid
+        scene.add(asteroid); // Add asteroid to the scene
+    }
+}
+
+// Call the function to create rugged asteroids
+// createRuggedAsteroids(); // Commented out to remove rugged asteroids

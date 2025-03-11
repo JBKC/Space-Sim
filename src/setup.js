@@ -2,7 +2,7 @@
 
 // Scene setup
 export const scene = new THREE.Scene();
-export const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200000);
+export const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
 export const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('game-container').appendChild(renderer.domElement);
@@ -11,7 +11,7 @@ document.getElementById('game-container').appendChild(renderer.domElement);
 const skyboxTexture = new THREE.TextureLoader().load('skybox/galaxy5.jpeg');
 
 // Create skybox geometry
-const skyboxGeometry = new THREE.BoxGeometry(100000, 100000, 100000); // Adjust size as needed
+const skyboxGeometry = new THREE.BoxGeometry(250000, 250000, 250000); // Adjust size as needed
 const skyboxMaterial = new THREE.MeshBasicMaterial({
     map: skyboxTexture,
     side: THREE.BackSide // Render the inside of the box
@@ -41,7 +41,7 @@ const planetMaterial = new THREE.MeshStandardMaterial({
 });
 
 export const planet = new THREE.Mesh(planetGeometry, planetMaterial);
-planet.position.set(0, 0, 4000);
+planet.position.set(0, 0, 40000);
 planet.rotation.y = Math.PI + Math.PI;
 scene.add(planet);
 
@@ -54,7 +54,7 @@ const atmosphereMaterial = new THREE.MeshStandardMaterial({
 });
 
 const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
-atmosphere.position.set(0, 0, 4000); // Ensure it has the same origin as the planet
+atmosphere.position.set(0, 0, 40000); // Ensure it has the same origin as the planet
 scene.add(atmosphere); // Add atmosphere to the scene
 
 
@@ -62,7 +62,7 @@ scene.add(atmosphere); // Add atmosphere to the scene
 const sunTexture = textureLoader.load('skybox/2k_sun.jpg'); // Load the sun texture
 
 // Create the sun
-const sunRadius = planetRadius; // Same size as Earth
+const sunRadius = planetRadius * 5; 
 const sunGeometry = new THREE.SphereGeometry(sunRadius, 64, 64);
 const sunMaterial = new THREE.MeshStandardMaterial({
     map: sunTexture, // Use the sun texture
@@ -73,7 +73,7 @@ const sunMaterial = new THREE.MeshStandardMaterial({
 
 // Create the sun mesh
 export const sun = new THREE.Mesh(sunGeometry, sunMaterial); // Export sun for collision use
-sun.position.set(planet.position.x + 10000, planet.position.y, planet.position.z);
+sun.position.set(0, 0, 0); // Set the position of the sun to the center of the skybox
 scene.add(sun); // Add sun to the scene
 
 // Create a point light at the sun's position
@@ -85,7 +85,7 @@ scene.add(sunLight); // Add the light to the scene
 const blazingMaterial = new THREE.ShaderMaterial({
     uniforms: {
         time: { value: 0 },
-        intensity: { value: 1.0 },
+        intensity: { value: 0.5 }, // Reduced intensity for a less extreme effect
         baseColor: { value: new THREE.Vector3(1.0, 0.5, 0.0) }, // Orange base
         noiseScale: { value: 2.0 } // Control noise detail
     },
@@ -114,7 +114,7 @@ const blazingMaterial = new THREE.ShaderMaterial({
             vec3 pos = vPosition * noiseScale;
             float n = noise(pos + time * 0.5); // Animated noise
             float glow = sin(time * 5.0 + length(vPosition) * 2.0) * 0.5 + 0.5;
-            float pulse = (n * 0.5 + glow * 0.5) * intensity;
+            float pulse = (n * 0.5 + glow * 0.5) * intensity * 0.5; // Reduced pulse effect
             vec3 color = baseColor * (1.0 + pulse * 0.5);
             float alpha = clamp(pulse * 0.8, 0.2, 0.9); // Dynamic opacity
             gl_FragColor = vec4(color, alpha);
@@ -134,12 +134,21 @@ scene.add(blazingEffect); // Add blazing effect to the scene
 // Animation loop for the blazing effect
 function animateSun() {
     blazingMaterial.uniforms.time.value += 0.02; // Update time for animation
-    blazingEffect.scale.setScalar(1.0 + Math.sin(blazingMaterial.uniforms.time.value * 2.0) * 0.1); // Subtle pulsing
+    blazingEffect.scale.setScalar(0.9 + Math.sin(blazingMaterial.uniforms.time.value * 1.0) * 0.05); // Subtle pulsing
     requestAnimationFrame(animateSun);
 }
 animateSun(); // Start the animation
 
+// If you have a halo effect, ensure it is also centered
+const haloGeometry = new THREE.SphereGeometry(1.2, 32, 32); // Slightly larger than the sun
+const haloMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.5 }); // Semi-transparent halo
+const halo = new THREE.Mesh(haloGeometry, haloMaterial);
 
+// Set the halo position to match the sun
+halo.position.copy(sun.position); // Centered with the sun
+
+// Add the halo to the scene
+scene.add(halo);
 
 // Renderer settings
 renderer.setPixelRatio(window.devicePixelRatio);
@@ -479,7 +488,14 @@ const xwingLight = new THREE.PointLight(0xffffff, 0.5);
 xwingLight.position.set(0, 2, 0);
 spacecraft.add(xwingLight);
 
-spacecraft.position.set(0, 0, 0);
+// Set the starting position of the spacecraft with an offset
+spacecraft.position.set(3000, 1000, 45000); // New position with offsets
+
+// Make the spacecraft look towards the center point between the Earth and the Sun
+const centerPoint = new THREE.Vector3(0, 0, 10000); // Midpoint between the sun and the planet
+spacecraft.lookAt(centerPoint); // Orient the spacecraft to face the center point
+
+// Add the spacecraft to the scene
 scene.add(spacecraft);
 
 // Laser setup
@@ -580,8 +596,8 @@ export function updateLasers() {
 
 // Stars
 const starGeometry = new THREE.BufferGeometry();
-const starCount = 20000;
-const starRange = 6000;
+const starCount = 100000;
+const starRange = 250000;
 const starPositions = new Float32Array(starCount * 3);
 
 for (let i = 0; i < starCount * 3; i += 3) {
@@ -617,28 +633,379 @@ export function updateStars() {
 export const PLANET_RADIUS = planetRadius;
 export const PLANET_POSITION = planet.position;
 
-// Load cloud texture
+// Load cloud texture for Earth
 const cloudTexture = textureLoader.load('skybox/Earth-clouds.png'); // Load the cloud texture
 cloudTexture.wrapS = THREE.RepeatWrapping; // Repeat the texture
 cloudTexture.wrapT = THREE.RepeatWrapping; // Repeat the texture
 
-// Create cloud layer material
-const cloudMaterial = new THREE.MeshStandardMaterial({
-    map: cloudTexture,
-    transparent: true,
-    opacity: 0.5, // Adjust opacity for a subtle effect
-    side: THREE.DoubleSide
+// Function to create cloud layer for Earth
+function createCloudLayerForEarth() {
+    const cloudMaterial = new THREE.MeshStandardMaterial({
+        map: cloudTexture,
+        transparent: true,
+        opacity: 0.5, // Adjust opacity for a subtle effect
+        side: THREE.DoubleSide
+    });
+
+    const cloudGeometry = new THREE.SphereGeometry(atmosphereRadius + 5, 64, 64); // Slightly above the planet
+    const cloudMesh = new THREE.Mesh(cloudGeometry, cloudMaterial);
+    cloudMesh.position.set(0, 0, planet.position.z); // Position it at the same height as the planet
+    scene.add(cloudMesh); // Add cloud mesh to the scene
+
+    // Animate clouds to rotate slowly
+    function animateClouds() {
+        cloudMesh.rotation.y += 0.0005; // Adjust speed for a subtle swirl
+        requestAnimationFrame(animateClouds); // Continue the animation
+    }
+    animateClouds(); // Start the cloud animation
+}
+
+// Create clouds for Earth
+createCloudLayerForEarth();
+
+// Create Mercury
+const mercuryRadius = 1000; // Radius of Mercury
+const mercuryGeometry = new THREE.SphereGeometry(mercuryRadius, 32, 32); // Geometry for Mercury
+
+// Load Mercury texture
+const mercuryTexture = textureLoader.load('skybox/2k_mercury.jpg'); // Updated texture path
+
+const mercuryMaterial = new THREE.MeshStandardMaterial({
+    map: mercuryTexture, // Use the updated Mercury texture
+    side: THREE.FrontSide,
+    metalness: 0.2,
+    roughness: 0.8
 });
 
-// Create cloud sphere slightly above the atmosphere
-const cloudGeometry = new THREE.SphereGeometry(atmosphereRadius + 5, 64, 64); // Slightly above the atmosphere
-const cloudMesh = new THREE.Mesh(cloudGeometry, cloudMaterial);
-cloudMesh.position.set(0, 0, 4000); // Position it at the same height as the planet
-scene.add(cloudMesh); // Add cloud mesh to the scene
+// Create the Mercury mesh
+const mercury = new THREE.Mesh(mercuryGeometry, mercuryMaterial);
+mercury.position.set(0, 0, 20000); // Position Mercury 20,000 units from the Sun
+scene.add(mercury); // Add Mercury to the scene
 
-// Animate clouds to rotate slowly
-function animateClouds() {
-    cloudMesh.rotation.y += 0.0003; // Adjust speed for a subtle swirl
-    requestAnimationFrame(animateClouds); // Continue the animation
+// Create Venus
+const venusRadius = 2000; // Radius of Venus
+const venusGeometry = new THREE.SphereGeometry(venusRadius, 32, 32); // Geometry for Venus
+
+// Load Venus texture
+const venusTexture = textureLoader.load('skybox/2k_venus_surface.jpg'); // Updated texture path
+
+const venusMaterial = new THREE.MeshStandardMaterial({
+    map: venusTexture, // Use the updated Venus texture
+    side: THREE.FrontSide,
+    metalness: 0.2,
+    roughness: 0.8
+});
+
+// Create the Venus mesh
+const venus = new THREE.Mesh(venusGeometry, venusMaterial);
+venus.position.set(0, 0, 27000); // Position Venus 25,000 units from the Sun
+scene.add(venus); // Add Venus to the scene
+
+// Create atmosphere material for Venus
+const venusAtmosphereThickness = 50; // Thickness of the atmosphere
+const venusAtmosphereRadius = venusRadius + venusAtmosphereThickness; // Radius for the atmosphere
+const venusAtmosphereGeometry = new THREE.SphereGeometry(venusAtmosphereRadius, 64, 64); // Atmosphere geometry
+
+const venusAtmosphereMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffff00, // Change to yellow color for atmosphere
+    transparent: true,
+    opacity: 0.2, // Adjust opacity to make it less dominant
+    side: THREE.DoubleSide // Ensure it is visible from both sides
+});
+
+const venusAtmosphere = new THREE.Mesh(venusAtmosphereGeometry, venusAtmosphereMaterial);
+venusAtmosphere.position.set(0, 0, 27000); // Position it at the same height as Venus
+scene.add(venusAtmosphere); // Add atmosphere to the scene
+
+// Create cloud layer material for yellow-brown clouds for Venus
+const venusCloudMaterial = new THREE.MeshStandardMaterial({
+    map: cloudTexture, // Use the same cloud texture as Earth
+    transparent: true,
+    opacity: 0.5, // Adjust opacity for a subtle effect
+    side: THREE.DoubleSide,
+    color: 0xD2B48C // Yellow-brown color for Venus clouds
+});
+
+// Create cloud sphere slightly above the atmosphere for Venus
+const venusCloudGeometry = new THREE.SphereGeometry(venusAtmosphereRadius + 5, 64, 64); // Slightly above the atmosphere
+const venusCloudMesh = new THREE.Mesh(venusCloudGeometry, venusCloudMaterial);
+venusCloudMesh.position.set(0, 0, 27000); // Position it at the same height as Venus
+scene.add(venusCloudMesh); // Add cloud mesh to the scene
+
+// Animate clouds to rotate slowly for Venus
+function animateVenusClouds() {
+    venusCloudMesh.rotation.y += 0.0003; // Adjust speed for a subtle swirl
+    requestAnimationFrame(animateVenusClouds); // Continue the animation
 }
-animateClouds(); // Start the cloud animation
+animateVenusClouds(); // Start the cloud animation
+
+// Create Mars
+const marsRadius = 1500; // Radius of Mars
+const marsGeometry = new THREE.SphereGeometry(marsRadius, 32, 32); // Geometry for Mars
+
+// Load Mars texture
+const marsTexture = textureLoader.load('skybox/2k_mars.jpg'); // Correct texture path for Mars
+
+const marsMaterial = new THREE.MeshStandardMaterial({
+    map: marsTexture, // Use the Mars texture
+    side: THREE.FrontSide,
+    metalness: 0.2,
+    roughness: 0.8
+});
+
+// Create the Mars mesh
+const mars = new THREE.Mesh(marsGeometry, marsMaterial);
+mars.position.set(0, 0, 50000); // Position Mars 40,000 units from the Sun
+scene.add(mars); // Add Mars to the scene
+
+// Create Jupiter
+const jupiterRadius = 5000; // Radius of Jupiter
+const jupiterGeometry = new THREE.SphereGeometry(jupiterRadius, 32, 32); // Geometry for Jupiter
+
+// Load Jupiter texture
+const jupiterTexture = textureLoader.load('skybox/2k_jupiter.jpg'); // Correct texture path for Jupiter
+
+const jupiterMaterial = new THREE.MeshStandardMaterial({
+    map: jupiterTexture, // Use the Jupiter texture
+    side: THREE.FrontSide,
+    metalness: 0.2,
+    roughness: 0.8
+});
+
+// Create the Jupiter mesh
+const jupiter = new THREE.Mesh(jupiterGeometry, jupiterMaterial);
+jupiter.position.set(0, 0, 60000); // Position Jupiter 60,000 units from the Sun
+scene.add(jupiter); // Add Jupiter to the scene
+
+// Create Saturn
+const saturnRadius = 4000; // Radius of Saturn
+const saturnGeometry = new THREE.SphereGeometry(saturnRadius, 32, 32); // Geometry for Saturn
+
+// Load Saturn texture (you can replace this with the actual texture path)
+const saturnTexture = textureLoader.load('skybox/2k_saturn.jpg'); // Replace with actual texture path
+
+const saturnMaterial = new THREE.MeshStandardMaterial({
+    map: saturnTexture, // Use the Saturn texture
+    side: THREE.FrontSide,
+    metalness: 0.2,
+    roughness: 0.8
+});
+
+// Create the Saturn mesh
+const saturn = new THREE.Mesh(saturnGeometry, saturnMaterial);
+saturn.position.set(0, 0, 80000); // Position Saturn 70,000 units from the Sun
+scene.add(saturn); // Add Saturn to the scene
+
+// Load ring texture
+const ringTexture = textureLoader.load('skybox/saturn_rings.png'); // Replace with the actual texture path
+
+// Create ring geometry
+const ringRadius = 5000; // Radius of the ring (slightly larger than Saturn)
+const ringThickness = 20; // Increased thickness of the ring
+const ringGeometry = new THREE.RingGeometry(ringRadius, ringRadius + ringThickness, 64); // Create ring geometry
+
+// Create ring material
+const ringMaterial = new THREE.MeshStandardMaterial({
+    map: ringTexture, // Use the loaded ring texture
+    side: THREE.DoubleSide, // Ensure visibility from both sides
+    transparent: true, // Allow for transparency
+    opacity: 0.8 // Set opacity for the ring
+});
+
+// Create the ring mesh
+const saturnRings = new THREE.Mesh(ringGeometry, ringMaterial);
+saturnRings.rotation.x = Math.PI / 2; // Rotate the rings to be flat
+saturnRings.position.set(0, 0, 80000); // Position the rings at the same height as Saturn
+
+// Add the rings to the scene
+scene.add(saturnRings);
+
+// Create Uranus
+const uranusRadius = 3000; // Radius of Uranus
+const uranusGeometry = new THREE.SphereGeometry(uranusRadius, 32, 32); // Geometry for Uranus
+
+// Load Uranus texture (you can replace this with the actual texture path)
+const uranusTexture = textureLoader.load('skybox/2k_uranus.jpg'); // Replace with actual texture path
+
+const uranusMaterial = new THREE.MeshStandardMaterial({
+    map: uranusTexture, // Use the Uranus texture
+    side: THREE.FrontSide,
+    metalness: 0.2,
+    roughness: 0.8
+});
+
+// Create the Uranus mesh
+const uranus = new THREE.Mesh(uranusGeometry, uranusMaterial);
+uranus.position.set(0, 0, 95000); // Position Uranus 95,000 units from the Sun
+scene.add(uranus); // Add Uranus to the scene
+
+// Create Neptune
+const neptuneRadius = 3000; // Radius of Neptune
+const neptuneGeometry = new THREE.SphereGeometry(neptuneRadius, 32, 32); // Geometry for Neptune
+
+// Load Neptune texture (you can replace this with the actual texture path)
+const neptuneTexture = textureLoader.load('skybox/2k_neptune.jpg'); // Replace with actual texture path
+
+const neptuneMaterial = new THREE.MeshStandardMaterial({
+    map: neptuneTexture, // Use the Neptune texture
+    side: THREE.FrontSide,
+    metalness: 0.2,
+    roughness: 0.8
+});
+
+// Create the Neptune mesh
+const neptune = new THREE.Mesh(neptuneGeometry, neptuneMaterial);
+neptune.position.set(0, 0, 110000); // Position Neptune 110,000 units from the Sun
+scene.add(neptune); // Add Neptune to the scene
+
+// Create cloud layer material for dusty brown/red clouds for Mars
+const redCloudTexture = textureLoader.load('skybox/Earth-clouds.png'); // Load the cloud texture
+redCloudTexture.wrapS = THREE.RepeatWrapping; // Repeat the texture
+redCloudTexture.wrapT = THREE.RepeatWrapping; // Repeat the texture
+
+// Function to create dusty brown/red cloud layer for Mars
+function createDustyBrownCloudLayer(planetRadius, positionZ) {
+    const dustyBrownCloudMaterial = new THREE.MeshStandardMaterial({
+        map: redCloudTexture,
+        transparent: true,
+        opacity: 0.5, // Adjust opacity for a subtle effect
+        side: THREE.DoubleSide,
+        color: 0x8B4513 // Dusty brown color
+    });
+
+    const cloudGeometry = new THREE.SphereGeometry(planetRadius + 5, 64, 64); // Slightly above the planet
+    const cloudMesh = new THREE.Mesh(cloudGeometry, dustyBrownCloudMaterial);
+    cloudMesh.position.set(0, 0, positionZ); // Position it at the same height as the planet
+    scene.add(cloudMesh); // Add cloud mesh to the scene
+
+    // Animate clouds to rotate slowly
+    function animateClouds() {
+        cloudMesh.rotation.y += 0.0005; // Adjust speed for a subtle swirl
+        requestAnimationFrame(animateClouds); // Continue the animation
+    }
+    animateClouds(); // Start the cloud animation
+}
+
+// Create dusty brown clouds for Mars
+createDustyBrownCloudLayer(marsRadius, mars.position.z);
+
+// Load cloud texture for Jupiter
+const jupiterCloudTexture = textureLoader.load('skybox/Earth-clouds.png'); // Load the cloud texture
+jupiterCloudTexture.wrapS = THREE.RepeatWrapping; // Repeat the texture
+jupiterCloudTexture.wrapT = THREE.RepeatWrapping; // Repeat the texture
+
+// Function to create dark brown cloud layer for Jupiter
+function createDarkCloudLayer(planetRadius, positionZ) {
+    const darkCloudMaterial = new THREE.MeshStandardMaterial({
+        map: jupiterCloudTexture,
+        transparent: true,
+        opacity: 0.5, // Adjust opacity for a subtle effect
+        side: THREE.DoubleSide,
+        color: 0x8B4513 // Darker brown color for Jupiter
+    });
+
+    const cloudGeometry = new THREE.SphereGeometry(planetRadius + 5, 64, 64); // Slightly above the planet
+    const cloudMesh = new THREE.Mesh(cloudGeometry, darkCloudMaterial);
+    cloudMesh.position.set(0, 0, positionZ); // Position it at the same height as the planet
+    scene.add(cloudMesh); // Add cloud mesh to the scene
+
+    // Animate clouds to rotate slowly
+    function animateClouds() {
+        cloudMesh.rotation.y += 0.0005; // Adjust speed for a subtle swirl
+        requestAnimationFrame(animateClouds); // Continue the animation
+    }
+    animateClouds(); // Start the cloud animation
+}
+
+// Create dark clouds for Jupiter
+createDarkCloudLayer(jupiterRadius, jupiter.position.z);
+
+// Function to create very deep brown cloud layer for Mars
+function createVeryDeepBrownCloudLayer(planetRadius, positionZ) {
+    const veryDeepBrownCloudMaterial = new THREE.MeshStandardMaterial({
+        map: redCloudTexture,
+        transparent: true,
+        opacity: 0.5, // Adjust opacity for a subtle effect
+        side: THREE.DoubleSide,
+        color: 0x4B3D3D // Very deep brown color for Mars
+    });
+
+    const cloudGeometry = new THREE.SphereGeometry(planetRadius + 5, 64, 64); // Slightly above the planet
+    const cloudMesh = new THREE.Mesh(cloudGeometry, veryDeepBrownCloudMaterial);
+    cloudMesh.position.set(0, 0, positionZ); // Position it at the same height as the planet
+    scene.add(cloudMesh); // Add cloud mesh to the scene
+
+    // Animate clouds to rotate slowly
+    function animateClouds() {
+        cloudMesh.rotation.y += 0.0005; // Adjust speed for a subtle swirl
+        requestAnimationFrame(animateClouds); // Continue the animation
+    }
+    animateClouds(); // Start the cloud animation
+}
+
+// Create very deep brown clouds for Mars
+createVeryDeepBrownCloudLayer(marsRadius, mars.position.z);
+
+// Update Mars' cloud color to very dark brown
+function createVeryDarkBrownCloudLayer(planetRadius, positionZ) {
+    const veryDarkBrownCloudMaterial = new THREE.MeshStandardMaterial({
+        map: redCloudTexture,
+        transparent: true,
+        opacity: 0.5, // Adjust opacity for a subtle effect
+        side: THREE.DoubleSide,
+        color: 0x3B2A2A // Very dark brown color for Mars
+    });
+
+    const cloudGeometry = new THREE.SphereGeometry(planetRadius + 5, 64, 64); // Slightly above the planet
+    const cloudMesh = new THREE.Mesh(cloudGeometry, veryDarkBrownCloudMaterial);
+    cloudMesh.position.set(0, 0, positionZ); // Position it at the same height as the planet
+    scene.add(cloudMesh); // Add cloud mesh to the scene
+
+    // Animate clouds to rotate slowly
+    function animateClouds() {
+        cloudMesh.rotation.y += 0.0005; // Adjust speed for a subtle swirl
+        requestAnimationFrame(animateClouds); // Continue the animation
+    }
+    animateClouds(); // Start the cloud animation
+}
+
+// Create very dark brown clouds for Mars
+createVeryDarkBrownCloudLayer(marsRadius, mars.position.z);
+
+
+// Hyperspace variables
+let isHyperspaceActive = false;
+let hyperspaceInterval = null;
+
+// Function to activate hyperspace
+function activateHyperspace() {
+    if (!isHyperspaceActive) {
+        isHyperspaceActive = true;
+        // Start hyperspace effect (e.g., increase speed, change visuals)
+        console.log("Hyperspace activated!");
+        // You can add your hyperspace logic here
+    }
+}
+
+// Function to deactivate hyperspace
+function deactivateHyperspace() {
+    if (isHyperspaceActive) {
+        isHyperspaceActive = false;
+        // Stop hyperspace effect
+        console.log("Hyperspace deactivated!");
+        // You can add logic to revert hyperspace effects here
+    }
+}
+
+// Event listeners for Shift key
+window.addEventListener('keydown', (event) => {
+    if (event.key === 'Shift') {
+        activateHyperspace();
+    }
+});
+
+window.addEventListener('keyup', (event) => {
+    if (event.key === 'Shift') {
+        deactivateHyperspace();
+    }
+});

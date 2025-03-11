@@ -18,8 +18,8 @@
     "url": "https://github.com/jbkc/space-sim/issues"
   },
   "homepage": "https://github.com/jbkc/space-sim#readme",
-  "description": "",
   "dependencies": {
     "three": "^0.166.1"
-  }
+  },
+  "description": ""
 }
