@@ -5,12 +5,19 @@ import { initializeTargetChallenge, updateGame, targets, score, challengeTargetC
 import { setupUIElements, setupDirectionalIndicator, updateDirectionalIndicator, showRaceModeUI, hideRaceModeUI, updateUI } from './ui.js';
 import { updateLasers, fireLasers, startFiring, stopFiring } from './lasers.js';
 import { updateReticle } from './reticle.js';
+import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.module.js'; // Explicitly import Three.js module
 
 let gameMode = null;
 let isAnimating = false;
 let isBoosting = false;
 let isHyperspace = false;
 let isSpacePressed = false;
+
+// Hyperspace streak effect variables
+let streakLines = [];
+const streakCount = 20; // Reduced number of streaks for sparsity
+const streakLength = 50; // Length of each streak
+const streakSpeed = 500; // Speed of streaks moving past the camera
 
 // Initialize UI elements and directional indicator
 setupUIElements();
@@ -107,6 +114,11 @@ function animate() {
     updateReticle();
     updatePlanetLabels();
 
+    // Update hyperspace streaks if active
+    if (isHyperspace) {
+        updateStreaks();
+    }
+
     const coordsDiv = document.getElementById('coordinates');
     if (coordsDiv) {
         const pos = spacecraft.position;
@@ -134,11 +146,70 @@ function startExploration() {
     console.log('Exploring the galaxy...');
 }
 
-// Function to start hyperspace with progress bar
+// Function to create hyperspace streak lines
+function createStreaks() {
+    streakLines = [];
+    for (let i = 0; i < streakCount; i++) {
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(6); // Two points per line (start and end)
+        positions[0] = (Math.random() - 0.5) * 100; // Start X
+        positions[1] = (Math.random() - 0.5) * 100; // Start Y
+        positions[2] = -100 - Math.random() * streakLength; // Start Z (far in front)
+        positions[3] = positions[0]; // End X (same as start for now)
+        positions[4] = positions[1]; // End Y
+        positions[5] = positions[2] + streakLength; // End Z (length ahead)
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+        const material = new THREE.LineBasicMaterial({
+            color: 0xffffff, // Solid white
+            linewidth: 4, // Increased thickness for thicker streaks
+        });
+
+        const line = new THREE.Line(geometry, material);
+        scene.add(line);
+        streakLines.push({ line, positions: positions });
+    }
+}
+
+// Function to update hyperspace streaks
+function updateStreaks() {
+    streakLines.forEach((streak, index) => {
+        const positions = streak.positions;
+
+        // Move the entire streak backward
+        for (let i = 0; i < positions.length; i += 3) {
+            positions[i + 2] += streakSpeed * 0.016; // Move along Z (backward)
+        }
+
+        // If the end of the streak goes too far behind, reset it to the front
+        if (positions[5] > 100) {
+            positions[0] = (Math.random() - 0.5) * 100; // New start X
+            positions[1] = (Math.random() - 0.5) * 100; // New start Y
+            positions[2] = -100 - Math.random() * streakLength; // New start Z
+            positions[3] = positions[0]; // End X
+            positions[4] = positions[1]; // End Y
+            positions[5] = positions[2] + streakLength; // End Z
+        }
+
+        streak.line.geometry.attributes.position.needsUpdate = true;
+
+        // Position and rotate with the camera
+        const cameraPosition = new THREE.Vector3();
+        camera.getWorldPosition(cameraPosition);
+        streak.line.position.copy(cameraPosition);
+        streak.line.rotation.copy(camera.rotation);
+    });
+}
+
+// Function to start hyperspace with progress bar and streaks
 function startHyperspace() {
     if (isHyperspace) return;
     isHyperspace = true;
     console.log('Entering hyperspace...');
+
+    // Create hyperspace streaks
+    createStreaks();
 
     const progressContainer = document.getElementById('hyperspace-progress-container');
     const progressBar = document.getElementById('hyperspace-progress');
@@ -177,5 +248,8 @@ function startHyperspace() {
         isHyperspace = false;
         console.log('Exiting hyperspace...');
         resetMovementInputs();
+        // Clean up streaks
+        streakLines.forEach(streak => scene.remove(streak.line));
+        streakLines = [];
     }, 2000);
 }

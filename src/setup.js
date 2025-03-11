@@ -364,7 +364,7 @@ function createConcentricCircles() {
     });
 }
 
-createConcentricCircles();
+// createConcentricCircles(); // ** TOGGLE ORBITAL LINES ON AND OFF **
 
 // Planet labels
 const labelData = [
