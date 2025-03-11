@@ -47,6 +47,11 @@ export function resetMovementInputs() {
     keys.right = false;
     keys.up = false;
     console.log('Movement inputs reset:', keys);
+    // Reset wing animation to default open state after hyperspace
+    if (!wingsOpen) {
+        wingsOpen = true;
+        wingAnimation = wingTransitionFrames;
+    }
 }
 
 // Keyboard controls
@@ -130,6 +135,21 @@ export function updateMovement(isBoosting, isHyperspace) {
 
     // Update engine effects
     updateEngineEffects(keys.up);
+
+    // Trigger wing animation based on hyperspace and boost state
+    if (isHyperspace && wingsOpen) {
+        // Fold wings when entering hyperspace
+        wingsOpen = false;
+        wingAnimation = wingTransitionFrames;
+    } else if (!isHyperspace && !isBoosting && !wingsOpen) {
+        // Open wings when not in hyperspace and not boosting
+        wingsOpen = true;
+        wingAnimation = wingTransitionFrames;
+    } else if (isBoosting && wingsOpen) {
+        // Fold wings when boosting (outside hyperspace)
+        wingsOpen = false;
+        wingAnimation = wingTransitionFrames;
+    }
 
     // Store current state
     lastValidPosition.copy(spacecraft.position);

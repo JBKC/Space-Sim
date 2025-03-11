@@ -1,6 +1,6 @@
 // src/main.js
 import { scene, camera, renderer, updateStars, spacecraft, updatePlanetLabels } from './setup.js';
-import { updateCamera, updateMovement, setGameMode, resetMovementInputs } from './movement.js';
+import { updateCamera, updateMovement, setGameMode, resetMovementInputs, keys } from './movement.js'; // Added keys import
 import { initializeTargetChallenge, updateGame, targets, score, challengeTargetCount, challengeComplete } from './gameLogic.js';
 import { setupUIElements, setupDirectionalIndicator, updateDirectionalIndicator, showRaceModeUI, hideRaceModeUI, updateUI } from './ui.js';
 import { updateLasers, fireLasers, startFiring, stopFiring } from './lasers.js';
@@ -12,6 +12,10 @@ let isAnimating = false;
 let isBoosting = false;
 let isHyperspace = false;
 let isSpacePressed = false;
+
+// Laser firing variables
+let lastFired = 0;
+const fireRate = 100; // 100ms interval (10 shots per second)
 
 // Hyperspace streak effect variables
 let streakLines = [];
@@ -27,7 +31,7 @@ setupDirectionalIndicator();
 document.addEventListener('keydown', (event) => {
     if (event.code === 'Space' && !isSpacePressed) {
         isSpacePressed = true;
-        startFiring();
+        startFiring(); // Start continuous firing
     }
     if (event.code === 'ArrowUp') {
         isBoosting = true;
@@ -41,29 +45,10 @@ document.addEventListener('keydown', (event) => {
 document.addEventListener('keyup', (event) => {
     if (event.code === 'Space') {
         isSpacePressed = false;
-        stopFiring();
+        stopFiring(); // Stop continuous firing
     }
     if (event.code === 'ArrowUp') {
         isBoosting = false;
-    }
-});
-
-// Debug logging for spacebar (laser firing)
-document.addEventListener('keydown', (event) => {
-    if (event.code === 'Space') {
-        console.log('Space pressed. Game mode:', gameMode);
-        if (!gameMode) {
-            console.log('Not firing lasers: No game mode selected');
-            return;
-        }
-        console.log('Attempting to fire lasers...');
-        try {
-            fireLasers();
-            console.log('Lasers fired successfully');
-        } catch (error) {
-            console.error('Error firing lasers:', error);
-        }
-        isSpacePressed = true;
     }
 });
 
@@ -101,11 +86,14 @@ function startGame(mode) {
     }
 }
 
-// Main animation loop
+// Main animation loop with continuous firing
 function animate() {
     if (!isAnimating) return;
     
     requestAnimationFrame(animate);
+
+    // Debug: Log boost and hyperspace states
+    console.log('animate - isBoosting:', isBoosting, 'isHyperspace:', isHyperspace);
 
     updateMovement(isBoosting, isHyperspace);
     updateStars();
@@ -113,6 +101,16 @@ function animate() {
     updateLasers();
     updateReticle();
     updatePlanetLabels();
+
+    // Continuous laser firing logic
+    if (isSpacePressed && !isHyperspace) {
+        const currentTime = Date.now();
+        if (currentTime - lastFired >= fireRate) {
+            fireLasers();
+            lastFired = currentTime;
+            console.log('Lasers fired at:', new Date().toISOString());
+        }
+    }
 
     // Update hyperspace streaks if active
     if (isHyperspace) {

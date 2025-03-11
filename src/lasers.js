@@ -1,18 +1,18 @@
+// src/lasers.js
 import { scene, spacecraft } from './setup.js';
+import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.module.js';
 
-const laserLength = 100;
-const laserThickness = 0.15;
+const laserLength = 20; // Length of the laser bolt
+const laserRadius = 0.2; // Radius for a cylindrical look
 const laserMaterial = new THREE.MeshBasicMaterial({
     color: 0xff4400,
     transparent: true,
     opacity: 0.9
 });
 
-const laserGeometry = new THREE.BoxGeometry(laserThickness, laserThickness, laserLength);
+const laserGeometry = new THREE.CylinderGeometry(laserRadius, laserRadius, laserLength, 32);
 
 let activeLasers = [];
-let isFiring = false;
-let firingInterval = null;
 
 // Create virtual objects to track wingtips
 const wingtipObjects = [
@@ -23,11 +23,12 @@ const wingtipObjects = [
 ];
 
 // Attach these objects as children to the spacecraft, so they move with it
+// Adjusted Z value to position wingtips at the front tips of the wings
 const wingtipOffsets = [
-    new THREE.Vector3(2.5, 0.15, -2), // Right top
-    new THREE.Vector3(2.5, -0.15, -2), // Right bottom
-    new THREE.Vector3(-2.5, 0.15, -2), // Left top
-    new THREE.Vector3(-2.5, -0.15, -2) // Left bottom
+    new THREE.Vector3(2.5, 0.6, 10),  // Right top (moved further forward)
+    new THREE.Vector3(2.5, -0.6, 10), // Right bottom (moved further forward)
+    new THREE.Vector3(-2.5, 0.6, 10), // Left top (moved further forward)
+    new THREE.Vector3(-2.5, -0.6, 10) // Left bottom (moved further forward)
 ];
 
 wingtipObjects.forEach((obj, index) => {
@@ -38,13 +39,17 @@ wingtipObjects.forEach((obj, index) => {
 function createLaser(startPosition, direction) {
     const laser = new THREE.Mesh(laserGeometry, laserMaterial);
     laser.position.copy(startPosition);
-    laser.lookAt(startPosition.clone().add(direction));
-    laser.position.add(direction.clone().multiplyScalar(laserLength / 2));
 
+    // Align the laser with the spacecraft's forward direction
+    laser.quaternion.copy(spacecraft.quaternion);
+    // Rotate the cylinder to align its length with the Z-axis (forward direction)
+    laser.rotateX(Math.PI / 2); // CylinderGeometry is aligned along Y-axis by default, rotate to Z
+
+    // Store laser data
     laser.userData = {
         direction: direction.clone(),
-        speed: 2,
-        lifetime: 1000,
+        speed: 750, // Increased speed 5x from 150 to 750
+        lifetime: 2000, // 2 seconds lifetime (can adjust if needed)
         startTime: performance.now()
     };
 
@@ -52,8 +57,8 @@ function createLaser(startPosition, direction) {
 }
 
 export function fireLasers() {
-    const forward = new THREE.Vector3(0, 0, 1);
-    forward.applyQuaternion(spacecraft.quaternion);
+    const forward = new THREE.Vector3(0, 0, 1); // Forward direction in local space
+    forward.applyQuaternion(spacecraft.quaternion); // Transform to world space
 
     wingtipObjects.forEach(wingtip => {
         const worldPos = new THREE.Vector3();
@@ -66,14 +71,11 @@ export function fireLasers() {
 }
 
 export function startFiring() {
-    if (isFiring) return;
-    isFiring = true;
-    firingInterval = setInterval(fireLasers, 100);
+    // Controlled in main.js with animation loop
 }
 
 export function stopFiring() {
-    isFiring = false;
-    clearInterval(firingInterval);
+    // Controlled in main.js with animation loop
 }
 
 export function updateLasers() {
@@ -81,12 +83,13 @@ export function updateLasers() {
     
     for (let i = activeLasers.length - 1; i >= 0; i--) {
         const laser = activeLasers[i];
-        laser.position.add(laser.userData.direction.clone().multiplyScalar(laser.userData.speed));
+        // Move laser in the direction it was fired (forward)
+        laser.position.add(laser.userData.direction.clone().multiplyScalar(laser.userData.speed * (1 / 60))); // Assuming 60 FPS
         
+        // Remove laser after lifetime
         if (currentTime - laser.userData.startTime > laser.userData.lifetime) {
             scene.remove(laser);
             activeLasers.splice(i, 1);
         }
     }
 }
- 
