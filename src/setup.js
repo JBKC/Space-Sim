@@ -1,9 +1,25 @@
+// Import GLTFLoader
+
 // Scene setup
 export const scene = new THREE.Scene();
-export const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+export const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200000);
 export const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('game-container').appendChild(renderer.domElement);
+
+// Load skybox texture
+const skyboxTexture = new THREE.TextureLoader().load('skybox/galaxy5.jpeg');
+
+// Create skybox geometry
+const skyboxGeometry = new THREE.BoxGeometry(100000, 100000, 100000); // Adjust size as needed
+const skyboxMaterial = new THREE.MeshBasicMaterial({
+    map: skyboxTexture,
+    side: THREE.BackSide // Render the inside of the box
+});
+
+// Create the skybox mesh
+const skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
+scene.add(skybox); // Add skybox to the scene
 
 // Create massive planet
 const planetRadius = 2000;
@@ -13,7 +29,7 @@ const planetGeometry = new THREE.SphereGeometry(planetRadius, 64, 64);
 const atmosphereGeometry = new THREE.SphereGeometry(atmosphereRadius, 64, 64); // Atmosphere geometry
 
 const textureLoader = new THREE.TextureLoader();
-const planetTexture = textureLoader.load('skybox/Naboo.png');
+const planetTexture = textureLoader.load('skybox/2k_earth_daymap.jpg');
 planetTexture.wrapS = THREE.ClampToEdgeWrapping;
 planetTexture.wrapT = THREE.ClampToEdgeWrapping;
 
@@ -41,59 +57,95 @@ const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
 atmosphere.position.set(0, 0, 4000); // Ensure it has the same origin as the planet
 scene.add(atmosphere); // Add atmosphere to the scene
 
+
+// Load sun texture
+const sunTexture = textureLoader.load('skybox/2k_sun.jpg'); // Load the sun texture
+
 // Create the sun
 const sunRadius = planetRadius; // Same size as Earth
 const sunGeometry = new THREE.SphereGeometry(sunRadius, 64, 64);
 const sunMaterial = new THREE.MeshStandardMaterial({
-    color: 0xffff00, // Yellow color for the sun
-    side: THREE.FrontSide // No emissive properties, just a plain color
+    map: sunTexture, // Use the sun texture
+    emissive: 0xffffff, // Set emissive color to white
+    emissiveIntensity: 0.4, // Adjust emissive intensity
+    side: THREE.FrontSide
 });
 
-const sun = new THREE.Mesh(sunGeometry, sunMaterial);
-sun.position.set(planet.position.x + 2500, planet.position.y, planet.position.z); // Position it right next to the Earth
+// Create the sun mesh
+export const sun = new THREE.Mesh(sunGeometry, sunMaterial); // Export sun for collision use
+sun.position.set(planet.position.x + 10000, planet.position.y, planet.position.z);
 scene.add(sun); // Add sun to the scene
+
+// Create a point light at the sun's position
+const sunLight = new THREE.PointLight(0xffffff, 2, 45000); // Increased intensity for a stronger glow
+sunLight.position.copy(sun.position); // Position the light at the sun's position
+scene.add(sunLight); // Add the light to the scene
+
+// Blazing effect using a shader material
+const blazingMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+        time: { value: 0 },
+        intensity: { value: 1.0 },
+        baseColor: { value: new THREE.Vector3(1.0, 0.5, 0.0) }, // Orange base
+        noiseScale: { value: 2.0 } // Control noise detail
+    },
+    vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+        void main() {
+            vNormal = normalize(normal);
+            vPosition = position;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform float time;
+        uniform float intensity;
+        uniform vec3 baseColor;
+        uniform float noiseScale;
+        varying vec3 vNormal;
+        varying vec3 vPosition;
+
+        float noise(vec3 p) {
+            return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+        }
+
+        void main() {
+            vec3 pos = vPosition * noiseScale;
+            float n = noise(pos + time * 0.5); // Animated noise
+            float glow = sin(time * 5.0 + length(vPosition) * 2.0) * 0.5 + 0.5;
+            float pulse = (n * 0.5 + glow * 0.5) * intensity;
+            vec3 color = baseColor * (1.0 + pulse * 0.5);
+            float alpha = clamp(pulse * 0.8, 0.2, 0.9); // Dynamic opacity
+            gl_FragColor = vec4(color, alpha);
+        }
+    `,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+});
+
+// Create a blazing sphere around the sun
+const blazingGeometry = new THREE.SphereGeometry(sunRadius * 1.2, 64, 64);
+const blazingEffect = new THREE.Mesh(blazingGeometry, blazingMaterial);
+blazingEffect.position.copy(sun.position); // Align with sun
+scene.add(blazingEffect); // Add blazing effect to the scene
+
+// Animation loop for the blazing effect
+function animateSun() {
+    blazingMaterial.uniforms.time.value += 0.02; // Update time for animation
+    blazingEffect.scale.setScalar(1.0 + Math.sin(blazingMaterial.uniforms.time.value * 2.0) * 0.1); // Subtle pulsing
+    requestAnimationFrame(animateSun);
+}
+animateSun(); // Start the animation
+
+
 
 // Renderer settings
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.autoClear = true;
 renderer.sortObjects = false;
 renderer.physicallyCorrectLights = false;
-
-const galaxyTexture = new THREE.TextureLoader().load('skybox/galaxy1.jpeg');
-const galaxyMaterial = new THREE.MeshBasicMaterial({
-    map: galaxyTexture,
-    side: THREE.BackSide
-});
-
-const galaxyGeometry = new THREE.SphereGeometry(10000, 64, 64); // Expand the skybox to fit the sun
-const galaxyMesh = new THREE.Mesh(galaxyGeometry, galaxyMaterial);
-scene.add(galaxyMesh);
-
-// Load cloud texture
-const cloudTexture = textureLoader.load('skybox/Earth-clouds.png');
-cloudTexture.wrapS = THREE.RepeatWrapping;
-cloudTexture.wrapT = THREE.RepeatWrapping;
-
-// Create cloud layer material
-const cloudMaterial = new THREE.MeshStandardMaterial({
-    map: cloudTexture,
-    transparent: true,
-    opacity: 0.5, // Adjust opacity for a subtle effect
-    side: THREE.DoubleSide
-});
-
-// Create cloud sphere slightly above the atmosphere
-const cloudGeometry = new THREE.SphereGeometry(atmosphereRadius + 5, 64, 64);
-const cloudMesh = new THREE.Mesh(cloudGeometry, cloudMaterial);
-cloudMesh.position.set(0, 0, 4000);
-scene.add(cloudMesh);
-
-// Animate clouds to rotate slowly
-function animateClouds() {
-    cloudMesh.rotation.y += 0.0003; // Adjust speed for a subtle swirl
-    requestAnimationFrame(animateClouds);
-}
-animateClouds();
 
 // Lighting
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
@@ -564,3 +616,29 @@ export function updateStars() {
 
 export const PLANET_RADIUS = planetRadius;
 export const PLANET_POSITION = planet.position;
+
+// Load cloud texture
+const cloudTexture = textureLoader.load('skybox/Earth-clouds.png'); // Load the cloud texture
+cloudTexture.wrapS = THREE.RepeatWrapping; // Repeat the texture
+cloudTexture.wrapT = THREE.RepeatWrapping; // Repeat the texture
+
+// Create cloud layer material
+const cloudMaterial = new THREE.MeshStandardMaterial({
+    map: cloudTexture,
+    transparent: true,
+    opacity: 0.5, // Adjust opacity for a subtle effect
+    side: THREE.DoubleSide
+});
+
+// Create cloud sphere slightly above the atmosphere
+const cloudGeometry = new THREE.SphereGeometry(atmosphereRadius + 5, 64, 64); // Slightly above the atmosphere
+const cloudMesh = new THREE.Mesh(cloudGeometry, cloudMaterial);
+cloudMesh.position.set(0, 0, 4000); // Position it at the same height as the planet
+scene.add(cloudMesh); // Add cloud mesh to the scene
+
+// Animate clouds to rotate slowly
+function animateClouds() {
+    cloudMesh.rotation.y += 0.0003; // Adjust speed for a subtle swirl
+    requestAnimationFrame(animateClouds); // Continue the animation
+}
+animateClouds(); // Start the cloud animation

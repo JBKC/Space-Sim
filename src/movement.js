@@ -3,14 +3,12 @@ import { scene } from './setup.js';
 import { spacecraft, engineGlowMaterial, lightMaterial, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, PLANET_RADIUS, PLANET_POSITION, planet, updateEngineEffects } from './setup.js';
 import { challengeComplete } from './gameLogic.js';
 
-// Movement and boost variables with very low sensitivity
-export const baseSpeed = 0.4   
-export const boostSpeed = 0.8;   // Moderate boost speed
+// Movement and boost variables
+export const baseSpeed = 1.0;
+export const boostSpeed = 3.0;
 export let currentSpeed = baseSpeed;
-export const turnSpeed = 0.03; 
+export const turnSpeed = 0.03;
 export const keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false };
-export let boostDuration = 0;
-export const boostMaxDuration = 120;
 
 // Wing animation variables
 export let wingsOpen = true;
@@ -19,13 +17,19 @@ export const wingTransitionFrames = 30;
 
 // Collision and bounce variables
 const BOUNCE_FACTOR = 0.5;
-const COLLISION_THRESHOLD = 20; // Increased safety margin
-const COLLISION_PUSHBACK = 30; // How far to push back from collision
+const COLLISION_THRESHOLD = 20;
+const COLLISION_PUSHBACK = 30;
 let lastValidPosition = new THREE.Vector3();
 let lastValidQuaternion = new THREE.Quaternion();
 
 // Track game mode
 let gameMode = null;
+
+// Camera offsets
+const baseCameraOffset = new THREE.Vector3(0, 2, -2); // Normal offset
+const boostCameraOffset = new THREE.Vector3(0, 3, 5); // Boost offset: farther back and higher
+let currentCameraOffset = baseCameraOffset.clone(); // Dynamic offset
+const smoothFactor = 0.1; // Smoothing factor
 
 // Function to set game mode
 export function setGameMode(mode) {
@@ -34,7 +38,7 @@ export function setGameMode(mode) {
 
 // Keyboard controls
 document.addEventListener('keydown', (event) => {
-    if (!gameMode || challengeComplete) return; // Disable controls if no mode selected or challenge complete
+    if (!gameMode || challengeComplete) return;
     
     switch (event.key) {
         case 'w': keys.w = true; break;
@@ -44,20 +48,13 @@ document.addEventListener('keydown', (event) => {
         case 'ArrowLeft': keys.left = true; break;
         case 'ArrowRight': keys.right = true; break;
         case 'ArrowUp':
-            if (!keys.up && boostDuration === 0) {
-                keys.up = true;
-                boostDuration = boostMaxDuration;
-                if (wingsOpen) {
-                    wingsOpen = false;
-                    wingAnimation = wingTransitionFrames;
-                }
-            }
+            keys.up = true; // Set boosting to true
             break;
     }
 });
 
 document.addEventListener('keyup', (event) => {
-    if (challengeComplete) return; // Disable controls if challenge is complete
+    if (challengeComplete) return;
     
     switch (event.key) {
         case 'w': keys.w = false; break;
@@ -66,24 +63,23 @@ document.addEventListener('keyup', (event) => {
         case 'd': keys.d = false; break;
         case 'ArrowLeft': keys.left = false; break;
         case 'ArrowRight': keys.right = false; break;
-        case 'ArrowUp': keys.up = false; break;
+        case 'ArrowUp': 
+            keys.up = false; // Stop boosting when the Up Arrow key is released
+            break;
     }
 });
 
 // Rotation setup
 export const rotation = {
- pitch: new THREE.Quaternion(),
- yaw: new THREE.Quaternion(),
- roll: new THREE.Quaternion(),
- pitchAxis: new THREE.Vector3(1, 0, 0),
- yawAxis: new THREE.Vector3(0, 1, 0),
- rollAxis: new THREE.Vector3(0, 0, 1 )
+    pitch: new THREE.Quaternion(),
+    yaw: new THREE.Quaternion(),
+    roll: new THREE.Quaternion(),
+    pitchAxis: new THREE.Vector3(1, 0, 0),
+    yawAxis: new THREE.Vector3(0, 1, 0),
+    rollAxis: new THREE.Vector3(0, 0, 1)
 };
 
 // Third-person camera setup
-const cameraOffset = new THREE.Vector3(0, 2, -7);
-let smoothFactor = 0.1;
-
 export const cameraTarget = new THREE.Object3D();
 spacecraft.add(cameraTarget);
 cameraTarget.position.set(0, 0, 0);
@@ -92,43 +88,35 @@ export const cameraRig = new THREE.Object3D();
 scene.add(cameraRig);
 
 export function updateCamera(camera) {
- const targetPosition = new THREE.Vector3();
- spacecraft.getWorldPosition(targetPosition);
+    const targetPosition = new THREE.Vector3();
+    spacecraft.getWorldPosition(targetPosition);
 
- const localOffset = cameraOffset.clone();
- const cameraPosition = localOffset.clone().applyMatrix4(spacecraft.matrixWorld);
+    const localOffset = currentCameraOffset.clone(); // Use dynamic offset
+    const cameraPosition = localOffset.clone().applyMatrix4(spacecraft.matrixWorld);
 
- camera.position.lerp(cameraPosition, smoothFactor);
- camera.quaternion.copy(spacecraft.quaternion);
+    camera.position.lerp(cameraPosition, smoothFactor);
+    camera.quaternion.copy(spacecraft.quaternion);
 
- const adjustment = new THREE.Quaternion().setFromEuler(
- new THREE.Euler(0, Math.PI, 0)
- );
- camera.quaternion.multiply(adjustment);
+    const adjustment = new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(0, Math.PI, 0)
+    );
+    camera.quaternion.multiply(adjustment);
 }
 
 export function updateMovement() {
     if (challengeComplete) {
-        // If challenge is complete, only update camera but no movement
         return;
     }
     
-    // Update boost state
-    const isBoost = boostDuration > 0;
-    if (isBoost) {
-        currentSpeed = boostSpeed;
-        boostDuration--;
-        // Check if boost just ended
-        if (boostDuration === 0 && !wingsOpen) {
-            wingsOpen = true;
-            wingAnimation = wingTransitionFrames;
-        }
+    // Update speed based on boost state
+    if (keys.up) {
+        currentSpeed = boostSpeed; // Set speed to boost speed while the Up Arrow is pressed
     } else {
-        currentSpeed = baseSpeed;
+        currentSpeed = baseSpeed; // Reset to base speed when not boosting
     }
 
     // Update engine effects
-    updateEngineEffects(isBoost);
+    updateEngineEffects(keys.up);
 
     // Store current state
     lastValidPosition.copy(spacecraft.position);
@@ -139,12 +127,12 @@ export function updateMovement() {
     rotation.yaw.identity();
     rotation.roll.identity();
 
-    if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, turnSpeed/2);
-    if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -turnSpeed/2);
+    if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, turnSpeed / 2);
+    if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -turnSpeed / 2);
     if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -turnSpeed);
     if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, turnSpeed);
-    if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, turnSpeed/2);
-    if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -turnSpeed/2);
+    if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, turnSpeed / 2);
+    if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -turnSpeed / 2);
 
     const combinedRotation = new THREE.Quaternion()
         .copy(rotation.roll)
@@ -167,31 +155,19 @@ export function updateMovement() {
     const minDistance = PLANET_RADIUS + COLLISION_THRESHOLD;
 
     if (distanceToPlanet < minDistance) {
-        // We would hit the planet - handle collision
-
-        // Get direction from planet center to spacecraft
         const toSpacecraft = new THREE.Vector3().subVectors(spacecraft.position, PLANET_POSITION).normalize();
-        
-        // Place spacecraft at safe distance
         spacecraft.position.copy(PLANET_POSITION).add(
             toSpacecraft.multiplyScalar(minDistance + COLLISION_PUSHBACK)
         );
-
-        // Calculate bounce direction
         const normal = toSpacecraft;
         const incidentDir = forward.normalize();
         const reflectDir = new THREE.Vector3();
         reflectDir.copy(incidentDir).reflect(normal);
-
-        // Set new orientation to bounce direction
         const bounceQuaternion = new THREE.Quaternion();
         bounceQuaternion.setFromUnitVectors(forward, reflectDir);
         spacecraft.quaternion.premultiply(bounceQuaternion);
-
-        // Reduce speed
         currentSpeed *= BOUNCE_FACTOR;
     } else {
-        // Safe to move
         spacecraft.position.copy(nextPosition);
     }
 

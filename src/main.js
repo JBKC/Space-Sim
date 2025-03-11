@@ -8,11 +8,11 @@ import { updateReticle } from './reticle.js';
 
 let gameMode = null; // 'race' or 'free'
 let isAnimating = false; // Track if animation is running
+let isBoosting = false; // Track if the boost is active
 
 // Initialize game
 setupUIElements();
 setupDirectionalIndicator();
-
 
 let isSpacePressed = false;
 
@@ -21,6 +21,11 @@ document.addEventListener('keydown', (event) => {
         isSpacePressed = true;
         startFiring();
     }
+
+    // Start boosting when the Up Arrow key is pressed
+    if (event.code === 'ArrowUp') {
+        isBoosting = true; // Set boosting to true
+    }
 });
 
 document.addEventListener('keyup', (event) => {
@@ -28,9 +33,12 @@ document.addEventListener('keyup', (event) => {
         isSpacePressed = false;
         stopFiring();
     }
-});
 
-// Add this to your main.js file:
+    // Stop boosting when the Up Arrow key is released
+    if (event.code === 'ArrowUp') {
+        isBoosting = false; // Set boosting to false
+    }
+});
 
 // Debug logging for spacebar press
 document.addEventListener('keydown', (event) => {
@@ -53,15 +61,13 @@ document.addEventListener('keydown', (event) => {
 
 // Initialize game mode selection
 document.addEventListener('DOMContentLoaded', () => {
-    const raceButton = document.querySelector('#race-mode');
-    const freeRoamButton = document.querySelector('#free-roam');
+    const exploreButton = document.querySelector('#explore-button');
 
-    if (raceButton && freeRoamButton) {
-        raceButton.addEventListener('click', () => startGame('race'));
-        freeRoamButton.addEventListener('click', () => startGame('free'));
-        console.log('Game mode buttons initialized');
+    if (exploreButton) {
+        exploreButton.addEventListener('click', () => startGame('free'));
+        console.log('Explore button initialized');
     } else {
-        console.error('Game mode buttons not found!');
+        console.error('Explore button not found!');
     }
 });
 
@@ -94,13 +100,12 @@ function animate() {
     
     requestAnimationFrame(animate);
 
-    updateMovement();
+    updateMovement(isBoosting); // Pass the boosting state to the movement function
     updateStars();
     updateCamera(camera);
     updateLasers();
     updateReticle();
 
-    
     // Only update game logic and directional indicator in race mode
     if (gameMode === 'race') {
         updateGame();
@@ -118,3 +123,9 @@ window.addEventListener('resize', () => {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+// Function to start exploring the galaxy
+function startExploration() {
+    console.log('Exploring the galaxy...');
+    // Add your exploration logic here
+}
