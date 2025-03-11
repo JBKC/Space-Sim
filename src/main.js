@@ -6,15 +6,17 @@ import { setupUIElements, setupDirectionalIndicator, updateDirectionalIndicator,
 import { updateLasers, fireLasers, startFiring, stopFiring } from './lasers.js';
 import { updateReticle } from './reticle.js';
 
-let gameMode = null; // 'race' or 'free'
+let gameMode = null;
 let isAnimating = false;
 let isBoosting = false;
 let isHyperspace = false;
 let isSpacePressed = false;
 
+// Initialize UI elements and directional indicator
 setupUIElements();
 setupDirectionalIndicator();
 
+// Keydown event listeners for controls
 document.addEventListener('keydown', (event) => {
     if (event.code === 'Space' && !isSpacePressed) {
         isSpacePressed = true;
@@ -28,6 +30,7 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
+// Keyup event listeners for controls
 document.addEventListener('keyup', (event) => {
     if (event.code === 'Space') {
         isSpacePressed = false;
@@ -38,7 +41,7 @@ document.addEventListener('keyup', (event) => {
     }
 });
 
-// Debug logging for spacebar press
+// Debug logging for spacebar (laser firing)
 document.addEventListener('keydown', (event) => {
     if (event.code === 'Space') {
         console.log('Space pressed. Game mode:', gameMode);
@@ -57,6 +60,7 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
+// Initialize game mode selection on DOM load
 document.addEventListener('DOMContentLoaded', () => {
     const exploreButton = document.querySelector('#explore-button');
     if (exploreButton) {
@@ -67,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// Start the game with the selected mode
 function startGame(mode) {
     console.log('Starting game in mode:', mode);
     gameMode = mode;
@@ -89,6 +94,7 @@ function startGame(mode) {
     }
 }
 
+// Main animation loop
 function animate() {
     if (!isAnimating) return;
     
@@ -116,24 +122,60 @@ function animate() {
     renderer.render(scene, camera);
 }
 
+// Handle window resize
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+// Function to start exploration mode (placeholder)
 function startExploration() {
     console.log('Exploring the galaxy...');
 }
 
+// Function to start hyperspace with progress bar
 function startHyperspace() {
     if (isHyperspace) return;
     isHyperspace = true;
     console.log('Entering hyperspace...');
 
+    const progressContainer = document.getElementById('hyperspace-progress-container');
+    const progressBar = document.getElementById('hyperspace-progress');
+    const bar = progressBar.querySelector('.bar');
+    const label = document.getElementById('hyperspace-progress-label');
+
+    if (!progressContainer || !progressBar || !bar || !label) {
+        console.error('Hyperspace progress elements not found:', {
+            progressContainer,
+            progressBar,
+            bar,
+            label
+        });
+        return;
+    }
+
+    progressContainer.style.display = 'block'; // Show the container
+    bar.style.width = '100%'; // Start at 100% for right-to-left unfilling
+
+    // Debug: Log visibility and positioning
+    console.log('Progress container display:', progressContainer.style.display);
+    console.log('Label visibility:', label.style.display, 'Text:', label.textContent);
+    console.log('Label position:', label.style.top, label.style.left);
+
+    let progress = 100;
+    const interval = setInterval(() => {
+        progress -= (100 / (2000 / 16)); // Decrease from 100% to 0% over 2 seconds
+        bar.style.width = `${progress}%`;
+        if (progress <= 0) {
+            clearInterval(interval);
+            progressContainer.style.display = 'none';
+        }
+    }, 16); // Approx. 60 FPS
+
     setTimeout(() => {
         isHyperspace = false;
         console.log('Exiting hyperspace...');
-        resetMovementInputs(); // Reset movement inputs when hyperspace ends
+        resetMovementInputs();
     }, 2000);
 }
