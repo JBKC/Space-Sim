@@ -11,8 +11,14 @@ const textureLoader = new THREE.TextureLoader();
 // Skybox setup
 const skyboxTexture = textureLoader.load('skybox/galaxy5.jpeg');
 const skyboxGeometry = new THREE.BoxGeometry(250000, 250000, 250000);
-const skyboxMaterial = new THREE.MeshBasicMaterial({ map: skyboxTexture, side: THREE.BackSide });
+const skyboxMaterial = new THREE.MeshBasicMaterial({
+    map: skyboxTexture,
+    side: THREE.BackSide,
+    depthWrite: false, // Prevent depth interference
+    depthTest: false   // Avoid rendering issues
+});
 const skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
+skybox.position.set(0, 0, 0); // Ensure centered at origin
 scene.add(skybox);
 
 // --- Sun Setup ---
@@ -387,28 +393,42 @@ labelData.forEach(planet => {
 });
 
 // Function to update label positions
+// Function to update label positions
 export function updatePlanetLabels() {
     const vector = new THREE.Vector3();
+    const cameraPosition = new THREE.Vector3();
+    camera.getWorldPosition(cameraPosition); // Get camera's world position
+
     labels.forEach(label => {
         // Get planet's world position
         label.planetGroup.getWorldPosition(vector);
         
         // Offset above the planet's surface
-        vector.y += label.radius * 1.2; // Slightly above (adjust multiplier as needed)
+        vector.y += label.radius * 1.2;
 
-        // Project 3D position to 2D screen coordinates
-        vector.project(camera);
+        // Check if the planet is in front of the camera
+        const directionToPlanet = vector.clone().sub(cameraPosition);
+        const cameraForward = new THREE.Vector3(0, 0, -1); // Camera looks along negative Z
+        cameraForward.applyQuaternion(camera.quaternion); // Align with camera rotation
+        const dot = directionToPlanet.dot(cameraForward);
 
-        // Convert to screen space (0 to 1 -> pixel coordinates)
-        const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
-        const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
+        if (dot > 0) { // Planet is in front of the camera
+            // Project 3D position to 2D screen coordinates
+            vector.project(camera);
 
-        // Position the label
-        label.element.style.left = `${x}px`;
-        label.element.style.top = `${y}px`;
-        
-        // Center the label horizontally
-        label.element.style.transform = 'translateX(-50%)';
+            // Convert to screen space
+            const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+            const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
+
+            // Position the label
+            label.element.style.left = `${x}px`;
+            label.element.style.top = `${y}px`;
+            label.element.style.transform = 'translateX(-50%)';
+            label.element.style.display = 'block'; // Show the label
+        } else {
+            // Hide the label if the planet is behind the camera
+            label.element.style.display = 'none';
+        }
     });
 }
 
