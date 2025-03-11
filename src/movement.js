@@ -8,7 +8,7 @@ export const baseSpeed = 2;
 export const boostSpeed = baseSpeed * 5;
 export let currentSpeed = baseSpeed;
 export const turnSpeed = 0.03;
-export const keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false };
+export let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false };
 
 // Wing animation variables
 export let wingsOpen = true;
@@ -26,15 +26,27 @@ let lastValidQuaternion = new THREE.Quaternion();
 let gameMode = null;
 
 // Camera offsets
-const baseCameraOffset = new THREE.Vector3(0, 2, 10); // Normal offset
-const boostCameraOffset = new THREE.Vector3(0, 3, 70); // Boost offset: farther back and higher
-const hyperspaceCameraOffset = new THREE.Vector3(0, 2, 1346); // Adjust values as needed
-let currentCameraOffset = baseCameraOffset.clone(); // Dynamic offset
-const smoothFactor = 0.1; // Smoothing factor\
+const baseCameraOffset = new THREE.Vector3(0, 2, 10);
+const boostCameraOffset = new THREE.Vector3(0, 3, 70);
+const hyperspaceCameraOffset = new THREE.Vector3(0, 2, 1346);
+let currentCameraOffset = baseCameraOffset.clone();
+const smoothFactor = 0.1;
 
 // Function to set game mode
 export function setGameMode(mode) {
     gameMode = mode;
+}
+
+// Function to reset movement inputs
+export function resetMovementInputs() {
+    keys.w = false;
+    keys.s = false;
+    keys.a = false;
+    keys.d = false;
+    keys.left = false;
+    keys.right = false;
+    keys.up = false;
+    console.log('Movement inputs reset:', keys);
 }
 
 // Keyboard controls
@@ -48,9 +60,7 @@ document.addEventListener('keydown', (event) => {
         case 'd': keys.d = true; break;
         case 'ArrowLeft': keys.left = true; break;
         case 'ArrowRight': keys.right = true; break;
-        case 'ArrowUp':
-            keys.up = true; // Set boosting to true
-            break;
+        case 'ArrowUp': keys.up = true; break;
     }
 });
 
@@ -64,9 +74,7 @@ document.addEventListener('keyup', (event) => {
         case 'd': keys.d = false; break;
         case 'ArrowLeft': keys.left = false; break;
         case 'ArrowRight': keys.right = false; break;
-        case 'ArrowUp': 
-            keys.up = false; // Stop boosting when the Up Arrow key is released
-            break;
+        case 'ArrowUp': keys.up = false; break;
     }
 });
 
@@ -115,9 +123,9 @@ export function updateMovement(isBoosting, isHyperspace) {
     if (isHyperspace) {
         currentSpeed = 150;
     } else if (isBoosting) {
-        currentSpeed = boostSpeed; // Set speed to boost speed while the Up Arrow is pressed
+        currentSpeed = boostSpeed;
     } else {
-        currentSpeed = baseSpeed; // Reset to base speed when not boosting or in hyperspace
+        currentSpeed = baseSpeed;
     }
 
     // Update engine effects
@@ -127,17 +135,19 @@ export function updateMovement(isBoosting, isHyperspace) {
     lastValidPosition.copy(spacecraft.position);
     lastValidQuaternion.copy(spacecraft.quaternion);
 
-    // Apply rotations with very low sensitivity
+    // Apply rotations with very low sensitivity, only if not in hyperspace
     rotation.pitch.identity();
     rotation.yaw.identity();
     rotation.roll.identity();
 
-    if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, turnSpeed / 2);
-    if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -turnSpeed / 2);
-    if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -turnSpeed);
-    if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, turnSpeed);
-    if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, turnSpeed / 2);
-    if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -turnSpeed / 2);
+    if (!isHyperspace) {
+        if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, turnSpeed / 2);
+        if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -turnSpeed / 2);
+        if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -turnSpeed);
+        if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, turnSpeed);
+        if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, turnSpeed / 2);
+        if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -turnSpeed / 2);
+    }
 
     const combinedRotation = new THREE.Quaternion()
         .copy(rotation.roll)
