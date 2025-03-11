@@ -122,6 +122,23 @@
         #glow-overlay.victory {
             background: radial-gradient(circle, rgba(255, 215, 0, 0.4) 0%, rgba(255, 215, 0, 0) 70%);
         }
+
+        /* New styles for coordinates */
+        #coordinates {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #4fc3f7; /* Matches welcome screen color */
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            background: rgba(0, 0, 0, 0.5); /* Semi-transparent black background */
+            padding: 5px 10px;
+            border: 1px solid #4fc3f7; /* Border to match theme */
+            border-radius: 3px;
+            z-index: 100; /* Above game canvas but below victory screen */
+            letter-spacing: 1px;
+            text-shadow: 0 0 5px rgba(79, 195, 247, 0.7); /* Subtle glow */
+        }
     </style>
 </head>
 <body>
@@ -150,6 +167,8 @@
             <div class="time">Your Time: <span id="victory-time"></span></div>
         </div>
     </div>
+    <!-- New coordinates div -->
+    <div id="coordinates">X: 0, Y: 0, Z: 0</div>
     
     <!-- Load Three.js first -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>

@@ -154,5 +154,5 @@ function startHyperspace() {
         console.log('Exiting hyperspace...');
         // Debugging log
         console.log('isHyperspace:', isHyperspace);
-    }, 1000); // Duration of hyperspace effect changed to 1 second
+    }, 2000); // Duration of hyperspace
 }
