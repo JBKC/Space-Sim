@@ -1,5 +1,5 @@
 // src/lasers.js
-import { scene, spacecraft } from './setup.js';
+import { scene, spacecraft, earthSurfaceScene, isEarthSurfaceActive } from './setup.js';
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.module.js';
 
 const laserLength = 20; // Length of the laser bolt
@@ -36,12 +36,23 @@ wingtipObjects.forEach((obj, index) => {
     spacecraft.add(obj); // Parent wingtips to the spacecraft
 });
 
+// Earth surface wingtip objects will be created when needed
+let earthWingtipObjects = [];
+
 function createLaser(startPosition, direction) {
     const laser = new THREE.Mesh(laserGeometry, laserMaterial);
     laser.position.copy(startPosition);
 
-    // Align the laser with the spacecraft's forward direction
-    laser.quaternion.copy(spacecraft.quaternion);
+    // Get the appropriate spacecraft
+    const targetSpacecraft = isEarthSurfaceActive ? 
+        earthSurfaceScene.children.find(obj => obj.name === "EarthSurfaceSpacecraft") : 
+        spacecraft;
+    
+    if (targetSpacecraft) {
+        // Align the laser with the spacecraft's forward direction
+        laser.quaternion.copy(targetSpacecraft.quaternion);
+    }
+    
     // Rotate the cylinder to align its length with the Z-axis (forward direction)
     laser.rotateX(Math.PI / 2); // CylinderGeometry is aligned along Y-axis by default, rotate to Z
 
@@ -57,15 +68,39 @@ function createLaser(startPosition, direction) {
 }
 
 export function fireLasers() {
+    // Determine which scene and spacecraft to use
+    const currentScene = isEarthSurfaceActive ? earthSurfaceScene : scene;
+    const targetSpacecraft = isEarthSurfaceActive ? 
+        earthSurfaceScene.children.find(obj => obj.name === "EarthSurfaceSpacecraft") : 
+        spacecraft;
+    
+    if (!targetSpacecraft) return;
+    
     const forward = new THREE.Vector3(0, 0, 1); // Forward direction in local space
-    forward.applyQuaternion(spacecraft.quaternion); // Transform to world space
+    forward.applyQuaternion(targetSpacecraft.quaternion); // Transform to world space
 
-    wingtipObjects.forEach(wingtip => {
+    // If we're on Earth's surface but don't have wingtips yet, create them
+    if (isEarthSurfaceActive && earthWingtipObjects.length === 0) {
+        // Create new wingtip objects for Earth spacecraft
+        for (let i = 0; i < 4; i++) {
+            const obj = new THREE.Object3D();
+            obj.position.copy(wingtipOffsets[i]);
+            targetSpacecraft.add(obj);
+            earthWingtipObjects.push(obj);
+        }
+    }
+    
+    // Use the appropriate wingtip objects
+    const currentWingtips = isEarthSurfaceActive ? earthWingtipObjects : wingtipObjects;
+    
+    currentWingtips.forEach(wingtip => {
+        if (!wingtip.parent) return; // Skip if not attached to anything
+        
         const worldPos = new THREE.Vector3();
         wingtip.getWorldPosition(worldPos);
 
         const laser = createLaser(worldPos, forward);
-        scene.add(laser);
+        currentScene.add(laser);
         activeLasers.push(laser);
     });
 }
@@ -88,7 +123,13 @@ export function updateLasers() {
         
         // Remove laser after lifetime
         if (currentTime - laser.userData.startTime > laser.userData.lifetime) {
-            scene.remove(laser);
+            if (laser.parent) {
+                laser.parent.remove(laser);
+            } else {
+                // If no parent, determine which scene it's in
+                const currentScene = isEarthSurfaceActive ? earthSurfaceScene : scene;
+                currentScene.remove(laser);
+            }
             activeLasers.splice(i, 1);
         }
     }

@@ -1,4 +1,4 @@
-import { scene, spacecraft } from './setup.js';
+import { scene, spacecraft, earthSurfaceScene, isEarthSurfaceActive } from './setup.js';
 
 // Create reticle group
 const reticleGroup = new THREE.Group();
@@ -42,13 +42,34 @@ createCornerLine(reticleSize, reticleSize, reticleSize, reticleSize - lineLength
 
 // Function to update reticle position with vertical offset
 export function updateReticle() {
+    let targetSpacecraft;
+    
+    if (isEarthSurfaceActive) {
+        // Find the Earth surface spacecraft
+        targetSpacecraft = earthSurfaceScene.children.find(obj => 
+            obj.type === 'Group' && obj.name === "EarthSurfaceSpacecraft"
+        );
+        
+        if (!targetSpacecraft) {
+            // If Earth spacecraft not found, hide reticle
+            reticleGroup.visible = false;
+            return;
+        }
+    } else {
+        // Use regular spacecraft in space
+        targetSpacecraft = spacecraft;
+    }
+    
+    // Show reticle
+    reticleGroup.visible = true;
+    
     // Get spacecraft position
     const spacecraftPosition = new THREE.Vector3();
-    spacecraft.getWorldPosition(spacecraftPosition);
+    targetSpacecraft.getWorldPosition(spacecraftPosition);
     
     // Get forward direction of spacecraft
     const forward = new THREE.Vector3(0, 0, 1); // Z+ is forward
-    forward.applyQuaternion(spacecraft.quaternion);
+    forward.applyQuaternion(targetSpacecraft.quaternion);
     
     // Position reticle 50 units in front of the spacecraft
     const position = spacecraftPosition.clone().add(forward.multiplyScalar(50));
@@ -60,5 +81,5 @@ export function updateReticle() {
     reticleGroup.position.copy(position);
     
     // Ensure the reticle faces the same direction as the spacecraft
-    reticleGroup.rotation.copy(spacecraft.rotation);
+    reticleGroup.rotation.copy(targetSpacecraft.rotation);
 }  

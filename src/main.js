@@ -1,5 +1,16 @@
 // src/main.js
-import { scene, camera, renderer, updateStars, spacecraft, updatePlanetLabels } from './setup.js';
+import { 
+    scene, 
+    camera, 
+    renderer, 
+    updateStars, 
+    spacecraft, 
+    updatePlanetLabels, 
+    checkEarthProximity, 
+    renderScene, 
+    isEarthSurfaceActive,
+    exitEarthSurface
+} from './setup.js';
 import { updateCamera, updateMovement, setGameMode, resetMovementInputs, keys } from './movement.js'; // Added keys import
 import { initializeTargetChallenge, updateGame, targets, score, challengeTargetCount, challengeComplete } from './gameLogic.js';
 import { setupUIElements, setupDirectionalIndicator, updateDirectionalIndicator, showRaceModeUI, hideRaceModeUI, updateUI } from './ui.js';
@@ -38,6 +49,10 @@ document.addEventListener('keydown', (event) => {
     }
     if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
         startHyperspace();
+    }
+    // Add escape key to exit Earth surface
+    if (event.code === 'Escape' && isEarthSurfaceActive) {
+        exitEarthSurface();
     }
 });
 
@@ -102,6 +117,11 @@ function animate() {
     updateReticle();
     updatePlanetLabels();
 
+    // Check if spacecraft is near Earth
+    if (!isEarthSurfaceActive) {
+        checkEarthProximity();
+    }
+
     // Continuous laser firing logic
     if (isSpacePressed && !isHyperspace) {
         const currentTime = Date.now();
@@ -119,8 +139,15 @@ function animate() {
 
     const coordsDiv = document.getElementById('coordinates');
     if (coordsDiv) {
-        const pos = spacecraft.position;
-        coordsDiv.textContent = `X: ${pos.x.toFixed(0)}, Y: ${pos.y.toFixed(0)}, Z: ${pos.z.toFixed(0)}`;
+        if (isEarthSurfaceActive) {
+            // Hide coordinates when on Earth's surface
+            coordsDiv.style.display = 'none';
+        } else {
+            // Show coordinates and update them when in space
+            coordsDiv.style.display = 'block';
+            const pos = spacecraft.position;
+            coordsDiv.textContent = `X: ${pos.x.toFixed(0)}, Y: ${pos.y.toFixed(0)}, Z: ${pos.z.toFixed(0)}`;
+        }
     }
 
     if (gameMode === 'race') {
@@ -129,7 +156,9 @@ function animate() {
     }
 
     updateUI();
-    renderer.render(scene, camera);
+    
+    // Use the new rendering function instead of directly rendering the scene
+    renderScene();
 }
 
 // Handle window resize
