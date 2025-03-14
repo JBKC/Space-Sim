@@ -1,0 +1,19 @@
+/* Cesium specific styles */
+.cesium-widget {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+}
+
+.cesium-widget canvas {
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+}
+
+.cesium-credit-container {
+    display: none;
+} 

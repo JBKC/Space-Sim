@@ -5,7 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PLANETARY</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="cesium.css">
+    
+    <!-- Add Cesium CSS and JS -->
+    <link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.127/Build/Cesium/Widgets/widgets.css">
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.127/Build/Cesium/Cesium.js"></script>
+    
+    <!-- Process polyfill for browser environment -->
+    <script>
+        window.process = {
+            env: {
+                NODE_ENV: 'development'
+            }
+        };
+    </script>
+    
+    <!-- Import map with local 3d-tiles-renderer pointing to src/index.js -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/",
+        "three/examples/jsm/loaders/GLTFLoader.js": "https://unpkg.com/three@0.170.0/examples/jsm/loaders/GLTFLoader.js",
+        "three/examples/jsm/utils/BufferGeometryUtils.js": "https://unpkg.com/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js",
+        "3d-tiles-renderer": "/node_modules/3d-tiles-renderer/src/index.js",
+        "@takram/three-geospatial": "https://unpkg.com/@takram/three-geospatial@0.1.0/build/index.module.js",
+        "three-stdlib": "https://unpkg.com/three-stdlib@2.35.14/build/three-stdlib.module.js",
+        "@petamoriken/float16": "https://unpkg.com/@petamoriken/float16@3.9.1/dist/float16.mjs",
+        "tiny-invariant": "https://unpkg.com/tiny-invariant@1.3.3/dist/esm/tiny-invariant.js",
+        "cesium": "https://unpkg.com/cesium@1.127.0/Build/Cesium/Cesium.js"
+      }
+    }
+    </script>
+    
     <style>
+        /* [Your existing styles remain unchanged] */
         body { margin: 0; overflow: hidden; }
         #game-container { width: 100vw; height: 100vh; }
         #welcome-screen {
@@ -89,7 +123,6 @@
             z-index: 1000;
             animation: fadeIn 1s ease-in;
         }
-        
         #victory-screen h1 {
             font-size: 72px;
             text-align: center;
@@ -102,7 +135,6 @@
             color: #FFD700;
             margin-bottom: 30px;
         }
-        
         #victory-screen .time {
             font-size: 48px;
             text-align: center;
@@ -113,16 +145,13 @@
                 2px 2px 0 #000;
             color: #FFD700;
         }
-        
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
         }
-        
         #glow-overlay.victory {
             background: radial-gradient(circle, rgba(255, 215, 0, 0.4) 0%, rgba(255, 215, 0, 0) 70%);
         }
-
         #coordinates {
             position: absolute;
             top: 10px;
@@ -138,7 +167,6 @@
             letter-spacing: 1px;
             text-shadow: 0 0 5px rgba(79, 195, 247, 0.7);
         }
-
         .planet-label {
             position: absolute;
             font-family: 'Orbitron', sans-serif;
@@ -151,8 +179,6 @@
             text-transform: uppercase;
             letter-spacing: 2px;
         }
-
-        /* Progress bar styles */
         #hyperspace-progress-container {
             position: absolute;
             top: 40px;
@@ -161,7 +187,6 @@
             z-index: 100;
             display: none;
         }
-
         #hyperspace-progress {
             width: 300px;
             height: 10px;
@@ -170,7 +195,6 @@
             border-radius: 3px;
             overflow: hidden;
         }
-
         #hyperspace-progress-label {
             position: absolute;
             top: 12px;
@@ -185,14 +209,13 @@
             text-shadow: 0 0 5px rgba(255, 255, 255, 0.7);
             z-index: 101;
         }
-
         #hyperspace-progress .bar {
-            width: 100%; /* Start at 100% */
+            width: 100%;
             height: 100%;
             background: #ffffff;
             transition: width 0.016s linear;
             box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
-            transform-origin: right; /* Ensure it shrinks from the right */
+            transform-origin: right;
         }
     </style>
 </head>
@@ -230,7 +253,10 @@
         <div id="hyperspace-progress-label">HYPERSPACE</div>
     </div>
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <!-- Add transition overlay for smooth transitions -->
+    <div id="transition-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0); pointer-events: none; transition: opacity 0.5s ease; z-index: 999;"></div>
+    
+    <!-- Load main script -->
     <script type="module" src="src/main.js"></script>
 </body>
 </html>

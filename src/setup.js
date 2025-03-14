@@ -1,192 +1,244 @@
-// Import THREE.js (assuming it's included elsewhere)
+// Setup.js
+import * as THREE from 'three';
+import { TilesRenderer } from '3d-tiles-renderer';
+
+// Cesium is loaded globally via script tag in index.html
+const Cesium = window.Cesium;
+
+// Scene setup
 export const scene = new THREE.Scene();
 export const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
-export const renderer = new THREE.WebGLRenderer();
+export const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('game-container').appendChild(renderer.domElement);
 
-// Earth surface environment
+// Earth surface scene
 export const earthSurfaceScene = new THREE.Scene();
-earthSurfaceScene.background = new THREE.Color(0x87CEFA); // Brighter blue sky (changed from 0xC9E6FF)
+earthSurfaceScene.background = new THREE.Color(0x87CEFA); // Brighter blue sky
 
-// Create a flat surface for Earth environment with texture
-const surfaceGeometry = new THREE.PlaneGeometry(100000, 100000, 100, 100);
-// Try to load the texture, but use a color if it fails
-let surfaceTexture;
-try {
-    surfaceTexture = textureLoader.load('skybox/grass_texture.jpg');
-    surfaceTexture.wrapS = THREE.RepeatWrapping;
-    surfaceTexture.wrapT = THREE.RepeatWrapping;
-    surfaceTexture.repeat.set(100, 100); // Repeat the texture many times
-} catch (e) {
-    console.warn("Failed to load grass texture, using color instead:", e);
-    surfaceTexture = null;
-}
+// NYC center coordinates
+const NYC_CENTER = { lat: 40.7128, lng: -74.0060 };
 
-const surfaceMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0x2F4F2F, // Dark forest green (changed from 0x228B22)
-    side: THREE.DoubleSide,
-    map: surfaceTexture,
-    roughness: 0.8,
-    metalness: 0.1
-});
-const earthSurface = new THREE.Mesh(surfaceGeometry, surfaceMaterial);
-earthSurface.rotation.x = -Math.PI / 2; // Rotate to be horizontal
-earthSurface.position.y = -100; // Position below the spacecraft
-earthSurfaceScene.add(earthSurface);
+// Mapbox setup (no longer needed for imagery, but kept for consistency)
+const MAPBOX_TOKEN = 'pk.eyJ1IjoiamJrYyIsImEiOiJjbTg3cTEwOHgwamdjMmtyMzczMTNoNmpxIn0.OkVdZogiJFH93fG0Pp4ZlQ';
+const ZOOM = 14;
+const TILE_SIZE = 1000;
+const textureLoader = new THREE.TextureLoader();
 
-// Add some simple terrain features (hills)
-for (let i = 0; i < 50; i++) {
-    const hillGeometry = new THREE.ConeGeometry(
-        Math.random() * 100 + 50, // Random radius between 50 and 150
-        Math.random() * 200 + 100, // Random height between 100 and 300
-        8 // Octagonal base
-    );
-    const hillMaterial = new THREE.MeshStandardMaterial({
-        color: 0x2F4F2F, // Dark forest green (changed from 0x228B22)
-        roughness: 0.9,
-        metalness: 0.0
-    });
-    const hill = new THREE.Mesh(hillGeometry, hillMaterial);
-    
-    // Random position on the surface
-    hill.position.set(
-        (Math.random() - 0.5) * 8000, // X position
-        -50, // Y position (slightly embedded in the ground)
-        (Math.random() - 0.5) * 8000  // Z position
-    );
-    
-    // Rotate to stand upright - FIXED: removed incorrect rotation
-    // The cone's point should be up by default
-    
-    earthSurfaceScene.add(hill);
-}
+// Cesium Ion setup for 3D buildings and Bing Maps Aerial
+const CESIUM_ION_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJmM2NmMGU2Mi0zNDYxLTRhOTQtYmRiNi05Mzk0NTg4OTdjZDkiLCJpZCI6Mjg0MDk5LCJpYXQiOjE3NDE5MTI4Nzh9.ciqVryFsYbzdwKxd_nEANC8pHgU9ytlfylfpfy9Q56U';
+const NYC_BUILDINGS_ASSET_ID = 75343; // New York City 3D Buildings
+const BING_MAPS_AERIAL_ASSET_ID = 2;   // Bing Maps Aerial imagery
 
-// Add some trees (simple cones with cylinders)
-for (let i = 0; i < 400; i++) {
-    // Tree trunk
-    const trunkGeometry = new THREE.CylinderGeometry(5, 5, 30, 8);
-    const trunkMaterial = new THREE.MeshStandardMaterial({
-        color: 0x5C4033, // Darker brown for tree trunks (changed from 0x8B4513)
-        roughness: 0.9
-    });
-    const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-    
-    // Tree top
-    const topGeometry = new THREE.ConeGeometry(20, 50, 8);
-    const topMaterial = new THREE.MeshStandardMaterial({
-        color: 0x004000, // Darker green for tree tops (changed from 0x006400)
-        roughness: 0.8
-    });
-    const top = new THREE.Mesh(topGeometry, topMaterial);
-    top.position.y = 40; // Position on top of trunk
-    
-    // Create tree group
-    const tree = new THREE.Group();
-    tree.add(trunk);
-    tree.add(top);
-    
-    // Random position on the surface
-    tree.position.set(
-        (Math.random() - 0.5) * 8000, // X position
-        -100, // Y position (on the ground)
-        (Math.random() - 0.5) * 8000  // Z position
-    );
-    
-    earthSurfaceScene.add(tree);
-}
+// Camera offset from movement.js
+const surfaceCameraOffset = new THREE.Vector3(0, 2, -10); // Above and behind spacecraft
+const smoothFactor = 0.1; // Smoothing factor for camera movement
 
-// Add mountains at the edges of the map to mark boundaries
-function createMountainRange() {
-    // Create mountains along the perimeter of a 10,000 x 10,000 square
-    const mapSize = 5000; // Half the width of the 10,000 square (from center to edge)
-    const mountainCount = 60; // Number of mountains to create
-    const spacing = mapSize * 2 / mountainCount; // Space between mountains
+// 3D Tiles renderer for buildings
+let cesiumViewer;
+let cesiumContainer;
+let cesiumOverlay;
+
+// Initialize Cesium 3D Tiles for buildings with Bing Maps Aerial underneath
+async function initializeCesium3DTiles() {
+    console.log("Initializing Cesium 3D Tiles");
     
-    // Mountain properties
-    const mountainColors = [0x4B6455, 0x3A4E40, 0x2F4F2F]; // Different shades of dark green
-    
-    // Create mountains along each edge of the square map
-    for (let i = 0; i < mountainCount; i++) {
-        // Calculate position along the perimeter
-        const position = -mapSize + (i * spacing);
+    // Create a container for Cesium
+    if (!cesiumContainer) {
+        cesiumContainer = document.createElement('div');
+        cesiumContainer.id = 'cesiumContainer';
+        cesiumContainer.style.position = 'absolute';
+        cesiumContainer.style.top = '0';
+        cesiumContainer.style.left = '0';
+        cesiumContainer.style.width = '100%';
+        cesiumContainer.style.height = '100%';
+        cesiumContainer.style.pointerEvents = 'none'; // Allow click-through
+        cesiumContainer.style.display = 'none'; // Initially hidden
+        document.body.appendChild(cesiumContainer);
         
-        // Create mountains at each of the four edges
-        createMountain(position, -mapSize, mountainColors); // Bottom edge
-        createMountain(position, mapSize, mountainColors);  // Top edge
-        createMountain(-mapSize, position, mountainColors); // Left edge
-        createMountain(mapSize, position, mountainColors);  // Right edge
+        // Create loading indicator
+        cesiumOverlay = document.createElement('div');
+        cesiumOverlay.id = 'cesiumLoading';
+        cesiumOverlay.style.position = 'absolute';
+        cesiumOverlay.style.top = '0';
+        cesiumOverlay.style.left = '0';
+        cesiumOverlay.style.width = '100%';
+        cesiumOverlay.style.height = '100%';
+        cesiumOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        cesiumOverlay.style.display = 'flex';
+        cesiumOverlay.style.justifyContent = 'center';
+        cesiumOverlay.style.alignItems = 'center';
+        cesiumOverlay.style.color = 'white';
+        cesiumOverlay.style.fontFamily = 'Arial, sans-serif';
+        cesiumOverlay.style.fontSize = '24px';
+        cesiumOverlay.style.zIndex = '1000';
+        cesiumOverlay.textContent = 'Loading New York 3D Buildings...';
+        cesiumOverlay.style.display = 'none'; // Initially hidden
+        document.body.appendChild(cesiumOverlay);
+    }
+    
+    // Set Cesium Ion token
+    Cesium.Ion.defaultAccessToken = CESIUM_ION_TOKEN;
+    
+    // Create Cesium viewer with minimal configuration
+    cesiumViewer = new Cesium.Viewer(cesiumContainer, {
+        terrainProvider: undefined,
+        baseLayerPicker: false,
+        geocoder: false,
+        homeButton: false,
+        sceneModePicker: false,
+        navigationHelpButton: false,
+        animation: false,
+        timeline: false,
+        fullscreenButton: false,
+        requestRenderMode: true,
+        maximumRenderTimeChange: Infinity
+    });
+
+    // Ensure the globe is transparent to show imagery
+    cesiumViewer.scene.globe.baseColor = Cesium.Color.TRANSPARENT;
+
+    // Remove all existing imagery layers to avoid conflicts
+    cesiumViewer.imageryLayers.removeAll();
+
+    // Add Bing Maps Aerial imagery as the base layer
+    try {
+        const bingMapsProvider = await Cesium.IonImageryProvider.fromAssetId(BING_MAPS_AERIAL_ASSET_ID);
+        cesiumViewer.imageryLayers.addImageryProvider(bingMapsProvider);
+        console.log("Bing Maps Aerial imagery loaded successfully");
+    } catch (error) {
+        console.error("Failed to load Bing Maps Aerial imagery:", error);
+        // Fallback to a default imagery provider (OpenStreetMap) to diagnose
+        cesiumViewer.imageryLayers.addImageryProvider(
+            new Cesium.OpenStreetMapImageryProvider({
+                url: 'https://tile.openstreetmap.org/'
+            })
+        );
+        console.log("Fallback to OpenStreetMap imagery due to error");
+    }
+    
+    // Load NYC 3D buildings
+    return Cesium.IonResource.fromAssetId(NYC_BUILDINGS_ASSET_ID)
+        .then(resource => {
+            console.log("Ion resource resolved");
+            return Cesium.Cesium3DTileset.fromUrl(resource);
+        })
+        .then(tileset => {
+            console.log("Tileset created successfully");
+            cesiumViewer.scene.primitives.add(tileset);
+            
+            // Position the camera to view NYC
+            const nycPosition = Cesium.Cartesian3.fromDegrees(NYC_CENTER.lng, NYC_CENTER.lat, 1000);
+            cesiumViewer.camera.flyTo({
+                destination: nycPosition,
+                orientation: {
+                    heading: Cesium.Math.toRadians(0),
+                    pitch: Cesium.Math.toRadians(-30),
+                    roll: 0.0
+                },
+                duration: 1
+            });
+            
+            if (cesiumOverlay) {
+                cesiumOverlay.style.display = 'none';
+            }
+            
+            return tileset;
+        })
+        .catch(error => {
+            console.error('Error loading Cesium 3D Tiles:', error);
+            if (cesiumOverlay) {
+                cesiumOverlay.textContent = 'Error: ' + error.message;
+            }
+            throw error;
+        });
+}
+
+// Helper function to convert lat/lng to tile coordinates
+function latLngToTile(lat, lng, zoom) {
+    const n = Math.pow(2, zoom);
+    const x = Math.floor(((lng + 180) / 360) * n);
+    const latRad = lat * Math.PI / 180;
+    const y = Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n);
+    return { x, y };
+}
+
+// TileManager class for dynamic Mapbox tile loading (no longer needed for imagery, kept for reference)
+class TileManager {
+    constructor() {
+        this.tiles = new Map();
+    }
+
+    latLngToTile(lat, lng, zoom) {
+        return latLngToTile(lat, lng, zoom);
+    }
+
+    update(centerLat, centerLng, viewRadius) {
+        const centerTile = this.latLngToTile(centerLat, centerLng, ZOOM);
+        const tilesNeeded = Math.ceil(viewRadius / TILE_SIZE) + 1;
+
+        for (let dx = -tilesNeeded; dx <= tilesNeeded; dx++) {
+            for (let dy = -tilesNeeded; dy <= tilesNeeded; dy++) {
+                const tileX = centerTile.x + dx;
+                const tileY = centerTile.y + dy;
+                const key = `${tileX},${tileY}`;
+                if (!this.tiles.has(key)) this.loadTile(tileX, tileY);
+            }
+        }
+
+        this.tiles.forEach((mesh, key) => {
+            const [x, y] = key.split(',').map(Number);
+            if (Math.abs(x - centerTile.x) > tilesNeeded || Math.abs(y - centerTile.y) > tilesNeeded) {
+                earthSurfaceScene.remove(mesh);
+                this.tiles.delete(key);
+            }
+        });
+    }
+
+    loadTile(x, y) {
+        const url = `https://api.mapbox.com/v4/mapbox.satellite/${ZOOM}/${x}/{y}@2x.png?access_token=${MAPBOX_TOKEN}`;
+        const geometry = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
+        const texture = textureLoader.load(url, () => texture.needsUpdate = true);
+        const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.position.set(
+            (x - this.latLngToTile(NYC_CENTER.lat, NYC_CENTER.lng, ZOOM).x) * TILE_SIZE,
+            0,
+            (y - this.latLngToTile(NYC_CENTER.lat, NYC_CENTER.lng, ZOOM).y) * TILE_SIZE
+        );
+        earthSurfaceScene.add(mesh);
+        this.tiles.set(`${x},${y}`, mesh);
     }
 }
 
-function createMountain(x, z, colors) {
-    // Randomize mountain properties
-    const height = Math.random() * 800 + 400; // Height between 400 and 1200
-    const radius = Math.random() * 300 + 200; // Base radius between 200 and 500
-    const segments = 8; // Octagonal base for performance
-    
-    // Create the mountain geometry
-    const mountainGeometry = new THREE.ConeGeometry(radius, height, segments);
-    
-    // Randomly select a color from the available colors
-    const colorIndex = Math.floor(Math.random() * colors.length);
-    const mountainMaterial = new THREE.MeshStandardMaterial({
-        color: colors[colorIndex],
-        roughness: 0.9,
-        metalness: 0.1
-    });
-    
-    const mountain = new THREE.Mesh(mountainGeometry, mountainMaterial);
-    
-    // Position the mountain
-    mountain.position.set(
-        x + (Math.random() * 400 - 200), // Add some randomness to x position
-        height / 2 - 100, // Position y so the base is at ground level
-        z + (Math.random() * 400 - 200)  // Add some randomness to z position
-    );
-    
-    // FIXED: removed incorrect rotation - cones should point up by default
-    
-    // Add to scene
-    earthSurfaceScene.add(mountain);
-}
+const tileManager = new TileManager();
 
-// Create the mountain ranges
-createMountainRange();
-
-// Add ambient light to Earth surface scene
+// Add lighting to earthSurfaceScene
 const earthAmbientLight = new THREE.AmbientLight(0xffffff, 0.5);
 earthSurfaceScene.add(earthAmbientLight);
-
-// Add directional light to Earth surface scene (sunlight)
 const earthDirectionalLight = new THREE.DirectionalLight(0xffffff, 1);
 earthDirectionalLight.position.set(1, 1, 1);
 earthSurfaceScene.add(earthDirectionalLight);
 
-// Add fog to create depth
-earthSurfaceScene.fog = new THREE.FogExp2(0x87CEFA, 0.0003); // Updated fog color to match sky
+// Add fog for depth
+earthSurfaceScene.fog = new THREE.FogExp2(0x87CEFA, 0.0003);
 
-// Flag to track which scene is active
+// Flags
 export let isEarthSurfaceActive = false;
-// Flag to track if transition is in progress
 export let isTransitionInProgress = false;
 
-// Function to check if spacecraft is near Earth
+// Check proximity to Earth (assuming earthGroup and spacecraft are defined elsewhere)
 export function checkEarthProximity() {
-    // Calculate distance between spacecraft and Earth
     const earthPosition = earthGroup.position.clone();
     const spacecraftPosition = spacecraft.position.clone();
     const distance = earthPosition.distanceTo(spacecraftPosition);
-    
-    // Start transition when within detection zone but before actual transition
+
     if (distance < planetRadius + 800 && !isEarthSurfaceActive && !isTransitionInProgress) {
-        // Start the pre-transition effect while still in space
         startAtmosphereTransition();
     }
-    
-    // Actual transition to surface happens at a closer distance
+
     if (distance < planetRadius + 500 && !isEarthSurfaceActive && isTransitionInProgress) {
-        // Only transition to surface after the mist has built up
         const overlay = document.getElementById('transition-overlay');
         if (overlay && parseFloat(getComputedStyle(overlay).opacity) > 0.3) {
             transitionToEarthSurface();
@@ -194,194 +246,153 @@ export function checkEarthProximity() {
     }
 }
 
-// Function to start the atmosphere transition effect while still in space
+// Start atmosphere transition
 function startAtmosphereTransition() {
     console.log("Approaching Earth's atmosphere...");
     isTransitionInProgress = true;
-    
-    // Create a transition overlay element with initial transparency
+
     const overlay = document.createElement('div');
     overlay.id = 'transition-overlay';
-    overlay.style.position = 'absolute';
-    overlay.style.top = '0';
-    overlay.style.left = '0';
-    overlay.style.width = '100%';
-    overlay.style.height = '100%';
-    overlay.style.backgroundColor = 'rgba(135, 206, 250, 0)'; // Start transparent
-    overlay.style.opacity = '0';
-    overlay.style.pointerEvents = 'none'; // Don't block user interaction
-    overlay.style.zIndex = '999';
+    overlay.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(135, 206, 250, 0);
+        opacity: 0;
+        pointer-events: none;
+        z-index: 999;
+    `;
     document.body.appendChild(overlay);
-    
-    // Gradually increase the mist over 0.75 seconds (reduced from 1 second)
+
     const transitionDuration = 1000;
     const startTime = performance.now();
-    
+
     function animatePreTransition() {
         const elapsed = performance.now() - startTime;
         const progress = Math.min(elapsed / transitionDuration, 1);
-        
-        // Gradually increase overlay opacity
         overlay.style.opacity = (0.6 * progress).toString();
-        
+
         if (progress < 1 && !isEarthSurfaceActive) {
             requestAnimationFrame(animatePreTransition);
         }
     }
-    
-    // Start the animation
     animatePreTransition();
 }
 
-// Function to transition to Earth surface environment
+// Transition to Earth surface
 export function transitionToEarthSurface() {
     console.log("Entering Earth's atmosphere!");
     isEarthSurfaceActive = true;
-    
-    // Clear any existing spacecraft from the Earth surface scene
-    earthSurfaceScene.children.forEach(child => {
-        if (child.type === 'Group' && child !== earthSurface) {
-            earthSurfaceScene.remove(child);
-        }
-    });
-    
-    // Create a new spacecraft for the Earth surface scene
+
+    // Initialize Cesium 3D Tiles if not already initialized
+    if (!cesiumViewer) {
+        if (cesiumOverlay) cesiumOverlay.style.display = 'flex';
+        initializeCesium3DTiles().then(() => {
+            // Show Cesium container after initialization
+            if (cesiumContainer) cesiumContainer.style.display = 'block';
+        });
+    } else {
+        // Show Cesium container immediately if already initialized
+        if (cesiumContainer) cesiumContainer.style.display = 'block';
+    }
+
     const earthSpacecraft = new THREE.Group();
     earthSpacecraft.name = "EarthSurfaceSpacecraft";
-    
-    // Copy the original spacecraft's children
     spacecraft.children.forEach(child => {
         const childClone = child.clone();
-        // Preserve the original name if it exists
-        if (child.name) {
-            childClone.name = child.name;
-        }
+        if (child.name) childClone.name = child.name;
         earthSpacecraft.add(childClone);
     });
-    
-    // Position the spacecraft at the top of the screen with a steep downward angle
-    // Higher Y position and negative Z position (coming from top of screen)
-    earthSpacecraft.position.set(0, 4000, -2000); // High altitude and behind (negative Z)
-    
-    // Set rotation to point downward at approximately 45 degrees
-    const pitchAngle = -Math.PI * 0.25; // Negative angle for downward pitch from top of screen
-    earthSpacecraft.rotation.set(pitchAngle, 0, 0);
-    
-    // Add to scene
+    earthSpacecraft.position.set(0, 10000, -2000);
+    earthSpacecraft.rotation.set(-Math.PI * 0.25, 0, 0);
     earthSurfaceScene.add(earthSpacecraft);
-    
-    // Get the existing overlay from the pre-transition
-    const existingOverlay = document.getElementById('transition-overlay');
-    
-    // Create a more gradual transition effect with fog
-    const transitionDuration = 1000; // 0.75 seconds to clear the fog (reduced from 1 second)
+
+    const overlay = document.getElementById('transition-overlay');
+    const transitionDuration = 1000;
     const startTime = performance.now();
-    
-    // Store original fog density for restoration after effect
     const originalFogDensity = 0.0003;
-    
-    // Create initial fog with higher density
-    earthSurfaceScene.fog = new THREE.FogExp2(0x87CEFA, 0.02);
-    
-    // Store original camera position for animation
-    const originalCameraPosition = new THREE.Vector3(0, 0, 10); // Default camera position
-    
-    // Animate the transition - fog clearing phase only
+    earthSurfaceScene.fog.density = 0.02;
+
     function animateTransition() {
         const elapsed = performance.now() - startTime;
         const progress = Math.min(elapsed / transitionDuration, 1);
-        
-        // Gradually decrease fog density back to original
-        const currentFogDensity = 0.02 - (0.02 - originalFogDensity) * progress;
-        earthSurfaceScene.fog.density = currentFogDensity;
-        
-        // Gradually decrease overlay opacity
-        if (existingOverlay) {
-            existingOverlay.style.opacity = (0.6 * (1 - progress)).toString();
-        }
-        
-        // Animate spacecraft descending from the top
+        earthSurfaceScene.fog.density = 0.02 - (0.02 - originalFogDensity) * progress;
+        if (overlay) overlay.style.opacity = (0.6 * (1 - progress)).toString();
+
         if (earthSpacecraft) {
-            // Calculate new position - gradually descending and moving forward
-            const newY = 4000 - (4000 - 1500) * progress; // From 4000 to 1500
-            const newZ = -2000 + (2000 + 500) * progress; // From -2000 to 500 (coming from top/back to front)
-            
-            // Update spacecraft position
+            const newY = 4000 - (4000 - 1500) * progress;
+            const newZ = -2000 + (2000 + 500) * progress;
             earthSpacecraft.position.set(0, newY, newZ);
-            
-            // Gradually level out the spacecraft as it descends
-            const newPitch = -Math.PI * 0.25 + (Math.PI * 0.45) * progress; // From -45° to +20°
+            const newPitch = -Math.PI * 0.25 + (Math.PI * 0.45) * progress;
             earthSpacecraft.rotation.set(newPitch, 0, 0);
-            
-            // Move camera closer to spacecraft during transition
-            if (camera) {
-                // Calculate camera offset - start further away, move closer
-                const cameraDistance = 10 - 5 * progress; // Move camera from 10 units to 5 units away
-                
-                // Update camera position relative to spacecraft
-                // We don't directly set camera position here as it's managed by the camera controls
-                // Instead we'll use this value in the movement.js file
-            }
+
+            // Camera transition using surfaceCameraOffset
+            const surfaceCameraPosition = surfaceCameraOffset.clone().applyMatrix4(earthSpacecraft.matrixWorld);
+            camera.position.lerp(surfaceCameraPosition, smoothFactor);
+            camera.quaternion.copy(earthSpacecraft.quaternion);
+            const adjustment = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0));
+            camera.quaternion.multiply(adjustment);
         }
-        
+
         if (progress < 1) {
             requestAnimationFrame(animateTransition);
         } else {
-            // Transition complete, remove overlay
-            if (existingOverlay) {
-                document.body.removeChild(existingOverlay);
-            }
-            
-            // Ensure fog is back to original settings
+            if (overlay) document.body.removeChild(overlay);
             earthSurfaceScene.fog.density = originalFogDensity;
-            
-            // Reset transition flag
             isTransitionInProgress = false;
-            
-            // Display the persistent message
             displayEarthSurfaceMessage();
         }
     }
-    
-    // Start the animation
     animateTransition();
 }
 
-// Function to display the Earth surface message (extracted from transitionToEarthSurface)
+// Display message
 function displayEarthSurfaceMessage() {
-    // Display a message to the user
     const message = document.createElement('div');
     message.id = 'earth-surface-message';
-    message.style.position = 'absolute';
-    message.style.top = '20px';
-    message.style.left = '50%';
-    message.style.transform = 'translateX(-50%)';
-    message.style.color = 'white';
-    message.style.fontFamily = 'Orbitron, sans-serif';
-    message.style.fontSize = '18px';
-    message.style.textAlign = 'center';
-    message.style.padding = '8px 15px';
-    message.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-    message.style.borderRadius = '5px';
-    message.style.zIndex = '1000';
+    message.style.cssText = `
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: white;
+        font-family: Orbitron, sans-serif;
+        font-size: 18px;
+        text-align: center;
+        padding: 8px 15px;
+        background-color: rgba(0, 0, 0, 0.5);
+        border-radius: 5px;
+        z-index: 1000;
+    `;
     message.textContent = 'Press ESC to leave Earth\'s atmosphere';
     document.body.appendChild(message);
 }
 
-// Function to exit Earth surface environment and return to space
+// Exit Earth surface
 export function exitEarthSurface() {
     console.log("Exiting Earth's atmosphere!");
     isEarthSurfaceActive = false;
-    isTransitionInProgress = false;
     
-    // Remove the persistent Earth surface message if it exists
-    const persistentMessage = document.getElementById('earth-surface-message');
-    if (persistentMessage) {
-        document.body.removeChild(persistentMessage);
+    // Hide Cesium container
+    if (cesiumContainer) {
+        cesiumContainer.style.display = 'none';
     }
     
+    // Remove Earth surface spacecraft
+    const earthSpacecraft = earthSurfaceScene.getObjectByName('EarthSurfaceSpacecraft');
+    if (earthSpacecraft) {
+        earthSurfaceScene.remove(earthSpacecraft);
+    }
+    
+    // Reset camera position
+    camera.position.copy(spacecraft.position);
+    camera.position.y += 5;
+    camera.position.z -= 20;
+    camera.lookAt(spacecraft.position);
+    
     // Position spacecraft away from Earth to avoid immediate re-entry
-    // Calculate a position that's 3x the planet radius + 1000 units away from Earth
     const directionVector = new THREE.Vector3(1, 1, 1).normalize();
     spacecraft.position.set(
         earthGroup.position.x + directionVector.x * (planetRadius * 3 + 1000),
@@ -389,34 +400,101 @@ export function exitEarthSurface() {
         earthGroup.position.z + directionVector.z * (planetRadius * 3 + 1000)
     );
     
-    // Reset spacecraft rotation to look toward the center of the solar system
-    spacecraft.lookAt(new THREE.Vector3(0, 0, 0));
+    // Create transition effect
+    const overlay = document.getElementById('transition-overlay');
+    if (overlay) {
+        overlay.style.opacity = '0.6';
+        setTimeout(() => {
+            overlay.style.opacity = '0';
+        }, 1000);
+    }
 }
 
-// Function to render the appropriate scene
+// Render function with Cesium 3D Tiles updates and camera logic
 export function renderScene() {
     if (isEarthSurfaceActive) {
+        const earthSpacecraft = earthSurfaceScene.getObjectByName('EarthSurfaceSpacecraft');
+        if (earthSpacecraft) {
+            // Update camera using surfaceCameraOffset
+            const surfaceCameraPosition = surfaceCameraOffset.clone().applyMatrix4(earthSpacecraft.matrixWorld);
+            camera.position.lerp(surfaceCameraPosition, smoothFactor);
+            camera.quaternion.copy(earthSpacecraft.quaternion);
+            const adjustment = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0));
+            camera.quaternion.multiply(adjustment);
+
+            // Update Cesium camera to match Three.js camera position
+            if (cesiumViewer) {
+                // Convert Three.js position to Cesium position
+                const height = 1000; // Height in meters above ground
+                const cesiumPosition = Cesium.Cartesian3.fromDegrees(
+                    NYC_CENTER.lng + (earthSpacecraft.position.x / (111320 * Math.cos(NYC_CENTER.lat * Math.PI / 180))),
+                    NYC_CENTER.lat + (earthSpacecraft.position.z / 111320),
+                    height
+                );
+                
+                // Get heading and pitch from Three.js camera
+                const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                const heading = Math.atan2(direction.x, direction.z);
+                const pitch = Math.asin(direction.y);
+                
+                // Update Cesium camera
+                cesiumViewer.camera.setView({
+                    destination: cesiumPosition,
+                    orientation: {
+                        heading: -heading, // Negate heading to match Three.js
+                        pitch: pitch,
+                        roll: 0
+                    }
+                });
+                
+                // Force Cesium to render a frame
+                cesiumViewer.scene.requestRender();
+            }
+        }
+        
+        // Render Three.js scene on top of Cesium
         renderer.render(earthSurfaceScene, camera);
     } else {
+        // Hide Cesium container when not in Earth surface mode
+        if (cesiumContainer) {
+            cesiumContainer.style.display = 'none';
+        }
+        
+        // Render normal space scene
         renderer.render(scene, camera);
     }
 }
 
-// Texture loader
-const textureLoader = new THREE.TextureLoader();
+// Basic controls for surface movement
+document.addEventListener('keydown', (event) => {
+    if (!isEarthSurfaceActive) return;
+    const earthSpacecraft = earthSurfaceScene.getObjectByName('EarthSurfaceSpacecraft');
+    if (!earthSpacecraft) return;
+
+    const speed = 20;
+    switch (event.key) {
+        case 'ArrowUp': earthSpacecraft.position.z -= speed; break;
+        case 'ArrowDown': earthSpacecraft.position.z += speed; break;
+        case 'ArrowLeft': earthSpacecraft.position.x -= speed; break;
+        case 'ArrowRight': earthSpacecraft.position.x += speed; break;
+        case 'Escape': exitEarthSurface(); break;
+    }
+});
+
+////////
 
 // Skybox setup
-const skyboxTexture = textureLoader.load('skybox/galaxy5.jpeg');
-const skyboxGeometry = new THREE.BoxGeometry(250000, 250000, 250000);
-const skyboxMaterial = new THREE.MeshBasicMaterial({
-    map: skyboxTexture,
-    side: THREE.BackSide,
-    depthWrite: false, // Prevent depth interference
-    depthTest: false   // Avoid rendering issues
-});
-const skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
-skybox.position.set(0, 0, 0); // Ensure centered at origin
-scene.add(skybox);
+// const skyboxTexture = textureLoader.load('skybox/galaxy5.jpeg');
+// const skyboxGeometry = new THREE.BoxGeometry(250000, 250000, 250000);
+// const skyboxMaterial = new THREE.MeshBasicMaterial({
+//     map: skyboxTexture,
+//     side: THREE.BackSide,
+//     depthWrite: false, // Prevent depth interference
+//     depthTest: false   // Avoid rendering issues
+// });
+// const skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
+// skybox.position.set(0, 0, 0); // Ensure centered at origin
+// scene.add(skybox);
 
 // --- Sun Setup ---
 const sunGroup = new THREE.Group();
