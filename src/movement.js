@@ -1,7 +1,6 @@
 // src/movement.js
 import { scene, isEarthSurfaceActive, earthSurfaceScene } from './setup.js';
 import { spacecraft, engineGlowMaterial, lightMaterial, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, PLANET_RADIUS, PLANET_POSITION, planet, updateEngineEffects } from './setup.js';
-import { challengeComplete } from './gameLogic.js';
 
 // Movement and boost variables
 export const baseSpeed = 2;
@@ -59,7 +58,6 @@ export function resetMovementInputs() {
 
 // Keyboard controls
 document.addEventListener('keydown', (event) => {
-    if (!gameMode || challengeComplete) return;
     
     switch (event.key) {
         case 'w': keys.w = true; break;
@@ -73,7 +71,6 @@ document.addEventListener('keydown', (event) => {
 });
 
 document.addEventListener('keyup', (event) => {
-    if (challengeComplete) return;
     
     switch (event.key) {
         case 'w': keys.w = false; break;
@@ -145,9 +142,7 @@ export function updateCamera(camera, isHyperspace) {
 }
 
 export function updateMovement(isBoosting, isHyperspace) {
-    if (challengeComplete) {
-        return;
-    }
+
     
     // If in Earth surface mode, handle surface movement
     if (isEarthSurfaceActive) {

@@ -12,7 +12,6 @@ import {
     exitEarthSurface
 } from './setup.js';
 import { updateCamera, updateMovement, setGameMode, resetMovementInputs, keys } from './movement.js'; // Added keys import
-import { initializeTargetChallenge, updateGame, targets, score, challengeTargetCount, challengeComplete } from './gameLogic.js';
 import { setupUIElements, setupDirectionalIndicator, updateDirectionalIndicator, showRaceModeUI, hideRaceModeUI, updateUI } from './ui.js';
 import { updateLasers, fireLasers, startFiring, stopFiring } from './lasers.js';
 import { updateReticle } from './reticle.js';
