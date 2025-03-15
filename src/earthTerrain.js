@@ -151,9 +151,9 @@ function createMountain(x, z, colors) {
     const mountainMaterial = new THREE.MeshStandardMaterial({
         color: colors[colorIndex],
         roughness: 0.9,
-        metalness: 0.1
-    });
-    
+                metalness: 0.1
+            });
+            
     const mountain = new THREE.Mesh(mountainGeometry, mountainMaterial);
     
     // Position the mountain
