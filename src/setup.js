@@ -14,6 +14,7 @@ import {
     exitEarthSurface,
     renderScene as renderSceneFromEarthTerrain,
     initializeEarthTerrain
+// } from './earth3D.js';
 } from './earthTerrain.js';
 
 // Export the imported functions to maintain compatibility with other modules

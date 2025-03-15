@@ -1,10 +1,9 @@
 import * as THREE from 'three';
-import { EnvironmentControls } from '3d-tiles-renderer/src/three/controls/EnvironmentControls.js';
-import { TilesRenderer } from '3d-tiles-renderer/src/three/TilesRenderer.js';
-import { CesiumIonAuthPlugin } from '3d-tiles-renderer/src/plugins/three/CesiumIonAuthPlugin.js';
-import { GLTFExtensionsPlugin } from '3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js';
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
-import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min.js';
+import { TilesRenderer } from '/node_modules/3d-tiles-renderer/src/three/TilesRenderer.js';
+import { CesiumIonAuthPlugin } from '/node_modules/3d-tiles-renderer/src/plugins/three/CesiumIonAuthPlugin.js';
+import { GLTFExtensionsPlugin } from '/node_modules/3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js';
+import { DRACOLoader } from '/node_modules/three/examples/jsm/loaders/DRACOLoader.js';
+import { GUI } from '/node_modules/three/examples/jsm/libs/lil-gui.module.min.js';
 
 let camera, controls, scene, renderer, tiles, cameraTarget;
 
