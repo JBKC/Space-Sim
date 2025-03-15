@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "start": "node main.js",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -19,7 +22,12 @@
   },
   "homepage": "https://github.com/jbkc/space-sim#readme",
   "dependencies": {
+    "@cesium/engine": "^15.0.0",
+    "3d-tiles-renderer": "^0.4.7",
     "three": "^0.166.1"
   },
-  "description": ""
+  "description": "The Metaverse of the Universe. In your Browser.",
+  "devDependencies": {
+    "vite": "^6.2.2"
+  }
 }
