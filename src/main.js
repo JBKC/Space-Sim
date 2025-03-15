@@ -9,7 +9,8 @@ import {
     checkEarthProximity, 
     renderScene, 
     isEarthSurfaceActive,
-    exitEarthSurface
+    exitEarthSurface,
+    animateEarthTerrain
 } from './setup.js';
 import { updateCamera, updateMovement, setGameMode, resetMovementInputs, keys } from './movement.js'; // Added keys import
 import { setupUIElements, setupDirectionalIndicator, updateDirectionalIndicator, showRaceModeUI, hideRaceModeUI, updateUI } from './ui.js';
@@ -98,66 +99,6 @@ function startGame(mode) {
         isAnimating = true;
         animate();
     }
-}
-
-// Main animation loop with continuous firing
-function animate() {
-    if (!isAnimating) return;
-    
-    requestAnimationFrame(animate);
-
-    // Debug: Log boost and hyperspace states
-    console.log('animate - isBoosting:', isBoosting, 'isHyperspace:', isHyperspace);
-
-    updateMovement(isBoosting, isHyperspace);
-    updateStars();
-    updateCamera(camera, isHyperspace);
-    updateLasers();
-    updateReticle();
-    updatePlanetLabels();
-
-    // Check if spacecraft is near Earth
-    if (!isEarthSurfaceActive) {
-        checkEarthProximity();
-    }
-
-    // Continuous laser firing logic
-    if (isSpacePressed && !isHyperspace) {
-        const currentTime = Date.now();
-        if (currentTime - lastFired >= fireRate) {
-            fireLasers();
-            lastFired = currentTime;
-            console.log('Lasers fired at:', new Date().toISOString());
-        }
-    }
-
-    // Update hyperspace streaks if active
-    if (isHyperspace) {
-        updateStreaks();
-    }
-
-    const coordsDiv = document.getElementById('coordinates');
-    if (coordsDiv) {
-        if (isEarthSurfaceActive) {
-            // Hide coordinates when on Earth's surface
-            coordsDiv.style.display = 'none';
-        } else {
-            // Show coordinates and update them when in space
-            coordsDiv.style.display = 'block';
-            const pos = spacecraft.position;
-            coordsDiv.textContent = `X: ${pos.x.toFixed(0)}, Y: ${pos.y.toFixed(0)}, Z: ${pos.z.toFixed(0)}`;
-        }
-    }
-
-    if (gameMode === 'race') {
-        updateGame();
-        updateDirectionalIndicator(targets, score, challengeTargetCount, challengeComplete, camera);
-    }
-
-    updateUI();
-    
-    // Use the new rendering function instead of directly rendering the scene
-    renderScene();
 }
 
 // Handle window resize
@@ -278,4 +219,66 @@ function startHyperspace() {
         streakLines.forEach(streak => scene.remove(streak.line));
         streakLines = [];
     }, 2000);
+}
+
+
+
+// Main animation loop with continuous firing
+function animate() {
+
+    if (isEarthSurfaceActive) {
+        animateEarthTerrain();
+    }
+    
+    if (!isAnimating) return;
+    
+    requestAnimationFrame(animate);
+
+    // Debug: Log boost and hyperspace states
+    console.log('animate - isBoosting:', isBoosting, 'isHyperspace:', isHyperspace);
+
+    updateMovement(isBoosting, isHyperspace);
+    updateStars();
+    updateCamera(camera, isHyperspace);
+    updateLasers();
+    updateReticle();
+    updatePlanetLabels();
+
+    // Check if spacecraft is near Earth
+    if (!isEarthSurfaceActive) {
+        checkEarthProximity();
+    }
+
+    // Continuous laser firing logic
+    if (isSpacePressed && !isHyperspace) {
+        const currentTime = Date.now();
+        if (currentTime - lastFired >= fireRate) {
+            fireLasers();
+            lastFired = currentTime;
+            console.log('Lasers fired at:', new Date().toISOString());
+        }
+    }
+
+    // Update hyperspace streaks if active
+    if (isHyperspace) {
+        updateStreaks();
+    }
+
+    const coordsDiv = document.getElementById('coordinates');
+    if (coordsDiv) {
+        if (isEarthSurfaceActive) {
+            // Hide coordinates when on Earth's surface
+            coordsDiv.style.display = 'none';
+        } else {
+            // Show coordinates and update them when in space
+            coordsDiv.style.display = 'block';
+            const pos = spacecraft.position;
+            coordsDiv.textContent = `X: ${pos.x.toFixed(0)}, Y: ${pos.y.toFixed(0)}, Z: ${pos.z.toFixed(0)}`;
+        }
+    }
+
+    updateUI();
+    
+    // Use the new rendering function instead of directly rendering the scene
+    renderScene();
 }

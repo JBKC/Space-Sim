@@ -5,7 +5,16 @@ import { GLTFExtensionsPlugin } from '/node_modules/3d-tiles-renderer/src/plugin
 import { DRACOLoader } from '/node_modules/three/examples/jsm/loaders/DRACOLoader.js';
 import { GUI } from '/node_modules/three/examples/jsm/libs/lil-gui.module.min.js';
 
-let camera, controls, scene, renderer, tiles, cameraTarget;
+let scene, camera, controls, renderer, tiles, cameraTarget;
+
+// Earth surface environment
+export const earthSurfaceScene = new THREE.Scene();
+let setupModule;
+
+// Flag to track which scene is active
+export let isEarthSurfaceActive = false;
+// Flag to track if transition is in progress
+export let isTransitionInProgress = false;
 
 // Camera setup
 const baseCameraOffset = new THREE.Vector3(0, 2, 10);
@@ -46,7 +55,7 @@ let keys = { w: false, s: false, a: false, d: false, left: false, right: false, 
 function initSpacecraft() {
     // Create spacecraft group
     spacecraft = new THREE.Group();
-    scene.add(spacecraft);
+    earthSurfaceScene.add(spacecraft);
     
     // Create spacecraft body (simple placeholder - replace with your model)
     const bodyGeometry = new THREE.ConeGeometry(1, 5, 4);
@@ -94,9 +103,7 @@ function initSpacecraft() {
     cameraTarget.position.set(0, 0, 0);
 }
 
-init();
-animate();
-
+renderScene();
 
 
 function updateMovement() {
@@ -210,12 +217,12 @@ function setupTiles() {
     tiles.registerPlugin(new GLTFExtensionsPlugin({
         dracoLoader: new DRACOLoader().setDecoderPath('./draco/')
     }));
-    scene.add(tiles.group);
+    earthSurfaceScene.add(tiles.group);
 }
 
 function reinstantiateTiles() {
     if (tiles) {
-        scene.remove(tiles.group);
+        earthSurfaceScene.remove(tiles.group);
         tiles.dispose();
         tiles = null;
     }
@@ -272,57 +279,297 @@ function initControls() {
     });
 }
 
-function init() {
-    scene = new THREE.Scene();
 
-    // Environment setup (keep this)
-    const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(255), 64, 64);
-    env.mapping = THREE.EquirectangularReflectionMapping;
-    env.needsUpdate = true;
-    scene.environment = env;
-
-    // Renderer setup (keep this)
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setClearColor(0x151c1f);
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    document.body.appendChild(renderer.domElement);
-    renderer.domElement.tabIndex = 1;
-
-    // Camera setup (keep this)
-    camera = new THREE.PerspectiveCamera(
-        60,
-        window.innerWidth / window.innerHeight,
-        1,
-        100000
-    );
-    camera.position.set(100, 100, -100);
-    camera.lookAt(0, 0, 0);
-
-    // REMOVE the EnvironmentControls
-    // controls = new EnvironmentControls(scene, camera, renderer.domElement);
+export function renderScene() {
+    if (!setupModule) return; // Wait until setup module is available
     
-    // Instead, create your spacecraft and camera rig
-    initSpacecraft();
+    if (isEarthSurfaceActive) {
+        // render the planet surface with 3D tiles
 
-    // Load the tiles
-    reinstantiateTiles();
-
-    onWindowResize();
-    window.addEventListener('resize', onWindowResize, false);
-
-    // Setup GUI (keep this)
-    const gui = new GUI();
-    gui.width = 300;
-    const ionOptions = gui.addFolder('Ion');
-    ionOptions.add(params, 'ionAssetId');
-    ionOptions.add(params, 'ionAccessToken');
-    ionOptions.add(params, 'reload');
-    ionOptions.open();
+        // Environment setup (keep this)
+        const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(255), 64, 64);
+        env.mapping = THREE.EquirectangularReflectionMapping;
+        env.needsUpdate = true;
+        earthSurfaceScene.environment = env;
     
-    // Initialize keyboard controls
-    initControls();
+        // Renderer setup (keep this)
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setClearColor(0x151c1f);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+        renderer.domElement.tabIndex = 1;
+    
+        // Camera setup (keep this)
+        camera = new THREE.PerspectiveCamera(
+            60,
+            window.innerWidth / window.innerHeight,
+            1,
+            100000
+        );
+        camera.position.set(100, 100, -100);
+        camera.lookAt(0, 0, 0);
+    
+        // create your spacecraft and camera rig
+        initSpacecraft();
+        // Load the tiles
+        reinstantiateTiles();
+    
+        onWindowResize();
+        window.addEventListener('resize', onWindowResize, false);
+    
+        // Setup GUI (keep this)
+        const gui = new GUI();
+        gui.width = 300;
+        const ionOptions = gui.addFolder('Ion');
+        ionOptions.add(params, 'ionAssetId');
+        ionOptions.add(params, 'ionAccessToken');
+        ionOptions.add(params, 'reload');
+        ionOptions.open();
+        
+        // Initialize keyboard controls
+        initControls();
+
+        setupModule.renderer.render(earthSurfaceScene, setupModule.camera);
+    } else {
+        // render the space scene
+        setupModule.renderer.render(setupModule.scene, setupModule.camera);
+    }
 }
+
+export function initializeEarthTerrain(setup) {
+    setupModule = setup;
+}
+
+// Function to check if spacecraft is near Earth
+export function checkEarthProximity() {
+    if (!setupModule) return; // Wait until setup module is available
+    
+    // Calculate distance between spacecraft and Earth
+    const earthPosition = setupModule.earthGroup.position.clone();
+    const spacecraftPosition = setupModule.spacecraft.position.clone();
+    const distance = earthPosition.distanceTo(spacecraftPosition);
+    
+    // Start transition when within detection zone but before actual transition
+    if (distance < setupModule.planetRadius + 800 && !isEarthSurfaceActive && !isTransitionInProgress) {
+        // Start the pre-transition effect while still in space
+        startAtmosphereTransition();
+    }
+    
+    // Actual transition to surface happens at a closer distance
+    if (distance < setupModule.planetRadius + 500 && !isEarthSurfaceActive && isTransitionInProgress) {
+        // Only transition to surface after the mist has built up
+        const overlay = document.getElementById('transition-overlay');
+        if (overlay && parseFloat(getComputedStyle(overlay).opacity) > 0.3) {
+            transitionToEarthSurface();
+        }
+    }
+}
+
+// Function to start the atmosphere transition effect while still in space
+function startAtmosphereTransition() {
+    console.log("Approaching Earth's atmosphere...");
+    isTransitionInProgress = true;
+    
+    // Create a transition overlay element with initial transparency
+    const overlay = document.createElement('div');
+    overlay.id = 'transition-overlay';
+    overlay.style.position = 'absolute';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backgroundColor = 'rgba(135, 206, 250, 0)'; // Start transparent
+    overlay.style.opacity = '0';
+    overlay.style.pointerEvents = 'none'; // Don't block user interaction
+    overlay.style.zIndex = '999';
+    document.body.appendChild(overlay);
+    
+    // Gradually increase the mist over 0.75 seconds (reduced from 1 second)
+    const transitionDuration = 1000;
+    const startTime = performance.now();
+    
+    function animatePreTransition() {
+        const elapsed = performance.now() - startTime;
+        const progress = Math.min(elapsed / transitionDuration, 1);
+        
+        // Gradually increase overlay opacity
+        overlay.style.opacity = (0.6 * progress).toString();
+        
+        if (progress < 1 && !isEarthSurfaceActive) {
+            requestAnimationFrame(animatePreTransition);
+        }
+    }
+    
+    // Start the animation
+    animatePreTransition();
+}
+
+// Function to transition to Earth surface environment
+export function transitionToEarthSurface() {
+    if (!setupModule) return; // Wait until setup module is available
+    
+    console.log("Entering Earth's atmosphere!");
+    isEarthSurfaceActive = true;
+    
+    // Clear any existing spacecraft from the Earth surface scene
+    earthSurfaceScene.children.forEach(child => {
+        if (child.type === 'Group' && child !== earthSurface) {
+            earthSurfaceScene.remove(child);
+        }
+    });
+    
+    // Create a new spacecraft for the Earth surface scene
+    const earthSpacecraft = new THREE.Group();
+    earthSpacecraft.name = "EarthSurfaceSpacecraft";
+    
+    // Copy the original spacecraft's children
+    setupModule.spacecraft.children.forEach(child => {
+        const childClone = child.clone();
+        // Preserve the original name if it exists
+        if (child.name) {
+            childClone.name = child.name;
+        }
+        earthSpacecraft.add(childClone);
+    });
+    
+    // Position the spacecraft at the top of the screen with a steep downward angle
+    // Higher Y position and negative Z position (coming from top of screen)
+    earthSpacecraft.position.set(0, 4000, -2000); // High altitude and behind (negative Z)
+    
+    // Set rotation to point downward at approximately 45 degrees
+    const pitchAngle = -Math.PI * 0.25; // Negative angle for downward pitch from top of screen
+    earthSpacecraft.rotation.set(pitchAngle, 0, 0);
+    
+    // Add to scene
+    earthSurfaceScene.add(earthSpacecraft);
+    
+    // Get the existing overlay from the pre-transition
+    const existingOverlay = document.getElementById('transition-overlay');
+    
+    // Create a more gradual transition effect with fog
+    const transitionDuration = 1000; // 0.75 seconds to clear the fog (reduced from 1 second)
+    const startTime = performance.now();
+    
+    // Store original fog density for restoration after effect
+    const originalFogDensity = 0.0003;
+    
+    // Create initial fog with higher density
+    earthSurfaceScene.fog = new THREE.FogExp2(0x87CEFA, 0.02);
+    
+    // Store original camera position for animation
+    const originalCameraPosition = new THREE.Vector3(0, 0, 10); // Default camera position
+    
+    // Animate the transition - fog clearing phase only
+    function animateTransition() {
+        const elapsed = performance.now() - startTime;
+        const progress = Math.min(elapsed / transitionDuration, 1);
+        
+        // Gradually decrease fog density back to original
+        const currentFogDensity = 0.02 - (0.02 - originalFogDensity) * progress;
+        earthSurfaceScene.fog.density = currentFogDensity;
+        
+        // Gradually decrease overlay opacity
+        if (existingOverlay) {
+            existingOverlay.style.opacity = (0.6 * (1 - progress)).toString();
+        }
+        
+        // Animate spacecraft descending from the top
+        if (earthSpacecraft) {
+            // Calculate new position - gradually descending and moving forward
+            const newY = 4000 - (4000 - 1500) * progress; // From 4000 to 1500
+            const newZ = -2000 + (2000 + 500) * progress; // From -2000 to 500 (coming from top/back to front)
+            
+            // Update spacecraft position
+            earthSpacecraft.position.set(0, newY, newZ);
+            
+            // Gradually level out the spacecraft as it descends
+            const newPitch = -Math.PI * 0.25 + (Math.PI * 0.45) * progress; // From -45° to +20°
+            earthSpacecraft.rotation.set(newPitch, 0, 0);
+            
+            // Move camera closer to spacecraft during transition
+            if (setupModule.camera) {
+                // Calculate camera offset - start further away, move closer
+                const cameraDistance = 10 - 5 * progress; // Move camera from 10 units to 5 units away
+                
+                // Update camera position relative to spacecraft
+                // We don't directly set camera position here as it's managed by the camera controls
+                // Instead we'll use this value in the movement.js file
+            }
+        }
+        
+        if (progress < 1) {
+            requestAnimationFrame(animateTransition);
+        } else {
+            // Transition complete, remove overlay
+            if (existingOverlay) {
+                document.body.removeChild(existingOverlay);
+            }
+            
+            // Ensure fog is back to original settings
+            earthSurfaceScene.fog.density = originalFogDensity;
+            
+            // Reset transition flag
+            isTransitionInProgress = false;
+            
+            // Display the persistent message
+            displayEarthSurfaceMessage();
+        }
+    }
+    
+    // Start the animation
+    animateTransition();
+}
+
+
+// Function to display the Earth surface message (extracted from transitionToEarthSurface)
+function displayEarthSurfaceMessage() {
+    // Display a message to the user
+    const message = document.createElement('div');
+    message.id = 'earth-surface-message';
+    message.style.position = 'absolute';
+    message.style.top = '20px';
+    message.style.left = '50%';
+    message.style.transform = 'translateX(-50%)';
+    message.style.color = 'white';
+    message.style.fontFamily = 'Orbitron, sans-serif';
+    message.style.fontSize = '18px';
+    message.style.textAlign = 'center';
+    message.style.padding = '8px 15px';
+    message.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    message.style.borderRadius = '5px';
+    message.style.zIndex = '1000';
+    message.textContent = 'Press ESC to leave Earth\'s atmosphere';
+    document.body.appendChild(message);
+}
+
+// Function to exit Earth surface environment and return to space
+export function exitEarthSurface() {
+    if (!setupModule) return; // Wait until setup module is available
+    
+    console.log("Exiting Earth's atmosphere!");
+    isEarthSurfaceActive = false;
+    isTransitionInProgress = false;
+    
+    // Remove the persistent Earth surface message if it exists
+    const persistentMessage = document.getElementById('earth-surface-message');
+    if (persistentMessage) {
+        document.body.removeChild(persistentMessage);
+    }
+    
+    // Position spacecraft away from Earth to avoid immediate re-entry
+    // Calculate a position that's 3x the planet radius + 1000 units away from Earth
+    const directionVector = new THREE.Vector3(1, 1, 1).normalize();
+    setupModule.spacecraft.position.set(
+        setupModule.earthGroup.position.x + directionVector.x * (setupModule.planetRadius * 3 + 1000),
+        setupModule.earthGroup.position.y + directionVector.y * (setupModule.planetRadius * 3 + 1000),
+        setupModule.earthGroup.position.z + directionVector.z * (setupModule.planetRadius * 3 + 1000)
+    );
+    
+    // Reset spacecraft rotation to look toward the center of the solar system
+    setupModule.spacecraft.lookAt(new THREE.Vector3(0, 0, 0));
+}
+
 
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -331,7 +578,7 @@ function onWindowResize() {
     renderer.setPixelRatio(window.devicePixelRatio);
 }
 
-function animate() {
+export function animate() {
     requestAnimationFrame(animate);
 
     if (!tiles) return;

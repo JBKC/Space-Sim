@@ -13,20 +13,21 @@ import {
     checkEarthProximity,
     exitEarthSurface,
     renderScene as renderSceneFromEarthTerrain,
-    initializeEarthTerrain
-// } from './earth3D.js';
-} from './earthTerrain.js';
+    initializeEarthTerrain,
+    animate as animateEarthTerrain
+} from './earth3D.js';
+// } from './earthTerrain.js';
 
 // Export the imported functions to maintain compatibility with other modules
-export { isEarthSurfaceActive, isTransitionInProgress, earthSurfaceScene, checkEarthProximity, exitEarthSurface };
+export { isEarthSurfaceActive, isTransitionInProgress, earthSurfaceScene, checkEarthProximity, exitEarthSurface, animateEarthTerrain };
 
 // Render function that delegates to earthTerrain.js when in Earth surface mode
 export function renderScene() {
     if (isEarthSurfaceActive) {
-        // Use the earthTerrain.js render function
+        // Use the planet surface render function
         renderSceneFromEarthTerrain();
     } else {
-        // Render Three.js scene
+        // Render space scene
         renderer.render(scene, camera);
     }
 }
