@@ -7,9 +7,6 @@ import { GUI } from '/node_modules/three/examples/jsm/libs/lil-gui.module.min.js
 
 let camera, controls, scene, renderer, tiles, cameraTarget;
 
-// flag to prevent multiple initializations
-let isInitialized = false;
-
 // Camera setup
 const baseCameraOffset = new THREE.Vector3(0, 2, 10);
 const boostCameraOffset = new THREE.Vector3(0, 3, 70);
@@ -28,8 +25,8 @@ const rotation = {
 
 const apiKey = localStorage.getItem('ionApiKey') ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJmM2NmMGU2Mi0zNDYxLTRhOTQtYmRiNi05Mzk0NTg4OTdjZDkiLCJpZCI6Mjg0MDk5LCJpYXQiOjE3NDE5MTI4Nzh9.ciqVryFsYbzdwKxd_nEANC8pHgU9ytlfylfpfy9Q56U';
 
-    const params = {
-        ionAssetId: '75343',
+const params = {
+    ionAssetId: '75343',
     ionAccessToken: apiKey,
     reload: reinstantiateTiles,
 };
@@ -46,6 +43,10 @@ let currentSpeed = baseSpeed;
 const turnSpeed = 0.03;
 let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false };
 
+////// RUN THE PROGRAM
+init();
+animate();
+//////
 
 function initSpacecraft() {
     // Create spacecraft group
@@ -273,11 +274,7 @@ function initControls() {
     });
 }
 
-export function init() {
-
-    if (isInitialized) return;
-    isInitialized = true;
-    
+function init() {
     scene = new THREE.Scene();
 
     // Environment setup (keep this)
@@ -336,10 +333,8 @@ function onWindowResize() {
     renderer.setPixelRatio(window.devicePixelRatio);
 }
 
-let animationFrameId = null;
-
-export function animate() {
-    animationFrameId = requestAnimationFrame(animate);
+function animate() {
+    requestAnimationFrame(animate);
 
     if (!tiles) return;
 
@@ -359,13 +354,4 @@ export function animate() {
 
     // Render scene
     renderer.render(scene, camera);
-}
-
-
-// Add a function to stop the animation loop
-export function stopAnimation() {
-    if (animationFrameId !== null) {
-        cancelAnimationFrame(animationFrameId);
-        animationFrameId = null;
-    }
 }
