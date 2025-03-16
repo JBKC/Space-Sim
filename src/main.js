@@ -10,7 +10,6 @@ import {
     renderScene, 
     isEarthSurfaceActive,
     exitEarthSurface,
-    animateEarthTerrain
 } from './setup.js';
 import { updateCamera, updateMovement, setGameMode, resetMovementInputs, keys } from './movement.js'; // Added keys import
 import { setupUIElements, setupDirectionalIndicator, updateDirectionalIndicator, showRaceModeUI, hideRaceModeUI, updateUI } from './ui.js';
@@ -226,16 +225,9 @@ function startHyperspace() {
 // Main animation loop with continuous firing
 function animate() {
 
-    if (isEarthSurfaceActive) {
-        animateEarthTerrain();
-    }
-    
     if (!isAnimating) return;
     
     requestAnimationFrame(animate);
-
-    // Debug: Log boost and hyperspace states
-    console.log('animate - isBoosting:', isBoosting, 'isHyperspace:', isHyperspace);
 
     updateMovement(isBoosting, isHyperspace);
     updateStars();

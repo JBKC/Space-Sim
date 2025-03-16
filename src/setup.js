@@ -14,12 +14,11 @@ import {
     exitEarthSurface,
     renderScene as renderSceneFromEarthTerrain,
     initializeEarthTerrain,
-    animate as animateEarthTerrain
-} from './earth3D.js';
-// } from './earthTerrain.js';
+// } from './earth3D.js';
+} from './earthTerrain.js';
 
 // Export the imported functions to maintain compatibility with other modules
-export { isEarthSurfaceActive, isTransitionInProgress, earthSurfaceScene, checkEarthProximity, exitEarthSurface, animateEarthTerrain };
+export { isEarthSurfaceActive, isTransitionInProgress, earthSurfaceScene, checkEarthProximity, exitEarthSurface };
 
 // Render function that delegates to earthTerrain.js when in Earth surface mode
 export function renderScene() {
