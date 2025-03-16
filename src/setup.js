@@ -1,4 +1,4 @@
-// Import THREE.js (assuming it's included elsewhere)
+
 export const scene = new THREE.Scene();
 export const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
 export const renderer = new THREE.WebGLRenderer();
@@ -7,27 +7,41 @@ document.getElementById('game-container').appendChild(renderer.domElement);
 
 // Import functions from earthTerrain.js
 import { 
-    earthSurfaceScene,
-    isEarthSurfaceActive, 
-    isTransitionInProgress,
-    checkEarthProximity,
-    exitEarthSurface,
-    renderScene as renderSceneFromEarthTerrain,
-    initializeEarthTerrain,
+    // earthSurfaceScene,
+    // isEarthSurfaceActive, 
+    // isTransitionInProgress,
+    // checkEarthProximity,
+    // exitEarthSurface,
+    // renderScene as renderSceneFromEarthTerrain,
+    // initializeEarthTerrain,
+    init as initEarth3D,
+    animate as animateEarth3D,
 } from './earth3D.js';
 // } from './earthTerrain.js';
 
-// Export the imported functions to maintain compatibility with other modules
-export { isEarthSurfaceActive, isTransitionInProgress, earthSurfaceScene, checkEarthProximity, exitEarthSurface };
+// Flag to track which scene is active
+export let isEarthSurfaceActive = false;
 
-// Render function that delegates to earthTerrain.js when in Earth surface mode
+// Render function that delegates to earth3D.js when in Earth surface mode
 export function renderScene() {
     if (isEarthSurfaceActive) {
         // Use the planet surface render function
+        initEarth3D();
         renderSceneFromEarthTerrain();
     } else {
         // Render space scene
         renderer.render(scene, camera);
+    }
+}
+
+export function checkEarthProximity() {
+    const earthPosition = earthGroup.position.clone();
+    const spacecraftPosition = spacecraft.position.clone();
+    const distance = earthPosition.distanceTo(spacecraftPosition);
+
+    if (distance < planetRadius + 800 && !isEarthSurfaceActive) {
+        initEarth3D();
+        animateEarth3D();
     }
 }
 
@@ -920,14 +934,14 @@ window.addEventListener('keyup', (event) => {
 
 // Initialize the Earth terrain module with references to this module
 // This needs to be at the end of the file after all variables are defined
-initializeEarthTerrain({
-    scene,
-    camera,
-    renderer,
-    textureLoader,
-    spacecraft,
-    earthGroup,
-    planetRadius,
-    PLANET_RADIUS
-});
+// initializeEarthTerrain({
+//     scene,
+//     camera,
+//     renderer,
+//     textureLoader,
+//     spacecraft,
+//     earthGroup,
+//     planetRadius,
+//     PLANET_RADIUS
+// });
 

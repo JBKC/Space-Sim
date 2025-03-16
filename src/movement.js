@@ -1,5 +1,5 @@
 // src/movement.js
-import { scene, isEarthSurfaceActive, earthSurfaceScene } from './setup.js';
+import { scene, isEarthSurfaceActive } from './setup.js';
 import { spacecraft, engineGlowMaterial, lightMaterial, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, PLANET_RADIUS, PLANET_POSITION, planet, updateEngineEffects } from './setup.js';
 
 // Movement and boost variables

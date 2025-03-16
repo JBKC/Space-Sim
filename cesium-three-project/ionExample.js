@@ -44,6 +44,11 @@ let currentSpeed = baseSpeed;
 const turnSpeed = 0.03;
 let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false };
 
+////// RUN THE PROGRAM
+init();
+animate();
+//////
+
 function initSpacecraft() {
     // Create spacecraft group
     spacecraft = new THREE.Group();
@@ -95,8 +100,6 @@ function initSpacecraft() {
     cameraTarget.position.set(0, 0, 0);
 }
 
-init();
-animate();
 
 
 function updateMovement() {

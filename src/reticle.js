@@ -1,4 +1,4 @@
-import { scene, spacecraft, earthSurfaceScene, isEarthSurfaceActive } from './setup.js';
+import { scene, spacecraft, isEarthSurfaceActive } from './setup.js';
 
 // Create reticle group
 const reticleGroup = new THREE.Group();

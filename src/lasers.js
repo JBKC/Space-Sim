@@ -1,5 +1,5 @@
 // src/lasers.js
-import { scene, spacecraft, earthSurfaceScene, isEarthSurfaceActive } from './setup.js';
+import { scene, spacecraft, isEarthSurfaceActive } from './setup.js';
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.module.js';
 
 const laserLength = 20; // Length of the laser bolt
