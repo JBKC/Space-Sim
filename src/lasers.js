@@ -44,9 +44,9 @@ function createLaser(startPosition, direction) {
     laser.position.copy(startPosition);
 
     // Get the appropriate spacecraft
-    const targetSpacecraft = isEarthSurfaceActive ? 
-        earthSurfaceScene.children.find(obj => obj.name === "EarthSurfaceSpacecraft") : 
-        spacecraft;
+    // const targetSpacecraft = isEarthSurfaceActive ? 
+    //     earthSurfaceScene.children.find(obj => obj.name === "EarthSurfaceSpacecraft") : 
+    //     spacecraft;
     
     if (targetSpacecraft) {
         // Align the laser with the spacecraft's forward direction

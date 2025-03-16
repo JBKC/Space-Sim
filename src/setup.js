@@ -63,7 +63,6 @@ export function checkEarthProximity() {
 
 
 export function exitEarthSurface() {
-    
     console.log("Exiting Earth's atmosphere!");
     isEarthSurfaceActive = false;
     
@@ -74,7 +73,6 @@ export function exitEarthSurface() {
     }
     
     // Position spacecraft away from Earth to avoid immediate re-entry
-    // Calculate a position that's 3x the planet radius + 1000 units away from Earth
     const directionVector = new THREE.Vector3(1, 1, 1).normalize();
     spacecraft.position.set(
         earthGroup.position.x + directionVector.x * (planetRadius * 2),
@@ -84,9 +82,12 @@ export function exitEarthSurface() {
     
     // Reset spacecraft rotation to look toward the center of the solar system
     spacecraft.lookAt(new THREE.Vector3(0, 0, 0));
+    
+    // Restart the main animation loop
+    if (typeof animate === 'function') {
+        animate();  // Restart the main animation loop
+    }
 }
-
-
 
 
 

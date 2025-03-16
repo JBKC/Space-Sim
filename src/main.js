@@ -213,11 +213,8 @@ function startHyperspace() {
     }, 2000);
 }
 
-
-
 // Main animation loop with continuous firing
 function animate() {
-
     if (!isAnimating) return;
     
     requestAnimationFrame(animate);
@@ -228,12 +225,12 @@ function animate() {
     updateLasers();
     updateReticle();
     updatePlanetLabels();
-
+    
     // Check if spacecraft is near Earth
     if (!isEarthSurfaceActive) {
         checkEarthProximity();
     }
-
+    
     // Continuous laser firing logic
     if (isSpacePressed && !isHyperspace) {
         const currentTime = Date.now();
@@ -243,25 +240,20 @@ function animate() {
             console.log('Lasers fired');
         }
     }
-
+    
     // Update hyperspace streaks if active
     if (isHyperspace) {
         updateStreaks();
     }
-
+    
+    // Update coordinates display
     const coordsDiv = document.getElementById('coordinates');
     if (coordsDiv) {
-        if (isEarthSurfaceActive) {
-            // Hide coordinates when on Earth's surface
-            coordsDiv.style.display = 'none';
-        } else {
-            // Show coordinates and update them when in space
-            coordsDiv.style.display = 'block';
-            const pos = spacecraft.position;
-            coordsDiv.textContent = `X: ${pos.x.toFixed(0)}, Y: ${pos.y.toFixed(0)}, Z: ${pos.z.toFixed(0)}`;
-        }
+        coordsDiv.style.display = 'block';
+        const pos = spacecraft.position;
+        coordsDiv.textContent = `X: ${pos.x.toFixed(0)}, Y: ${pos.y.toFixed(0)}, Z: ${pos.z.toFixed(0)}`;
     }
-
+    
     updateUI();
     
     // Use the new rendering function instead of directly rendering the scene
