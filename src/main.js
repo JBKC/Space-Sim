@@ -9,7 +9,7 @@ import {
     checkEarthProximity, 
     renderScene, 
     isEarthSurfaceActive,
-    // exitEarthSurface,
+    exitEarthSurface,
 } from './setup.js';
 import { updateCamera, updateMovement, setGameMode, resetMovementInputs, keys } from './movement.js'; // Added keys import
 import { setupUIElements, setupDirectionalIndicator, updateDirectionalIndicator, showRaceModeUI, hideRaceModeUI, updateUI } from './ui.js';

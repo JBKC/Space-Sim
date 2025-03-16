@@ -43,23 +43,9 @@ createCornerLine(reticleSize, reticleSize, reticleSize, reticleSize - lineLength
 // Function to update reticle position with vertical offset
 export function updateReticle() {
     let targetSpacecraft;
+    targetSpacecraft = spacecraft;
     
-    if (isEarthSurfaceActive) {
-        // Find the Earth surface spacecraft
-        targetSpacecraft = earthSurfaceScene.children.find(obj => 
-            obj.type === 'Group' && obj.name === "EarthSurfaceSpacecraft"
-        );
-        
-        if (!targetSpacecraft) {
-            // If Earth spacecraft not found, hide reticle
-            reticleGroup.visible = false;
-            return;
-        }
-    } else {
-        // Use regular spacecraft in space
-        targetSpacecraft = spacecraft;
-    }
-    
+
     // Show reticle
     reticleGroup.visible = true;
     

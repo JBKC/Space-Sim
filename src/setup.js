@@ -10,8 +10,7 @@ import {
     // earthSurfaceScene,
     // isEarthSurfaceActive, 
     // isTransitionInProgress,
-    // checkEarthProximity,
-    // exitEarthSurface,
+    // checkEarthProximity,,
     // renderScene as renderSceneFromEarthTerrain,
     // initializeEarthTerrain,
     init as initEarth3D,
@@ -23,27 +22,75 @@ import {
 export let isEarthSurfaceActive = false;
 
 // Render function that delegates to earth3D.js when in Earth surface mode
+// Update the renderScene function to avoid initializing earth3D multiple times
 export function renderScene() {
     if (isEarthSurfaceActive) {
-        // Use the planet surface render function
-        initEarth3D();
-        renderSceneFromEarthTerrain();
+        // nothing to do here
     } else {
         // Render space scene
         renderer.render(scene, camera);
     }
 }
 
+
+
+// Modify the checkEarthProximity function
 export function checkEarthProximity() {
     const earthPosition = earthGroup.position.clone();
     const spacecraftPosition = spacecraft.position.clone();
     const distance = earthPosition.distanceTo(spacecraftPosition);
 
     if (distance < planetRadius + 800 && !isEarthSurfaceActive) {
+        // Stop rendering the space scene
+        isEarthSurfaceActive = true;
+        
+        // Initialize the Earth terrain only once
         initEarth3D();
+        
+        // Start the Earth terrain animation loop
         animateEarth3D();
+    } else if (distance >= planetRadius + 800 && isEarthSurfaceActive) {
+        // Import the stopAnimation function
+        import('./earth3D.js').then(module => {
+            // Stop the Earth terrain animation loop
+            module.stopAnimation();
+            
+            // Resume rendering the space scene
+            isEarthSurfaceActive = false;
+        });
     }
 }
+
+
+export function exitEarthSurface() {
+    
+    console.log("Exiting Earth's atmosphere!");
+    isEarthSurfaceActive = false;
+    
+    // Remove the persistent Earth surface message if it exists
+    const persistentMessage = document.getElementById('earth-surface-message');
+    if (persistentMessage) {
+        document.body.removeChild(persistentMessage);
+    }
+    
+    // Position spacecraft away from Earth to avoid immediate re-entry
+    // Calculate a position that's 3x the planet radius + 1000 units away from Earth
+    const directionVector = new THREE.Vector3(1, 1, 1).normalize();
+    spacecraft.position.set(
+        earthGroup.position.x + directionVector.x * (planetRadius * 2),
+        earthGroup.position.y + directionVector.y * (planetRadius * 2),
+        earthGroup.position.z + directionVector.z * (planetRadius * 2)
+    );
+    
+    // Reset spacecraft rotation to look toward the center of the solar system
+    spacecraft.lookAt(new THREE.Vector3(0, 0, 0));
+}
+
+
+
+
+
+////////////////////////////////////////////////////////////
 
 // Texture loader
 export const textureLoader = new THREE.TextureLoader();

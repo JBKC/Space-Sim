@@ -105,27 +105,27 @@ export function updateCamera(camera, isHyperspace) {
     const targetPosition = new THREE.Vector3();
     spacecraft.getWorldPosition(targetPosition);
 
-    // If in Earth surface mode, use a different camera setup
-    if (isEarthSurfaceActive) {
-        // Get the spacecraft from the Earth surface scene
-        const earthSpacecraft = earthSurfaceScene.children.find(obj => 
-            obj.type === 'Group' && obj.name === "EarthSurfaceSpacecraft"
-        );
+    // // If in Earth surface mode, use a different camera setup
+    // if (isEarthSurfaceActive) {
+    //     // Get the spacecraft from the Earth surface scene
+    //     const earthSpacecraft = earthSurfaceScene.children.find(obj => 
+    //         obj.type === 'Group' && obj.name === "EarthSurfaceSpacecraft"
+    //     );
         
-        if (earthSpacecraft) {
-            // Use the dedicated surface camera offset
-            const surfaceCameraPosition = surfaceCameraOffset.clone().applyMatrix4(earthSpacecraft.matrixWorld);
+    //     if (earthSpacecraft) {
+    //         // Use the dedicated surface camera offset
+    //         const surfaceCameraPosition = surfaceCameraOffset.clone().applyMatrix4(earthSpacecraft.matrixWorld);
             
-            camera.position.lerp(surfaceCameraPosition, smoothFactor);
-            camera.quaternion.copy(earthSpacecraft.quaternion);
+    //         camera.position.lerp(surfaceCameraPosition, smoothFactor);
+    //         camera.quaternion.copy(earthSpacecraft.quaternion);
             
-            const adjustment = new THREE.Quaternion().setFromEuler(
-                new THREE.Euler(0, Math.PI, 0)
-            );
-            camera.quaternion.multiply(adjustment);
-            return;
-        }
-    }
+    //         const adjustment = new THREE.Quaternion().setFromEuler(
+    //             new THREE.Euler(0, Math.PI, 0)
+    //         );
+    //         camera.quaternion.multiply(adjustment);
+    //         return;
+    //     }
+    // }
 
     // Original space camera behavior
     const localOffset = isHyperspace ? hyperspaceCameraOffset.clone() : (keys.up ? boostCameraOffset.clone() : currentCameraOffset.clone());
@@ -144,121 +144,121 @@ export function updateCamera(camera, isHyperspace) {
 export function updateMovement(isBoosting, isHyperspace) {
 
     
-    // If in Earth surface mode, handle surface movement
-    if (isEarthSurfaceActive) {
-        // Get the spacecraft from the Earth surface scene
-        const earthSpacecraft = earthSurfaceScene.children.find(obj => 
-            obj.type === 'Group' && obj.name === "EarthSurfaceSpacecraft"
-        );
+    // // If in Earth surface mode, handle surface movement
+    // if (isEarthSurfaceActive) {
+    //     // Get the spacecraft from the Earth surface scene
+    //     const earthSpacecraft = earthSurfaceScene.children.find(obj => 
+    //         obj.type === 'Group' && obj.name === "EarthSurfaceSpacecraft"
+    //     );
         
-        if (earthSpacecraft) {
-            // Use the same movement mechanics as in space
-            // Update speed based on boost state (no hyperspace in surface mode)
-            let surfaceSpeed = baseSpeed;
-            const isSurfaceBoosting = keys.up;
-            if (isSurfaceBoosting) {
-                surfaceSpeed = surfaceBoostSpeed; // Use surface-specific boost speed
-            }
+    //     if (earthSpacecraft) {
+    //         // Use the same movement mechanics as in space
+    //         // Update speed based on boost state (no hyperspace in surface mode)
+    //         let surfaceSpeed = baseSpeed;
+    //         const isSurfaceBoosting = keys.up;
+    //         if (isSurfaceBoosting) {
+    //             surfaceSpeed = surfaceBoostSpeed; // Use surface-specific boost speed
+    //         }
             
-            // Update engine effects for surface spacecraft
-            updateEngineEffects(isSurfaceBoosting);
+    //         // Update engine effects for surface spacecraft
+    //         updateEngineEffects(isSurfaceBoosting);
             
-            // Handle wing configuration based on boost state
-            // This ensures wings match the space behavior (X when normal, straight when boosting)
-            if (isSurfaceBoosting && wingsOpen) {
-                // Fold wings when boosting
-                wingsOpen = false;
-                wingAnimation = wingTransitionFrames;
-            } else if (!isSurfaceBoosting && !wingsOpen) {
-                // Open wings when not boosting
-                wingsOpen = true;
-                wingAnimation = wingTransitionFrames;
-            }
+    //         // Handle wing configuration based on boost state
+    //         // This ensures wings match the space behavior (X when normal, straight when boosting)
+    //         if (isSurfaceBoosting && wingsOpen) {
+    //             // Fold wings when boosting
+    //             wingsOpen = false;
+    //             wingAnimation = wingTransitionFrames;
+    //         } else if (!isSurfaceBoosting && !wingsOpen) {
+    //             // Open wings when not boosting
+    //             wingsOpen = true;
+    //             wingAnimation = wingTransitionFrames;
+    //         }
             
-            // Apply rotations with the same sensitivity as in space
-            rotation.pitch.identity();
-            rotation.yaw.identity();
-            rotation.roll.identity();
+    //         // Apply rotations with the same sensitivity as in space
+    //         rotation.pitch.identity();
+    //         rotation.yaw.identity();
+    //         rotation.roll.identity();
             
-            // Use the same rotation controls as in space
-            if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, turnSpeed / 2);
-            if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -turnSpeed / 2);
-            if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -turnSpeed);
-            if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, turnSpeed);
-            if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, turnSpeed / 2);
-            if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -turnSpeed / 2);
+    //         // Use the same rotation controls as in space
+    //         if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, turnSpeed / 2);
+    //         if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -turnSpeed / 2);
+    //         if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -turnSpeed);
+    //         if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, turnSpeed);
+    //         if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, turnSpeed / 2);
+    //         if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -turnSpeed / 2);
             
-            const combinedRotation = new THREE.Quaternion()
-                .copy(rotation.roll)
-                .multiply(rotation.pitch)
-                .multiply(rotation.yaw);
+    //         const combinedRotation = new THREE.Quaternion()
+    //             .copy(rotation.roll)
+    //             .multiply(rotation.pitch)
+    //             .multiply(rotation.yaw);
             
-            earthSpacecraft.quaternion.multiply(combinedRotation);
+    //         earthSpacecraft.quaternion.multiply(combinedRotation);
             
-            // Get current forward direction
-            const forward = new THREE.Vector3(0, 0, 1);
-            forward.applyQuaternion(earthSpacecraft.quaternion);
+    //         // Get current forward direction
+    //         const forward = new THREE.Vector3(0, 0, 1);
+    //         forward.applyQuaternion(earthSpacecraft.quaternion);
             
-            // Allow full 3D movement like in space
-            earthSpacecraft.position.add(forward.multiplyScalar(surfaceSpeed));
+    //         // Allow full 3D movement like in space
+    //         earthSpacecraft.position.add(forward.multiplyScalar(surfaceSpeed));
             
-            // Calculate the nose position (front of spacecraft)
-            const noseOffset = new THREE.Vector3(0, 0, 2.5); // Approximate length from center to nose
-            const nosePosition = noseOffset.clone().applyQuaternion(earthSpacecraft.quaternion);
-            const noseWorldPosition = nosePosition.add(earthSpacecraft.position);
+    //         // Calculate the nose position (front of spacecraft)
+    //         const noseOffset = new THREE.Vector3(0, 0, 2.5); // Approximate length from center to nose
+    //         const nosePosition = noseOffset.clone().applyQuaternion(earthSpacecraft.quaternion);
+    //         const noseWorldPosition = nosePosition.add(earthSpacecraft.position);
             
-            // Ensure minimum height for the spacecraft's center, but allow the nose to get closer
-            // this is the minimum height for the spacecraft's center, but allow the nose to get closer
-            const minHeight = 0;
+    //         // Ensure minimum height for the spacecraft's center, but allow the nose to get closer
+    //         // this is the minimum height for the spacecraft's center, but allow the nose to get closer
+    //         const minHeight = 0;
             
-            // If the center of the spacecraft is below minimum height, adjust it
-            if (earthSpacecraft.position.y < minHeight) {
-                earthSpacecraft.position.y = minHeight;
-            }
+    //         // If the center of the spacecraft is below minimum height, adjust it
+    //         if (earthSpacecraft.position.y < minHeight) {
+    //             earthSpacecraft.position.y = minHeight;
+    //         }
             
-            // Allow the nose to touch the ground (y=0) but prevent going below
-            if (noseWorldPosition.y < 0) {
-                // Calculate how much to move the spacecraft up to keep nose at ground level
-                const adjustment = -noseWorldPosition.y;
-                earthSpacecraft.position.y += adjustment;
-            }
+    //         // Allow the nose to touch the ground (y=0) but prevent going below
+    //         if (noseWorldPosition.y < 0) {
+    //             // Calculate how much to move the spacecraft up to keep nose at ground level
+    //             const adjustment = -noseWorldPosition.y;
+    //             earthSpacecraft.position.y += adjustment;
+    //         }
             
-            // Update wing animation for the Earth surface spacecraft
-            if (wingAnimation > 0) {
-                // Find the wing components in the Earth surface spacecraft
-                const surfaceWings = {
-                    topRight: earthSpacecraft.children.find(child => child.name === "topRightWing"),
-                    bottomRight: earthSpacecraft.children.find(child => child.name === "bottomRightWing"),
-                    topLeft: earthSpacecraft.children.find(child => child.name === "topLeftWing"),
-                    bottomLeft: earthSpacecraft.children.find(child => child.name === "bottomLeftWing")
-                };
+    //         // Update wing animation for the Earth surface spacecraft
+    //         if (wingAnimation > 0) {
+    //             // Find the wing components in the Earth surface spacecraft
+    //             const surfaceWings = {
+    //                 topRight: earthSpacecraft.children.find(child => child.name === "topRightWing"),
+    //                 bottomRight: earthSpacecraft.children.find(child => child.name === "bottomRightWing"),
+    //                 topLeft: earthSpacecraft.children.find(child => child.name === "topLeftWing"),
+    //                 bottomLeft: earthSpacecraft.children.find(child => child.name === "bottomLeftWing")
+    //             };
                 
-                const targetAngle = wingsOpen ? Math.PI / 8 : 0;
-                const angleStep = (Math.PI / 8) / wingTransitionFrames;
+    //             const targetAngle = wingsOpen ? Math.PI / 8 : 0;
+    //             const angleStep = (Math.PI / 8) / wingTransitionFrames;
                 
-                // Apply wing animation to surface spacecraft wings if they exist
-                if (surfaceWings.topRight && surfaceWings.bottomRight && 
-                    surfaceWings.topLeft && surfaceWings.bottomLeft) {
+    //             // Apply wing animation to surface spacecraft wings if they exist
+    //             if (surfaceWings.topRight && surfaceWings.bottomRight && 
+    //                 surfaceWings.topLeft && surfaceWings.bottomLeft) {
                     
-                    if (wingsOpen) {
-                        surfaceWings.topRight.rotation.z = Math.max(surfaceWings.topRight.rotation.z - angleStep, -Math.PI / 8);
-                        surfaceWings.bottomRight.rotation.z = Math.min(surfaceWings.bottomRight.rotation.z + angleStep, Math.PI / 8);
-                        surfaceWings.topLeft.rotation.z = Math.min(surfaceWings.topLeft.rotation.z + angleStep, Math.PI + Math.PI / 8);
-                        surfaceWings.bottomLeft.rotation.z = Math.max(surfaceWings.bottomLeft.rotation.z - angleStep, Math.PI - Math.PI / 8);
-                    } else {
-                        surfaceWings.topRight.rotation.z = Math.min(surfaceWings.topRight.rotation.z + angleStep, 0);
-                        surfaceWings.bottomRight.rotation.z = Math.max(surfaceWings.bottomRight.rotation.z - angleStep, 0);
-                        surfaceWings.topLeft.rotation.z = Math.max(surfaceWings.topLeft.rotation.z - angleStep, Math.PI);
-                        surfaceWings.bottomLeft.rotation.z = Math.min(surfaceWings.bottomLeft.rotation.z + angleStep, Math.PI);
-                    }
-                }
+    //                 if (wingsOpen) {
+    //                     surfaceWings.topRight.rotation.z = Math.max(surfaceWings.topRight.rotation.z - angleStep, -Math.PI / 8);
+    //                     surfaceWings.bottomRight.rotation.z = Math.min(surfaceWings.bottomRight.rotation.z + angleStep, Math.PI / 8);
+    //                     surfaceWings.topLeft.rotation.z = Math.min(surfaceWings.topLeft.rotation.z + angleStep, Math.PI + Math.PI / 8);
+    //                     surfaceWings.bottomLeft.rotation.z = Math.max(surfaceWings.bottomLeft.rotation.z - angleStep, Math.PI - Math.PI / 8);
+    //                 } else {
+    //                     surfaceWings.topRight.rotation.z = Math.min(surfaceWings.topRight.rotation.z + angleStep, 0);
+    //                     surfaceWings.bottomRight.rotation.z = Math.max(surfaceWings.bottomRight.rotation.z - angleStep, 0);
+    //                     surfaceWings.topLeft.rotation.z = Math.max(surfaceWings.topLeft.rotation.z - angleStep, Math.PI);
+    //                     surfaceWings.bottomLeft.rotation.z = Math.min(surfaceWings.bottomLeft.rotation.z + angleStep, Math.PI);
+    //                 }
+    //             }
                 
-                wingAnimation--;
-            }
+    //             wingAnimation--;
+    //         }
             
-            return;
-        }
-    }
+    //         return;
+    //     }
+    // }
     
     // Original space movement behavior
     // Update speed based on boost and hyperspace state

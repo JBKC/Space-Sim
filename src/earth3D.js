@@ -7,6 +7,9 @@ import { GUI } from '/node_modules/three/examples/jsm/libs/lil-gui.module.min.js
 
 let camera, controls, scene, renderer, tiles, cameraTarget;
 
+// flag to prevent multiple initializations
+let isInitialized = false;
+
 // Camera setup
 const baseCameraOffset = new THREE.Vector3(0, 2, 10);
 const boostCameraOffset = new THREE.Vector3(0, 3, 70);
@@ -43,10 +46,6 @@ let currentSpeed = baseSpeed;
 const turnSpeed = 0.03;
 let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false };
 
-////// RUN THE PROGRAM
-init();
-animate();
-//////
 
 function initSpacecraft() {
     // Create spacecraft group
@@ -275,6 +274,10 @@ function initControls() {
 }
 
 export function init() {
+
+    if (isInitialized) return;
+    isInitialized = true;
+    
     scene = new THREE.Scene();
 
     // Environment setup (keep this)
@@ -333,8 +336,10 @@ function onWindowResize() {
     renderer.setPixelRatio(window.devicePixelRatio);
 }
 
+let animationFrameId = null;
+
 export function animate() {
-    requestAnimationFrame(animate);
+    animationFrameId = requestAnimationFrame(animate);
 
     if (!tiles) return;
 
@@ -354,4 +359,13 @@ export function animate() {
 
     // Render scene
     renderer.render(scene, camera);
+}
+
+
+// Add a function to stop the animation loop
+export function stopAnimation() {
+    if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
 }
