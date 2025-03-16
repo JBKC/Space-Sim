@@ -6,16 +6,16 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('game-container').appendChild(renderer.domElement);
 
 // Import functions from earthTerrain.js
-import { 
-    // earthSurfaceScene,
-    // isEarthSurfaceActive, 
-    // isTransitionInProgress,
-    // checkEarthProximity,,
-    // renderScene as renderSceneFromEarthTerrain,
-    // initializeEarthTerrain,
-    init as initEarth3D,
-    animate as animateEarth3D,
-} from './earth3D.js';
+// import { 
+//     earthSurfaceScene,
+//     isEarthSurfaceActive, 
+//     isTransitionInProgress,
+//     checkEarthProximity,,
+//     renderScene as renderSceneFromEarthTerrain,
+//     initializeEarthTerrain,
+//     // init as initEarth3D,
+//     // animate as animateEarth3D,
+// } from './earth3D.js';
 // } from './earthTerrain.js';
 
 // Flag to track which scene is active

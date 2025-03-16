@@ -5,7 +5,17 @@ import { GLTFExtensionsPlugin } from '/node_modules/3d-tiles-renderer/src/plugin
 import { DRACOLoader } from '/node_modules/three/examples/jsm/loaders/DRACOLoader.js';
 import { GUI } from '/node_modules/three/examples/jsm/libs/lil-gui.module.min.js';
 
-let camera, controls, scene, renderer, tiles, cameraTarget;
+let earthCamera, earthControls, earthScene, earthRenderer, tiles, earthCameraTarget;
+let earthInitialized = false;
+
+// Export renamed variables
+export { 
+    earthScene, 
+    earthCamera, 
+    earthRenderer, 
+    tiles, 
+    earthCameraTarget 
+};
 
 // Camera setup
 const baseCameraOffset = new THREE.Vector3(0, 2, 10);
@@ -43,15 +53,11 @@ let currentSpeed = baseSpeed;
 const turnSpeed = 0.03;
 let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false };
 
-////// RUN THE PROGRAM
-init();
-animate();
-//////
 
 function initSpacecraft() {
     // Create spacecraft group
     spacecraft = new THREE.Group();
-    scene.add(spacecraft);
+    earthScene.add(spacecraft);
     
     // Create spacecraft body (simple placeholder - replace with your model)
     const bodyGeometry = new THREE.ConeGeometry(1, 5, 4);
@@ -94,14 +100,14 @@ function initSpacecraft() {
     spacecraft.position.set(0, 0, 0);
     
     // Setup camera target
-    cameraTarget = new THREE.Object3D();
-    spacecraft.add(cameraTarget);
-    cameraTarget.position.set(0, 0, 0);
+    earthCameraTarget = new THREE.Object3D();
+    spacecraft.add(earthCameraTarget);
+    earthCameraTarget.position.set(0, 0, 0);
 }
 
 
 
-function updateMovement() {
+export function updateMovement() {
     // Update speed based on boost state
     currentSpeed = keys.up ? boostSpeed : baseSpeed;
     
@@ -165,7 +171,7 @@ function updateMovement() {
     }
 }
 
-function updateCamera() {
+export function updateCamera() {
     // Get boost status
     const isBoosting = keys.up;
     
@@ -176,16 +182,16 @@ function updateCamera() {
     const cameraPosition = localOffset.applyMatrix4(spacecraft.matrixWorld);
     
     // Smoothly move camera to new position
-    camera.position.lerp(cameraPosition, smoothFactor);
+    earthCamera.position.lerp(cameraPosition, smoothFactor);
     
     // Copy spacecraft orientation to camera
-    camera.quaternion.copy(spacecraft.quaternion);
+    earthCamera.quaternion.copy(spacecraft.quaternion);
     
     // Adjust camera to look from behind
     const adjustment = new THREE.Quaternion().setFromEuler(
         new THREE.Euler(0, Math.PI, 0)
     );
-    camera.quaternion.multiply(adjustment);
+    earthCamera.quaternion.multiply(adjustment);
 }
 
 function updateEngineEffects(isBoosting) {
@@ -212,7 +218,7 @@ function setupTiles() {
     tiles.registerPlugin(new GLTFExtensionsPlugin({
         dracoLoader: new DRACOLoader().setDecoderPath('./draco/')
     }));
-    scene.add(tiles.group);
+    earthScene.add(tiles.group);
 }
 
 function reinstantiateTiles() {
@@ -274,37 +280,43 @@ function initControls() {
     });
 }
 
-function init() {
-    scene = new THREE.Scene();
+// Key function to initialize the Earth surface scene + spacecraft
+export function init() {
 
-    // Environment setup (keep this)
+    console.log("Earth3D initialization started");
+    
+    if (earthInitialized) {
+        console.log("Earth3D already initialized, skipping");
+        return { scene: earthScene, camera: earthCamera, renderer: earthRenderer, tiles: tiles };
+    }
+
+    earthScene = new THREE.Scene();
+
+    // Environment setup
     const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(255), 64, 64);
     env.mapping = THREE.EquirectangularReflectionMapping;
     env.needsUpdate = true;
-    scene.environment = env;
+    earthScene.environment = env;
 
-    // Renderer setup (keep this)
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setClearColor(0x151c1f);
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    document.body.appendChild(renderer.domElement);
-    renderer.domElement.tabIndex = 1;
+    // Renderer setup
+    earthRenderer = new THREE.WebGLRenderer({ antialias: true });
+    earthRenderer.setClearColor(0x151c1f);
+    earthRenderer.setSize(window.innerWidth, window.innerHeight);
+    earthRenderer.setPixelRatio(window.devicePixelRatio);
+    // document.body.appendChild(earthRenderer.domElement); // Don't append to document as use main.js renderer will be used
+    earthRenderer.domElement.tabIndex = 1;
 
-    // Camera setup (keep this)
-    camera = new THREE.PerspectiveCamera(
+    // Camera setup
+    earthCamera = new THREE.PerspectiveCamera(
         60,
         window.innerWidth / window.innerHeight,
         1,
         100000
     );
-    camera.position.set(100, 100, -100);
-    camera.lookAt(0, 0, 0);
-
-    // REMOVE the EnvironmentControls
-    // controls = new EnvironmentControls(scene, camera, renderer.domElement);
+    earthCamera.position.set(100, 100, -100);
+    earthCamera.lookAt(0, 0, 0);
     
-    // Instead, create your spacecraft and camera rig
+    // create spacecraft and camera rig
     initSpacecraft();
 
     // Load the tiles
@@ -313,7 +325,7 @@ function init() {
     onWindowResize();
     window.addEventListener('resize', onWindowResize, false);
 
-    // Setup GUI (keep this)
+    // Setup GUI
     const gui = new GUI();
     gui.width = 300;
     const ionOptions = gui.addFolder('Ion');
@@ -324,34 +336,46 @@ function init() {
     
     // Initialize keyboard controls
     initControls();
+
+    earthInitialized = true;
+    console.log("Earth3D initialization complete");
+    
+    // Return the created objects for use in main.js
+    return { 
+        scene: earthScene, 
+        camera: earthCamera, 
+        renderer: earthRenderer, 
+        tiles: tiles 
+    };
 }
 
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-}
-
-function animate() {
-    requestAnimationFrame(animate);
-
-    if (!tiles) return;
+// Key update function that main.js can call
+export function update() {
+    if (!tiles) {
+        console.log("Earth tiles not loaded yet");
+        return false;
+    }
 
     // Update spacecraft movement
     updateMovement();
-    
     // Update camera position relative to spacecraft
     updateCamera();
 
     // Update tiles with camera
-    tiles.setCamera(camera);
-    tiles.setResolutionFromRenderer(camera, renderer);
+    tiles.setCamera(earthCamera);
+    tiles.setResolutionFromRenderer(earthCamera, earthRenderer);
 
     // Update world matrices
-    camera.updateMatrixWorld();
+    earthCamera.updateMatrixWorld();
     tiles.update();
+    
+    return true;
+}
 
-    // Render scene
-    renderer.render(scene, camera);
+
+function onWindowResize() {
+    earthCamera.aspect = window.innerWidth / window.innerHeight;
+    earthCamera.updateProjectionMatrix();
+    earthRenderer.setSize(window.innerWidth, window.innerHeight);
+    earthRenderer.setPixelRatio(window.devicePixelRatio);
 }
