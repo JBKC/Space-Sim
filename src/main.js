@@ -87,13 +87,6 @@ function startGame(mode) {
         welcomeScreen.style.display = 'none';
     }
 
-    if (gameMode === 'race') {
-        showRaceModeUI();
-        initializeTargetChallenge();
-    } else {
-        hideRaceModeUI();
-    }
-
     if (!isAnimating) {
         isAnimating = true;
         animate();
@@ -247,7 +240,7 @@ function animate() {
         if (currentTime - lastFired >= fireRate) {
             fireLasers();
             lastFired = currentTime;
-            console.log('Lasers fired at:', new Date().toISOString());
+            console.log('Lasers fired');
         }
     }
 

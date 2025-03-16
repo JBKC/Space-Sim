@@ -99,7 +99,6 @@ init();
 animate();
 
 
-
 function updateMovement() {
     // Update speed based on boost state
     currentSpeed = keys.up ? boostSpeed : baseSpeed;
