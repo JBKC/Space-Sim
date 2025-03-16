@@ -1,3 +1,4 @@
+// src/earth3D.js
 import * as THREE from 'three';
 import { TilesRenderer } from '/node_modules/3d-tiles-renderer/src/three/TilesRenderer.js';
 import { CesiumIonAuthPlugin } from '/node_modules/3d-tiles-renderer/src/plugins/three/CesiumIonAuthPlugin.js';
@@ -235,6 +236,8 @@ function reinstantiateTiles() {
     tiles.addEventListener('load-tile-set', () => {
         const sphere = new THREE.Sphere();
         tiles.getBoundingSphere(sphere);
+        console.log('Bounding sphere center:', sphere.center);
+        console.log('Bounding sphere radius:', sphere.radius);
 
         const position = sphere.center.clone();
         const distanceToEllipsoidCenter = position.length();
@@ -249,6 +252,9 @@ function reinstantiateTiles() {
         tiles.group.quaternion.w = rotationToNorthPole.w;
 
         tiles.group.position.y = -distanceToEllipsoidCenter;
+
+        const radius = sphere.radius;
+        spacecraft.position.set(0, radius, 0); // Place on surfaces
     });
 
     setupTiles();
@@ -292,6 +298,9 @@ export function init() {
 
     earthScene = new THREE.Scene();
 
+    // const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    // earthScene.add(ambientLight);
+
     // Environment setup
     const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(255), 64, 64);
     env.mapping = THREE.EquirectangularReflectionMapping;
@@ -303,7 +312,7 @@ export function init() {
     earthRenderer.setClearColor(0x151c1f);
     earthRenderer.setSize(window.innerWidth, window.innerHeight);
     earthRenderer.setPixelRatio(window.devicePixelRatio);
-    // document.body.appendChild(earthRenderer.domElement); // Don't append to document as use main.js renderer will be used
+    document.body.appendChild(earthRenderer.domElement); // Don't append to document as use main.js renderer will be used
     earthRenderer.domElement.tabIndex = 1;
 
     // Camera setup
@@ -349,11 +358,12 @@ export function init() {
     };
 }
 
+
 // Key update function that main.js can call
 export function update() {
     if (!tiles) {
         console.log("Earth tiles not loaded yet");
-        return false;
+        return;
     }
 
     // Update spacecraft movement
@@ -368,8 +378,9 @@ export function update() {
     // Update world matrices
     earthCamera.updateMatrixWorld();
     tiles.update();
+
+    // earthRenderer.render(earthScene, earthCamera);
     
-    return true;
 }
 
 

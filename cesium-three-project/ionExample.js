@@ -229,7 +229,8 @@ function reinstantiateTiles() {
     tiles.addEventListener('load-tile-set', () => {
         const sphere = new THREE.Sphere();
         tiles.getBoundingSphere(sphere);
-
+        console.log('Bounding sphere center:', sphere.center);
+        console.log('Bounding sphere radius:', sphere.radius);
         const position = sphere.center.clone();
         const distanceToEllipsoidCenter = position.length();
 

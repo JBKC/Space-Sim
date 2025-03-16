@@ -1,16 +1,16 @@
 // src/main.js
-import { 
-    scene, 
-    camera, 
-    renderer, 
-    updateStars, 
-    spacecraft, 
-    updatePlanetLabels, 
-    checkEarthProximity, 
-    renderScene, 
-    isEarthSurfaceActive,
-    exitEarthSurface,
-} from './setup.js';
+// import { 
+//     scene, 
+//     camera, 
+//     renderer, 
+//     updateStars, 
+//     spacecraft, 
+//     updatePlanetLabels, 
+//     checkEarthProximity, 
+//     renderScene, 
+//     isEarthSurfaceActive,
+//     exitEarthSurface,
+// } from './setup.js';
 
 import { updateCamera, updateMovement, setGameMode, resetMovementInputs, keys } from './movement.js'; // Added keys import
 import { setupUIElements, setupDirectionalIndicator, updateDirectionalIndicator, showRaceModeUI, hideRaceModeUI, updateUI } from './ui.js';
@@ -25,8 +25,9 @@ import {
     earthScene,
     earthCamera,
     tiles,
-    updateMovement as updateEarthMovement,
-    updateCamera as updateEarthCamera
+    // updateMovement as updateEarthMovement,
+    // updateCamera as updateEarthCamera,
+    earthRenderer
 } from './earth3D.js';
 
 
@@ -258,7 +259,7 @@ function animate() {
         }
         
         // Render the earth scene with the earth camera using our renderer
-        renderer.render(earthScene, earthCamera);
+        earthRenderer.render(earthScene, earthCamera);
         
         if (debugMode) {
             console.log("Frame rendered");
