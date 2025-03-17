@@ -33,8 +33,8 @@ const rotation = {
 
 const apiKey = localStorage.getItem('ionApiKey') ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJmM2NmMGU2Mi0zNDYxLTRhOTQtYmRiNi05Mzk0NTg4OTdjZDkiLCJpZCI6Mjg0MDk5LCJpYXQiOjE3NDE5MTI4Nzh9.ciqVryFsYbzdwKxd_nEANC8pHgU9ytlfylfpfy9Q56U';
 
-const params = {
-    ionAssetId: '75343',
+    const params = {
+        ionAssetId: '75343',
     ionAccessToken: apiKey,
     reload: reinstantiateTiles,
 };
@@ -285,9 +285,9 @@ export function update() {
     tiles.setResolutionFromRenderer(earthCamera, earthRenderer);
 
     earthCamera.updateMatrixWorld();
-    tiles.update();
-}
-
+            tiles.update();
+        }
+        
 function onWindowResize() {
     earthCamera.aspect = window.innerWidth / window.innerHeight;
     earthCamera.updateProjectionMatrix();

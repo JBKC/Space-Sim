@@ -247,7 +247,6 @@ function animate() {
         return;
     }
     
-    // TEST - call earthSurface function only (snap immediately to earth)
     
     requestAnimationFrame(animate);
 
@@ -269,16 +268,16 @@ function animate() {
         
         // Update Earth components
         const earthUpdated = updateEarthSurface();              // main update function that updates spacecraft, camera, tiles, world matrices
-        if (debugMode && earthUpdated) {
-            console.log("Earth surface updated successfully");
-        }
+        // if (debugMode && earthUpdated) {
+        //     console.log("Earth surface updated successfully");
+        // }
         
         // Render the earth scene with the earth camera using our renderer
         earthRenderer.render(earthScene, earthCamera);
         
-        if (debugMode) {
-            console.log("Frame rendered");
-        }
+        // if (debugMode) {
+        //     console.log("Frame rendered");
+        // }
     } catch (e) {
         console.error('Animation loop error:', e);
     }
