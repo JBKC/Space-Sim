@@ -250,6 +250,13 @@ function animate() {
             const earthObjects = initEarthSurface();
             earthInitialized = true;
             console.log('Earth surface initialized successfully', earthObjects);
+
+            // Hide space container to see surface scene
+            const spaceContainer = document.getElementById('space-container');
+            if (spaceContainer) {
+                spaceContainer.style.display = 'none';
+                console.log('Hid space-container');
+            }
         }
         
         // Update Earth components

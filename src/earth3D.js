@@ -253,8 +253,8 @@ function reinstantiateTiles() {
 
         tiles.group.position.y = -distanceToEllipsoidCenter;
 
-        const radius = sphere.radius;
-        spacecraft.position.set(0, radius, 0); // Place on surfaces
+        // const radius = sphere.radius;
+        // spacecraft.position.set(0, radius, 0); // Place on surfaces
     });
 
     setupTiles();

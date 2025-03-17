@@ -14,7 +14,7 @@ canvas {
     height: 100%;
 }
 
-#game-container {
+#space-container {
     position: absolute;
     top: 0;
     left: 0;
