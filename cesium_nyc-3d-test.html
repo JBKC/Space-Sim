@@ -35,7 +35,7 @@
 </head>
 <body>
     <div id="cesiumContainer"></div>
-    <div id="loading">Loading New York 3D Buildings...</div>
+    <div id="loading">Loading New York 3D Buildings with World Terrain...</div>
 
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.127/Build/Cesium/Cesium.js"></script>
     <script>
@@ -45,70 +45,78 @@
             const CESIUM_ION_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5NmY0YmQ5ZC01YjAzLTRlMjgtODNjNi03ODk0YzMzMzIwMjUiLCJpZCI6Mjg0MDk5LCJpYXQiOjE3NDE5MDA4MTV9.UBJTgisQzO6DOlzjlDbP2LC7QX4oclluTwzqhDUSWF0';
             const NYC_BUILDINGS_ASSET_ID = 75343;
             const BING_MAPS_AERIAL_ASSET_ID = 2; // Bing Maps Aerial imagery asset ID
+            const WORLD_TERRAIN_ASSET_ID = 1; // Cesium World Terrain asset ID
 
             console.log("Setting Ion default access token");
             Cesium.Ion.defaultAccessToken = CESIUM_ION_TOKEN;
 
             console.log("Creating viewer");
             const viewer = new Cesium.Viewer('cesiumContainer', {
-                terrain: Cesium.Terrain.fromWorldTerrain(),
-                imageryProvider: new Cesium.OpenStreetMapImageryProvider({
-                    url: 'https://tile.openstreetmap.org/'
-                }), // Temporary base layer (will be replaced)
                 baseLayerPicker: false,
                 geocoder: false,
-                homeButton: false,
+                homeButton: true,
                 sceneModePicker: false,
-                navigationHelpButton: false,
+                navigationHelpButton: true,
                 animation: false,
                 timeline: false,
-                fullscreenButton: false
+                fullscreenButton: false,
+                shadows: true
             });
 
-            // Add Bing Maps Aerial imagery as a layer after viewer initialization
-            console.log("Adding Bing Maps Aerial imagery layer");
-            Cesium.IonImageryProvider.fromAssetId(BING_MAPS_AERIAL_ASSET_ID)
-                .then(bingMapsProvider => {
-                    viewer.imageryLayers.removeAll(); // Remove the default OpenStreetMap layer
+            async function loadSceneAssets() {
+                try {
+                    console.log("Creating world terrain");
+                    // Using CesiumTerrainProvider with the World Terrain asset ID
+                    const worldTerrain = await Cesium.CesiumTerrainProvider.fromIonAssetId(WORLD_TERRAIN_ASSET_ID, {
+                        requestWaterMask: true,
+                        requestVertexNormals: true  // Required for terrain lighting
+                    });
+                    
+                    console.log("Setting terrain provider");
+                    viewer.terrainProvider = worldTerrain;
+                    
+                    // Add Bing Maps Aerial imagery
+                    console.log("Adding Bing Maps Aerial imagery layer");
+                    const bingMapsProvider = await Cesium.IonImageryProvider.fromAssetId(BING_MAPS_AERIAL_ASSET_ID);
+                    viewer.imageryLayers.removeAll(); // Remove any default layers
                     viewer.imageryLayers.addImageryProvider(bingMapsProvider);
-                    console.log("Bing Maps Aerial imagery loaded successfully");
-                })
-                .catch(error => {
-                    console.error("Failed to load Bing Maps Aerial imagery:", error);
-                    // Fallback to OpenStreetMap imagery if Bing fails
-                    viewer.imageryLayers.addImageryProvider(
-                        new Cesium.OpenStreetMapImageryProvider({
-                            url: 'https://tile.openstreetmap.org/'
-                        })
-                    );
-                    console.log("Fallback to OpenStreetMap imagery due to error");
-                });
-
-            console.log("Creating ion resource for 3D buildings");
-            Cesium.IonResource.fromAssetId(NYC_BUILDINGS_ASSET_ID)
-                .then(resource => {
-                    console.log("Ion resource resolved:", resource);
-
+                    
+                    // Enable terrain features
+                    console.log("Enabling globe lighting");
+                    viewer.scene.globe.enableLighting = true;
+                    viewer.scene.globe.depthTestAgainstTerrain = true;
+                    
+                    // Load NYC 3D Buildings
+                    console.log("Creating ion resource for 3D buildings");
+                    const resource = await Cesium.IonResource.fromAssetId(NYC_BUILDINGS_ASSET_ID);
                     console.log("Creating tileset with resource");
-                    return Cesium.Cesium3DTileset.fromUrl(resource);
-                })
-                .then(tileset => {
+                    const tileset = await Cesium.Cesium3DTileset.fromUrl(resource);
+                    
                     console.log("Tileset created successfully");
                     viewer.scene.primitives.add(tileset);
-                    return viewer.zoomTo(tileset, new Cesium.HeadingPitchRange(0, -0.5, 1000));
-                })
-                .then(() => {
+                    
+                    // Set the camera to view Manhattan
+                    // Coordinates for Manhattan: -74.0060, 40.7128
+                    viewer.camera.flyTo({
+                        destination: Cesium.Cartesian3.fromDegrees(-74.0060, 40.7128, 1500),
+                        orientation: {
+                            heading: Cesium.Math.toRadians(20),  // Rotate a bit
+                            pitch: Cesium.Math.toRadians(-30),   // Look down at terrain
+                            roll: 0.0
+                        }
+                    });
+                    
                     console.log("Zoom completed");
                     document.getElementById('loading').style.display = 'none';
-                    console.log('New York 3D Buildings loaded successfully');
-                })
-                .catch(error => {
-                    console.error('Error in tileset workflow:', error);
+                    console.log('New York 3D Buildings with World Terrain loaded successfully');
+                    
+                } catch (error) {
+                    console.error("Error during asset loading:", error);
                     document.getElementById('loading').textContent = 'Error: ' + error.message;
-                });
-
-            console.log("Enabling globe lighting");
-            viewer.scene.globe.enableLighting = true;
+                }
+            }
+            
+            loadSceneAssets();
 
         } catch (error) {
             console.error("Error during initialization:", error);
