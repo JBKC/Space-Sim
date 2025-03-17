@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+// AXES: x = yaw, y = pitch, z = roll
+
 // Function to create and return the spacecraft with all its attributes
 export function createSpacecraft(scene) {
     // X-wing spacecraft

@@ -18,17 +18,25 @@ import { updateLasers, fireLasers, startFiring, stopFiring } from './lasers.js';
 import { updateReticle } from './reticle.js';
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.module.js'; // Explicitly import Three.js module
 
-// import EarthSurface functions
+// import Earth surface functions
+// import { 
+//     init as initEarthSurface, 
+//     update as updateEarthSurface,
+//     earthScene,
+//     earthCamera,
+//     tiles,
+//     earthRenderer
+// } from './earth3D.js';
+
+// import moon surface functions
 import { 
     init as initEarthSurface, 
     update as updateEarthSurface,
-    earthScene,
-    earthCamera,
+    moonScene as earthScene,
+    moonCamera as earthCamera,
     tiles,
-    // updateMovement as updateEarthMovement,
-    // updateCamera as updateEarthCamera,
-    earthRenderer
-} from './earth3D.js';
+    moonRenderer as earthRenderer
+} from './moon3D.js';
 
 
 let gameMode = null;
