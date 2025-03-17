@@ -3,6 +3,7 @@ export const scene = new THREE.Scene();
 export const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
 export const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
+// set up renderer for default space view
 document.getElementById('space-container').appendChild(renderer.domElement);
 
 // Import functions from earthTerrain.js
@@ -32,7 +33,27 @@ export function renderScene() {
     }
 }
 
+// Exports
 
+// Renderer settings
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.autoClear = true;
+renderer.sortObjects = false;
+renderer.physicallyCorrectLights = false;
+
+// Lighting
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
+scene.add(ambientLight);
+
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
+directionalLight.position.set(1, 1, -1).normalize();
+scene.add(directionalLight);
+
+const sideLight = new THREE.DirectionalLight(0xffffff, 0.5);
+sideLight.position.set(-1, -1, 1).normalize();
+scene.add(sideLight);
+
+scene.background = new THREE.Color(0x000000);
 
 // Modify the checkEarthProximity function
 export function checkEarthProximity() {
@@ -91,7 +112,7 @@ export function exitEarthSurface() {
 
 
 
-////////////////////////////////////////////////////////////
+///////////////////// Solar System Setup /////////////////////
 
 // Texture loader
 export const textureLoader = new THREE.TextureLoader();
@@ -189,8 +210,6 @@ function animateSun() {
 }
 animateSun();
 
-
-// ... [All your existing setup.js code up to planet definitions] ...
 
 // Planet definitions and randomization
 const planetGroups = [];
@@ -561,33 +580,67 @@ export function updatePlanetLabels() {
     });
 }
 
-// ... [Rest of your setup.js: renderer settings, spacecraft, hyperspace] ...
+// Stars
+const starGeometry = new THREE.BufferGeometry();
+const starCount = 50000;
+const starRange = 250000;
+const starPositions = new Float32Array(starCount * 3);
+for (let i = 0; i < starCount * 3; i += 3) {
+    starPositions[i] = (Math.random() - 0.5) * starRange;
+    starPositions[i + 1] = (Math.random() - 0.5) * starRange;
+    starPositions[i + 2] = (Math.random() - 0.5) * starRange;
+}
+starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 2 });
+export const stars = new THREE.Points(starGeometry, starMaterial);
+scene.add(stars);
+
+export function updateStars() {
+    const spacecraftZ = spacecraft.position.z;
+    const positions = stars.geometry.attributes.position.array;
+    const halfRange = starRange / 2;
+    for (let i = 0; i < starCount * 3; i += 3) {
+        const starZ = positions[i + 2];
+        positions[i + 2] -= 0.1;
+        if (starZ < spacecraftZ - halfRange) {
+            positions[i] = (Math.random() - 0.5) * starRange;
+            positions[i + 1] = (Math.random() - 0.5) * starRange;
+            positions[i + 2] = spacecraftZ + halfRange + (Math.random() * starRange);
+        }
+    }
+    stars.geometry.attributes.position.needsUpdate = true;
+}
+
+export const PLANET_RADIUS = planetRadius;
+export const PLANET_POSITION = earthGroup.position;
+
+// Hyperspace
+let isHyperspaceActive = false;
+function activateHyperspace() {
+    if (!isHyperspaceActive) {
+        isHyperspaceActive = true;
+        console.log("Hyperspace activated!");
+        setTimeout(deactivateHyperspace, 2000);
+    }
+}
+
+function deactivateHyperspace() {
+    if (isHyperspaceActive) {
+        isHyperspaceActive = false;
+        console.log("Hyperspace deactivated!");
+    }
+}
+
+window.addEventListener('keydown', (event) => {
+    if (event.key === 'Shift') activateHyperspace();
+});
+window.addEventListener('keyup', (event) => {
+    if (event.key === 'Shift') deactivateHyperspace();
+});
 
 
 
-// Exports
-
-// Renderer settings
-renderer.setPixelRatio(window.devicePixelRatio);
-renderer.autoClear = true;
-renderer.sortObjects = false;
-renderer.physicallyCorrectLights = false;
-
-// Lighting
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
-scene.add(ambientLight);
-
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
-directionalLight.position.set(1, 1, -1).normalize();
-scene.add(directionalLight);
-
-const sideLight = new THREE.DirectionalLight(0xffffff, 0.5);
-sideLight.position.set(-1, -1, 1).normalize();
-scene.add(sideLight);
-
-scene.background = new THREE.Color(0x000000);
-
-// ... [Spacecraft setup unchanged] ...
+/////////// Define the spacecraft //////////
 
 // X-wing spacecraft
 export const spacecraft = new THREE.Group();
@@ -922,63 +975,8 @@ export function updateLasers() {
     }
 }
 
-// Stars
-const starGeometry = new THREE.BufferGeometry();
-const starCount = 50000;
-const starRange = 250000;
-const starPositions = new Float32Array(starCount * 3);
-for (let i = 0; i < starCount * 3; i += 3) {
-    starPositions[i] = (Math.random() - 0.5) * starRange;
-    starPositions[i + 1] = (Math.random() - 0.5) * starRange;
-    starPositions[i + 2] = (Math.random() - 0.5) * starRange;
-}
-starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 2 });
-export const stars = new THREE.Points(starGeometry, starMaterial);
-scene.add(stars);
 
-export function updateStars() {
-    const spacecraftZ = spacecraft.position.z;
-    const positions = stars.geometry.attributes.position.array;
-    const halfRange = starRange / 2;
-    for (let i = 0; i < starCount * 3; i += 3) {
-        const starZ = positions[i + 2];
-        positions[i + 2] -= 0.1;
-        if (starZ < spacecraftZ - halfRange) {
-            positions[i] = (Math.random() - 0.5) * starRange;
-            positions[i + 1] = (Math.random() - 0.5) * starRange;
-            positions[i + 2] = spacecraftZ + halfRange + (Math.random() * starRange);
-        }
-    }
-    stars.geometry.attributes.position.needsUpdate = true;
-}
 
-export const PLANET_RADIUS = planetRadius;
-export const PLANET_POSITION = earthGroup.position;
-
-// Hyperspace
-let isHyperspaceActive = false;
-function activateHyperspace() {
-    if (!isHyperspaceActive) {
-        isHyperspaceActive = true;
-        console.log("Hyperspace activated!");
-        setTimeout(deactivateHyperspace, 2000);
-    }
-}
-
-function deactivateHyperspace() {
-    if (isHyperspaceActive) {
-        isHyperspaceActive = false;
-        console.log("Hyperspace deactivated!");
-    }
-}
-
-window.addEventListener('keydown', (event) => {
-    if (event.key === 'Shift') activateHyperspace();
-});
-window.addEventListener('keyup', (event) => {
-    if (event.key === 'Shift') deactivateHyperspace();
-});
 
 // Initialize the Earth terrain module with references to this module
 // This needs to be at the end of the file after all variables are defined
