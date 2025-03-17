@@ -1,4 +1,10 @@
-import { scene, spacecraft, isEarthSurfaceActive } from './setup.js';
+import * as THREE from 'three'; // Added module-friendly import
+import { scene, isEarthSurfaceActive } from './setup.js';
+import { createSpacecraft } from './spacecraft.js';
+
+// Initialize spacecraft
+const spacecraftComponents = createSpacecraft(scene);
+const spacecraft = spacecraftComponents.spacecraft; // Use the spacecraft from createSpacecraft
 
 // Create reticle group
 const reticleGroup = new THREE.Group();
@@ -11,7 +17,7 @@ const lineLength = 0.6;     // Adjusted corner length
 // Thicker material using LineBasicMaterial
 const lineMaterial = new THREE.LineBasicMaterial({
     color: 0xffffff,
-    linewidth: 1000,  // Much thicker lines
+    linewidth: 1000,  // Much thicker lines (note: linewidth > 1 may not work in all WebGL contexts)
     transparent: true,
     opacity: 1.0
 });
@@ -42,9 +48,13 @@ createCornerLine(reticleSize, reticleSize, reticleSize, reticleSize - lineLength
 
 // Function to update reticle position with vertical offset
 export function updateReticle() {
-    let targetSpacecraft;
-    targetSpacecraft = spacecraft;
-    
+    let targetSpacecraft = spacecraft;
+
+    // Optionally handle Earth surface mode
+    if (isEarthSurfaceActive) {
+        // Assuming earthSurfaceScene is available; replace with actual import if needed
+        targetSpacecraft = earthSurfaceScene?.children.find(obj => obj.name === "EarthSurfaceSpacecraft") || spacecraft;
+    }
 
     // Show reticle
     reticleGroup.visible = true;
@@ -61,11 +71,10 @@ export function updateReticle() {
     const position = spacecraftPosition.clone().add(forward.multiplyScalar(50));
     
     // Add a vertical offset to move the reticle up
-    // Adjust this value as needed - try starting with 2-3 units
-    position.y += 2;
+    position.y += 2; // Adjust this value as needed
     
     reticleGroup.position.copy(position);
     
     // Ensure the reticle faces the same direction as the spacecraft
     reticleGroup.rotation.copy(targetSpacecraft.rotation);
-}  
+}
