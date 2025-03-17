@@ -1,16 +1,16 @@
 // src/main.js
-// import { 
-//     scene, 
-//     camera, 
-//     renderer, 
-//     updateStars, 
-//     spacecraft, 
-//     updatePlanetLabels, 
-//     checkEarthProximity, 
-//     renderScene, 
-//     isEarthSurfaceActive,
-//     exitEarthSurface,
-// } from './setup.js';
+import { 
+    scene, 
+    camera, 
+    renderer, 
+    updateStars, 
+    spacecraft, 
+    updatePlanetLabels, 
+    checkEarthProximity, 
+    renderScene, 
+    isEarthSurfaceActive,
+    exitEarthSurface,
+} from './setup.js';
 
 import { updateCamera, updateMovement, setGameMode, resetMovementInputs, keys } from './movement.js'; // Added keys import
 import { setupUIElements, setupDirectionalIndicator, updateDirectionalIndicator, showRaceModeUI, hideRaceModeUI, updateUI } from './ui.js';
@@ -37,7 +37,6 @@ import {
     tiles,
     moonRenderer as earthRenderer
 } from './moon3D.js';
-
 
 let gameMode = null;
 let isAnimating = false;
@@ -246,83 +245,87 @@ function animate() {
         console.log("Animation stopped - isAnimating is false");
         return;
     }
-    
-    
+
     requestAnimationFrame(animate);
 
-    try {
-        // Only initialize Earth once
-        if (!earthInitialized) {
-            console.log('Initializing Earth surface');
-            const earthObjects = initEarthSurface();
-            earthInitialized = true;
-            console.log('Earth surface initialized successfully', earthObjects);
-
-            // Hide space container to see surface scene
-            const spaceContainer = document.getElementById('space-container');
-            if (spaceContainer) {
-                spaceContainer.style.display = 'none';
-                console.log('Hid space-container');
-            }
-        }
-        
-        // Update Earth components
-        const earthUpdated = updateEarthSurface();              // main update function that updates spacecraft, camera, tiles, world matrices
-        // if (debugMode && earthUpdated) {
-        //     console.log("Earth surface updated successfully");
-        // }
-        
-        // Render the earth scene with the earth camera using our renderer
-        earthRenderer.render(earthScene, earthCamera);
-        
-        // if (debugMode) {
-        //     console.log("Frame rendered");
-        // }
-    } catch (e) {
-        console.error('Animation loop error:', e);
-    }
-}
+    updateMovement(isBoosting, isHyperspace);
+    updateStars();
+    updateCamera(camera, isHyperspace);
+    updateLasers();
+    updateReticle();
+    updatePlanetLabels();
     
-
+    // Check if spacecraft is near Earth
+    if (!isEarthSurfaceActive) {
+        checkEarthProximity();
+    }
+    
+    // Continuous laser firing logic
+    if (isSpacePressed && !isHyperspace) {
+        const currentTime = Date.now();
+        if (currentTime - lastFired >= fireRate) {
+            fireLasers();
+            lastFired = currentTime;
+            console.log('Lasers fired');
+        }
+    }
+    
+    // Update hyperspace streaks if active
+    if (isHyperspace) {
+        updateStreaks();
+    }
+    
+    // Update coordinates display
+    const coordsDiv = document.getElementById('coordinates');
+    if (coordsDiv) {
+        coordsDiv.style.display = 'block';
+        const pos = spacecraft.position;
+        coordsDiv.textContent = `X: ${pos.x.toFixed(0)}, Y: ${pos.y.toFixed(0)}, Z: ${pos.z.toFixed(0)}`;
+    }
+    
+    updateUI();
+    
+    // Use the new rendering function instead of directly rendering the scene
+    renderScene();
+    
+    
     // requestAnimationFrame(animate);
 
-    // updateMovement(isBoosting, isHyperspace);
-    // updateStars();
-    // updateCamera(camera, isHyperspace);
-    // updateLasers();
-    // updateReticle();
-    // updatePlanetLabels();
-    
-    // // Check if spacecraft is near Earth
-    // if (!isEarthSurfaceActive) {
-    //     checkEarthProximity();
-    // }
-    
-    // // Continuous laser firing logic
-    // if (isSpacePressed && !isHyperspace) {
-    //     const currentTime = Date.now();
-    //     if (currentTime - lastFired >= fireRate) {
-    //         fireLasers();
-    //         lastFired = currentTime;
-    //         console.log('Lasers fired');
+    // try {
+    //     // Only initialize Earth once
+    //     if (!earthInitialized) {
+    //         console.log('Initializing Earth surface');
+    //         const earthObjects = initEarthSurface();
+    //         earthInitialized = true;
+    //         console.log('Earth surface initialized successfully', earthObjects);
+
+    //         // Hide space container to see surface scene
+    //         const spaceContainer = document.getElementById('space-container');
+    //         if (spaceContainer) {
+    //             spaceContainer.style.display = 'none';
+    //             console.log('Hid space-container');
+    //         }
     //     }
+        
+    //     // Update Earth components
+    //     const earthUpdated = updateEarthSurface();              // main update function that updates spacecraft, camera, tiles, world matrices
+    //     // if (debugMode && earthUpdated) {
+    //     //     console.log("Earth surface updated successfully");
+    //     // }
+        
+    //     // Render the earth scene with the earth camera using our renderer
+    //     earthRenderer.render(earthScene, earthCamera);
+        
+    //     // if (debugMode) {
+    //     //     console.log("Frame rendered");
+    //     // }
+    // } catch (e) {
+    //     console.error('Animation loop error:', e);
     // }
+
     
-    // // Update hyperspace streaks if active
-    // if (isHyperspace) {
-    //     updateStreaks();
-    // }
-    
-    // // Update coordinates display
-    // const coordsDiv = document.getElementById('coordinates');
-    // if (coordsDiv) {
-    //     coordsDiv.style.display = 'block';
-    //     const pos = spacecraft.position;
-    //     coordsDiv.textContent = `X: ${pos.x.toFixed(0)}, Y: ${pos.y.toFixed(0)}, Z: ${pos.z.toFixed(0)}`;
-    // }
-    
-    // updateUI();
-    
-    // // Use the new rendering function instead of directly rendering the scene
-    // renderScene();
-// }
+
+
+
+
+}

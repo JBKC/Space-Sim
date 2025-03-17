@@ -5,19 +5,7 @@ export const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 // set up renderer for default space view
 document.getElementById('space-container').appendChild(renderer.domElement);
-
-// Import functions from earthTerrain.js
-// import { 
-//     earthSurfaceScene,
-//     isEarthSurfaceActive, 
-//     isTransitionInProgress,
-//     checkEarthProximity,,
-//     renderScene as renderSceneFromEarthTerrain,
-//     initializeEarthTerrain,
-//     // init as initEarth3D,
-//     // animate as animateEarth3D,
-// } from './earth3D.js';
-// } from './earthTerrain.js';
+import { createSpacecraft } from './spacecraft.js';
 
 // Flag to track which scene is active
 export let isEarthSurfaceActive = false;
@@ -33,7 +21,15 @@ export function renderScene() {
     }
 }
 
-// Exports
+// Define spacecraft
+let spacecraft, engineGlowMaterial, lightMaterial;
+let topRightWing, bottomRightWing, topLeftWing, bottomLeftWing;
+let wingsOpen = true;
+let wingAnimation = 0;
+const wingTransitionFrames = 30;
+export { spacecraft };
+
+
 
 // Renderer settings
 renderer.setPixelRatio(window.devicePixelRatio);
@@ -54,6 +50,32 @@ sideLight.position.set(-1, -1, 1).normalize();
 scene.add(sideLight);
 
 scene.background = new THREE.Color(0x000000);
+
+initSpacecraft();
+
+// Initialize spacecraft
+function initSpacecraft() {
+    const spacecraftComponents = createSpacecraft(scene);
+    spacecraft = spacecraftComponents.spacecraft;
+    engineGlowMaterial = spacecraftComponents.engineGlowMaterial;
+    lightMaterial = spacecraftComponents.lightMaterial;
+    topRightWing = spacecraftComponents.topRightWing;
+    bottomRightWing = spacecraftComponents.bottomRightWing;
+    topLeftWing = spacecraftComponents.topLeftWing;
+    bottomLeftWing = spacecraftComponents.bottomLeftWing;
+
+    spacecraft.position.set(40000, 40000, 40000);
+    const centerPoint = new THREE.Vector3(0, 0, 10000);
+    spacecraft.lookAt(centerPoint);
+    scene.add(spacecraft);
+
+    // spacecraft.quaternion.setFromEuler(new THREE.Euler(THREE.MathUtils.degToRad(-100), THREE.MathUtils.degToRad(-30), THREE.MathUtils.degToRad(-120), 'XYZ'));
+
+    // moonCameraTarget = new THREE.Object3D();
+    // spacecraft.add(moonCameraTarget);
+    // moonCameraTarget.position.set(0, 0, 0);
+
+}
 
 // Modify the checkEarthProximity function
 export function checkEarthProximity() {
