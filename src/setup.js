@@ -339,6 +339,38 @@ function animateEarthClouds() {
 }
 animateEarthClouds();
 
+// --- Moon Setup ---
+const moonGroup = new THREE.Group();
+earthGroup.add(moonGroup); // Add Moon to Earth's group so it moves with Earth
+const moonRadius = 500;
+const moonGeometry = new THREE.SphereGeometry(moonRadius, 32, 32);
+const moonTexture = textureLoader.load('skybox/2k_moon.jpg');
+const moonMaterial = new THREE.MeshStandardMaterial({
+    map: moonTexture,
+    side: THREE.FrontSide,
+    metalness: 0.2,
+    roughness: 0.8
+});
+export const moon = new THREE.Mesh(moonGeometry, moonMaterial);
+moonGroup.add(moon);
+
+// Position the Moon relative to Earth
+const moonOrbitRadius = 5000;
+const moonAngle = Math.random() * Math.PI * 2; // Random angle in radians
+// Set moon position with a randomized orbit around Earth
+moonGroup.position.set(
+    Math.cos(moonAngle) * moonOrbitRadius, // Random X
+    Math.sin(moonAngle) * moonOrbitRadius, // Random Y
+    0                                      // Z = 0, same plane as planets
+);
+
+// Animate Moon's rotation
+function animateMoon() {
+    moon.rotation.y += 0.0003; // Rotate slower than Earth
+    requestAnimationFrame(animateMoon);
+}
+animateMoon();
+
 // --- Mars Setup ---
 const marsGroup = new THREE.Group();
 scene.add(marsGroup);
@@ -500,6 +532,7 @@ const labelData = [
     { group: mercuryGroup, name: 'Mercury', radius: 1000 },
     { group: venusGroup, name: 'Venus', radius: 2000 },
     { group: earthGroup, name: 'Earth', radius: 2000 },
+    { group: moonGroup, name: 'Moon', radius: 500 },
     { group: marsGroup, name: 'Mars', radius: 1500 },
     { group: jupiterGroup, name: 'Jupiter', radius: 5000 },
     { group: saturnGroup, name: 'Saturn', radius: 4000 },
@@ -532,6 +565,17 @@ earthDistanceIndicator.style.position = 'absolute';
 earthDistanceIndicator.style.display = 'none'; // Initially hidden
 document.body.appendChild(earthDistanceIndicator);
 
+// Create a distance indicator for the Moon
+const moonDistanceIndicator = document.createElement('div');
+moonDistanceIndicator.className = 'distance-indicator';
+moonDistanceIndicator.style.color = 'white';
+moonDistanceIndicator.style.fontFamily = 'Orbitron, sans-serif';
+moonDistanceIndicator.style.fontSize = '18px';
+moonDistanceIndicator.style.textAlign = 'center';
+moonDistanceIndicator.style.position = 'absolute';
+moonDistanceIndicator.style.display = 'none'; // Initially hidden
+document.body.appendChild(moonDistanceIndicator);
+
 // Function to update label positions
 export function updatePlanetLabels() {
     // If on Earth's surface, hide all planet labels
@@ -540,6 +584,7 @@ export function updatePlanetLabels() {
             label.element.style.display = 'none';
         });
         earthDistanceIndicator.style.display = 'none';
+        moonDistanceIndicator.style.display = 'none';
         return;
     }
 
@@ -553,8 +598,17 @@ export function updatePlanetLabels() {
     const distanceToEarth = earthPosition.distanceTo(spacecraftPosition);
     const distanceToEntry = Math.max(0, distanceToEarth - (planetRadius + 500)); // 500 is the entry threshold
     
-    // Update the distance indicator text
-    earthDistanceIndicator.textContent = `DISTANCE TO ENTRY: ${Math.round(distanceToEntry)}`;
+    // Update the Earth distance indicator text
+    earthDistanceIndicator.textContent = `EARTH ENTRY: ${Math.round(distanceToEntry)}`;
+
+    // Calculate distance to Moon for the indicator
+    const moonWorldPosition = new THREE.Vector3();
+    moonGroup.getWorldPosition(moonWorldPosition);
+    const distanceToMoon = moonWorldPosition.distanceTo(spacecraftPosition);
+    const moonEntryDistance = Math.max(0, distanceToMoon - (moonRadius + 200)); // 200 is the entry threshold
+    
+    // Update the Moon distance indicator text
+    moonDistanceIndicator.textContent = `MOON ENTRY: ${Math.round(moonEntryDistance)}`;
 
     labels.forEach(label => {
         // Get planet's world position
@@ -590,6 +644,14 @@ export function updatePlanetLabels() {
                 earthDistanceIndicator.style.transform = 'translateX(-50%)';
                 earthDistanceIndicator.style.display = 'block'; // Show the distance indicator
             }
+            
+            // If this is the Moon, position the distance indicator below it
+            if (label.planetGroup === moonGroup) {
+                moonDistanceIndicator.style.left = `${x}px`;
+                moonDistanceIndicator.style.top = `${y + 35}px`;
+                moonDistanceIndicator.style.transform = 'translateX(-50%)';
+                moonDistanceIndicator.style.display = 'block'; // Show the distance indicator
+            }
         } else {
             // Hide the label if the planet is behind the camera
             label.element.style.display = 'none';
@@ -597,6 +659,11 @@ export function updatePlanetLabels() {
             // If this is Earth, also hide the distance indicator
             if (label.planetGroup === earthGroup) {
                 earthDistanceIndicator.style.display = 'none';
+            }
+            
+            // If this is the Moon, also hide the distance indicator
+            if (label.planetGroup === moonGroup) {
+                moonDistanceIndicator.style.display = 'none';
             }
         }
     });
