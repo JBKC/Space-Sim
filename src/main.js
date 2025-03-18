@@ -1,33 +1,19 @@
 // src/main.js
+
+// Main setup imports
 import { 
-    scene, 
-    camera, 
-    renderer, 
     updateStars, 
-    spacecraft, 
     updatePlanetLabels, 
     checkPlanetProximity, 
-    renderScene, 
     isMoonSurfaceActive,
     exitEarthSurface,
-    updateMoonPosition
+    updateMoonPosition,
+    init as initSpace,
+    updateState as updateSpace,
+    spaceRenderer as spaceRender,
+    spaceScene as spaceScene,
+    spaceCamera as spaceCamera
 } from './setup.js';
-
-import { updateCamera, updateMovement, setGameMode, resetMovementInputs, keys } from './movement.js'; // Added keys import
-import { setupUIElements, setupDirectionalIndicator, updateDirectionalIndicator, showRaceModeUI, hideRaceModeUI, updateUI } from './ui.js';
-import { updateLasers, fireLasers, startFiring, stopFiring } from './lasers.js';
-import { updateReticle } from './reticle.js';
-import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.module.js'; // Explicitly import Three.js module
-
-// import Earth surface functions
-// import { 
-//     init as initEarthSurface, 
-//     update as updateEarthSurface,
-//     earthScene,
-//     earthCamera,
-//     tiles,
-//     earthRenderer
-// } from './earth3D.js';
 
 // import moon surface functions
 import { 
@@ -39,11 +25,18 @@ import {
     moonRenderer as earthRenderer
 } from './moon3D.js';
 
+import { updateCamera, updateMovement, setGameMode, resetMovementInputs, keys } from './movement.js'; // Added keys import
+import { setupUIElements, setupDirectionalIndicator, updateDirectionalIndicator, showRaceModeUI, hideRaceModeUI, updateUI } from './ui.js';
+import { updateLasers, fireLasers, startFiring, stopFiring } from './lasers.js';
+import { updateReticle } from './reticle.js';
+import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.module.js'; // Explicitly import Three.js module
+
 let gameMode = null;
 let isAnimating = false;
 let isBoosting = false;
 let isHyperspace = false;
 let isSpacePressed = false;
+let spaceInitialized = false;
 let earthInitialized = false;  // Move to top-level scope for exports
 
 // Laser firing variables
@@ -75,27 +68,7 @@ document.addEventListener('keydown', (event) => {
     // Enhanced ESC key to exit Moon surface
     if (event.code === 'Escape' && isMoonSurfaceActive) {
         console.log('ESC pressed - exiting Moon surface');
-        
-        // // Show transition message
-        // const transitionMsg = document.createElement('div');
-        // transitionMsg.style.position = 'fixed';
-        // transitionMsg.style.top = '50%';
-        // transitionMsg.style.left = '50%';
-        // transitionMsg.style.transform = 'translate(-50%, -50%)';
-        // transitionMsg.style.color = 'white';
-        // transitionMsg.style.fontFamily = 'Orbitron, sans-serif';
-        // transitionMsg.style.fontSize = '24px';
-        // transitionMsg.style.padding = '20px';
-        // transitionMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-        // transitionMsg.style.borderRadius = '10px';
-        // transitionMsg.style.zIndex = '9999';
-        // transitionMsg.textContent = 'Returning to space...';
-        // document.body.appendChild(transitionMsg);
-        
-        // // Remove message after transition
-        // setTimeout(() => {
-        //     document.body.removeChild(transitionMsg);
-        // }, 2000);
+    
         
         exitEarthSurface();
     }
@@ -278,6 +251,7 @@ function animate() {
 
     // CASE 0 = space view
     if (!isMoonSurfaceActive) {
+        
         // If we just exited the moon surface, make sure space container is visible
         const spaceContainer = document.getElementById('space-container');
         if (spaceContainer && spaceContainer.style.display === 'none') {
@@ -285,46 +259,74 @@ function animate() {
             console.log('Restored space-container visibility');
         }
 
-        // Check if spacecraft is near celestial body
-        checkPlanetProximity();
+        try {
+            // Initialize space scene (including spacecraft) once
+            if (!spaceInitialized) {
+                console.log('Initializing Outer Space');
+                const spaceObjects = initSpace();
+                spaceInitialized = true;
+                console.log('Space initialized successfully', spaceObjects);
+                }
+            
+    //         // Update Earth components
+    //         const earthUpdated = updateEarthSurface();              // main update function that updates spacecraft, camera, tiles, world matrices
 
-        // Update Moon's position relative to Earth using global coordinates
-        updateMoonPosition();
+    //         // Render the earth scene with the earth camera using our renderer
+    //         earthRenderer.render(earthScene, earthCamera);
+            
+
+    /////////////////////////////////
+
+
+
+            // Check if spacecraft is near celestial body
+            checkPlanetProximity();
+
+            updateSpace();
+
+            // ALL THIS BELOW BELONGS IN INIT
+            // Update Moon's position relative to Earth using global coordinates
+            updateMoonPosition();
+            
+            updateMovement(isBoosting, isHyperspace);
+            updateStars();
+            updateCamera(camera, isHyperspace);
+            updateLasers();
+            updateReticle();
+            updatePlanetLabels();
         
-        updateMovement(isBoosting, isHyperspace);
-        updateStars();
-        updateCamera(camera, isHyperspace);
-        updateLasers();
-        updateReticle();
-        updatePlanetLabels();
-        
-        // Continuous laser firing logic
-        if (isSpacePressed && !isHyperspace) {
-            const currentTime = Date.now();
-            if (currentTime - lastFired >= fireRate) {
-                fireLasers();
-                lastFired = currentTime;
-                console.log('Lasers fired');
+            // Continuous laser firing logic
+            if (isSpacePressed && !isHyperspace) {
+                const currentTime = Date.now();
+                if (currentTime - lastFired >= fireRate) {
+                    fireLasers();
+                    lastFired = currentTime;
+                    console.log('Lasers fired');
+                }
             }
+            
+            // Update hyperspace streaks if active
+            if (isHyperspace) {
+                updateStreaks();
+            }
+            
+            // Update coordinates display - only show in space mode
+            const coordsDiv = document.getElementById('coordinates');
+            if (coordsDiv) {
+                coordsDiv.style.display = 'block';
+                const pos = spacecraft.position;
+                coordsDiv.textContent = `X: ${pos.x.toFixed(0)}, Y: ${pos.y.toFixed(0)}, Z: ${pos.z.toFixed(0)}`;
+            }
+            
+            updateUI();
+            
+            // Use the new rendering function instead of directly rendering the scene
+            spaceRender.render(spaceScene, spaceCamera);
+
+        
+        } catch (e) {
+            console.error('Animation loop error:', e);
         }
-        
-        // Update hyperspace streaks if active
-        if (isHyperspace) {
-            updateStreaks();
-        }
-        
-        // Update coordinates display - only show in space mode
-        const coordsDiv = document.getElementById('coordinates');
-        if (coordsDiv) {
-            coordsDiv.style.display = 'block';
-            const pos = spacecraft.position;
-            coordsDiv.textContent = `X: ${pos.x.toFixed(0)}, Y: ${pos.y.toFixed(0)}, Z: ${pos.z.toFixed(0)}`;
-        }
-        
-        updateUI();
-        
-        // Use the new rendering function instead of directly rendering the scene
-        renderScene();
     }
     
     // CASE 1 = moon surface view
@@ -369,16 +371,10 @@ function animate() {
             
             // Update Earth components
             const earthUpdated = updateEarthSurface();              // main update function that updates spacecraft, camera, tiles, world matrices
-            // if (debugMode && earthUpdated) {
-            //     console.log("Earth surface updated successfully");
-            // }
-            
+
             // Render the earth scene with the earth camera using our renderer
             earthRenderer.render(earthScene, earthCamera);
             
-            // if (debugMode) {
-            //     console.log("Frame rendered");
-            // }
         } catch (e) {
             console.error('Animation loop error:', e);
         }

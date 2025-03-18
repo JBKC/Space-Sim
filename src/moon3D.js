@@ -3,6 +3,7 @@ import { TilesRenderer } from '/node_modules/3d-tiles-renderer/src/three/TilesRe
 import { CesiumIonAuthPlugin } from '/node_modules/3d-tiles-renderer/src/plugins/three/CesiumIonAuthPlugin.js';
 import { GLTFExtensionsPlugin } from '/node_modules/3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js';
 import { DRACOLoader } from '/node_modules/three/examples/jsm/loaders/DRACOLoader.js';
+// import { GUI } from '/node_modules/three/examples/jsm/libs/lil-gui.module.min.js';
 import { createSpacecraft } from './spacecraft.js';
 
 let moonCamera, moonScene, moonRenderer, tiles, moonCameraTarget;

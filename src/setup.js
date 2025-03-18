@@ -1,75 +1,13 @@
 // src/setup.js
-export const scene = new THREE.Scene();
-export const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
-export const renderer = new THREE.WebGLRenderer();
-renderer.setSize(window.innerWidth, window.innerHeight);
-// set up renderer for default space view
-document.getElementById('space-container').appendChild(renderer.domElement);
 import { createSpacecraft } from './spacecraft.js';
 
-// Flag to track which scene is active
-export let isMoonSurfaceActive = false;
+let spaceRenderer, spaceScene, spaceCamera;
 
-
-// Render function that delegates to earth3D.js when in Earth surface mode
-// Update the renderScene function to avoid initializing earth3D multiple times
-export function renderScene() {
-    if (isMoonSurfaceActive) {
-        // nothing to do here
-    } else {
-        // Render space scene
-        renderer.render(scene, camera);
-    }
-}
-
-
-// Define spacecraft variables first
-let spacecraft, engineGlowMaterial, lightMaterial;
-let topRightWing, bottomRightWing, topLeftWing, bottomLeftWing;
-let wingsOpen = true;
-let wingAnimation = 0;
-let updateEngineEffects;
-const wingTransitionFrames = 30;
-
-// Initialize spacecraft
-function initSpacecraft() {
-    const spacecraftComponents = createSpacecraft(scene);
-    spacecraft = spacecraftComponents.spacecraft;
-    engineGlowMaterial = spacecraftComponents.engineGlowMaterial;
-    lightMaterial = spacecraftComponents.lightMaterial;
-    topRightWing = spacecraftComponents.topRightWing;
-    bottomRightWing = spacecraftComponents.bottomRightWing;
-    topLeftWing = spacecraftComponents.topLeftWing;
-    bottomLeftWing = spacecraftComponents.bottomLeftWing;
-    updateEngineEffects = spacecraftComponents.updateEngineEffects; // Capture the function
-
-    // Ensure wings are added to spacecraft
-    spacecraft.add(topRightWing);
-    spacecraft.add(bottomRightWing);
-    spacecraft.add(topLeftWing);
-    spacecraft.add(bottomLeftWing);
-
-    // Debug: Verify hierarchy
-    console.log("Spacecraft children after adding wings:", spacecraft.children.map(child => child.name));
-
-    spacecraft.position.set(40000, 40000, 40000);
-    const centerPoint = new THREE.Vector3(0, 0, 10000);
-    spacecraft.lookAt(centerPoint);
-    scene.add(spacecraft);
-
-    // spacecraft.quaternion.setFromEuler(new THREE.Euler(THREE.MathUtils.degToRad(-100), THREE.MathUtils.degToRad(-30), THREE.MathUtils.degToRad(-120), 'XYZ'));
-
-    // moonCameraTarget = new THREE.Object3D();
-    // spacecraft.add(moonCameraTarget);
-    // moonCameraTarget.position.set(0, 0, 0);
-
-}
-
-// Call initialization before exporting
-initSpacecraft();
-
-// Now export all components AFTER they have been initialized
-export { spacecraft, engineGlowMaterial, lightMaterial, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, updateEngineEffects };
+export { 
+    spaceRenderer, 
+    spaceScene, 
+    spaceCamera, 
+};
 
 // Renderer settings
 renderer.setPixelRatio(window.devicePixelRatio);
@@ -90,6 +28,111 @@ sideLight.position.set(-1, -1, 1).normalize();
 scene.add(sideLight);
 
 scene.background = new THREE.Color(0x000000);
+
+// Flag to track which scene is active
+export let isMoonSurfaceActive = false;
+
+// Render function that delegates to earth3D.js when in Earth surface mode
+// Update the renderScene function to avoid initializing earth3D multiple times
+export function renderScene() {
+    if (isMoonSurfaceActive) {
+        // nothing to do here
+    } else {
+        // Render space scene
+        renderer.render(scene, camera);
+    }
+}
+// Define spacecraft
+let spacecraft, engineGlowMaterial, lightMaterial;
+let topRightWing, bottomRightWing, topLeftWing, bottomLeftWing;
+let wingsOpen = true;
+let wingAnimation = 0;
+// let updateEngineEffects;
+const wingTransitionFrames = 30;
+
+// Initialize spacecraft
+function initSpacecraft() {
+    const spacecraftComponents = createSpacecraft(moonScene);
+    spacecraft = spacecraftComponents.spacecraft;
+    engineGlowMaterial = spacecraftComponents.engineGlowMaterial;
+    lightMaterial = spacecraftComponents.lightMaterial;
+    topRightWing = spacecraftComponents.topRightWing;
+    bottomRightWing = spacecraftComponents.bottomRightWing;
+    topLeftWing = spacecraftComponents.topLeftWing;
+    bottomLeftWing = spacecraftComponents.bottomLeftWing;
+
+    spacecraft.position.set(40000, 40000, 40000);
+    const centerPoint = new THREE.Vector3(0, 0, 10000);
+    spacecraft.lookAt(centerPoint);
+    // scene.add(spacecraft);
+
+    updateEngineEffects = spacecraftComponents.updateEngineEffects;
+}
+
+function initControls() {
+    document.addEventListener('keydown', (event) => {
+        switch (event.key) {
+            case 'w': keys.w = true; break;
+            case 's': keys.s = true; break;
+            case 'a': keys.a = true; break;
+            case 'd': keys.d = true; break;
+            case 'ArrowLeft': keys.left = true; break;
+            case 'ArrowRight': keys.right = true; break;
+            case 'ArrowUp': keys.up = true; break;
+        }
+    });
+
+    document.addEventListener('keyup', (event) => {
+        switch (event.key) {
+            case 'w': keys.w = false; break;
+            case 's': keys.s = false; break;
+            case 'a': keys.a = false; break;
+            case 'd': keys.d = false; break;
+            case 'ArrowLeft': keys.left = false; break;
+            case 'ArrowRight': keys.right = false; break;
+            case 'ArrowUp': keys.up = false; break;
+        }
+    });
+}
+
+/// MASTER FUNCTION called by main.js
+export function init() {
+    console.log("Space initialization started");
+    
+    // if (moonInitialized) {
+    //     console.log("Moon3D already initialized, skipping");
+    //     return { scene: moonScene, camera: moonCamera, renderer: moonRenderer, tiles: tiles };
+    // }
+
+    spaceScene = new THREE.Scene();
+
+    const spaceCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
+    spaceCamera.position.set(100, 100, -100);
+    spaceCamera.lookAt(0, 0, 0);
+
+    // set up renderer for default space view
+    spaceRenderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.getElementById('space-container').appendChild(renderer.domElement);
+    
+    initSpacecraft();
+
+    onWindowResize();
+    window.addEventListener('resize', onWindowResize, false);
+
+    initControls();
+
+    spaceInitialized = true;
+    console.log("Space initialization complete");
+    
+    return { 
+        scene: spaceScene, 
+        camera: spaceCamera, 
+        renderer: moonRenderer, 
+    };
+}
+
+
 
 // Modify the checkPlanetProximity function
 export function checkPlanetProximity() {
@@ -125,6 +168,7 @@ export function checkPlanetProximity() {
     // Debug distances
     // console.log(`Distances - Moon: ${distanceToMoon.toFixed(2)}, Earth: ${distanceToEarth.toFixed(2)}`);
 }
+
 
 
 export function exitEarthSurface() {
