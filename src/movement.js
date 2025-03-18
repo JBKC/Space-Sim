@@ -1,6 +1,15 @@
 import * as THREE from 'three';
-import { scene, isEarthSurfaceActive } from './setup.js';
-import { createSpacecraft } from './spacecraft.js';
+import { scene, 
+    spacecraft,
+    isEarthSurfaceActive,
+    topRightWing, 
+    bottomRightWing, 
+    topLeftWing, 
+    bottomLeftWing, 
+    updateEngineEffects, 
+    PLANET_POSITION, 
+    PLANET_RADIUS } from './setup.js';
+
 
 // Movement and boost variables
 export const baseSpeed = 2;
@@ -33,18 +42,18 @@ export const surfaceCameraOffset = new THREE.Vector3(0, 2, 10);
 let currentCameraOffset = baseCameraOffset.clone();
 const smoothFactor = 0.1;
 
-// Planet constants (assuming these are defined elsewhere; if not, you'll need to define them)
-const PLANET_POSITION = new THREE.Vector3(0, 0, 0); // Example, adjust as needed
-const PLANET_RADIUS = 1000; // Example, adjust as needed
+// // Planet constants (assuming these are defined elsewhere; if not, you'll need to define them)
+// const PLANET_POSITION = new THREE.Vector3(0, 0, 0); // Example, adjust as needed
+// const PLANET_RADIUS = 1000; // Example, adjust as needed
 
 // Initialize spacecraft
-const spacecraftComponents = createSpacecraft(scene);
-export const spacecraft = spacecraftComponents.spacecraft;
-const topRightWing = spacecraftComponents.topRightWing;
-const bottomRightWing = spacecraftComponents.bottomRightWing;
-const topLeftWing = spacecraftComponents.topLeftWing;
-const bottomLeftWing = spacecraftComponents.bottomLeftWing;
-const updateEngineEffects = spacecraftComponents.updateEngineEffects;
+// const spacecraftComponents = createSpacecraft(scene);
+// export const spacecraft = spacecraftComponents.spacecraft;
+// const topRightWing = spacecraft.topRightWing;
+// const bottomRightWing = spacecraft.bottomRightWing;
+// const topLeftWing = spacecraft.topLeftWing;
+// const bottomLeftWing = spacecraft.bottomLeftWing;
+// const updateEngineEffects = spacecraft.updateEngineEffects;
 
 // Function to set game mode
 export function setGameMode(mode) {

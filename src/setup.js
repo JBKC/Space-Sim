@@ -1,4 +1,3 @@
-
 export const scene = new THREE.Scene();
 export const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
 export const renderer = new THREE.WebGLRenderer();
@@ -21,15 +20,45 @@ export function renderScene() {
     }
 }
 
-// Define spacecraft
+// Define spacecraft variables first
 let spacecraft, engineGlowMaterial, lightMaterial;
 let topRightWing, bottomRightWing, topLeftWing, bottomLeftWing;
 let wingsOpen = true;
 let wingAnimation = 0;
+let updateEngineEffects;
 const wingTransitionFrames = 30;
-export { spacecraft };
+
+// Initialize spacecraft
+function initSpacecraft() {
+    const spacecraftComponents = createSpacecraft(scene);
+    spacecraft = spacecraftComponents.spacecraft;
+    engineGlowMaterial = spacecraftComponents.engineGlowMaterial;
+    lightMaterial = spacecraftComponents.lightMaterial;
+    topRightWing = spacecraftComponents.topRightWing;
+    bottomRightWing = spacecraftComponents.bottomRightWing;
+    topLeftWing = spacecraftComponents.topLeftWing;
+    bottomLeftWing = spacecraftComponents.bottomLeftWing;
+    updateEngineEffects = spacecraftComponents.updateEngineEffects; // Capture the function
 
 
+    spacecraft.position.set(40000, 40000, 40000);
+    const centerPoint = new THREE.Vector3(0, 0, 10000);
+    spacecraft.lookAt(centerPoint);
+    scene.add(spacecraft);
+
+    // spacecraft.quaternion.setFromEuler(new THREE.Euler(THREE.MathUtils.degToRad(-100), THREE.MathUtils.degToRad(-30), THREE.MathUtils.degToRad(-120), 'XYZ'));
+
+    // moonCameraTarget = new THREE.Object3D();
+    // spacecraft.add(moonCameraTarget);
+    // moonCameraTarget.position.set(0, 0, 0);
+
+}
+
+// Call initialization before exporting
+initSpacecraft();
+
+// Now export all components AFTER they have been initialized
+export { spacecraft, engineGlowMaterial, lightMaterial, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, updateEngineEffects };
 
 // Renderer settings
 renderer.setPixelRatio(window.devicePixelRatio);
@@ -51,42 +80,16 @@ scene.add(sideLight);
 
 scene.background = new THREE.Color(0x000000);
 
-initSpacecraft();
-
-// Initialize spacecraft
-function initSpacecraft() {
-    const spacecraftComponents = createSpacecraft(scene);
-    spacecraft = spacecraftComponents.spacecraft;
-    engineGlowMaterial = spacecraftComponents.engineGlowMaterial;
-    lightMaterial = spacecraftComponents.lightMaterial;
-    topRightWing = spacecraftComponents.topRightWing;
-    bottomRightWing = spacecraftComponents.bottomRightWing;
-    topLeftWing = spacecraftComponents.topLeftWing;
-    bottomLeftWing = spacecraftComponents.bottomLeftWing;
-
-    spacecraft.position.set(40000, 40000, 40000);
-    const centerPoint = new THREE.Vector3(0, 0, 10000);
-    spacecraft.lookAt(centerPoint);
-    scene.add(spacecraft);
-
-    // spacecraft.quaternion.setFromEuler(new THREE.Euler(THREE.MathUtils.degToRad(-100), THREE.MathUtils.degToRad(-30), THREE.MathUtils.degToRad(-120), 'XYZ'));
-
-    // moonCameraTarget = new THREE.Object3D();
-    // spacecraft.add(moonCameraTarget);
-    // moonCameraTarget.position.set(0, 0, 0);
-
-}
-
 // Modify the checkEarthProximity function
 export function checkEarthProximity() {
     const earthPosition = earthGroup.position.clone();
     const spacecraftPosition = spacecraft.position.clone();
     const distance = earthPosition.distanceTo(spacecraftPosition);
-
+    
     if (distance < planetRadius + 800 && !isEarthSurfaceActive) {
         // Stop rendering the space scene
-        isEarthSurfaceActive = true;
-        
+    isEarthSurfaceActive = true;
+    
         // Initialize the Earth terrain only once
         initEarth3D();
         
