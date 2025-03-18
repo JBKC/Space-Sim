@@ -1,5 +1,5 @@
 import * as THREE from 'three'; // Updated import for module system
-import { scene, isEarthSurfaceActive } from './setup.js';
+import { scene, isMoonSurfaceActive } from './setup.js';
 import { createSpacecraft } from './spacecraft.js';
 
 // Laser properties
@@ -45,8 +45,8 @@ function createLaser(startPosition, direction) {
 
 export function fireLasers() {
     // Determine which scene and spacecraft to use
-    const currentScene = isEarthSurfaceActive ? earthSurfaceScene : scene;
-    const targetSpacecraft = isEarthSurfaceActive ? 
+    const currentScene = isMoonSurfaceActive ? earthSurfaceScene : scene;
+    const targetSpacecraft = isMoonSurfaceActive ? 
         earthSurfaceScene.children.find(obj => obj.name === "EarthSurfaceSpacecraft") : 
         spacecraft;
     
@@ -56,7 +56,7 @@ export function fireLasers() {
     forward.applyQuaternion(targetSpacecraft.quaternion); // Transform to world space
 
     // If we're on Earth's surface but don't have wingtips yet, create them
-    if (isEarthSurfaceActive && earthWingtipObjects.length === 0) {
+    if (isMoonSurfaceActive && earthWingtipObjects.length === 0) {
         // Create new wingtip objects for Earth spacecraft
         const wingtipOffsets = [
             new THREE.Vector3(3.0, 0, 0.2),  // Right top
@@ -73,7 +73,7 @@ export function fireLasers() {
     }
     
     // Use the appropriate wingtip objects
-    const currentWingtips = isEarthSurfaceActive ? earthWingtipObjects : wingtipObjects;
+    const currentWingtips = isMoonSurfaceActive ? earthWingtipObjects : wingtipObjects;
     
     currentWingtips.forEach(wingtip => {
         if (!wingtip.parent) return; // Skip if not attached to anything
@@ -109,7 +109,7 @@ export function updateLasers() {
                 laser.parent.remove(laser);
             } else {
                 // If no parent, determine which scene it's in
-                const currentScene = isEarthSurfaceActive ? earthSurfaceScene : scene;
+                const currentScene = isMoonSurfaceActive ? earthSurfaceScene : scene;
                 currentScene.remove(laser);
             }
             activeLasers.splice(i, 1);

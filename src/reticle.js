@@ -1,5 +1,5 @@
 import * as THREE from 'three'; // Added module-friendly import
-import { scene, isEarthSurfaceActive } from './setup.js';
+import { scene, isMoonSurfaceActive } from './setup.js';
 import { createSpacecraft } from './spacecraft.js';
 
 // Initialize spacecraft
@@ -51,7 +51,7 @@ export function updateReticle() {
     let targetSpacecraft = spacecraft;
 
     // Optionally handle Earth surface mode
-    if (isEarthSurfaceActive) {
+    if (isMoonSurfaceActive) {
         // Assuming earthSurfaceScene is available; replace with actual import if needed
         targetSpacecraft = earthSurfaceScene?.children.find(obj => obj.name === "EarthSurfaceSpacecraft") || spacecraft;
     }

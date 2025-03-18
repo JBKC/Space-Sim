@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { scene, 
     spacecraft,
-    isEarthSurfaceActive,
+    isMoonSurfaceActive,
     topRightWing, 
     bottomRightWing, 
     topLeftWing, 
@@ -126,7 +126,7 @@ export function updateCamera(camera, isHyperspace) {
 
     // If in Earth surface mode, use a different camera setup (commented out as in original)
     /*
-    if (isEarthSurfaceActive) {
+    if (isMoonSurfaceActive) {
         const earthSpacecraft = earthSurfaceScene.children.find(obj => 
             obj.type === 'Group' && obj.name === "EarthSurfaceSpacecraft"
         );
@@ -154,97 +154,7 @@ export function updateCamera(camera, isHyperspace) {
 }
 
 export function updateMovement(isBoosting, isHyperspace) {
-    // If in Earth surface mode, handle surface movement (commented out as in original)
-    /*
-    if (isEarthSurfaceActive) {
-        const earthSpacecraft = earthSurfaceScene.children.find(obj => 
-            obj.type === 'Group' && obj.name === "EarthSurfaceSpacecraft"
-        );
-        
-        if (earthSpacecraft) {
-            let surfaceSpeed = baseSpeed;
-            const isSurfaceBoosting = keys.up;
-            if (isSurfaceBoosting) {
-                surfaceSpeed = surfaceBoostSpeed;
-            }
-            
-            updateEngineEffects(isSurfaceBoosting);
-            
-            if (isSurfaceBoosting && wingsOpen) {
-                wingsOpen = false;
-                wingAnimation = wingTransitionFrames;
-            } else if (!isSurfaceBoosting && !wingsOpen) {
-                wingsOpen = true;
-                wingAnimation = wingTransitionFrames;
-            }
-            
-            rotation.pitch.identity();
-            rotation.yaw.identity();
-            rotation.roll.identity();
-            
-            if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, turnSpeed / 2);
-            if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -turnSpeed / 2);
-            if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -turnSpeed);
-            if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, turnSpeed);
-            if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, turnSpeed / 2);
-            if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -turnSpeed / 2);
-            
-            const combinedRotation = new THREE.Quaternion()
-                .copy(rotation.roll)
-                .multiply(rotation.pitch)
-                .multiply(rotation.yaw);
-            
-            earthSpacecraft.quaternion.multiply(combinedRotation);
-            
-            const forward = new THREE.Vector3(0, 0, 1);
-            forward.applyQuaternion(earthSpacecraft.quaternion);
-            
-            earthSpacecraft.position.add(forward.multiplyScalar(surfaceSpeed));
-            
-            const noseOffset = new THREE.Vector3(0, 0, 2.5);
-            const nosePosition = noseOffset.clone().applyQuaternion(earthSpacecraft.quaternion);
-            const noseWorldPosition = nosePosition.add(earthSpacecraft.position);
-            
-            const minHeight = 0;
-            if (earthSpacecraft.position.y < minHeight) {
-                earthSpacecraft.position.y = minHeight;
-            }
-            if (noseWorldPosition.y < 0) {
-                const adjustment = -noseWorldPosition.y;
-                earthSpacecraft.position.y += adjustment;
-            }
-            
-            if (wingAnimation > 0) {
-                const surfaceWings = {
-                    topRight: earthSpacecraft.children.find(child => child.name === "topRightWing"),
-                    bottomRight: earthSpacecraft.children.find(child => child.name === "bottomRightWing"),
-                    topLeft: earthSpacecraft.children.find(child => child.name === "topLeftWing"),
-                    bottomLeft: earthSpacecraft.children.find(child => child.name === "bottomLeftWing")
-                };
-                
-                const targetAngle = wingsOpen ? Math.PI / 8 : 0;
-                const angleStep = (Math.PI / 8) / wingTransitionFrames;
-                
-                if (surfaceWings.topRight && surfaceWings.bottomRight && 
-                    surfaceWings.topLeft && surfaceWings.bottomLeft) {
-                    if (wingsOpen) {
-                        surfaceWings.topRight.rotation.z = Math.max(surfaceWings.topRight.rotation.z - angleStep, -Math.PI / 8);
-                        surfaceWings.bottomRight.rotation.z = Math.min(surfaceWings.bottomRight.rotation.z + angleStep, Math.PI / 8);
-                        surfaceWings.topLeft.rotation.z = Math.min(surfaceWings.topLeft.rotation.z + angleStep, Math.PI + Math.PI / 8);
-                        surfaceWings.bottomLeft.rotation.z = Math.max(surfaceWings.bottomLeft.rotation.z - angleStep, Math.PI - Math.PI / 8);
-                    } else {
-                        surfaceWings.topRight.rotation.z = Math.min(surfaceWings.topRight.rotation.z + angleStep, 0);
-                        surfaceWings.bottomRight.rotation.z = Math.max(surfaceWings.bottomRight.rotation.z - angleStep, 0);
-                        surfaceWings.topLeft.rotation.z = Math.max(surfaceWings.topLeft.rotation.z - angleStep, Math.PI);
-                        surfaceWings.bottomLeft.rotation.z = Math.min(surfaceWings.bottomLeft.rotation.z + angleStep, Math.PI);
-                    }
-                }
-                wingAnimation--;
-            }
-            return;
-        }
-    }
-    */
+    
 
     // Original space movement behavior
     if (isHyperspace) {

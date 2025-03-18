@@ -1,3 +1,4 @@
+// src/setup.js
 export const scene = new THREE.Scene();
 export const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
 export const renderer = new THREE.WebGLRenderer();
@@ -7,18 +8,20 @@ document.getElementById('space-container').appendChild(renderer.domElement);
 import { createSpacecraft } from './spacecraft.js';
 
 // Flag to track which scene is active
-export let isEarthSurfaceActive = false;
+export let isMoonSurfaceActive = false;
+
 
 // Render function that delegates to earth3D.js when in Earth surface mode
 // Update the renderScene function to avoid initializing earth3D multiple times
 export function renderScene() {
-    if (isEarthSurfaceActive) {
+    if (isMoonSurfaceActive) {
         // nothing to do here
     } else {
         // Render space scene
         renderer.render(scene, camera);
     }
 }
+
 
 // Define spacecraft variables first
 let spacecraft, engineGlowMaterial, lightMaterial;
@@ -40,6 +43,14 @@ function initSpacecraft() {
     bottomLeftWing = spacecraftComponents.bottomLeftWing;
     updateEngineEffects = spacecraftComponents.updateEngineEffects; // Capture the function
 
+    // Ensure wings are added to spacecraft
+    spacecraft.add(topRightWing);
+    spacecraft.add(bottomRightWing);
+    spacecraft.add(topLeftWing);
+    spacecraft.add(bottomLeftWing);
+
+    // Debug: Verify hierarchy
+    console.log("Spacecraft children after adding wings:", spacecraft.children.map(child => child.name));
 
     spacecraft.position.set(40000, 40000, 40000);
     const centerPoint = new THREE.Vector3(0, 0, 10000);
@@ -80,54 +91,71 @@ scene.add(sideLight);
 
 scene.background = new THREE.Color(0x000000);
 
-// Modify the checkEarthProximity function
-export function checkEarthProximity() {
-    const earthPosition = earthGroup.position.clone();
+// Modify the checkPlanetProximity function
+export function checkPlanetProximity() {
     const spacecraftPosition = spacecraft.position.clone();
-    const distance = earthPosition.distanceTo(spacecraftPosition);
     
-    if (distance < planetRadius + 800 && !isEarthSurfaceActive) {
-        // Stop rendering the space scene
-    isEarthSurfaceActive = true;
+    // Check Moon proximity first (direct global position)
+    const moonPosition = moonGroup.position.clone();
+    const distanceToMoon = moonPosition.distanceTo(spacecraftPosition);
+    // console.log("Distance to moon:", distanceToMoon);
     
-        // Initialize the Earth terrain only once
-        initEarth3D();
+    if (distanceToMoon < moonRadius + 800 && !isMoonSurfaceActive) {
+        // If close enough - activate moon surface
+        isMoonSurfaceActive = true;
+        console.log("Moon surface active");
         
-        // Start the Earth terrain animation loop
-        animateEarth3D();
-    } else if (distance >= planetRadius + 800 && isEarthSurfaceActive) {
-        // Import the stopAnimation function
-        import('./earth3D.js').then(module => {
-            // Stop the Earth terrain animation loop
-            module.stopAnimation();
-            
-            // Resume rendering the space scene
-            isEarthSurfaceActive = false;
-        });
+        // Initialize the Moon surface (if needed)
+        // initMoonSurface();
+    } else if (distanceToMoon >= moonRadius + 800 && isMoonSurfaceActive) {
+        // If moving away from Moon, exit Moon surface
+        isMoonSurfaceActive = false;
+        console.log("Exiting Moon surface");
     }
+    
+    // Check Earth proximity (separate check)
+    const earthPosition = earthGroup.position.clone();
+    const distanceToEarth = earthPosition.distanceTo(spacecraftPosition);
+
+    // TO ADD EARTH SURFACE ENTRY
+    
+    // Debug distances
+    // console.log(`Distances - Moon: ${distanceToMoon.toFixed(2)}, Earth: ${distanceToEarth.toFixed(2)}`);
 }
 
 
 export function exitEarthSurface() {
-    console.log("Exiting Earth's atmosphere!");
-    isEarthSurfaceActive = false;
+    console.log("Exiting Moon's surface!");
+    isMoonSurfaceActive = false;
     
-    // Remove the persistent Earth surface message if it exists
+    // Remove the persistent surface message if it exists
     const persistentMessage = document.getElementById('earth-surface-message');
     if (persistentMessage) {
         document.body.removeChild(persistentMessage);
     }
     
-    // Position spacecraft away from Earth to avoid immediate re-entry
+    // Position spacecraft away from Moon to avoid immediate re-entry
     const directionVector = new THREE.Vector3(1, 1, 1).normalize();
     spacecraft.position.set(
-        earthGroup.position.x + directionVector.x * (planetRadius * 2),
-        earthGroup.position.y + directionVector.y * (planetRadius * 2),
-        earthGroup.position.z + directionVector.z * (planetRadius * 2)
+        moonGroup.position.x + directionVector.x * (moonRadius * 4),
+        moonGroup.position.y + directionVector.y * (moonRadius * 4),
+        moonGroup.position.z + directionVector.z * (moonRadius * 4)
     );
     
     // Reset spacecraft rotation to look toward the center of the solar system
     spacecraft.lookAt(new THREE.Vector3(0, 0, 0));
+    
+    // Show the space container again
+    const spaceContainer = document.getElementById('space-container');
+    if (spaceContainer) {
+        spaceContainer.style.display = 'block';
+        console.log('Showing space-container');
+    }
+    
+    // Reset the earthInitialized flag in main.js
+    if (typeof resetEarthInitialized === 'function') {
+        resetEarthInitialized();
+    }
     
     // Restart the main animation loop
     if (typeof animate === 'function') {
@@ -139,8 +167,7 @@ export function exitEarthSurface() {
 
 ///////////////////// Solar System Setup /////////////////////
 
-// Texture loader
-export const textureLoader = new THREE.TextureLoader();
+const textureLoader = new THREE.TextureLoader();
 
 // Skybox setup
 const skyboxTexture = textureLoader.load('skybox/galaxy5.jpeg');
@@ -303,19 +330,19 @@ animateVenusClouds();
 // --- Earth Setup ---
 const earthGroup = new THREE.Group();
 scene.add(earthGroup);
-const planetRadius = 2000;
-const planetGeometry = new THREE.SphereGeometry(planetRadius, 64, 64);
-const planetTexture = textureLoader.load('skybox/2k_earth_daymap.jpg');
-const planetMaterial = new THREE.MeshStandardMaterial({
-    map: planetTexture,
+const earthRadius = 2000;
+const earthGeometry = new THREE.SphereGeometry(earthRadius, 64, 64);
+const earthTexture = textureLoader.load('skybox/2k_earth_daymap.jpg');
+const earthMaterial = new THREE.MeshStandardMaterial({
+    map: earthTexture,
     side: THREE.FrontSide,
     metalness: 0.2,
     roughness: 0.8
 });
-export const planet = new THREE.Mesh(planetGeometry, planetMaterial);
+export const planet = new THREE.Mesh(earthGeometry, earthMaterial);
 earthGroup.add(planet);
 const atmosphereThickness = 50;
-const atmosphereRadius = planetRadius + atmosphereThickness;
+const atmosphereRadius = earthRadius + atmosphereThickness;
 const atmosphereGeometry = new THREE.SphereGeometry(atmosphereRadius, 64, 64);
 const atmosphereMaterial = new THREE.MeshStandardMaterial({
     color: 0x00aaff,
@@ -344,7 +371,7 @@ animateEarthClouds();
 
 // --- Moon Setup ---
 const moonGroup = new THREE.Group();
-earthGroup.add(moonGroup); // Add Moon to Earth's group so it moves with Earth
+scene.add(moonGroup); // Add Moon directly to the scene instead of as a child of Earth
 const moonRadius = 500;
 const moonGeometry = new THREE.SphereGeometry(moonRadius, 32, 32);
 const moonTexture = textureLoader.load('skybox/2k_moon.jpg');
@@ -357,15 +384,41 @@ const moonMaterial = new THREE.MeshStandardMaterial({
 export const moon = new THREE.Mesh(moonGeometry, moonMaterial);
 moonGroup.add(moon);
 
-// Position the Moon relative to Earth
+// Position the Moon globally, but still relative to Earth's orbit
 const moonOrbitRadius = 5000;
 const moonAngle = Math.random() * Math.PI * 2; // Random angle in radians
-// Set moon position with a randomized orbit around Earth
+
+// Get Earth's global position
+const earthGlobalX = earthGroup.position.x;
+const earthGlobalY = earthGroup.position.y;
+const earthGlobalZ = earthGroup.position.z;
+
+// Set moon position globally, but at the correct distance from Earth
 moonGroup.position.set(
-    Math.cos(moonAngle) * moonOrbitRadius, // Random X
-    Math.sin(moonAngle) * moonOrbitRadius, // Random Y
-    0                                      // Z = 0, same plane as planets
+    earthGlobalX + Math.cos(moonAngle) * moonOrbitRadius, // Global X position
+    earthGlobalY + Math.sin(moonAngle) * moonOrbitRadius, // Global Y position
+    earthGlobalZ                                          // Same Z plane as Earth
 );
+
+// Create a function to update Moon's position if Earth moves
+function updateMoonPosition() {
+    // Only update if both Earth and Moon exist
+    if (earthGroup && moonGroup) {
+        const currentEarthX = earthGroup.position.x;
+        const currentEarthY = earthGroup.position.y;
+        const currentEarthZ = earthGroup.position.z;
+        
+        // Keep relative position but update global coordinates
+        moonGroup.position.set(
+            currentEarthX + Math.cos(moonAngle) * moonOrbitRadius,
+            currentEarthY + Math.sin(moonAngle) * moonOrbitRadius,
+            currentEarthZ
+        );
+    }
+}
+
+// Call this in the animation loop somewhere
+export { updateMoonPosition };
 
 // Animate Moon's rotation
 function animateMoon() {
@@ -581,8 +634,8 @@ document.body.appendChild(moonDistanceIndicator);
 
 // Function to update label positions
 export function updatePlanetLabels() {
-    // If on Earth's surface, hide all planet labels
-    if (isEarthSurfaceActive) {
+    // If on surface, hide all planet labels
+    if (isMoonSurfaceActive) {
         labels.forEach(label => {
             label.element.style.display = 'none';
         });
@@ -599,15 +652,14 @@ export function updatePlanetLabels() {
     const earthPosition = earthGroup.position.clone();
     const spacecraftPosition = spacecraft.position.clone();
     const distanceToEarth = earthPosition.distanceTo(spacecraftPosition);
-    const distanceToEntry = Math.max(0, distanceToEarth - (planetRadius + 500)); // 500 is the entry threshold
+    const distanceToEntry = Math.max(0, distanceToEarth - (earthRadius + 500)); // 500 is the entry threshold
     
     // Update the Earth distance indicator text
     earthDistanceIndicator.textContent = `EARTH ENTRY: ${Math.round(distanceToEntry)}`;
 
-    // Calculate distance to Moon for the indicator
-    const moonWorldPosition = new THREE.Vector3();
-    moonGroup.getWorldPosition(moonWorldPosition);
-    const distanceToMoon = moonWorldPosition.distanceTo(spacecraftPosition);
+    // Calculate distance to Moon for the indicator - using direct position since Moon is now in global coordinates
+    const moonPosition = moonGroup.position.clone();
+    const distanceToMoon = moonPosition.distanceTo(spacecraftPosition);
     const moonEntryDistance = Math.max(0, distanceToMoon - (moonRadius + 200)); // 200 is the entry threshold
     
     // Update the Moon distance indicator text
@@ -703,7 +755,7 @@ export function updateStars() {
     stars.geometry.attributes.position.needsUpdate = true;
 }
 
-export const PLANET_RADIUS = planetRadius;
+export const PLANET_RADIUS = earthRadius;
 export const PLANET_POSITION = earthGroup.position;
 
 // Hyperspace
@@ -741,7 +793,7 @@ window.addEventListener('keyup', (event) => {
 //     textureLoader,
 //     spacecraft,
 //     earthGroup,
-//     planetRadius,
+//     earthRadius,
 //     PLANET_RADIUS
 // });
 

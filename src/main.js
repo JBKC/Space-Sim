@@ -6,10 +6,11 @@ import {
     updateStars, 
     spacecraft, 
     updatePlanetLabels, 
-    checkEarthProximity, 
+    checkPlanetProximity, 
     renderScene, 
-    isEarthSurfaceActive,
+    isMoonSurfaceActive,
     exitEarthSurface,
+    updateMoonPosition
 } from './setup.js';
 
 import { updateCamera, updateMovement, setGameMode, resetMovementInputs, keys } from './movement.js'; // Added keys import
@@ -43,6 +44,7 @@ let isAnimating = false;
 let isBoosting = false;
 let isHyperspace = false;
 let isSpacePressed = false;
+let earthInitialized = false;  // Move to top-level scope for exports
 
 // Laser firing variables
 let lastFired = 0;
@@ -70,8 +72,31 @@ document.addEventListener('keydown', (event) => {
     if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
         startHyperspace();
     }
-    // Add escape key to exit Earth surface
-    if (event.code === 'Escape' && isEarthSurfaceActive) {
+    // Enhanced ESC key to exit Moon surface
+    if (event.code === 'Escape' && isMoonSurfaceActive) {
+        console.log('ESC pressed - exiting Moon surface');
+        
+        // // Show transition message
+        // const transitionMsg = document.createElement('div');
+        // transitionMsg.style.position = 'fixed';
+        // transitionMsg.style.top = '50%';
+        // transitionMsg.style.left = '50%';
+        // transitionMsg.style.transform = 'translate(-50%, -50%)';
+        // transitionMsg.style.color = 'white';
+        // transitionMsg.style.fontFamily = 'Orbitron, sans-serif';
+        // transitionMsg.style.fontSize = '24px';
+        // transitionMsg.style.padding = '20px';
+        // transitionMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        // transitionMsg.style.borderRadius = '10px';
+        // transitionMsg.style.zIndex = '9999';
+        // transitionMsg.textContent = 'Returning to space...';
+        // document.body.appendChild(transitionMsg);
+        
+        // // Remove message after transition
+        // setTimeout(() => {
+        //     document.body.removeChild(transitionMsg);
+        // }, 2000);
+        
         exitEarthSurface();
     }
 });
@@ -235,8 +260,12 @@ function startHyperspace() {
 }
 
 let debugMode = true;
-// Determine which animation loop to run
-let earthInitialized = false;
+
+// Export function to reset initialization state
+export function resetEarthInitialized() {
+    earthInitialized = false;
+    console.log('Reset Moon surface initialization state');
+}
 
 // Main animation loop
 function animate() {
@@ -245,87 +274,107 @@ function animate() {
         console.log("Animation stopped - isAnimating is false");
         return;
     }
-
     requestAnimationFrame(animate);
 
-    updateMovement(isBoosting, isHyperspace);
-    updateStars();
-    updateCamera(camera, isHyperspace);
-    updateLasers();
-    updateReticle();
-    updatePlanetLabels();
-    
-    // Check if spacecraft is near Earth
-    if (!isEarthSurfaceActive) {
-        checkEarthProximity();
+    // CASE 0 = space view
+    if (!isMoonSurfaceActive) {
+        // If we just exited the moon surface, make sure space container is visible
+        const spaceContainer = document.getElementById('space-container');
+        if (spaceContainer && spaceContainer.style.display === 'none') {
+            spaceContainer.style.display = 'block';
+            console.log('Restored space-container visibility');
+        }
+
+        // Check if spacecraft is near celestial body
+        checkPlanetProximity();
+
+        // Update Moon's position relative to Earth using global coordinates
+        updateMoonPosition();
+        
+        updateMovement(isBoosting, isHyperspace);
+        updateStars();
+        updateCamera(camera, isHyperspace);
+        updateLasers();
+        updateReticle();
+        updatePlanetLabels();
+        
+        // Continuous laser firing logic
+        if (isSpacePressed && !isHyperspace) {
+            const currentTime = Date.now();
+            if (currentTime - lastFired >= fireRate) {
+                fireLasers();
+                lastFired = currentTime;
+                console.log('Lasers fired');
+            }
+        }
+        
+        // Update hyperspace streaks if active
+        if (isHyperspace) {
+            updateStreaks();
+        }
+        
+        // Update coordinates display
+        const coordsDiv = document.getElementById('coordinates');
+        if (coordsDiv) {
+            coordsDiv.style.display = 'block';
+            const pos = spacecraft.position;
+            coordsDiv.textContent = `X: ${pos.x.toFixed(0)}, Y: ${pos.y.toFixed(0)}, Z: ${pos.z.toFixed(0)}`;
+        }
+        
+        updateUI();
+        
+        // Use the new rendering function instead of directly rendering the scene
+        renderScene();
     }
     
-    // Continuous laser firing logic
-    if (isSpacePressed && !isHyperspace) {
-        const currentTime = Date.now();
-        if (currentTime - lastFired >= fireRate) {
-            fireLasers();
-            lastFired = currentTime;
-            console.log('Lasers fired');
+    // CASE 1 = moon surface view
+    else if (isMoonSurfaceActive) {
+        try {
+            // Only initialize Earth once
+            if (!earthInitialized) {
+                console.log('Initializing Moon surface');
+                const earthObjects = initEarthSurface();
+                earthInitialized = true;
+                console.log('Moon surface initialized successfully', earthObjects);
+
+                // Hide space container to see surface scene
+                const spaceContainer = document.getElementById('space-container');
+                if (spaceContainer) {
+                    spaceContainer.style.display = 'none';
+                    console.log('Hid space-container');
+                }
+                
+                // Show Moon surface message
+                const moonMsg = document.createElement('div');
+                moonMsg.id = 'earth-surface-message';
+                moonMsg.style.position = 'fixed';
+                moonMsg.style.top = '20px';
+                moonMsg.style.right = '20px';
+                moonMsg.style.color = 'white';
+                moonMsg.style.fontFamily = 'Orbitron, sans-serif';
+                moonMsg.style.fontSize = '16px';
+                moonMsg.style.padding = '10px';
+                moonMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                moonMsg.style.borderRadius = '5px';
+                moonMsg.style.zIndex = '9999';
+                moonMsg.innerHTML = 'MOON SURFACE<br>Press ESC to return to space';
+                document.body.appendChild(moonMsg);
+            }
+            
+            // Update Earth components
+            const earthUpdated = updateEarthSurface();              // main update function that updates spacecraft, camera, tiles, world matrices
+            // if (debugMode && earthUpdated) {
+            //     console.log("Earth surface updated successfully");
+            // }
+            
+            // Render the earth scene with the earth camera using our renderer
+            earthRenderer.render(earthScene, earthCamera);
+            
+            // if (debugMode) {
+            //     console.log("Frame rendered");
+            // }
+        } catch (e) {
+            console.error('Animation loop error:', e);
         }
     }
-    
-    // Update hyperspace streaks if active
-    if (isHyperspace) {
-        updateStreaks();
-    }
-    
-    // Update coordinates display
-    const coordsDiv = document.getElementById('coordinates');
-    if (coordsDiv) {
-        coordsDiv.style.display = 'block';
-        const pos = spacecraft.position;
-        coordsDiv.textContent = `X: ${pos.x.toFixed(0)}, Y: ${pos.y.toFixed(0)}, Z: ${pos.z.toFixed(0)}`;
-    }
-    
-    updateUI();
-    
-    // Use the new rendering function instead of directly rendering the scene
-    renderScene();
-    
-    
-    // requestAnimationFrame(animate);
-
-    // try {
-    //     // Only initialize Earth once
-    //     if (!earthInitialized) {
-    //         console.log('Initializing Earth surface');
-    //         const earthObjects = initEarthSurface();
-    //         earthInitialized = true;
-    //         console.log('Earth surface initialized successfully', earthObjects);
-
-    //         // Hide space container to see surface scene
-    //         const spaceContainer = document.getElementById('space-container');
-    //         if (spaceContainer) {
-    //             spaceContainer.style.display = 'none';
-    //             console.log('Hid space-container');
-    //         }
-    //     }
-        
-    //     // Update Earth components
-    //     const earthUpdated = updateEarthSurface();              // main update function that updates spacecraft, camera, tiles, world matrices
-    //     // if (debugMode && earthUpdated) {
-    //     //     console.log("Earth surface updated successfully");
-    //     // }
-        
-    //     // Render the earth scene with the earth camera using our renderer
-    //     earthRenderer.render(earthScene, earthCamera);
-        
-    //     // if (debugMode) {
-    //     //     console.log("Frame rendered");
-    //     // }
-    // } catch (e) {
-    //     console.error('Animation loop error:', e);
-    // }
-
-    
-
-
-
-
 }

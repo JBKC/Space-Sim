@@ -182,12 +182,12 @@ earthSurfaceScene.add(earthDirectionalLight);
 earthSurfaceScene.fog = new THREE.FogExp2(0x87CEFA, 0.0003); // Updated fog color to match sky
 
 // Flag to track which scene is active
-export let isEarthSurfaceActive = false;
+export let isMoonSurfaceActive = false;
 // Flag to track if transition is in progress
 export let isTransitionInProgress = false;
 
 // Function to check if spacecraft is near Earth
-export function checkEarthProximity() {
+export function checkPlanetProximity() {
     if (!setupModule) return; // Wait until setup module is available
     
     // Calculate distance between spacecraft and Earth
@@ -196,13 +196,13 @@ export function checkEarthProximity() {
     const distance = earthPosition.distanceTo(spacecraftPosition);
     
     // Start transition when within detection zone but before actual transition
-    if (distance < setupModule.planetRadius + 800 && !isEarthSurfaceActive && !isTransitionInProgress) {
+    if (distance < setupModule.earthRadius + 800 && !isMoonSurfaceActive && !isTransitionInProgress) {
         // Start the pre-transition effect while still in space
         startAtmosphereTransition();
     }
     
     // Actual transition to surface happens at a closer distance
-    if (distance < setupModule.planetRadius + 500 && !isEarthSurfaceActive && isTransitionInProgress) {
+    if (distance < setupModule.earthRadius + 500 && !isMoonSurfaceActive && isTransitionInProgress) {
         // Only transition to surface after the mist has built up
         const overlay = document.getElementById('transition-overlay');
         if (overlay && parseFloat(getComputedStyle(overlay).opacity) > 0.3) {
@@ -241,7 +241,7 @@ function startAtmosphereTransition() {
         // Gradually increase overlay opacity
         overlay.style.opacity = (0.6 * progress).toString();
         
-        if (progress < 1 && !isEarthSurfaceActive) {
+        if (progress < 1 && !isMoonSurfaceActive) {
             requestAnimationFrame(animatePreTransition);
         }
     }
@@ -255,7 +255,7 @@ export function transitionToEarthSurface() {
     if (!setupModule) return; // Wait until setup module is available
     
     console.log("Entering Earth's atmosphere!");
-    isEarthSurfaceActive = true;
+    isMoonSurfaceActive = true;
     
     // Clear any existing spacecraft from the Earth surface scene
     earthSurfaceScene.children.forEach(child => {
@@ -392,7 +392,7 @@ export function exitEarthSurface() {
     if (!setupModule) return; // Wait until setup module is available
     
     console.log("Exiting Earth's atmosphere!");
-    isEarthSurfaceActive = false;
+    isMoonSurfaceActive = false;
     isTransitionInProgress = false;
     
     // Remove the persistent Earth surface message if it exists
@@ -405,9 +405,9 @@ export function exitEarthSurface() {
     // Calculate a position that's 3x the planet radius + 1000 units away from Earth
     const directionVector = new THREE.Vector3(1, 1, 1).normalize();
     setupModule.spacecraft.position.set(
-        setupModule.earthGroup.position.x + directionVector.x * (setupModule.planetRadius * 3 + 1000),
-        setupModule.earthGroup.position.y + directionVector.y * (setupModule.planetRadius * 3 + 1000),
-        setupModule.earthGroup.position.z + directionVector.z * (setupModule.planetRadius * 3 + 1000)
+        setupModule.earthGroup.position.x + directionVector.x * (setupModule.earthRadius * 3 + 1000),
+        setupModule.earthGroup.position.y + directionVector.y * (setupModule.earthRadius * 3 + 1000),
+        setupModule.earthGroup.position.z + directionVector.z * (setupModule.earthRadius * 3 + 1000)
     );
     
     // Reset spacecraft rotation to look toward the center of the solar system
@@ -418,7 +418,7 @@ export function exitEarthSurface() {
 export function renderScene() {
     if (!setupModule) return; // Wait until setup module is available
     
-    if (isEarthSurfaceActive) {
+    if (isMoonSurfaceActive) {
         setupModule.renderer.render(earthSurfaceScene, setupModule.camera);
     } else {
         setupModule.renderer.render(setupModule.scene, setupModule.camera);

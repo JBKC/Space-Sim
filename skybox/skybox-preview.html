@@ -68,7 +68,7 @@
     const skyboxFragmentShader = `
     varying vec3 vWorldPosition;
     varying vec2 vUv;
-    uniform sampler2D planetTexture;
+    uniform sampler2D earthTexture;
 
     // Noise function to create surface variation
     float hash(float n) {
@@ -105,16 +105,16 @@
       color += vec3(stars);
 
       // Create a larger planet in the middle (front face)
-      float planetRadius = 0.8; // Increased size
+      float earthRadius = 0.8; // Increased size
 
       // Calculate distance from center of front face (z-direction)
       vec2 planetPos = vec2(direction.x, direction.y);
       float dist = length(planetPos);
 
       // If inside the planet radius and facing the negative z direction (front)
-      if (dist < planetRadius && direction.z < 0.0) {
+      if (dist < earthRadius && direction.z < 0.0) {
         // Calculate surface normal for lighting
-        vec3 normal = normalize(vec3(planetPos, sqrt(planetRadius * planetRadius - dist * dist)));
+        vec3 normal = normalize(vec3(planetPos, sqrt(earthRadius * earthRadius - dist * dist)));
 
         // Calculate UV coordinates for the planet texture
         // Map the sphere to UV coordinates
@@ -122,7 +122,7 @@
         float v = 0.5 - asin(normal.y) / 3.14159;
 
         // Get color from the texture
-        vec3 planetColor = texture2D(planetTexture, vec2(u, v)).rgb;
+        vec3 planetColor = texture2D(earthTexture, vec2(u, v)).rgb;
 
         // Simple lighting from upper-left
         vec3 lightDir = normalize(vec3(-0.5, 0.8, -0.3));
@@ -132,16 +132,16 @@
         planetColor = planetColor * (diffuse * 0.7 + 0.3);
 
         // Create atmosphere effect at the edges
-        float atmosphereStart = 0.7 * planetRadius;
-        float atmosphereStrength = smoothstep(atmosphereStart, planetRadius, dist);
+        float atmosphereStart = 0.7 * earthRadius;
+        float atmosphereStrength = smoothstep(atmosphereStart, earthRadius, dist);
         vec3 atmosphereColor = vec3(0.4, 0.7, 1.0);
 
         // Blend planet surface with atmosphere glow
         color = mix(planetColor, atmosphereColor, atmosphereStrength * 0.6);
 
         // Add atmosphere halo beyond the planet edge
-        if (dist > planetRadius * 0.9 && dist < planetRadius * 1.1) {
-          float halo = (1.0 - abs(dist - planetRadius) / (planetRadius * 0.1)) * 0.3;
+        if (dist > earthRadius * 0.9 && dist < earthRadius * 1.1) {
+          float halo = (1.0 - abs(dist - earthRadius) / (earthRadius * 0.1)) * 0.3;
           color += atmosphereColor * halo;
         }
       }
@@ -179,7 +179,7 @@
 
       // Load the planet texture
       const textureLoader = new THREE.TextureLoader();
-      const planetTexture = textureLoader.load('./Naboo.png',
+      const earthTexture = textureLoader.load('./Naboo.png',
         // Success callback
         function(texture) {
           document.getElementById('debug-info').textContent = "Planet texture loaded successfully!";
@@ -200,7 +200,7 @@
         fragmentShader: skyboxFragmentShader,
         side: THREE.BackSide,
         uniforms: {
-          planetTexture: { value: planetTexture }
+          earthTexture: { value: earthTexture }
         }
       });
 
