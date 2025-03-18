@@ -100,14 +100,17 @@ export function checkPlanetProximity() {
     const distanceToMoon = moonPosition.distanceTo(spacecraftPosition);
     // console.log("Distance to moon:", distanceToMoon);
     
-    if (distanceToMoon < moonRadius + 800 && !isMoonSurfaceActive) {
+    // Define entry threshold directly in this function
+    const moonEntryThreshold = 500; // Distance threshold for Moon entry
+    
+    if (distanceToMoon < moonRadius + moonEntryThreshold && !isMoonSurfaceActive) {
         // If close enough - activate moon surface
         isMoonSurfaceActive = true;
         console.log("Moon surface active");
         
         // Initialize the Moon surface (if needed)
         // initMoonSurface();
-    } else if (distanceToMoon >= moonRadius + 800 && isMoonSurfaceActive) {
+    } else if (distanceToMoon >= moonRadius + moonEntryThreshold && isMoonSurfaceActive) {
         // If moving away from Moon, exit Moon surface
         isMoonSurfaceActive = false;
         console.log("Exiting Moon surface");
@@ -660,7 +663,7 @@ export function updatePlanetLabels() {
     // Calculate distance to Moon for the indicator - using direct position since Moon is now in global coordinates
     const moonPosition = moonGroup.position.clone();
     const distanceToMoon = moonPosition.distanceTo(spacecraftPosition);
-    const moonEntryDistance = Math.max(0, distanceToMoon - (moonRadius + 200)); // 200 is the entry threshold
+    const moonEntryDistance = Math.max(0, distanceToMoon - (moonRadius + 500)); // 200 is the entry threshold
     
     // Update the Moon distance indicator text
     moonDistanceIndicator.textContent = `MOON ENTRY: ${Math.round(moonEntryDistance)}`;
