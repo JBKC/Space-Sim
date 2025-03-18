@@ -58,10 +58,16 @@ setupDirectionalIndicator();
 document.addEventListener('keydown', (event) => {
     if (event.code === 'Space' && !isSpacePressed) {
         isSpacePressed = true;
-        startFiring(); // Start continuous firing
     }
     if (event.code === 'ArrowUp') {
         isBoosting = true;
+        console.log('Boost activated - speed should increase');
+        
+        // Visual indication for debug purposes
+        const coordsDiv = document.getElementById('coordinates');
+        if (coordsDiv) {
+            coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
+        }
     }
     if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
         startHyperspace();
@@ -69,8 +75,6 @@ document.addEventListener('keydown', (event) => {
     // Enhanced ESC key to exit Moon surface
     if (event.code === 'Escape' && isMoonSurfaceActive) {
         console.log('ESC pressed - exiting Moon surface');
-    
-        
         exitEarthSurface();
     }
 });
@@ -79,10 +83,16 @@ document.addEventListener('keydown', (event) => {
 document.addEventListener('keyup', (event) => {
     if (event.code === 'Space') {
         isSpacePressed = false;
-        stopFiring(); // Stop continuous firing
     }
     if (event.code === 'ArrowUp') {
         isBoosting = false;
+        console.log('Boost deactivated - speed should return to normal');
+        
+        // Reset visual indication
+        const coordsDiv = document.getElementById('coordinates');
+        if (coordsDiv) {
+            coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
+        }
     }
 });
 
@@ -105,6 +115,12 @@ function startGame(mode) {
     const welcomeScreen = document.getElementById('welcome-screen');
     if (welcomeScreen) {
         welcomeScreen.style.display = 'none';
+    }
+    
+    // Show coordinates when game starts
+    const coordsDiv = document.getElementById('coordinates');
+    if (coordsDiv) {
+        coordsDiv.style.display = 'block';
     }
 
     if (!isAnimating) {
@@ -184,11 +200,19 @@ function updateStreaks() {
 // Function to start hyperspace with progress bar and streaks
 function startHyperspace() {
     if (isHyperspace) return;
+    
     isHyperspace = true;
-    console.log('Entering hyperspace...');
+    console.log('Entering hyperspace... Speed should increase dramatically!');
 
     // Create hyperspace streaks
     createStreaks();
+
+    // Visual indication for debug purposes
+    const coordsDiv = document.getElementById('coordinates');
+    if (coordsDiv) {
+        coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
+        coordsDiv.style.fontWeight = 'bold';
+    }
 
     const progressContainer = document.getElementById('hyperspace-progress-container');
     const progressBar = document.getElementById('hyperspace-progress');
@@ -225,17 +249,24 @@ function startHyperspace() {
 
     setTimeout(() => {
         isHyperspace = false;
-        console.log('Exiting hyperspace...');
+        console.log('Exiting hyperspace... Speed should return to normal');
         resetMovementInputs();
+        
+        // Reset visual indication
+        if (coordsDiv) {
+            coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
+            coordsDiv.style.fontWeight = 'normal';
+        }
+        
         // Clean up streaks
         streakLines.forEach(streak => spaceScene.remove(streak.line));
         streakLines = [];
     }, 2000);
 }
-
+s
 let debugMode = true;
 
-// Make the reset function available globally to avoid circular imports
+// Make the reset function available globally to avoid circular ismports
 window.resetEarthInitialized = function() {
     earthInitialized = false;
     console.log('Reset Moon surface initialization state');
@@ -267,10 +298,18 @@ function animate() {
                 const spaceObjects = initSpace();
                 spaceInitialized = true;
                 console.log('Space initialized successfully', spaceObjects);
-                }
+            }
             
-            // Main frame update function
-            updateSpace();
+            // Main frame update function - pass isBoosting and isHyperspace values
+            updateSpace(isBoosting, isHyperspace);
+            
+            // Debug logging for hyperspace and boost state
+            if (isHyperspace) {
+                console.log('Hyperspace active - speed should increase');
+            }
+            if (isBoosting) {
+                console.log('Boosting active');
+            }
 
             // ALL THIS BELOW BELONGS IN INIT
             // Update Moon's position relative to Earth using global coordinates
@@ -286,10 +325,12 @@ function animate() {
             const coordsDiv = document.getElementById('coordinates');
             if (coordsDiv && spacecraft) {
                 coordsDiv.style.display = 'block';
+                coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
                 const pos = spacecraft.position;
                 coordsDiv.textContent = `X: ${pos.x.toFixed(0)}, Y: ${pos.y.toFixed(0)}, Z: ${pos.z.toFixed(0)}`;
             } else if (coordsDiv) {
                 coordsDiv.style.display = 'block';
+                coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
                 coordsDiv.textContent = 'Spacecraft initializing...';
             }
             

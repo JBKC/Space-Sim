@@ -143,7 +143,7 @@ export function init() {
 }
 
 // Performs the state update for the spacecraft / environment
-export function update() {
+export function update(isBoosting, isHyperspace) {
     try {
         if (!spaceInitialized) {
             console.log("Space not initialized yet");
@@ -153,6 +153,7 @@ export function update() {
         // Check if spacecraft is near celestial body
         checkPlanetProximity();
 
+        // Use the passed isBoosting and isHyperspace parameters
         updateMovement(isBoosting, isHyperspace);
         updateCamera(camera, isHyperspace);
 
@@ -855,7 +856,7 @@ function activateHyperspace() {
 function deactivateHyperspace() {
     if (isHyperspaceActive) {
         isHyperspaceActive = false;
-        console.log("Hyperspace deactivated!");
+        // console.log("Hyperspace deactivated!");
     }
 }
 

@@ -148,7 +148,7 @@ export function updateMovement(isBoosting, isHyperspace) {
 
     // Original space movement behavior
     if (isHyperspace) {
-        currentSpeed = 150;
+        currentSpeed = baseSpeed * 100;
     } else if (isBoosting) {
         currentSpeed = boostSpeed;
     } else {
@@ -157,7 +157,9 @@ export function updateMovement(isBoosting, isHyperspace) {
 
     // Update engine effects
     if (typeof updateEngineEffects === 'function') {
-        updateEngineEffects(keys.up);
+        updateEngineEffects(isBoosting);
+        // Debug to confirm function call
+        console.log(`Engine effects updated - Boosting: ${isBoosting}`);
     }
 
     // Trigger wing animation based on hyperspace and boost state
