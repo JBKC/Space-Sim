@@ -1,6 +1,6 @@
 // src/setup.js
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.module.js';
-import { updateMovement, updateCamera } from './movement.js';
+import { updateMovement, updateCamera, keys } from './movement.js';
 import { createSpacecraft } from './spacecraft.js';
 
 // General initialization - scene, camera, renderer
@@ -70,6 +70,9 @@ const wingTransitionFrames = 30;
 // Export spacecraft variables for other modules
 export { spacecraft, engineGlowMaterial, lightMaterial, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, wingsOpen, wingAnimation, updateEngineEffects };
 
+// Track if controls have been initialized
+let controlsInitialized = false;
+
 // Initialize spacecraft
 function initSpacecraft() {
     const spacecraftComponents = createSpacecraft(scene);
@@ -91,7 +94,16 @@ function initSpacecraft() {
 }
 
 function initControls() {
+    // Only set up event listeners once
+    if (controlsInitialized) {
+        console.log("Controls already initialized, skipping");
+        return;
+    }
+    
+    console.log("Initializing controls with keys object:", keys);
+    
     document.addEventListener('keydown', (event) => {
+        if (!keys) return; // Guard against keys not being defined
         switch (event.key) {
             case 'w': keys.w = true; break;
             case 's': keys.s = true; break;
@@ -104,6 +116,7 @@ function initControls() {
     });
 
     document.addEventListener('keyup', (event) => {
+        if (!keys) return; // Guard against keys not being defined
         switch (event.key) {
             case 'w': keys.w = false; break;
             case 's': keys.s = false; break;
@@ -114,6 +127,8 @@ function initControls() {
             case 'ArrowUp': keys.up = false; break;
         }
     });
+    
+    controlsInitialized = true;
 }
 
 /// MASTER FUNCTION called by main.js
@@ -168,6 +183,9 @@ export function update(isBoosting, isHyperspace) {
 
 // Modify the checkPlanetProximity function
 export function checkPlanetProximity() {
+    // Skip if spacecraft isn't initialized yet
+    if (!spacecraft) return;
+    
     const spacecraftPosition = spacecraft.position.clone();
     
     // Check Moon proximity first (direct global position)
@@ -181,14 +199,15 @@ export function checkPlanetProximity() {
     if (distanceToMoon < moonRadius + moonEntryThreshold && !isMoonSurfaceActive) {
         // If close enough - activate moon surface
         isMoonSurfaceActive = true;
-        console.log("Moon surface active");
+        console.log("Moon surface active - distance:", distanceToMoon.toFixed(2));
         
         // Initialize the Moon surface (if needed)
         // initMoonSurface();
-    } else if (distanceToMoon >= moonRadius + moonEntryThreshold && isMoonSurfaceActive) {
+    } else if (distanceToMoon >= moonRadius + moonEntryThreshold * 1.2 && isMoonSurfaceActive) {
+        // Add a small buffer (20% larger) to avoid oscillation at the boundary
         // If moving away from Moon, exit Moon surface
         isMoonSurfaceActive = false;
-        console.log("Exiting Moon surface");
+        console.log("Exiting Moon surface - distance:", distanceToMoon.toFixed(2));
     }
     
     // Check Earth proximity (separate check)
@@ -237,14 +256,25 @@ export function exitEarthSurface() {
         coordsDiv.style.display = 'block';
     }
     
+    // Make sure keys object is properly reset
+    if (keys) {
+        // Reset all movement keys
+        Object.keys(keys).forEach(key => keys[key] = false);
+        console.log('Reset keys object:', keys);
+    }
+    
     // Reset the earthInitialized flag in main.js
     if (typeof window.resetEarthInitialized === 'function') {
         window.resetEarthInitialized();
+    } else {
+        console.warn('resetEarthInitialized function not found on window object');
     }
     
     // Restart the main animation loop
-    if (typeof animate === 'function') {
-        animate();  // Restart the main animation loop
+    if (typeof window.animate === 'function') {
+        window.animate();  // Restart the main animation loop using the window.animate function
+    } else {
+        console.warn('animate function not found on window object');
     }
 }
 
@@ -666,7 +696,9 @@ function createConcentricCircles() {
     });
 }
 
-createConcentricCircles(); // ** TOGGLE ORBITAL LINES ON AND OFF **
+// createConcentricCircles(); // ** TOGGLE ORBITAL LINES ON AND OFF **
+// The Moon's orbit circle - keep a reference for position updates
+const moonOrbitCircle = createMoonOrbit();
 
 // Function to create the Moon's orbit around Earth
 function createMoonOrbit() {
@@ -711,8 +743,6 @@ function createMoonOrbit() {
     return moonOrbit;
 }
 
-// The Moon's orbit circle - keep a reference for position updates
-const moonOrbitCircle = createMoonOrbit();
 
 // Update the Moon orbit position when Earth moves
 export function updateMoonOrbit() {

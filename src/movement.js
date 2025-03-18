@@ -18,7 +18,7 @@ import {
 } from './setup.js';
 
 // Movement and boost variables
-export const baseSpeed = 2;
+export const baseSpeed = 5;
 export const boostSpeed = baseSpeed * 5;
 export const surfaceBoostSpeed = baseSpeed * 2; // Surface boost is 2x base speed
 export let currentSpeed = baseSpeed;
@@ -40,13 +40,26 @@ let lastValidQuaternion = new THREE.Quaternion();
 // Track game mode
 let gameMode = null;
 
-// Camera offsets
-const baseCameraOffset = new THREE.Vector3(0, 2, 10);
-const boostCameraOffset = new THREE.Vector3(0, 3, 70);
-const hyperspaceCameraOffset = new THREE.Vector3(0, 2, 1795);
-export const surfaceCameraOffset = new THREE.Vector3(0, 2, 10);
+// Camera offsets - using negative Z to position behind the spacecraft
+const baseCameraOffset = new THREE.Vector3(0, 2, -8); // Camera sits behind the spacecraft
+const boostCameraOffset = new THREE.Vector3(0, 3, -20); // Further back during boost
+const hyperspaceCameraOffset = new THREE.Vector3(0, 2, -5); // Even further back during hyperspace
+export const surfaceCameraOffset = new THREE.Vector3(0, 2, -10);
+// Current camera offset that will be interpolated
 let currentCameraOffset = baseCameraOffset.clone();
-const smoothFactor = 0.1;
+// Target offset that we're interpolating towards
+let targetCameraOffset = baseCameraOffset.clone();
+
+// Camera transition parameters (between different speed states)
+const cameraTransitionSpeed = 0.2; // Lower = slower transition, Higher = faster transition
+
+// Camera smoothing and look ahead parameters
+const smoothFactor = 0.1; // 0.1 = very laggy, 0.99 = almost no lag
+const lookAheadDistance = 20; // How far ahead of the spacecraft to look (in local units)
+
+// Camera position tracking for smooth interpolation
+let lastCameraPosition = new THREE.Vector3();
+let cameraInitialized = false;
 
 // Initialize camera-related objects lazily
 let cameraTarget = null;
@@ -110,33 +123,61 @@ export const rotation = {
 };
 
 export function updateCamera(camera, isHyperspace) {
+    /**
+     * Fixed Local-Space Camera System with Smooth State Transitions
+     * ------------------------------------------------------------
+     * This camera system attaches the camera directly to the spacecraft's
+     * local coordinate system, while smoothly transitioning between states:
+     * 
+     * 1. The camera is always at a fixed position relative to the spacecraft
+     * 2. The pivot point is exactly at the center of the spacecraft
+     * 3. Camera movement is perfectly synchronized with spacecraft movement
+     * 4. Smooth transitions between normal, boost, and hyperspace states
+     */
+    
     if (!spacecraft) {
         console.warn("Spacecraft not initialized yet, skipping updateCamera");
         return;
     }
 
-    // Initialize cameraTarget and cameraRig if not already done
-    if (!cameraTarget) {
-        cameraTarget = new THREE.Object3D();
-        spacecraft.add(cameraTarget);
-        cameraTarget.position.set(0, 0, 0);
+    // Determine the target camera offset based on the current mode
+    if (isHyperspace) {
+        targetCameraOffset = hyperspaceCameraOffset.clone();
+    } else if (keys.up) {
+        targetCameraOffset = boostCameraOffset.clone();
+    } else {
+        targetCameraOffset = baseCameraOffset.clone();
     }
-    if (!cameraRig) {
-        cameraRig = new THREE.Object3D();
-        spaceScene.add(cameraRig); // Use spaceScene instead of scene
-    }
-
-    const targetPosition = new THREE.Vector3();
-    spacecraft.getWorldPosition(targetPosition);
-
-    const localOffset = isHyperspace ? hyperspaceCameraOffset.clone() : (keys.up ? boostCameraOffset.clone() : currentCameraOffset.clone());
-    const cameraPosition = localOffset.applyMatrix4(spacecraft.matrixWorld);
-
-    camera.position.lerp(cameraPosition, smoothFactor);
-    camera.quaternion.copy(spacecraft.quaternion);
-
-    const adjustment = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0));
-    camera.quaternion.multiply(adjustment);
+    
+    // Smooth interpolation between current offset and target offset
+    currentCameraOffset.lerp(targetCameraOffset, cameraTransitionSpeed);
+    
+    // Get spacecraft's world matrix
+    spacecraft.updateMatrixWorld();
+    const worldMatrix = spacecraft.matrixWorld.clone();
+    
+    // Create a position vector from the interpolated offset
+    const position = new THREE.Vector3();
+    position.copy(currentCameraOffset);
+    
+    // Transform the local position to world space
+    position.applyMatrix4(worldMatrix);
+    
+    // Set camera position directly
+    camera.position.copy(position);
+    
+    // Set camera rotation to match spacecraft orientation (but looking forward)
+    // We need to apply a 180-degree rotation to make the camera look forward
+    const quaternion = spacecraft.getWorldQuaternion(new THREE.Quaternion());
+    camera.quaternion.copy(quaternion);
+    
+    // Apply a 180-degree rotation around the Y axis to look forward
+    const forwardRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0));
+    camera.quaternion.multiply(forwardRotation);
+    
+    // Debug information if needed
+    // console.log(`Camera offset: ${currentCameraOffset.x.toFixed(2)}, ${currentCameraOffset.y.toFixed(2)}, ${currentCameraOffset.z.toFixed(2)}`);
+    // console.log(`Target offset: ${targetCameraOffset.x.toFixed(2)}, ${targetCameraOffset.y.toFixed(2)}, ${targetCameraOffset.z.toFixed(2)}`);
 }
 
 export function updateMovement(isBoosting, isHyperspace) {
@@ -148,7 +189,7 @@ export function updateMovement(isBoosting, isHyperspace) {
 
     // Original space movement behavior
     if (isHyperspace) {
-        currentSpeed = baseSpeed * 100;
+        currentSpeed = baseSpeed * 50;
     } else if (isBoosting) {
         currentSpeed = boostSpeed;
     } else {
