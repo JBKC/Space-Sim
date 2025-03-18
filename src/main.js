@@ -251,7 +251,7 @@ function animate() {
     requestAnimationFrame(animate);
 
     // CASE 0 = space view
-    if (isMoonSurfaceActive) {
+    if (!isMoonSurfaceActive) {
         
         // If we just exited the moon surface, make sure space container is visible
         const spaceContainer = document.getElementById('space-container');
