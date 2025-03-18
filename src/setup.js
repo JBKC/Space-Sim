@@ -1,21 +1,27 @@
 // src/setup.js
+import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.module.js';
 import { updateMovement, updateCamera } from './movement.js';
-
+import { createSpacecraft } from './spacecraft.js';
 
 // General initialization - scene, camera, renderer
-const spaceScene = new THREE.Scene();
-const spaceCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
-spaceCamera.position.set(100, 100, -100);
-spaceCamera.lookAt(0, 0, 0);
+// do outside of init function as scene is required by multiple other files
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
+camera.position.set(100, 100, -100);
+camera.lookAt(0, 0, 0);
+
 // set up renderer for default space view
-const spaceRenderer = new THREE.WebGLRenderer();
-spaceRenderer.setSize(window.innerWidth, window.innerHeight);
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('space-container').appendChild(renderer.domElement);
+let spaceInitialized = false;
+let isBoosting = false;
+let isHyperspace = false;
 
 export { 
-    spaceRenderer, 
-    spaceScene, 
-    spaceCamera, 
+    renderer, 
+    scene, 
+    camera, 
 };
 
 // Renderer settings
@@ -46,8 +52,10 @@ export let isMoonSurfaceActive = false;
 export function renderScene() {
     if (isMoonSurfaceActive) {
         // nothing to do here
+        console.log("Moon surface active, deferring rendering");
     } else {
         // Render space scene
+        console.log("Rendering space scene");
         renderer.render(scene, camera);
     }
 }
@@ -64,7 +72,7 @@ export { spacecraft, engineGlowMaterial, lightMaterial, topRightWing, bottomRigh
 
 // Initialize spacecraft
 function initSpacecraft() {
-    const spacecraftComponents = createSpacecraft(moonScene);
+    const spacecraftComponents = createSpacecraft(scene);
     spacecraft = spacecraftComponents.spacecraft;
     engineGlowMaterial = spacecraftComponents.engineGlowMaterial;
     lightMaterial = spacecraftComponents.lightMaterial;
@@ -76,7 +84,8 @@ function initSpacecraft() {
     spacecraft.position.set(40000, 40000, 40000);
     const centerPoint = new THREE.Vector3(0, 0, 10000);
     spacecraft.lookAt(centerPoint);
-    // scene.add(spacecraft);
+    spacecraft.name = 'spacecraft'; // Add a name for easier lookup
+    scene.add(spacecraft); // Make sure to add it to the scene
 
     updateEngineEffects = spacecraftComponents.updateEngineEffects;
 }
@@ -111,11 +120,10 @@ function initControls() {
 export function init() {
     console.log("Space initialization started");
     
-    // if (moonInitialized) {
-    //     console.log("Moon3D already initialized, skipping");
-    //     return { scene: moonScene, camera: moonCamera, renderer: moonRenderer, tiles: tiles };
-    // }
-
+    if (spaceInitialized) {
+        console.log("Space already initialized, skipping");
+        return { scene: scene, camera: camera, renderer: renderer };
+    }
 
     initSpacecraft();
 
@@ -128,19 +136,33 @@ export function init() {
     console.log("Space initialization complete");
     
     return { 
-        scene: spaceScene, 
-        camera: spaceCamera, 
-        renderer: moonRenderer, 
+        scene: scene, 
+        camera: camera, 
+        renderer: renderer, 
     };
 }
 
+// Performs the state update for the spacecraft / environment
 export function update() {
-    updateMovement(isBoosting, isHyperspace);
-    updateCamera(spaceCamera, isHyperspace);
+    try {
+        if (!spaceInitialized) {
+            console.log("Space not initialized yet");
+            return false;
+        }
 
+        // Check if spacecraft is near celestial body
+        checkPlanetProximity();
 
-    updateStars();
-    updatePlanetLabels();
+        updateMovement(isBoosting, isHyperspace);
+        updateCamera(camera, isHyperspace);
+
+        updateStars();
+        updatePlanetLabels();
+
+    } catch (error) {
+        console.error("Error in space update:", error);
+        return false;
+    }
 }
 
 // Modify the checkPlanetProximity function
@@ -844,18 +866,9 @@ window.addEventListener('keyup', (event) => {
     if (event.key === 'Shift') deactivateHyperspace();
 });
 
-
-
-// Initialize the Earth terrain module with references to this module
-// This needs to be at the end of the file after all variables are defined
-// initializeEarthTerrain({
-//     scene,
-//     camera,
-//     renderer,
-//     textureLoader,
-//     spacecraft,
-//     earthGroup,
-//     earthRadius,
-//     PLANET_RADIUS
-// });
-
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+}

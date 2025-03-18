@@ -12,7 +12,7 @@ import {
     topLeftWing, 
     bottomLeftWing, 
     updateEngineEffects,
-    spaceScene,
+    scene as spaceScene,
     PLANET_RADIUS,
     PLANET_POSITION
 } from './setup.js';

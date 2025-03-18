@@ -10,9 +10,11 @@ import {
     updateMoonPosition,
     init as initSpace,
     update as updateSpace,
-    spaceRenderer as spaceRender,
-    spaceScene as spaceScene,
-    spaceCamera as spaceCamera
+    renderer as spaceRenderer,
+    scene as spaceScene,
+    camera as spaceCamera,
+    spacecraft,
+    renderScene
 } from './setup.js';
 
 // import moon surface functions
@@ -113,9 +115,9 @@ function startGame(mode) {
 
 // Handle window resize
 window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    spaceCamera.aspect = window.innerWidth / window.innerHeight;
+    spaceCamera.updateProjectionMatrix();
+    spaceRenderer.setSize(window.innerWidth, window.innerHeight);
 });
 
 // Function to start exploration mode (placeholder)
@@ -144,7 +146,7 @@ function createStreaks() {
         });
 
         const line = new THREE.Line(geometry, material);
-        scene.add(line);
+        spaceScene.add(line);
         streakLines.push({ line, positions: positions });
     }
 }
@@ -173,9 +175,9 @@ function updateStreaks() {
 
         // Position and rotate with the camera
         const cameraPosition = new THREE.Vector3();
-        camera.getWorldPosition(cameraPosition);
+        spaceCamera.getWorldPosition(cameraPosition);
         streak.line.position.copy(cameraPosition);
-        streak.line.rotation.copy(camera.rotation);
+        streak.line.rotation.copy(spaceCamera.rotation);
     });
 }
 
@@ -226,7 +228,7 @@ function startHyperspace() {
         console.log('Exiting hyperspace...');
         resetMovementInputs();
         // Clean up streaks
-        streakLines.forEach(streak => scene.remove(streak.line));
+        streakLines.forEach(streak => spaceScene.remove(streak.line));
         streakLines = [];
     }, 2000);
 }
@@ -249,7 +251,7 @@ function animate() {
     requestAnimationFrame(animate);
 
     // CASE 0 = space view
-    if (!isMoonSurfaceActive) {
+    if (isMoonSurfaceActive) {
         
         // If we just exited the moon surface, make sure space container is visible
         const spaceContainer = document.getElementById('space-container');
@@ -267,18 +269,12 @@ function animate() {
                 console.log('Space initialized successfully', spaceObjects);
                 }
             
-
-            // Check if spacecraft is near celestial body
-            checkPlanetProximity();
-
             // Main frame update function
             updateSpace();
 
             // ALL THIS BELOW BELONGS IN INIT
             // Update Moon's position relative to Earth using global coordinates
             updateMoonPosition();
-            
-
             
             
             // Update hyperspace streaks if active
@@ -288,16 +284,18 @@ function animate() {
             
             // Update coordinates display - only show in space mode
             const coordsDiv = document.getElementById('coordinates');
-            if (coordsDiv) {
+            if (coordsDiv && spacecraft) {
                 coordsDiv.style.display = 'block';
                 const pos = spacecraft.position;
                 coordsDiv.textContent = `X: ${pos.x.toFixed(0)}, Y: ${pos.y.toFixed(0)}, Z: ${pos.z.toFixed(0)}`;
+            } else if (coordsDiv) {
+                coordsDiv.style.display = 'block';
+                coordsDiv.textContent = 'Spacecraft initializing...';
             }
             
             updateUI();
             
-            // Use the new rendering function instead of directly rendering the scene
-            spaceRender.render(spaceScene, spaceCamera);
+            renderScene();
 
         
         } catch (e) {
@@ -306,7 +304,7 @@ function animate() {
     }
     
     // CASE 1 = moon surface view
-    else if (isMoonSurfaceActive) {
+    if (isMoonSurfaceActive) {
         try {
             // Only initialize Earth once
             if (!earthInitialized) {
@@ -345,8 +343,8 @@ function animate() {
                 }
             }
             
-            // Update Earth components
-            const earthUpdated = updateEarthSurface();              // main update function that updates spacecraft, camera, tiles, world matrices
+            // Main update function that updates spacecraft, camera, tiles, world matrices
+            const earthUpdated = updateEarthSurface();              
 
             // Render the earth scene with the earth camera using our renderer
             earthRenderer.render(earthScene, earthCamera);
