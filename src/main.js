@@ -27,8 +27,7 @@ import {
 
 import { setGameMode, resetMovementInputs } from './movement.js'; // Added keys import
 import { setupUIElements, setupDirectionalIndicator, updateDirectionalIndicator, showRaceModeUI, hideRaceModeUI, updateUI } from './ui.js';
-import { updateLasers, fireLasers, startFiring, stopFiring } from './lasers.js';
-import { updateReticle } from './reticle.js';
+
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.module.js'; // Explicitly import Three.js module
 
 let gameMode = null;
@@ -279,15 +278,8 @@ function animate() {
             // Update Moon's position relative to Earth using global coordinates
             updateMoonPosition();
             
-            // Continuous laser firing logic
-            if (isSpacePressed && !isHyperspace) {
-                const currentTime = Date.now();
-                if (currentTime - lastFired >= fireRate) {
-                    fireLasers();
-                    lastFired = currentTime;
-                    console.log('Lasers fired');
-                }
-            }
+
+            
             
             // Update hyperspace streaks if active
             if (isHyperspace) {

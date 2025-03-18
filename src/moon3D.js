@@ -392,6 +392,7 @@ function initControls() {
     });
 }
 
+/// MASTER FUNCTION called by main.js
 export function init() {
     console.log("Moon3D initialization started");
     

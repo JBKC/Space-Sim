@@ -1,11 +1,16 @@
 // src/setup.js
-
-
-let spaceRenderer, spaceScene, spaceCamera;
-
 import { updateMovement, updateCamera } from './movement.js';
-import { updateLasers } from './lasers.js';
-import { updateReticle } from './reticle.js';
+
+
+// General initialization - scene, camera, renderer
+const spaceScene = new THREE.Scene();
+const spaceCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
+spaceCamera.position.set(100, 100, -100);
+spaceCamera.lookAt(0, 0, 0);
+// set up renderer for default space view
+const spaceRenderer = new THREE.WebGLRenderer();
+spaceRenderer.setSize(window.innerWidth, window.innerHeight);
+document.getElementById('space-container').appendChild(renderer.domElement);
 
 export { 
     spaceRenderer, 
@@ -111,17 +116,7 @@ export function init() {
     //     return { scene: moonScene, camera: moonCamera, renderer: moonRenderer, tiles: tiles };
     // }
 
-    spaceScene = new THREE.Scene();
 
-    const spaceCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
-    spaceCamera.position.set(100, 100, -100);
-    spaceCamera.lookAt(0, 0, 0);
-
-    // set up renderer for default space view
-    spaceRenderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.getElementById('space-container').appendChild(renderer.domElement);
-    
     initSpacecraft();
 
     onWindowResize();
@@ -142,8 +137,7 @@ export function init() {
 export function update() {
     updateMovement(isBoosting, isHyperspace);
     updateCamera(spaceCamera, isHyperspace);
-    updateLasers();
-    updateReticle();
+
 
     updateStars();
     updatePlanetLabels();
