@@ -43,7 +43,7 @@ let gameMode = null;
 // Camera offsets
 const baseCameraOffset = new THREE.Vector3(0, 2, 10);
 const boostCameraOffset = new THREE.Vector3(0, 3, 70);
-const hyperspaceCameraOffset = new THREE.Vector3(0, 2, 1346);
+const hyperspaceCameraOffset = new THREE.Vector3(0, 2, 1795);
 export const surfaceCameraOffset = new THREE.Vector3(0, 2, 10);
 let currentCameraOffset = baseCameraOffset.clone();
 const smoothFactor = 0.1;

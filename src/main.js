@@ -8,6 +8,7 @@ import {
     isMoonSurfaceActive,
     exitEarthSurface,
     updateMoonPosition,
+    updateMoonOrbit,
     init as initSpace,
     update as updateSpace,
     renderer as spaceRenderer,
@@ -315,6 +316,8 @@ function animate() {
             // Update Moon's position relative to Earth using global coordinates
             updateMoonPosition();
             
+            // Update the Moon's orbit visualization
+            updateMoonOrbit();
             
             // Update hyperspace streaks if active
             if (isHyperspace) {
