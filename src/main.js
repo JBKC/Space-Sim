@@ -261,11 +261,11 @@ function startHyperspace() {
 
 let debugMode = true;
 
-// Export function to reset initialization state
-export function resetEarthInitialized() {
+// Make the reset function available globally to avoid circular imports
+window.resetEarthInitialized = function() {
     earthInitialized = false;
     console.log('Reset Moon surface initialization state');
-}
+};
 
 // Main animation loop
 function animate() {
@@ -313,7 +313,7 @@ function animate() {
             updateStreaks();
         }
         
-        // Update coordinates display
+        // Update coordinates display - only show in space mode
         const coordsDiv = document.getElementById('coordinates');
         if (coordsDiv) {
             coordsDiv.style.display = 'block';
@@ -359,6 +359,12 @@ function animate() {
                 moonMsg.style.zIndex = '9999';
                 moonMsg.innerHTML = 'MOON SURFACE<br>Press ESC to return to space';
                 document.body.appendChild(moonMsg);
+                
+                // Hide coordinates display in moon surface mode
+                const coordsDiv = document.getElementById('coordinates');
+                if (coordsDiv) {
+                    coordsDiv.style.display = 'none';
+                }
             }
             
             // Update Earth components

@@ -155,9 +155,15 @@ export function exitEarthSurface() {
         console.log('Showing space-container');
     }
     
+    // Make coordinates display visible again
+    const coordsDiv = document.getElementById('coordinates');
+    if (coordsDiv) {
+        coordsDiv.style.display = 'block';
+    }
+    
     // Reset the earthInitialized flag in main.js
-    if (typeof resetEarthInitialized === 'function') {
-        resetEarthInitialized();
+    if (typeof window.resetEarthInitialized === 'function') {
+        window.resetEarthInitialized();
     }
     
     // Restart the main animation loop
@@ -658,7 +664,7 @@ export function updatePlanetLabels() {
     const distanceToEntry = Math.max(0, distanceToEarth - (earthRadius + 500)); // 500 is the entry threshold
     
     // Update the Earth distance indicator text
-    earthDistanceIndicator.textContent = `EARTH ENTRY: ${Math.round(distanceToEntry)}`;
+    // earthDistanceIndicator.textContent = `EARTH ENTRY: ${Math.round(distanceToEntry)}`;
 
     // Calculate distance to Moon for the indicator - using direct position since Moon is now in global coordinates
     const moonPosition = moonGroup.position.clone();
