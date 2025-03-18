@@ -9,7 +9,7 @@ import {
     exitEarthSurface,
     updateMoonPosition,
     init as initSpace,
-    updateState as updateSpace,
+    update as updateSpace,
     spaceRenderer as spaceRender,
     spaceScene as spaceScene,
     spaceCamera as spaceCamera
@@ -25,7 +25,7 @@ import {
     moonRenderer as earthRenderer
 } from './moon3D.js';
 
-import { updateCamera, updateMovement, setGameMode, resetMovementInputs, keys } from './movement.js'; // Added keys import
+import { setGameMode, resetMovementInputs } from './movement.js'; // Added keys import
 import { setupUIElements, setupDirectionalIndicator, updateDirectionalIndicator, showRaceModeUI, hideRaceModeUI, updateUI } from './ui.js';
 import { updateLasers, fireLasers, startFiring, stopFiring } from './lasers.js';
 import { updateReticle } from './reticle.js';
@@ -268,33 +268,17 @@ function animate() {
                 console.log('Space initialized successfully', spaceObjects);
                 }
             
-    //         // Update Earth components
-    //         const earthUpdated = updateEarthSurface();              // main update function that updates spacecraft, camera, tiles, world matrices
-
-    //         // Render the earth scene with the earth camera using our renderer
-    //         earthRenderer.render(earthScene, earthCamera);
-            
-
-    /////////////////////////////////
-
-
 
             // Check if spacecraft is near celestial body
             checkPlanetProximity();
 
+            // Main frame update function
             updateSpace();
 
             // ALL THIS BELOW BELONGS IN INIT
             // Update Moon's position relative to Earth using global coordinates
             updateMoonPosition();
             
-            updateMovement(isBoosting, isHyperspace);
-            updateStars();
-            updateCamera(camera, isHyperspace);
-            updateLasers();
-            updateReticle();
-            updatePlanetLabels();
-        
             // Continuous laser firing logic
             if (isSpacePressed && !isHyperspace) {
                 const currentTime = Date.now();

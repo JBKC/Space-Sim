@@ -1,15 +1,21 @@
+// movement.js
+
+// Called by various setup files
+
 import * as THREE from 'three';
-import { scene, 
-    spacecraft,
-    isMoonSurfaceActive,
+import { 
+    spacecraft, 
+    engineGlowMaterial, 
+    lightMaterial, 
     topRightWing, 
     bottomRightWing, 
     topLeftWing, 
     bottomLeftWing, 
-    updateEngineEffects, 
-    PLANET_POSITION, 
-    PLANET_RADIUS } from './setup.js';
-
+    updateEngineEffects,
+    spaceScene,
+    PLANET_RADIUS,
+    PLANET_POSITION
+} from './setup.js';
 
 // Movement and boost variables
 export const baseSpeed = 2;
@@ -42,18 +48,9 @@ export const surfaceCameraOffset = new THREE.Vector3(0, 2, 10);
 let currentCameraOffset = baseCameraOffset.clone();
 const smoothFactor = 0.1;
 
-// // Planet constants (assuming these are defined elsewhere; if not, you'll need to define them)
-// const PLANET_POSITION = new THREE.Vector3(0, 0, 0); // Example, adjust as needed
-// const PLANET_RADIUS = 1000; // Example, adjust as needed
-
-// Initialize spacecraft
-// const spacecraftComponents = createSpacecraft(scene);
-// export const spacecraft = spacecraftComponents.spacecraft;
-// const topRightWing = spacecraft.topRightWing;
-// const bottomRightWing = spacecraft.bottomRightWing;
-// const topLeftWing = spacecraft.topLeftWing;
-// const bottomLeftWing = spacecraft.bottomLeftWing;
-// const updateEngineEffects = spacecraft.updateEngineEffects;
+// Initialize camera-related objects lazily
+let cameraTarget = null;
+let cameraRig = null;
 
 // Function to set game mode
 export function setGameMode(mode) {
@@ -112,37 +109,26 @@ export const rotation = {
     rollAxis: new THREE.Vector3(0, 0, 1)
 };
 
-// Third-person camera setup
-export const cameraTarget = new THREE.Object3D();
-spacecraft.add(cameraTarget);
-cameraTarget.position.set(0, 0, 0);
-
-export const cameraRig = new THREE.Object3D();
-scene.add(cameraRig);
-
 export function updateCamera(camera, isHyperspace) {
+    if (!spacecraft) {
+        console.warn("Spacecraft not initialized yet, skipping updateCamera");
+        return;
+    }
+
+    // Initialize cameraTarget and cameraRig if not already done
+    if (!cameraTarget) {
+        cameraTarget = new THREE.Object3D();
+        spacecraft.add(cameraTarget);
+        cameraTarget.position.set(0, 0, 0);
+    }
+    if (!cameraRig) {
+        cameraRig = new THREE.Object3D();
+        spaceScene.add(cameraRig); // Use spaceScene instead of scene
+    }
+
     const targetPosition = new THREE.Vector3();
     spacecraft.getWorldPosition(targetPosition);
 
-    // If in Earth surface mode, use a different camera setup (commented out as in original)
-    /*
-    if (isMoonSurfaceActive) {
-        const earthSpacecraft = earthSurfaceScene.children.find(obj => 
-            obj.type === 'Group' && obj.name === "EarthSurfaceSpacecraft"
-        );
-        
-        if (earthSpacecraft) {
-            const surfaceCameraPosition = surfaceCameraOffset.clone().applyMatrix4(earthSpacecraft.matrixWorld);
-            camera.position.lerp(surfaceCameraPosition, smoothFactor);
-            camera.quaternion.copy(earthSpacecraft.quaternion);
-            const adjustment = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0));
-            camera.quaternion.multiply(adjustment);
-            return;
-        }
-    }
-    */
-
-    // Original space camera behavior
     const localOffset = isHyperspace ? hyperspaceCameraOffset.clone() : (keys.up ? boostCameraOffset.clone() : currentCameraOffset.clone());
     const cameraPosition = localOffset.applyMatrix4(spacecraft.matrixWorld);
 
@@ -154,7 +140,11 @@ export function updateCamera(camera, isHyperspace) {
 }
 
 export function updateMovement(isBoosting, isHyperspace) {
-    
+    // Check if spacecraft is initialized
+    if (!spacecraft) {
+        console.warn("Spacecraft not initialized yet, skipping updateMovement");
+        return;
+    }
 
     // Original space movement behavior
     if (isHyperspace) {
@@ -166,7 +156,9 @@ export function updateMovement(isBoosting, isHyperspace) {
     }
 
     // Update engine effects
-    updateEngineEffects(keys.up);
+    if (typeof updateEngineEffects === 'function') {
+        updateEngineEffects(keys.up);
+    }
 
     // Trigger wing animation based on hyperspace and boost state
     if (isHyperspace && wingsOpen) {

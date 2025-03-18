@@ -1,5 +1,6 @@
 import * as THREE from 'three'; // Added module-friendly import
-import { scene, isMoonSurfaceActive } from './setup.js';
+import { spaceScene as scene,
+     isMoonSurfaceActive } from './setup.js';
 import { createSpacecraft } from './spacecraft.js';
 
 // Initialize spacecraft

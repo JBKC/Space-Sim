@@ -1,7 +1,11 @@
 // src/setup.js
-import { createSpacecraft } from './spacecraft.js';
+
 
 let spaceRenderer, spaceScene, spaceCamera;
+
+import { updateMovement, updateCamera } from './movement.js';
+import { updateLasers } from './lasers.js';
+import { updateReticle } from './reticle.js';
 
 export { 
     spaceRenderer, 
@@ -47,8 +51,11 @@ let spacecraft, engineGlowMaterial, lightMaterial;
 let topRightWing, bottomRightWing, topLeftWing, bottomLeftWing;
 let wingsOpen = true;
 let wingAnimation = 0;
-// let updateEngineEffects;
+let updateEngineEffects;
 const wingTransitionFrames = 30;
+
+// Export spacecraft variables for other modules
+export { spacecraft, engineGlowMaterial, lightMaterial, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, wingsOpen, wingAnimation, updateEngineEffects };
 
 // Initialize spacecraft
 function initSpacecraft() {
@@ -132,7 +139,15 @@ export function init() {
     };
 }
 
+export function update() {
+    updateMovement(isBoosting, isHyperspace);
+    updateCamera(spaceCamera, isHyperspace);
+    updateLasers();
+    updateReticle();
 
+    updateStars();
+    updatePlanetLabels();
+}
 
 // Modify the checkPlanetProximity function
 export function checkPlanetProximity() {

@@ -1,9 +1,10 @@
 import * as THREE from 'three'; // Updated import for module system
-import { scene, isMoonSurfaceActive } from './setup.js';
+import { spaceScene as scene, 
+    isMoonSurfaceActive } from './setup.js';
 import { createSpacecraft } from './spacecraft.js';
 
 // Laser properties
-const laserLength = 20; // Length of the laser bolt
+const laserLength = 50; // Length of the laser bolt
 const laserRadius = 0.2; // Radius for a cylindrical look
 const laserMaterial = new THREE.MeshBasicMaterial({
     color: 0xff4400,
