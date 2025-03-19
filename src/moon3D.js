@@ -51,7 +51,9 @@ const rotation = {
     rollAxis: new THREE.Vector3(0, 0, 1)
 };
 
-const apiKey = localStorage.getItem('ionApiKey') ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5NmY0YmQ5ZC01YjAzLTRlMjgtODNjNi03ODk0YzMzMzIwMjUiLCJpZCI6Mjg0MDk5LCJpYXQiOjE3NDE5MDA4MTV9.UBJTgisQzO6DOlzjlDbP2LC7QX4oclluTwzqhDUSWF0';
+const apiKey = localStorage.getItem('ionApiKey') ?? 'YOUR_CESIUM_TOKEN_HERE
+
+';
 
 const params = {
     ionAssetId: '2684829',
