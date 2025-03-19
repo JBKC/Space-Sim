@@ -20,13 +20,13 @@ earthSurfaceScene.background = new THREE.Color(0x87CEFA); // Brighter blue sky
 const NYC_CENTER = { lat: 40.7128, lng: -74.0060 };
 
 // Mapbox setup (no longer needed for imagery, but kept for consistency)
-const MAPBOX_TOKEN = 'pk.eyJ1IjoiamJrYyIsImEiOiJjbTg3cTEwOHgwamdjMmtyMzczMTNoNmpxIn0.OkVdZogiJFH93fG0Pp4ZlQ';
+const MAPBOX_TOKEN = 'YOUR_CESIUM_TOKEN_HERE';
 const ZOOM = 14;
 const TILE_SIZE = 1000;
 const textureLoader = new THREE.TextureLoader();
 
 // Cesium Ion setup for 3D buildings and Bing Maps Aerial
-const CESIUM_ION_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJmM2NmMGU2Mi0zNDYxLTRhOTQtYmRiNi05Mzk0NTg4OTdjZDkiLCJpZCI6Mjg0MDk5LCJpYXQiOjE3NDE5MTI4Nzh9.ciqVryFsYbzdwKxd_nEANC8pHgU9ytlfylfpfy9Q56U';
+const CESIUM_ION_TOKEN = 'YOUR_CESIUM_TOKEN_HERE';
 const NYC_BUILDINGS_ASSET_ID = 75343; // New York City 3D Buildings
 const BING_MAPS_AERIAL_ASSET_ID = 2;   // Bing Maps Aerial imagery
 
