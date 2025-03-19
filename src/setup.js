@@ -194,7 +194,7 @@ export function checkPlanetProximity() {
     // console.log("Distance to moon:", distanceToMoon);
     
     // Define entry threshold directly in this function
-    const moonEntryThreshold = 500; // Distance threshold for Moon entry
+    const moonEntryThreshold = 200; // Distance threshold for Moon entry
     
     if (distanceToMoon < moonRadius + moonEntryThreshold && !isMoonSurfaceActive) {
         // If close enough - activate moon surface
@@ -697,72 +697,6 @@ function createConcentricCircles() {
 }
 
 // createConcentricCircles(); // ** TOGGLE ORBITAL LINES ON AND OFF **
-// The Moon's orbit circle - keep a reference for position updates
-const moonOrbitCircle = createMoonOrbit();
-
-// Function to create the Moon's orbit around Earth
-function createMoonOrbit() {
-    // Get Earth and Moon positions to calculate the proper angle
-    const earthPosition = earthGroup.position;
-    const moonPosition = moonGroup.position;
-    
-    // Calculate the offset vector from Earth to Moon
-    const moonOffset = new THREE.Vector3().subVectors(moonPosition, earthPosition);
-    
-    // Calculate the angle in the XY plane
-    const angle = Math.atan2(moonOffset.y, moonOffset.x);
-    
-    // Create a circle to represent Moon's orbit around Earth
-    const circleGeometry = new THREE.CircleGeometry(moonOrbitRadius, 64);
-    const vertices = circleGeometry.attributes.position.array;
-    const ringVertices = new Float32Array(vertices.length - 3);
-    
-    // Extract just the outer ring vertices (skip the center vertex)
-    for (let i = 3; i < vertices.length; i++) {
-        ringVertices[i - 3] = vertices[i];
-    }
-    
-    const ringGeometry = new THREE.BufferGeometry();
-    ringGeometry.setAttribute('position', new THREE.BufferAttribute(ringVertices, 3));
-    
-    // Use a blue color to differentiate from planet orbits
-    const circleMaterial = new THREE.LineBasicMaterial({ color: 0x4fc3f7 });
-    const moonOrbit = new THREE.LineLoop(ringGeometry, circleMaterial);
-    
-    // Position at Earth's location
-    moonOrbit.position.copy(earthPosition);
-    
-    // Set the proper orientation to match the Moon's orbit
-    moonOrbit.rotation.x = Math.PI / 2; // Start with XY plane alignment
-    moonOrbit.rotation.y = angle;       // Rotate to pass through the Moon
-    
-    // Add to scene and make it trackable
-    scene.add(moonOrbit);
-    
-    // Export the orbit for potential updates
-    return moonOrbit;
-}
-
-
-// Update the Moon orbit position when Earth moves
-export function updateMoonOrbit() {
-    if (moonOrbitCircle && earthGroup && moonGroup) {
-        // Get latest positions
-        const earthPosition = earthGroup.position;
-        const moonPosition = moonGroup.position;
-        
-        // Calculate the offset vector from Earth to Moon
-        const moonOffset = new THREE.Vector3().subVectors(moonPosition, earthPosition);
-        
-        // Calculate the angle in the XY plane
-        const angle = Math.atan2(moonOffset.y, moonOffset.x);
-        
-        // Update position and orientation
-        moonOrbitCircle.position.copy(earthPosition);
-        moonOrbitCircle.rotation.x = Math.PI / 2; // Maintain XY plane alignment
-        moonOrbitCircle.rotation.y = angle;       // Update rotation to always pass through Moon
-    }
-}
 
 // Planet labels
 const labelData = [

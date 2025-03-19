@@ -50,12 +50,32 @@ let currentCameraOffset = baseCameraOffset.clone();
 // Target offset that we're interpolating towards
 let targetCameraOffset = baseCameraOffset.clone();
 
-// Camera transition parameters (between different speed states)
+// Camera transition parameters
 const cameraTransitionSpeed = 0.2; // Lower = slower transition, Higher = faster transition
 
-// Camera smoothing and look ahead parameters
-const smoothFactor = 0.1; // 0.1 = very laggy, 0.99 = almost no lag
-const lookAheadDistance = 20; // How far ahead of the spacecraft to look (in local units)
+// Cinematic camera effect parameters
+const MAX_PITCH_OFFSET = 0.1; // Maximum pitch offset in radians (about 5.7 degrees)
+const MAX_YAW_OFFSET = 0.15; // Maximum yaw offset in radians (about 8.6 degrees)
+const CAMERA_LAG_FACTOR = 0.1; // How quickly the camera catches up (0.1 = slow, 0.5 = fast)
+
+// Local rotation parameters (new)
+const MAX_LOCAL_PITCH_ROTATION = 0.06; // Maximum rotation around local X axis (about 3.4 degrees)
+const MAX_LOCAL_YAW_ROTATION = 0.08; // Maximum rotation around local Y axis (about 4.6 degrees)
+const LOCAL_ROTATION_SPEED = 0.08; // How quickly local rotations are applied
+
+// Current rotational offsets that will be smoothly interpolated
+let currentPitchOffset = 0;
+let currentYawOffset = 0;
+// Target rotational offsets based on input
+let targetPitchOffset = 0;
+let targetYawOffset = 0;
+
+// Current local rotation angles (new)
+let currentLocalPitchRotation = 0;
+let currentLocalYawRotation = 0;
+// Target local rotation angles (new)
+let targetLocalPitchRotation = 0;
+let targetLocalYawRotation = 0;
 
 // Camera position tracking for smooth interpolation
 let lastCameraPosition = new THREE.Vector3();
@@ -124,15 +144,14 @@ export const rotation = {
 
 export function updateCamera(camera, isHyperspace) {
     /**
-     * Fixed Local-Space Camera System with Smooth State Transitions
+     * Enhanced Cinematic Camera System with Local Rotations
      * ------------------------------------------------------------
-     * This camera system attaches the camera directly to the spacecraft's
-     * local coordinate system, while smoothly transitioning between states:
+     * This camera system creates a dynamic cinematic effect by:
      * 
-     * 1. The camera is always at a fixed position relative to the spacecraft
-     * 2. The pivot point is exactly at the center of the spacecraft
-     * 3. Camera movement is perfectly synchronized with spacecraft movement
-     * 4. Smooth transitions between normal, boost, and hyperspace states
+     * 1. Maintaining a fixed local-space position relative to the spacecraft
+     * 2. Adding both positional and rotational offsets during turning
+     * 3. Rotating the camera around the spacecraft's local axes during maneuvers
+     * 4. Creating a "lag" effect that follows the spacecraft's movements
      */
     
     if (!spacecraft) {
@@ -149,44 +168,92 @@ export function updateCamera(camera, isHyperspace) {
         targetCameraOffset = baseCameraOffset.clone();
     }
     
-    // Smooth interpolation between current offset and target offset
-    currentCameraOffset.lerp(targetCameraOffset, cameraTransitionSpeed);
+    // Determine rotational offsets based on input
+    // For pitch (up/down), INVERTED so camera moves opposite to pitch direction
+    if (keys.w) {
+        targetPitchOffset = -MAX_PITCH_OFFSET; // Look up when pitching up
+        targetLocalPitchRotation = -MAX_LOCAL_PITCH_ROTATION; // INVERTED: Move toward bottom when pitching up
+    } else if (keys.s) {
+        targetPitchOffset = MAX_PITCH_OFFSET; // Look down when pitching down
+        targetLocalPitchRotation = MAX_LOCAL_PITCH_ROTATION; // INVERTED: Move toward top when pitching down
+    } else {
+        targetPitchOffset = 0; // Return to neutral when no input
+        targetLocalPitchRotation = 0; // Return local rotation to neutral
+    }
     
-    // Get spacecraft's world matrix
-    spacecraft.updateMatrixWorld();
-    const worldMatrix = spacecraft.matrixWorld.clone();
+    // For yaw (left/right), the camera should rotate counter to the spacecraft motion
+    if (keys.left) {
+        targetYawOffset = MAX_YAW_OFFSET; // Look right when turning left
+        targetLocalYawRotation = -MAX_LOCAL_YAW_ROTATION; // Rotate around local Y axis
+    } else if (keys.right) {
+        targetYawOffset = -MAX_YAW_OFFSET; // Look left when turning right
+        targetLocalYawRotation = MAX_LOCAL_YAW_ROTATION; // Rotate around local Y axis in opposite direction
+    } else {
+        targetYawOffset = 0; // Return to neutral when no input
+        targetLocalYawRotation = 0; // Return local rotation to neutral
+    }
+    
+    // Smooth interpolation for position, global rotational offsets, and local rotations
+    currentCameraOffset.lerp(targetCameraOffset, cameraTransitionSpeed);
+    currentPitchOffset += (targetPitchOffset - currentPitchOffset) * CAMERA_LAG_FACTOR;
+    currentYawOffset += (targetYawOffset - currentYawOffset) * CAMERA_LAG_FACTOR;
+    
+    // Apply smooth interpolation to local rotational values
+    currentLocalPitchRotation += (targetLocalPitchRotation - currentLocalPitchRotation) * LOCAL_ROTATION_SPEED;
+    currentLocalYawRotation += (targetLocalYawRotation - currentLocalYawRotation) * LOCAL_ROTATION_SPEED;
     
     // Create a position vector from the interpolated offset
     const position = new THREE.Vector3();
     position.copy(currentCameraOffset);
     
-    // Transform the local position to world space
+    // Get spacecraft's world matrix and apply it to the position
+    spacecraft.updateMatrixWorld();
+    const worldMatrix = spacecraft.matrixWorld.clone();
+    
+    // Apply local rotations to the camera position before transforming to world space
+    // Create rotation quaternions for local rotations
+    const localPitchRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), currentLocalPitchRotation);
+    const localYawRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), currentLocalYawRotation);
+    
+    // Apply local rotations to the position
+    position.applyQuaternion(localPitchRotation);
+    position.applyQuaternion(localYawRotation);
+    
+    // Now transform to world space
     position.applyMatrix4(worldMatrix);
     
-    // Set camera position directly
+    // Set camera position
     camera.position.copy(position);
     
-    // Set camera rotation to match spacecraft orientation (but looking forward)
-    // We need to apply a 180-degree rotation to make the camera look forward
-    const quaternion = spacecraft.getWorldQuaternion(new THREE.Quaternion());
-    camera.quaternion.copy(quaternion);
+    // Get the base spacecraft orientation
+    const baseQuaternion = spacecraft.getWorldQuaternion(new THREE.Quaternion());
     
-    // Apply a 180-degree rotation around the Y axis to look forward
+    // Create the global rotational offsets
+    const pitchOffset = new THREE.Quaternion().setFromAxisAngle(rotation.pitchAxis, currentPitchOffset);
+    const yawOffset = new THREE.Quaternion().setFromAxisAngle(rotation.yawAxis, currentYawOffset);
+    
+    // Combine the orientations: base orientation + global offsets + local rotations
+    camera.quaternion.copy(baseQuaternion);
+    camera.quaternion.multiply(pitchOffset);
+    camera.quaternion.multiply(yawOffset);
+    camera.quaternion.multiply(localPitchRotation);
+    camera.quaternion.multiply(localYawRotation);
+    
+    // Apply the 180-degree rotation to look forward
     const forwardRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0));
     camera.quaternion.multiply(forwardRotation);
     
-    // Debug information if needed
-    // console.log(`Camera offset: ${currentCameraOffset.x.toFixed(2)}, ${currentCameraOffset.y.toFixed(2)}, ${currentCameraOffset.z.toFixed(2)}`);
-    // console.log(`Target offset: ${targetCameraOffset.x.toFixed(2)}, ${targetCameraOffset.y.toFixed(2)}, ${targetCameraOffset.z.toFixed(2)}`);
+    // Debug information
+    // console.log(`Camera local rotations - Pitch: ${(currentLocalPitchRotation * 180/Math.PI).toFixed(2)}°, Yaw: ${(currentLocalYawRotation * 180/Math.PI).toFixed(2)}°`);
 }
 
 export function updateMovement(isBoosting, isHyperspace) {
     // Check if spacecraft is initialized
     if (!spacecraft) {
         console.warn("Spacecraft not initialized yet, skipping updateMovement");
-        return;
+            return;
     }
-
+    
     // Original space movement behavior
     if (isHyperspace) {
         currentSpeed = baseSpeed * 50;
