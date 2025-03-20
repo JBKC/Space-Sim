@@ -8,6 +8,25 @@ import { createSpacecraft } from './spacecraft.js';
 let moonCamera, moonScene, moonRenderer, tiles, moonCameraTarget;
 let moonInitialized = false;
 
+// DEFINE local coordinate system (align to the 3D tile rendering)
+const coordConfig = {
+    scale: 2,
+    position: {
+        lat: 37.7749,
+        lon: -122.4194,
+        height: 0
+    },
+    orientation: {
+        pitch: 50,
+        yaw: -22,
+        roll: 0
+    },
+    arrowLength: 200,
+    arrowThickness: 5,
+    labelSize: 100
+};
+let coordinateSystem;
+
 export { 
     moonScene, 
     moonCamera, 
@@ -23,14 +42,14 @@ let wingsOpen = true;
 let wingAnimation = 0;
 const wingTransitionFrames = 30;
 
-// Movement settings (unchanged as per task requirements)
+// Movement settings
 const baseSpeed = 2;
 const boostSpeed = baseSpeed * 3;
 let currentSpeed = baseSpeed;
 const turnSpeed = 0.03;
 let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false };
 
-// Camera settings (unchanged as per task requirements)
+// Camera settings
 const baseCameraOffset = new THREE.Vector3(0, 2, -10);
 const boostCameraOffset = new THREE.Vector3(0, 3, -20);
 const collisionCameraOffset = new THREE.Vector3(0, 5, -20);
@@ -85,7 +104,7 @@ if (typeof process !== 'undefined' && process.versions && process.versions.node)
 
 // Parameters for San Francisco 3D tileset only
 const params = {
-    ionAssetId: '1415196', // San Francisco 3D model only
+    ionAssetId: '1415196',
     ionAccessToken: apiKey,
     reload: reinstantiateTiles,
 };
@@ -110,25 +129,113 @@ function initSpacecraft() {
         }
     });
 
-// Set initial position above San Francisco
-const sfLat = 37.7749;
-const sfLon = -122.4194;
-const initialHeight = 1000;
-const position = latLonHeightToEcef(sfLat, sfLon, initialHeight);
-spacecraft.position.copy(position);
+    // Set initial position above San Francisco
+    const sfLat = 37.7749;
+    const sfLon = -122.4194;
+    const initialHeight = 1000;
+    const position = latLonHeightToEcef(sfLat, sfLon, initialHeight);
+    spacecraft.position.copy(position);
 
-spacecraft.quaternion.setFromEuler(new THREE.Euler(
-    THREE.MathUtils.degToRad(-20),    // Pitch (X-axis)
-    THREE.MathUtils.degToRad(90),  // Yaw (Y-axis)
-    THREE.MathUtils.degToRad(150),  // Roll (Z-axis)
-    'XYZ'
-));
+    spacecraft.quaternion.setFromEuler(new THREE.Euler(
+        THREE.MathUtils.degToRad(-20),
+        THREE.MathUtils.degToRad(90),
+        THREE.MathUtils.degToRad(150),
+        'XYZ'
+    ));
 
-moonCameraTarget = new THREE.Object3D();
-spacecraft.add(moonCameraTarget);
-moonCameraTarget.position.set(0, 0, 0);
+    moonCameraTarget = new THREE.Object3D();
+    spacecraft.add(moonCameraTarget);
+    moonCameraTarget.position.set(0, 0, 0);
 
     updateEngineEffects = spacecraftComponents.updateEngineEffects;
+}
+
+// Helper function to create text sprites
+function createTextSprite(text, color) {
+    const canvas = document.createElement('canvas');
+    const size = 256; // Texture size
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext('2d');
+    context.fillStyle = 'rgba(0, 0, 0, 0)'; // Transparent background
+    context.fillRect(0, 0, size, size);
+    context.font = 'Bold 100px Arial';
+    context.fillStyle = color;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(text, size / 2, size / 2);
+
+    const texture = new THREE.Texture(canvas);
+    texture.needsUpdate = true;
+
+    const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+    const sprite = new THREE.Sprite(spriteMaterial);
+    sprite.scale.set(coordConfig.labelSize, coordConfig.labelSize, 1);
+    return sprite;
+}
+
+function createCoordinateSystem() {
+    coordinateSystem = new THREE.Group();
+    
+    // X axis (red)
+    const xGeometry = new THREE.CylinderGeometry(
+        coordConfig.arrowThickness,
+        coordConfig.arrowThickness,
+        coordConfig.arrowLength,
+        8
+    );
+    const xMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const xArrow = new THREE.Mesh(xGeometry, xMaterial);
+    xArrow.rotation.z = Math.PI / 2;
+    xArrow.position.x = coordConfig.arrowLength / 2;
+    const xLabel = createTextSprite('X', '#ff0000');
+    xLabel.position.set(coordConfig.arrowLength + coordConfig.labelSize / 2, 0, 0);
+    
+    // Y axis (green)
+    const yGeometry = new THREE.CylinderGeometry(
+        coordConfig.arrowThickness,
+        coordConfig.arrowThickness,
+        coordConfig.arrowLength,
+        8
+    );
+    const yMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    const yArrow = new THREE.Mesh(yGeometry, yMaterial);
+    yArrow.position.y = coordConfig.arrowLength / 2;
+    const yLabel = createTextSprite('Y', '#00ff00');
+    yLabel.position.set(0, coordConfig.arrowLength + coordConfig.labelSize / 2, 0);
+    
+    // Z axis (blue)
+    const zGeometry = new THREE.CylinderGeometry(
+        coordConfig.arrowThickness,
+        coordConfig.arrowThickness,
+        coordConfig.arrowLength,
+        8
+    );
+    const zMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+    const zArrow = new THREE.Mesh(zGeometry, zMaterial);
+    zArrow.rotation.x = Math.PI / 2;
+    zArrow.position.z = coordConfig.arrowLength / 2;
+    const zLabel = createTextSprite('Z', '#0000ff');
+    zLabel.position.set(0, 0, coordConfig.arrowLength + coordConfig.labelSize / 2);
+
+    coordinateSystem.add(xArrow, yArrow, zArrow, xLabel, yLabel, zLabel);
+    
+    const coordPos = latLonHeightToEcef(
+        coordConfig.position.lat,
+        coordConfig.position.lon,
+        coordConfig.position.height
+    );
+    coordinateSystem.position.copy(coordPos);
+    
+    coordinateSystem.scale.setScalar(coordConfig.scale);
+    coordinateSystem.quaternion.setFromEuler(new THREE.Euler(
+        THREE.MathUtils.degToRad(coordConfig.orientation.pitch),
+        THREE.MathUtils.degToRad(coordConfig.orientation.yaw),
+        THREE.MathUtils.degToRad(coordConfig.orientation.roll),
+        'XYZ'
+    ));
+
+    moonScene.add(coordinateSystem);
 }
 
 // Convert lat/lon/height to ECEF coordinates for Earth
@@ -138,7 +245,7 @@ function latLonHeightToEcef(lat, lon, height) {
     const e2 = f * (2 - f);
     const latRad = THREE.MathUtils.degToRad(lat);
     const lonRad = THREE.MathUtils.degToRad(lon);
-27; const N = a / Math.sqrt(1 - e2 * Math.sin(latRad) ** 2);
+    const N = a / Math.sqrt(1 - e2 * Math.sin(latRad) ** 2);
     const x = (N + height) * Math.cos(latRad) * Math.cos(lonRad);
     const y = (N + height) * Math.cos(latRad) * Math.sin(lonRad);
     const z = (N * (1 - e2) + height) * Math.sin(latRad);
@@ -599,6 +706,7 @@ export function init() {
     textureLoader = new THREE.TextureLoader();
     setupMoonLighting();
     initSpacecraft();
+    createCoordinateSystem();
     reinstantiateTiles();
 
     onWindowResize();
