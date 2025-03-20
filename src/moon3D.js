@@ -4,16 +4,18 @@ import { CesiumIonAuthPlugin } from '/node_modules/3d-tiles-renderer/src/plugins
 import { GLTFExtensionsPlugin } from '/node_modules/3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js';
 import { DRACOLoader } from '/node_modules/three/examples/jsm/loaders/DRACOLoader.js';
 import { createSpacecraft } from './spacecraft.js';
+import { fireLaser, updateLasers } from './laser.js';
 
-let moonCamera, moonScene, moonRenderer, tiles, moonCameraTarget;
+let camera, scene, renderer, tiles, cameraTarget;
 let moonInitialized = false;
 
 export { 
-    moonScene, 
-    moonCamera, 
-    moonRenderer, 
+    scene, 
+    camera, 
+    renderer, 
     tiles, 
-    moonCameraTarget 
+    cameraTarget,
+    spacecraft
 };
 
 // Define spacecraft
@@ -29,10 +31,10 @@ const boostSpeed = baseSpeed * 5;
 let currentSpeed = baseSpeed;
 const turnSpeed = 0.03;
 // Add sensitivity multipliers for each rotation axis
-export const pitchSensitivity = 0.6; // Lower value = less sensitive
-export const rollSensitivity = 1;  // Lower value = less sensitive
-export const yawSensitivity = 0.5;   // Lower value = less sensitive
-let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false };
+const pitchSensitivity = 0.6; // Lower value = less sensitive
+const rollSensitivity = 1;  // Lower value = less sensitive
+const yawSensitivity = 0.5;   // Lower value = less sensitive
+let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false, space: false };
 
 // Camera settings
 const baseCameraOffset = new THREE.Vector3(0, 2, -10); // Camera sits behind the spacecraft
@@ -98,7 +100,7 @@ const HOVER_HEIGHT = 40;
 const MAX_SLOPE_ANGLE = 45;
 
 function initSpacecraft() {
-    const spacecraftComponents = createSpacecraft(moonScene);
+    const spacecraftComponents = createSpacecraft(scene);
     spacecraft = spacecraftComponents.spacecraft;
     engineGlowMaterial = spacecraftComponents.engineGlowMaterial;
     lightMaterial = spacecraftComponents.lightMaterial;
@@ -123,9 +125,9 @@ function initSpacecraft() {
 
     spacecraft.quaternion.setFromEuler(new THREE.Euler(THREE.MathUtils.degToRad(-100), THREE.MathUtils.degToRad(-30), THREE.MathUtils.degToRad(-120), 'XYZ'));
 
-    moonCameraTarget = new THREE.Object3D();
-    spacecraft.add(moonCameraTarget);
-    moonCameraTarget.position.set(0, 0, 0);
+    cameraTarget = new THREE.Object3D();
+    spacecraft.add(cameraTarget);
+    cameraTarget.position.set(0, 0, 0);
 
     updateEngineEffects = spacecraftComponents.updateEngineEffects;
 }
@@ -439,7 +441,7 @@ export function updateCamera() {
     position.applyMatrix4(worldMatrix);
     
     // Set camera position
-    moonCamera.position.copy(position);
+    camera.position.copy(position);
     
     // Get the base spacecraft orientation
     const baseQuaternion = spacecraft.getWorldQuaternion(new THREE.Quaternion());
@@ -449,15 +451,15 @@ export function updateCamera() {
     const yawOffset = new THREE.Quaternion().setFromAxisAngle(rotation.yawAxis, currentYawOffset);
     
     // Combine the orientations: base orientation + global offsets + local rotations
-    moonCamera.quaternion.copy(baseQuaternion);
-    moonCamera.quaternion.multiply(pitchOffset);
-    moonCamera.quaternion.multiply(yawOffset);
-    moonCamera.quaternion.multiply(localPitchRotation);
-    moonCamera.quaternion.multiply(localYawRotation);
+    camera.quaternion.copy(baseQuaternion);
+    camera.quaternion.multiply(pitchOffset);
+    camera.quaternion.multiply(yawOffset);
+    camera.quaternion.multiply(localPitchRotation);
+    camera.quaternion.multiply(localYawRotation);
     
     // Apply the 180-degree rotation to look forward
     const forwardRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0));
-    moonCamera.quaternion.multiply(forwardRotation);
+    camera.quaternion.multiply(forwardRotation);
     
     // Debug information
     // console.log(`Camera local rotations - Pitch: ${(currentLocalPitchRotation * 180/Math.PI).toFixed(2)}°, Yaw: ${(currentLocalYawRotation * 180/Math.PI).toFixed(2)}°`);
@@ -505,12 +507,12 @@ function setupTiles() {
         console.log("Loaded model with enhanced shadow settings");
     };
     
-    moonScene.add(tiles.group);
+    scene.add(tiles.group);
 }
 
 function reinstantiateTiles() {
     if (tiles) {
-        moonScene.remove(tiles.group);
+        scene.remove(tiles.group);
         tiles.dispose();
         tiles = null;
     }
@@ -543,6 +545,7 @@ function initControls() {
             case 'ArrowLeft': keys.left = true; break;
             case 'ArrowRight': keys.right = true; break;
             case 'ArrowUp': keys.up = true; break;
+            case ' ': keys.space = true; break;
         }
     });
 
@@ -555,6 +558,7 @@ function initControls() {
             case 'ArrowLeft': keys.left = false; break;
             case 'ArrowRight': keys.right = false; break;
             case 'ArrowUp': keys.up = false; break;
+            case ' ': keys.space = false; break;
         }
     });
 }
@@ -568,7 +572,7 @@ function setupMoonLighting() {
     
     // Add ambient light similar to space scene
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
-    moonScene.add(ambientLight);
+    scene.add(ambientLight);
     
     // Create a main directional light positioned in local moon coordinates
     // This will create a sun-like effect with harsh shadows
@@ -598,20 +602,20 @@ function setupMoonLighting() {
     // Create a target for the light to aim at
     const target = new THREE.Object3D();
     target.position.set(0, 0, 0);
-    moonScene.add(target);
+    scene.add(target);
     moonSun.target = target;
     
-    moonScene.add(moonSun);
+    scene.add(moonSun);
     
     // Add side light similar to space scene
     const sideLight = new THREE.DirectionalLight(0xffffff, 0.5);
     sideLight.position.set(-1, -1, 1).normalize();
-    moonScene.add(sideLight);
+    scene.add(sideLight);
     
     // Add a subtle fill light from below to prevent completely black shadows
     const fillLight = new THREE.DirectionalLight(0xaaaaff, 0.2);
     fillLight.position.set(0, -1, 0);
-    moonScene.add(fillLight);
+    scene.add(fillLight);
     
     console.log("Moon lighting setup updated with local coordinate lighting");
 }
@@ -621,42 +625,42 @@ export function init() {
     
     if (moonInitialized) {
         console.log("Moon3D already initialized, skipping");
-        return { scene: moonScene, camera: moonCamera, renderer: moonRenderer, tiles: tiles };
+        return { scene: scene, camera: camera, renderer: renderer, tiles: tiles };
     }
 
-    moonScene = new THREE.Scene();
+    scene = new THREE.Scene();
 
     const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(255), 64, 64);
     env.mapping = THREE.EquirectangularReflectionMapping;
     env.needsUpdate = true;
-    moonScene.environment = env;
+    scene.environment = env;
 
-    moonRenderer = new THREE.WebGLRenderer({ 
+    renderer = new THREE.WebGLRenderer({ 
         antialias: true,
         precision: 'highp',
         powerPreference: 'high-performance'
     });
-    moonRenderer.setClearColor(0x000000);
-    moonRenderer.setSize(window.innerWidth, window.innerHeight);
-    moonRenderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setClearColor(0x000000);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
     
     // Enable shadows on the renderer with high quality settings
-    moonRenderer.shadowMap.enabled = true;
-    moonRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    moonRenderer.physicallyCorrectLights = true;
-    moonRenderer.toneMapping = THREE.ACESFilmicToneMapping;
-    moonRenderer.toneMappingExposure = 1.2; // Slightly increased exposure for better visibility
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.physicallyCorrectLights = true;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2; // Slightly increased exposure for better visibility
     
     // Additional renderer settings for quality
-    moonRenderer.outputEncoding = THREE.sRGBEncoding;
-    moonRenderer.gammaFactor = 2.2;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.gammaFactor = 2.2;
     
-    document.body.appendChild(moonRenderer.domElement);
-    moonRenderer.domElement.tabIndex = 1;
+    document.body.appendChild(renderer.domElement);
+    renderer.domElement.tabIndex = 1;
 
-    moonCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 100000);
-    moonCamera.position.set(100, 100, -100);
-    moonCamera.lookAt(0, 0, 0);
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 100000);
+    camera.position.set(100, 100, -100);
+    camera.lookAt(0, 0, 0);
     
     // Initialize the texture loader
     textureLoader = new THREE.TextureLoader();
@@ -676,14 +680,14 @@ export function init() {
     console.log("Moon3D initialization complete");
     
     return { 
-        scene: moonScene, 
-        camera: moonCamera, 
-        renderer: moonRenderer, 
+        scene: scene, 
+        camera: camera, 
+        renderer: renderer, 
         tiles: tiles 
     };
 }
 
-export function update() {
+export function update(deltaTime = 0.016) {
     try {
         if (!moonInitialized) {
             console.log("Moon3D not initialized yet");
@@ -697,6 +701,26 @@ export function update() {
         updateMovement();
         updateCamera();
         
+        // Handle laser firing with spacebar
+        if (keys.space && spacecraft) {
+            fireLaser(spacecraft, scene, 'moon', keys.up);
+        }
+        
+        // Update all active lasers
+        updateLasers(deltaTime);
+        
+        // Update reticle position if available
+        if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
+            console.log("Updating reticle in moon3D.js");
+            spacecraft.userData.updateReticle();
+        } else {
+            // Only log this warning once to avoid console spam
+            if (!window.reticleWarningLogged) {
+                console.warn("Reticle update function not found on spacecraft userData", spacecraft);
+                window.reticleWarningLogged = true;
+            }
+        }
+        
         // Ensure tiles receive shadows
         if (tiles.group) {
             tiles.group.traverse((node) => {
@@ -709,15 +733,15 @@ export function update() {
         // Update lighting relative to spacecraft
         updateMoonLighting();
 
-        if (!moonCamera) {
+        if (!camera) {
             console.warn("Moon camera not initialized");
             return false;
         }
 
-        tiles.setCamera(moonCamera);
-        tiles.setResolutionFromRenderer(moonCamera, moonRenderer);
+        tiles.setCamera(camera);
+        tiles.setResolutionFromRenderer(camera, renderer);
 
-        moonCamera.updateMatrixWorld();
+        camera.updateMatrixWorld();
         tiles.update();
         
         return true;
@@ -750,8 +774,8 @@ function updateMoonLighting() {
 }
 
 function onWindowResize() {
-    moonCamera.aspect = window.innerWidth / window.innerHeight;
-    moonCamera.updateProjectionMatrix();
-    moonRenderer.setSize(window.innerWidth, window.innerHeight);
-    moonRenderer.setPixelRatio(window.devicePixelRatio);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
 }
