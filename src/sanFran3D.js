@@ -218,8 +218,21 @@ function createCoordinateSystem() {
     const zLabel = createTextSprite('Z', '#0000ff');
     zLabel.position.set(0, 0, coordConfig.arrowLength + coordConfig.labelSize / 2);
 
-    coordinateSystem.add(xArrow, yArrow, zArrow, xLabel, yLabel, zLabel);
+    // Ground plane (10,000 x 10,000, parallel to X-Y plane, Z as normal)
+    const planeGeometry = new THREE.PlaneGeometry(10000, 10000);
+    const planeMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x808080, // Gray color
+        side: THREE.DoubleSide, // Visible from both sides
+        transparent: true,
+        opacity: 0.5 // Semi-transparent
+    });
+    const groundPlane = new THREE.Mesh(planeGeometry, planeMaterial);
+    groundPlane.rotation.z = -Math.PI / 2; // Align parallel to X-Y plane (Z up)
+
+    // Add all components to coordinate system
+    coordinateSystem.add(xArrow, yArrow, zArrow, xLabel, yLabel, zLabel, groundPlane);
     
+    // Set position and orientation
     const coordPos = latLonHeightToEcef(
         coordConfig.position.lat,
         coordConfig.position.lon,
