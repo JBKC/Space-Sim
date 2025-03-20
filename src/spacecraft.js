@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createReticle } from './reticle.js';
 
 // AXES: x = yaw, y = pitch, z = roll
 
@@ -6,6 +7,7 @@ import * as THREE from 'three';
 export function createSpacecraft(scene) {
     // X-wing spacecraft
     const spacecraft = new THREE.Group();
+    spacecraft.name = 'spacecraft';
 
     // Materials
     const metalMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8, roughness: 0.3, envMapIntensity: 1.0 });
@@ -260,11 +262,18 @@ export function createSpacecraft(scene) {
     xwingLight.position.set(0, 2, 0);
     spacecraft.add(xwingLight);
 
+    // Position spacecraft
     spacecraft.position.set(40000, 40000, 40000);
     const centerPoint = new THREE.Vector3(0, 0, 10000);
     spacecraft.lookAt(centerPoint);
     scene.add(spacecraft);
-
+    
+    // Create a reticle that's attached to the spacecraft
+    console.log("Creating reticle as part of spacecraft creation");
+    const reticleComponent = createReticle(scene, spacecraft);
+    spacecraft.userData.reticle = reticleComponent.reticle;
+    spacecraft.userData.updateReticle = reticleComponent.update;
+    
     // Laser setup
     const laserLength = 100;
     const laserThickness = 0.15;
@@ -353,6 +362,8 @@ export function createSpacecraft(scene) {
         startFiring,
         stopFiring,
         updateLasers,
-        wingtipObjects // Include wingtipObjects for laser functionality
+        wingtipObjects, // Include wingtipObjects for laser functionality
+        reticle: reticleComponent.reticle,
+        updateReticle: reticleComponent.update
     };
 }

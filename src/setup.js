@@ -84,6 +84,13 @@ function initSpacecraft() {
     topLeftWing = spacecraftComponents.topLeftWing;
     bottomLeftWing = spacecraftComponents.bottomLeftWing;
 
+    // Verify reticle creation
+    if (spacecraftComponents.reticle) {
+        console.log("Reticle was successfully created with spacecraft in setup.js");
+    } else {
+        console.warn("Reticle not found in spacecraft components");
+    }
+
     spacecraft.position.set(40000, 40000, 40000);
     const centerPoint = new THREE.Vector3(0, 0, 10000);
     spacecraft.lookAt(centerPoint);
@@ -171,6 +178,23 @@ export function update(isBoosting, isHyperspace) {
         // Use the passed isBoosting and isHyperspace parameters
         updateMovement(isBoosting, isHyperspace);
         updateCamera(camera, isHyperspace);
+
+        // Update spacecraft effects
+        if (updateEngineEffects) {
+            updateEngineEffects(isBoosting);
+        }
+        
+        // Update reticle position if available
+        if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
+            console.log("Updating reticle in setup.js");
+            spacecraft.userData.updateReticle();
+        } else {
+            // Only log this warning once to avoid console spam
+            if (!window.setupReticleWarningLogged) {
+                console.warn("Reticle update function not found on spacecraft userData in setup.js", spacecraft);
+                window.setupReticleWarningLogged = true;
+            }
+        }
 
         updateStars();
         updatePlanetLabels();

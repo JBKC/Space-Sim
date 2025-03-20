@@ -24,11 +24,15 @@ import {
     moonScene as earthScene,
     moonCamera as earthCamera,
     tiles,
-    moonRenderer as earthRenderer
+    moonRenderer as earthRenderer,
+    spacecraft as earthSpacecraft  // Import the spacecraft from sanFran3D.js
 } from './sanFran3D.js';
 
 import { setGameMode, resetMovementInputs } from './movement.js'; // Added keys import
 import { setupUIElements, setupDirectionalIndicator, updateDirectionalIndicator, showRaceModeUI, hideRaceModeUI, updateUI } from './ui.js';
+
+// Import the reticle functions but we won't initialize them here
+import { setReticleVisibility } from './reticle.js';
 
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.module.js'; // Explicitly import Three.js module
 
@@ -282,7 +286,7 @@ function animate() {
     requestAnimationFrame(animate);
 
     // CASE 0 = space view
-    if (isMoonSurfaceActive) {
+    if (!isMoonSurfaceActive) {
         
         // If we just exited the moon surface, make sure space container is visible
         const spaceContainer = document.getElementById('space-container');
@@ -298,10 +302,14 @@ function animate() {
                 const spaceObjects = initSpace();
                 spaceInitialized = true;
                 console.log('Space initialized successfully', spaceObjects);
+                
+                // Note: Reticle is now created as part of spacecraft creation
             }
             
             // Main frame update function - pass isBoosting and isHyperspace values
             updateSpace(isBoosting, isHyperspace);
+            
+            // Note: Reticle is now updated in the updateSpace function
             
             // Debug logging for hyperspace and boost state
             if (isHyperspace) {
@@ -345,7 +353,7 @@ function animate() {
     }
     
     // CASE 1 = moon surface view
-    if (!isMoonSurfaceActive) {
+    if (isMoonSurfaceActive) {
         try {
             // Only initialize Earth once
             if (!earthInitialized) {
@@ -353,6 +361,8 @@ function animate() {
                 const earthObjects = initEarthSurface();
                 earthInitialized = true;
                 console.log('Moon surface initialized successfully', earthObjects);
+
+                // Note: Reticle is now created as part of spacecraft creation in sanFran3D.js
 
                 // Hide space container to see surface scene
                 const spaceContainer = document.getElementById('space-container');
@@ -386,6 +396,8 @@ function animate() {
             
             // Main update function that updates spacecraft, camera, tiles, world matrices
             const earthUpdated = updateEarthSurface();              
+
+            // Note: Reticle is now updated in the updateEarthSurface function
 
             // Render the earth scene with the earth camera using our renderer
             earthRenderer.render(earthScene, earthCamera);

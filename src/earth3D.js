@@ -48,6 +48,10 @@ const baseSpeed = 2;
 const boostSpeed = baseSpeed * 5;
 let currentSpeed = baseSpeed;
 const turnSpeed = 0.03;
+// Add sensitivity multipliers for each rotation axis
+const pitchSensitivity = 0.3; // Lower value = less sensitive
+const rollSensitivity = 0.4;  // Lower value = less sensitive
+const yawSensitivity = 0.3;   // Lower value = less sensitive
 let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false };
 
 function initSpacecraft() {
@@ -88,12 +92,12 @@ export function updateMovement() {
     rotation.yaw.identity();
     rotation.roll.identity();
 
-    if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, turnSpeed / 2);
-    if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -turnSpeed / 2);
-    if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -turnSpeed);
-    if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, turnSpeed);
-    if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, turnSpeed / 2);
-    if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -turnSpeed / 2);
+    if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, turnSpeed * pitchSensitivity);
+    if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -turnSpeed * pitchSensitivity);
+    if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -turnSpeed * rollSensitivity);
+    if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, turnSpeed * rollSensitivity);
+    if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, turnSpeed * yawSensitivity);
+    if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -turnSpeed * yawSensitivity);
 
     const combinedRotation = new THREE.Quaternion()
         .copy(rotation.roll)

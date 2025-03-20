@@ -23,6 +23,10 @@ export const boostSpeed = baseSpeed * 5;
 export const surfaceBoostSpeed = baseSpeed * 2; // Surface boost is 2x base speed
 export let currentSpeed = baseSpeed;
 export const turnSpeed = 0.03;
+// Add sensitivity multipliers for each rotation axis
+export const pitchSensitivity = 0.6; // Lower value = less sensitive
+export const rollSensitivity = 1;  // Lower value = less sensitive
+export const yawSensitivity = 0.5;   // Lower value = less sensitive
 export let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false };
 
 // Wing animation variables
@@ -292,12 +296,12 @@ export function updateMovement(isBoosting, isHyperspace) {
     rotation.roll.identity();
 
     if (!isHyperspace) {
-        if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, turnSpeed / 2);
-        if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -turnSpeed / 2);
-        if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -turnSpeed);
-        if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, turnSpeed);
-        if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, turnSpeed / 2);
-        if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -turnSpeed / 2);
+        if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, turnSpeed * pitchSensitivity);
+        if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -turnSpeed * pitchSensitivity);
+        if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -turnSpeed * rollSensitivity);
+        if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, turnSpeed * rollSensitivity);
+        if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, turnSpeed * yawSensitivity);
+        if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -turnSpeed * yawSensitivity);
     }
 
     const combinedRotation = new THREE.Quaternion()

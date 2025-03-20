@@ -34,7 +34,8 @@ export {
  moonCamera, 
  moonRenderer, 
  tiles, 
- moonCameraTarget 
+ moonCameraTarget,
+ spacecraft
 };
 
 // Define spacecraft
@@ -49,6 +50,10 @@ const baseSpeed = 2;
 const boostSpeed = baseSpeed * 3;
 let currentSpeed = baseSpeed;
 const turnSpeed = 0.03;
+// Add sensitivity multipliers for each rotation axis
+const pitchSensitivity = 0.6; // Lower value = less sensitive
+const rollSensitivity = 1;  // Lower value = less sensitive
+const yawSensitivity = 0.5;   // Lower value = less sensitive
 let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false };
 
 // Camera settings
@@ -130,6 +135,13 @@ function initSpacecraft() {
  object.receiveShadow = true;
  }
  });
+
+ // Verify reticle creation
+ if (spacecraftComponents.reticle) {
+   console.log("Reticle was successfully created with spacecraft in sanFran3D.js");
+ } else {
+   console.warn("Reticle not found in spacecraft components");
+ }
 
  // Set initial position above San Francisco
  const sfLat = 37.7749;
@@ -376,12 +388,12 @@ export function updateMovement() {
  rotation.yaw.identity();
  rotation.roll.identity();
 
- if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, turnSpeed / 2);
- if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -turnSpeed / 2);
- if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -turnSpeed);
- if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, turnSpeed);
- if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, turnSpeed / 2);
- if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -turnSpeed / 2);
+ if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, turnSpeed * pitchSensitivity);
+ if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -turnSpeed * pitchSensitivity);
+ if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -turnSpeed * rollSensitivity);
+ if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, turnSpeed * rollSensitivity);
+ if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, turnSpeed * yawSensitivity);
+ if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -turnSpeed * yawSensitivity);
 
  const combinedRotation = new THREE.Quaternion()
  .copy(rotation.roll)
@@ -766,6 +778,18 @@ export function update() {
 
  updateMovement();
  updateCamera();
+ 
+ // Update reticle position if available
+ if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
+   console.log("Updating reticle in sanFran3D.js");
+   spacecraft.userData.updateReticle();
+ } else {
+   // Only log this warning once to avoid console spam
+   if (!window.reticleWarningLogged) {
+     console.warn("Reticle update function not found on spacecraft userData", spacecraft);
+     window.reticleWarningLogged = true;
+   }
+ }
  
  if (tiles.group) {
  tiles.group.traverse((node) => {
