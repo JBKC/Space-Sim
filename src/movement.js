@@ -27,7 +27,7 @@ export const turnSpeed = 0.03;
 export const pitchSensitivity = 0.6; // Lower value = less sensitive
 export const rollSensitivity = 1;  // Lower value = less sensitive
 export const yawSensitivity = 0.5;   // Lower value = less sensitive
-export let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false };
+export let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false, space: false };
 
 // Wing animation variables
 export let wingsOpen = true;
@@ -103,6 +103,7 @@ export function resetMovementInputs() {
     keys.left = false;
     keys.right = false;
     keys.up = false;
+    keys.space = false;
     console.log('Movement inputs reset:', keys);
     // Reset wing animation to default open state after hyperspace
     if (!wingsOpen) {
@@ -121,6 +122,7 @@ document.addEventListener('keydown', (event) => {
         case 'ArrowLeft': keys.left = true; break;
         case 'ArrowRight': keys.right = true; break;
         case 'ArrowUp': keys.up = true; break;
+        case 'Space': keys.space = true; break;
     }
 });
 
@@ -133,6 +135,7 @@ document.addEventListener('keyup', (event) => {
         case 'ArrowLeft': keys.left = false; break;
         case 'ArrowRight': keys.right = false; break;
         case 'ArrowUp': keys.up = false; break;
+        case 'Space': keys.space = false; break;
     }
 });
 
@@ -162,7 +165,7 @@ export function updateCamera(camera, isHyperspace) {
         console.warn("Spacecraft not initialized yet, skipping updateCamera");
         return;
     }
-
+    
     // Determine the target camera offset based on the current mode
     if (isHyperspace) {
         targetCameraOffset = hyperspaceCameraOffset.clone();

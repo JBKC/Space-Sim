@@ -2,6 +2,7 @@
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.module.js';
 import { updateMovement, updateCamera, keys } from './movement.js';
 import { createSpacecraft } from './spacecraft.js';
+import { fireLaser, updateLasers } from './laser.js';
 
 // General initialization - scene, camera, renderer
 // do outside of init function as scene is required by multiple other files
@@ -46,6 +47,7 @@ scene.background = new THREE.Color(0x000000);
 
 // Flag to track which scene is active
 export let isMoonSurfaceActive = false;
+export let isEarthSurfaceActive = false;
 
 // Render function that delegates to earth3D.js when in Earth surface mode
 // Update the renderScene function to avoid initializing earth3D multiple times
@@ -53,6 +55,9 @@ export function renderScene() {
     if (isMoonSurfaceActive) {
         // nothing to do here
         console.log("Moon surface active, deferring rendering");
+    } else if (isEarthSurfaceActive) {
+        // nothing to do here
+        console.log("Earth surface active, deferring rendering");
     } else {
         // Render space scene
         console.log("Rendering space scene");
@@ -165,7 +170,7 @@ export function init() {
 }
 
 // Performs the state update for the spacecraft / environment
-export function update(isBoosting, isHyperspace) {
+export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
     try {
         if (!spaceInitialized) {
             console.log("Space not initialized yet");
@@ -175,9 +180,19 @@ export function update(isBoosting, isHyperspace) {
         // Check if spacecraft is near celestial body
         checkPlanetProximity();
 
+        // Handle laser firing if spacebar is pressed
+        if (keys.space && spacecraft) {
+            fireLaser(spacecraft, scene, 'space', isBoosting);
+        }
+
         // Use the passed isBoosting and isHyperspace parameters
         updateMovement(isBoosting, isHyperspace);
         updateCamera(camera, isHyperspace);
+        
+        // Handle laser updates
+        if (typeof updateLasers === 'function') {
+            updateLasers(deltaTime);
+        }
 
         // Update spacecraft effects
         if (updateEngineEffects) {
@@ -238,17 +253,30 @@ export function checkPlanetProximity() {
     const earthPosition = earthGroup.position.clone();
     const distanceToEarth = earthPosition.distanceTo(spacecraftPosition);
 
-    // TO ADD EARTH SURFACE ENTRY
+    // Define Earth entry threshold
+    const earthEntryThreshold = 500; // Distance threshold for Earth entry
+    
+    if (distanceToEarth < earthRadius + earthEntryThreshold && !isEarthSurfaceActive) {
+        // If close enough - activate Earth surface
+        isEarthSurfaceActive = true;
+        console.log("Earth surface active - distance:", distanceToEarth.toFixed(2));
+        
+        // Initialize the Earth surface (if needed)
+        // initEarthSurface();
+    } else if (distanceToEarth >= earthRadius + earthEntryThreshold * 1.2 && isEarthSurfaceActive) {
+        // Add a small buffer (20% larger) to avoid oscillation at the boundary
+        // If moving away from Earth, exit Earth surface
+        isEarthSurfaceActive = false;
+        console.log("Exiting Earth surface - distance:", distanceToEarth.toFixed(2));
+    }
     
     // Debug distances
     // console.log(`Distances - Moon: ${distanceToMoon.toFixed(2)}, Earth: ${distanceToEarth.toFixed(2)}`);
 }
 
-
-
 export function exitEarthSurface() {
-    console.log("Exiting Moon's surface!");
-    isMoonSurfaceActive = false;
+    console.log("Exiting Earth's surface!");
+    isEarthSurfaceActive = false;
     
     // Remove the persistent surface message if it exists
     const persistentMessage = document.getElementById('earth-surface-message');
@@ -256,12 +284,12 @@ export function exitEarthSurface() {
         document.body.removeChild(persistentMessage);
     }
     
-    // Position spacecraft away from Moon to avoid immediate re-entry
+    // Position spacecraft away from Earth to avoid immediate re-entry
     const directionVector = new THREE.Vector3(1, 1, 1).normalize();
     spacecraft.position.set(
-        moonGroup.position.x + directionVector.x * (moonRadius * 4),
-        moonGroup.position.y + directionVector.y * (moonRadius * 4),
-        moonGroup.position.z + directionVector.z * (moonRadius * 4)
+        earthGroup.position.x + directionVector.x * (earthRadius * 4),
+        earthGroup.position.y + directionVector.y * (earthRadius * 4),
+        earthGroup.position.z + directionVector.z * (earthRadius * 4)
     );
     
     // Reset spacecraft rotation to look toward the center of the solar system
@@ -302,7 +330,61 @@ export function exitEarthSurface() {
     }
 }
 
-
+export function exitMoonSurface() {
+    console.log("Exiting Moon's surface!");
+    isMoonSurfaceActive = false;
+    
+    // Remove the persistent surface message if it exists
+    const persistentMessage = document.getElementById('moon-surface-message');
+    if (persistentMessage) {
+        document.body.removeChild(persistentMessage);
+    }
+    
+    // Position spacecraft away from Moon to avoid immediate re-entry
+    const directionVector = new THREE.Vector3(1, 1, 1).normalize();
+    spacecraft.position.set(
+        moonGroup.position.x + directionVector.x * (moonRadius * 4),
+        moonGroup.position.y + directionVector.y * (moonRadius * 4),
+        moonGroup.position.z + directionVector.z * (moonRadius * 4)
+    );
+    
+    // Reset spacecraft rotation to look toward the center of the solar system
+    spacecraft.lookAt(new THREE.Vector3(0, 0, 0));
+    
+    // Show the space container again
+    const spaceContainer = document.getElementById('space-container');
+    if (spaceContainer) {
+        spaceContainer.style.display = 'block';
+        console.log('Showing space-container');
+    }
+    
+    // Make coordinates display visible again
+    const coordsDiv = document.getElementById('coordinates');
+    if (coordsDiv) {
+        coordsDiv.style.display = 'block';
+    }
+    
+    // Make sure keys object is properly reset
+    if (keys) {
+        // Reset all movement keys
+        Object.keys(keys).forEach(key => keys[key] = false);
+        console.log('Reset keys object:', keys);
+    }
+    
+    // Reset the moonInitialized flag in main.js
+    if (typeof window.resetMoonInitialized === 'function') {
+        window.resetMoonInitialized();
+    } else {
+        console.warn('resetMoonInitialized function not found on window object');
+    }
+    
+    // Restart the main animation loop
+    if (typeof window.animate === 'function') {
+        window.animate();  // Restart the main animation loop using the window.animate function
+    } else {
+        console.warn('animate function not found on window object');
+    }
+}
 
 ///////////////////// Solar System Setup /////////////////////
 
@@ -774,7 +856,7 @@ document.body.appendChild(moonDistanceIndicator);
 // Function to update label positions
 export function updatePlanetLabels() {
     // If on surface, hide all planet labels
-    if (isMoonSurfaceActive) {
+    if (isMoonSurfaceActive || isEarthSurfaceActive) {
         labels.forEach(label => {
             label.element.style.display = 'none';
         });
