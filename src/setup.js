@@ -194,7 +194,7 @@ export function checkPlanetProximity() {
     // console.log("Distance to moon:", distanceToMoon);
     
     // Define entry threshold directly in this function
-    const moonEntryThreshold = 200; // Distance threshold for Moon entry
+    const moonEntryThreshold = 500; // Distance threshold for Moon entry
     
     if (distanceToMoon < moonRadius + moonEntryThreshold && !isMoonSurfaceActive) {
         // If close enough - activate moon surface

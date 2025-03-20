@@ -25,7 +25,7 @@ import {
     moonCamera as earthCamera,
     tiles,
     moonRenderer as earthRenderer
-} from './moon3D.js';
+} from './sanFran3D.js';
 
 import { setGameMode, resetMovementInputs } from './movement.js'; // Added keys import
 import { setupUIElements, setupDirectionalIndicator, updateDirectionalIndicator, showRaceModeUI, hideRaceModeUI, updateUI } from './ui.js';
@@ -263,7 +263,7 @@ function startHyperspace() {
         streakLines = [];
     }, 2000);
 }
-s
+
 let debugMode = true;
 
 // Make the reset function available globally to avoid circular ismports
@@ -282,7 +282,7 @@ function animate() {
     requestAnimationFrame(animate);
 
     // CASE 0 = space view
-    if (!isMoonSurfaceActive) {
+    if (isMoonSurfaceActive) {
         
         // If we just exited the moon surface, make sure space container is visible
         const spaceContainer = document.getElementById('space-container');
@@ -345,7 +345,7 @@ function animate() {
     }
     
     // CASE 1 = moon surface view
-    if (isMoonSurfaceActive) {
+    if (!isMoonSurfaceActive) {
         try {
             // Only initialize Earth once
             if (!earthInitialized) {
