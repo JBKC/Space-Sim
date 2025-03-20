@@ -358,7 +358,7 @@ function animate(currentTime = 0) {
         updateLasers(deltaTime);
 
         // CASE 0 = normal space view
-        if (isEarthSurfaceActive && !isMoonSurfaceActive) {
+        if (!isEarthSurfaceActive && !isMoonSurfaceActive) {
             // If we just exited a planet surface, make sure space container is visible
             const spaceContainer = document.getElementById('space-container');
             if (spaceContainer && spaceContainer.style.display === 'none') {
@@ -408,7 +408,7 @@ function animate(currentTime = 0) {
         }
 
         // CASE 1 = earth surface view
-        if (!isEarthSurfaceActive && !isMoonSurfaceActive) {
+        if (isEarthSurfaceActive && !isMoonSurfaceActive) {
             try {
                 // Only initialize Earth once
                 if (!earthInitialized) {

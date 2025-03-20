@@ -30,16 +30,16 @@ const LASER_CONFIG = {
     
     // Moon scene configuration
     moon: {
-        color: 0xe42747 ,       // Purplish tint for moon environment
-        speed: 800,            // Medium speed on moon (low gravity, no atmosphere)
-        boostSpeed: 3000,      // Boost speed on moon
-        length: 1500,          // Medium length on moon
-        thickness: 0.7,        // Medium thickness
-        duration: 2500,        // Medium duration
-        cooldown: 65,          // Medium cooldown
-        offset: -50,           // Negative offset - lasers appear to start from within the wing
-        boostOffset: 200       // Forward offset when boosting on moon
-    }
+        color: 0xe42747,       // Orange-red tint for atmosphere
+        speed: 1000,            // Slower in atmosphere
+        boostSpeed: 3000,      // Boost speed in atmosphere
+        length: 1000,          // Shorter due to atmospheric visibility
+        thickness: 0.2,        // Thicker for better visibility in atmosphere
+        duration: 1500,        // Shorter duration due to atmospheric interference
+        cooldown: 80,          // Slower firing rate due to atmospheric resistance
+        offset: 1000,             // No offset - lasers start right at wingtips
+        boostOffset: 480       // Forward offset when boosting in atmosphere
+    },
 };
 
 // Keep track of all active lasers
