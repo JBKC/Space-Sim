@@ -4,9 +4,10 @@ import { CesiumIonAuthPlugin } from '/node_modules/3d-tiles-renderer/src/plugins
 import { GLTFExtensionsPlugin } from '/node_modules/3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js';
 import { DRACOLoader } from '/node_modules/three/examples/jsm/loaders/DRACOLoader.js';
 import { createSpacecraft } from './spacecraft.js';
+import { fireLaser, updateLasers } from './laser.js';
 
-let moonCamera, moonScene, moonRenderer, tiles, moonCameraTarget;
-let moonInitialized = false;
+let camera, scene, renderer, tiles, cameraTarget;
+let earthInitialized = false;
 
 // DEFINE local coordinate system (align to the 3D tile rendering)
 const coordConfig = {
@@ -30,11 +31,11 @@ let coordinateSystem;
 
 
 export { 
- moonScene, 
- moonCamera, 
- moonRenderer, 
+ scene, 
+ camera, 
+ renderer, 
  tiles, 
- moonCameraTarget,
+ cameraTarget,
  spacecraft
 };
 
@@ -54,7 +55,7 @@ const turnSpeed = 0.03;
 const pitchSensitivity = 0.6; // Lower value = less sensitive
 const rollSensitivity = 1;  // Lower value = less sensitive
 const yawSensitivity = 0.5;   // Lower value = less sensitive
-let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false };
+let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false, space: false };
 
 // Camera settings
 const baseCameraOffset = new THREE.Vector3(0, 2, -10);
@@ -84,7 +85,7 @@ const raycaster = new THREE.Raycaster();
 const collisionOffset = new THREE.Vector3();
 
 // Sun objects and materials
-let moonSun, sunGroup, sunMesh, sunHalo, sunFlare;
+let earthSun, sunGroup, sunMesh, sunHalo, sunFlare;
 let textureLoader = new THREE.TextureLoader();
 
 const rotation = {
@@ -120,7 +121,7 @@ const HOVER_HEIGHT = 40;
 const MAX_SLOPE_ANGLE = 45;
 
 function initSpacecraft() {
- const spacecraftComponents = createSpacecraft(moonScene);
+ const spacecraftComponents = createSpacecraft(scene);
  spacecraft = spacecraftComponents.spacecraft;
  engineGlowMaterial = spacecraftComponents.engineGlowMaterial;
  lightMaterial = spacecraftComponents.lightMaterial;
@@ -157,9 +158,9 @@ function initSpacecraft() {
  'XYZ'
  ));
 
- moonCameraTarget = new THREE.Object3D();
- spacecraft.add(moonCameraTarget);
- moonCameraTarget.position.set(0, 0, 0);
+ cameraTarget = new THREE.Object3D();
+ spacecraft.add(cameraTarget);
+ cameraTarget.position.set(0, 0, 0);
 
  updateEngineEffects = spacecraftComponents.updateEngineEffects;
 }
@@ -261,7 +262,7 @@ function createCoordinateSystem() {
  'XYZ'
  ));
 
- moonScene.add(coordinateSystem);
+ scene.add(coordinateSystem);
 }
 
 // Convert lat/lon/height to ECEF coordinates for Earth
@@ -541,20 +542,20 @@ export function updateCamera() {
  position.applyQuaternion(localYawRotation);
  position.applyMatrix4(worldMatrix);
  
- moonCamera.position.copy(position);
+ camera.position.copy(position);
  
  const baseQuaternion = spacecraft.getWorldQuaternion(new THREE.Quaternion());
  const pitchOffset = new THREE.Quaternion().setFromAxisAngle(rotation.pitchAxis, currentPitchOffset);
  const yawOffset = new THREE.Quaternion().setFromAxisAngle(rotation.yawAxis, currentYawOffset);
  
- moonCamera.quaternion.copy(baseQuaternion)
+ camera.quaternion.copy(baseQuaternion)
  .multiply(pitchOffset)
  .multiply(yawOffset)
  .multiply(localPitchRotation)
  .multiply(localYawRotation);
  
  const forwardRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0));
- moonCamera.quaternion.multiply(forwardRotation);
+ camera.quaternion.multiply(forwardRotation);
 }
 
 let updateEngineEffects;
@@ -596,12 +597,12 @@ function setupTiles() {
  console.log("Loaded San Francisco model with shadow settings");
  };
  
- moonScene.add(tiles.group);
+ scene.add(tiles.group);
 }
 
 function reinstantiateTiles() {
  if (tiles) {
- moonScene.remove(tiles.group);
+ scene.remove(tiles.group);
  tiles.dispose();
  tiles = null;
  }
@@ -634,6 +635,7 @@ function initControls() {
  case 'ArrowLeft': keys.left = true; break;
  case 'ArrowRight': keys.right = true; break;
  case 'ArrowUp': keys.up = true; break;
+ case ' ': keys.space = true; break;
  }
  });
 
@@ -646,40 +648,41 @@ function initControls() {
  case 'ArrowLeft': keys.left = false; break;
  case 'ArrowRight': keys.right = false; break;
  case 'ArrowUp': keys.up = false; break;
+ case ' ': keys.space = false; break;
  }
  });
 }
 
-function setupMoonLighting() {
+function setupearthLighting() {
  if (!textureLoader) {
  textureLoader = new THREE.TextureLoader();
  }
  
  const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
- moonScene.add(ambientLight);
+ scene.add(ambientLight);
  
- moonSun = new THREE.DirectionalLight(0xffffff, 10);
+ earthSun = new THREE.DirectionalLight(0xffffff, 10);
  
  // Define the light source position using lat, lon, and height
  const sunLat = 37.7749; // Same latitude as San Francisco for simplicity
  const sunLon = -122.4194; // Same longitude as San Francisco
  const sunHeight = 100000; // High altitude to simulate sunlight from above
  const sunPosition = latLonHeightToEcef(sunLat, sunLon, sunHeight);
- moonSun.position.copy(sunPosition);
+ earthSun.position.copy(sunPosition);
  
- moonSun.castShadow = true;
+ earthSun.castShadow = true;
  
- moonSun.shadow.mapSize.width = 4096;
- moonSun.shadow.mapSize.height = 4096;
- moonSun.shadow.camera.near = 1000;
- moonSun.shadow.camera.far = 200000;
+ earthSun.shadow.mapSize.width = 4096;
+ earthSun.shadow.mapSize.height = 4096;
+ earthSun.shadow.camera.near = 1000;
+ earthSun.shadow.camera.far = 200000;
  const shadowSize = 20000;
- moonSun.shadow.camera.left = -shadowSize;
- moonSun.shadow.camera.right = shadowSize;
- moonSun.shadow.camera.top = shadowSize;
- moonSun.shadow.camera.bottom = -shadowSize;
- moonSun.shadow.bias = -0.00002;
- moonSun.shadow.normalBias = 0.005;
+ earthSun.shadow.camera.left = -shadowSize;
+ earthSun.shadow.camera.right = shadowSize;
+ earthSun.shadow.camera.top = shadowSize;
+ earthSun.shadow.camera.bottom = -shadowSize;
+ earthSun.shadow.bias = -0.00002;
+ earthSun.shadow.normalBias = 0.005;
  
  // Set the target at San Francisco's ground level
  const targetLat = 37.7749;
@@ -688,18 +691,18 @@ function setupMoonLighting() {
  const targetPosition = latLonHeightToEcef(targetLat, targetLon, targetHeight);
  const target = new THREE.Object3D();
  target.position.copy(targetPosition);
- moonScene.add(target);
- moonSun.target = target;
+ scene.add(target);
+ earthSun.target = target;
  
- moonScene.add(moonSun);
+ scene.add(earthSun);
  
  const sideLight = new THREE.DirectionalLight(0xffffff, 0.5);
  sideLight.position.set(-1, -1, 1).normalize(); // Keep as directional for now
- moonScene.add(sideLight);
+ scene.add(sideLight);
  
  const fillLight = new THREE.DirectionalLight(0xaaaaff, 0.2);
  fillLight.position.set(0, -1, 0); // Keep as directional for now
- moonScene.add(fillLight);
+ scene.add(fillLight);
  
  console.log("Lighting setup for San Francisco scene");
 }
@@ -707,45 +710,45 @@ function setupMoonLighting() {
 export function init() {
  console.log("San Francisco 3D initialization started");
  
- if (moonInitialized) {
+ if (earthInitialized) {
  console.log("Already initialized, skipping");
- return { scene: moonScene, camera: moonCamera, renderer: moonRenderer, tiles: tiles };
+ return { scene: scene, camera: camera, renderer: renderer, tiles: tiles };
  }
 
- moonScene = new THREE.Scene();
+ scene = new THREE.Scene();
  const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(255), 64, 64);
  env.mapping = THREE.EquirectangularReflectionMapping ;
  env.needsUpdate = true;
- moonScene.environment = env;
+ scene.environment = env;
 
  // Add fog to the scene
- moonScene.fog = new THREE.FogExp2(0x87ceeb, 0.0003);
+ scene.fog = new THREE.FogExp2(0x87ceeb, 0.0003);
 
- moonRenderer = new THREE.WebGLRenderer({ 
+ renderer = new THREE.WebGLRenderer({ 
  antialias: true,
  precision: 'highp',
  powerPreference: 'high-performance'
  });
- moonRenderer.setClearColor(0x87ceeb); // Match fog color for smooth blending
- moonRenderer.setSize(window.innerWidth, window.innerHeight);
- moonRenderer.setPixelRatio(window.devicePixelRatio);
- moonRenderer.shadowMap.enabled = true;
- moonRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
- moonRenderer.physicallyCorrectLights = true;
- moonRenderer.toneMapping = THREE.ACESFilmicToneMapping;
- moonRenderer.toneMappingExposure = 1.2;
- moonRenderer.outputEncoding = THREE.sRGBEncoding;
- moonRenderer.gammaFactor = 2.2;
+ renderer.setClearColor(0x87ceeb); // Match fog color for smooth blending
+ renderer.setSize(window.innerWidth, window.innerHeight);
+ renderer.setPixelRatio(window.devicePixelRatio);
+ renderer.shadowMap.enabled = true;
+ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+ renderer.physicallyCorrectLights = true;
+ renderer.toneMapping = THREE.ACESFilmicToneMapping;
+ renderer.toneMappingExposure = 1.2;
+ renderer.outputEncoding = THREE.sRGBEncoding;
+ renderer.gammaFactor = 2.2;
  
- document.body.appendChild(moonRenderer.domElement);
- moonRenderer.domElement.tabIndex = 1;
+ document.body.appendChild(renderer.domElement);
+ renderer.domElement.tabIndex = 1;
 
- moonCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 100000);
- moonCamera.position.set(100, 100, -100);
- moonCamera.lookAt(0, 0, 0);
+ camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 100000);
+ camera.position.set(100, 100, -100);
+ camera.lookAt(0, 0, 0);
  
  textureLoader = new THREE.TextureLoader();
- setupMoonLighting();
+ setupearthLighting();
  initSpacecraft();
  createCoordinateSystem();
  reinstantiateTiles();
@@ -754,20 +757,20 @@ export function init() {
  window.addEventListener('resize', onWindowResize, false);
  initControls();
 
- moonInitialized = true;
+ earthInitialized = true;
  console.log("San Francisco 3D initialization complete");
  
  return { 
- scene: moonScene, 
- camera: moonCamera, 
- renderer: moonRenderer, 
+ scene: scene, 
+ camera: camera, 
+ renderer: renderer, 
  tiles: tiles 
  };
 }
 
-export function update() {
+export function update(deltaTime = 0.016) {
  try {
- if (!moonInitialized) {
+ if (!earthInitialized) {
  console.log("Not initialized yet");
  return false;
  }
@@ -778,6 +781,14 @@ export function update() {
 
  updateMovement();
  updateCamera();
+ 
+ // Handle laser firing with spacebar
+ if (keys.space && spacecraft) {
+   fireLaser(spacecraft, scene, 'sanFran', keys.up);
+ }
+ 
+ // Update all active lasers
+ updateLasers(deltaTime);
  
  // Update reticle position if available
  if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
@@ -799,16 +810,16 @@ export function update() {
  });
  }
  
- updateMoonLighting();
+ updateearthLighting();
 
- if (!moonCamera) {
+ if (!camera) {
  console.warn("Camera not initialized");
  return false;
  }
 
- tiles.setCamera(moonCamera);
- tiles.setResolutionFromRenderer(moonCamera, moonRenderer);
- moonCamera.updateMatrixWorld();
+ tiles.setCamera(camera);
+ tiles.setResolutionFromRenderer(camera, renderer);
+ camera.updateMatrixWorld();
  tiles.update();
  
  return true;
@@ -818,25 +829,25 @@ export function update() {
  }
 }
 
-function updateMoonLighting() {
- if (!moonSun || !spacecraft) return;
+function updateearthLighting() {
+ if (!earthSun || !spacecraft) return;
  
  const spacecraftPosition = spacecraft.position.clone();
- moonSun.position.set(
+ earthSun.position.set(
  spacecraftPosition.x,
  spacecraftPosition.y + 100000,
  spacecraftPosition.z
  );
  
- if (moonSun.target) {
- moonSun.target.position.copy(spacecraftPosition);
- moonSun.target.updateMatrixWorld();
+ if (earthSun.target) {
+ earthSun.target.position.copy(spacecraftPosition);
+ earthSun.target.updateMatrixWorld();
  }
 }
 
 function onWindowResize() {
- moonCamera.aspect = window.innerWidth / window.innerHeight;
- moonCamera.updateProjectionMatrix();
- moonRenderer.setSize(window.innerWidth, window.innerHeight);
- moonRenderer.setPixelRatio(window.devicePixelRatio);
+ camera.aspect = window.innerWidth / window.innerHeight;
+ camera.updateProjectionMatrix();
+ renderer.setSize(window.innerWidth, window.innerHeight);
+ renderer.setPixelRatio(window.devicePixelRatio);
 }
