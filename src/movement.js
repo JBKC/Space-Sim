@@ -122,7 +122,14 @@ document.addEventListener('keydown', (event) => {
         case 'ArrowLeft': keys.left = true; break;
         case 'ArrowRight': keys.right = true; break;
         case 'ArrowUp': keys.up = true; break;
-        case 'Space': keys.space = true; break;
+        case ' ': case 'Space': // Handle both space character and 'Space' string
+            keys.space = true; 
+            break;
+    }
+    
+    // Also check event.code for Space
+    if (event.code === 'Space') {
+        keys.space = true;
     }
 });
 
@@ -135,7 +142,14 @@ document.addEventListener('keyup', (event) => {
         case 'ArrowLeft': keys.left = false; break;
         case 'ArrowRight': keys.right = false; break;
         case 'ArrowUp': keys.up = false; break;
-        case 'Space': keys.space = false; break;
+        case ' ': case 'Space': // Handle both space character and 'Space' string
+            keys.space = false; 
+            break;
+    }
+    
+    // Also check event.code for Space
+    if (event.code === 'Space') {
+        keys.space = false;
     }
 });
 

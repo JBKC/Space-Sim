@@ -37,7 +37,7 @@ const LASER_CONFIG = {
         thickness: 0.2,        // Thicker for better visibility in atmosphere
         duration: 1500,        // Shorter duration due to atmospheric interference
         cooldown: 80,          // Slower firing rate due to atmospheric resistance
-        offset: 1000,             // No offset - lasers start right at wingtips
+        offset: 492,             // No offset - lasers start right at wingtips (matching sanFran)
         boostOffset: 480       // Forward offset when boosting in atmosphere
     },
 };
@@ -140,62 +140,88 @@ function createWingtipLaser(wing, scene, config, laserSpeed, isBoosting, now) {
  * @returns {Array} The created laser objects
  */
 export function fireLaser(spacecraft, scene, sceneType = 'space', isBoosting = false) {
-    // Get the appropriate configuration
-    const config = LASER_CONFIG[sceneType] || LASER_CONFIG.space;
-    
-    // Check cooldown
-    const now = Date.now();
-    if (now - lastFireTime < config.cooldown) {
+    try {
+        // Get the appropriate configuration
+        const config = LASER_CONFIG[sceneType] || LASER_CONFIG.space;
+        
+        // Check cooldown
+        const now = Date.now();
+        if (now - lastFireTime < config.cooldown) {
+            return null;
+        }
+        lastFireTime = now;
+        
+        // Determine speed based on boost state
+        const laserSpeed = isBoosting ? config.boostSpeed : config.speed;
+        
+        const lasers = [];
+        
+        // Find all wing objects
+        let topRightWing = null;
+        let bottomRightWing = null;
+        let topLeftWing = null;
+        let bottomLeftWing = null;
+        
+        // First, try to find wings by their names
+        spacecraft.traverse(child => {
+            if (child.name === "topRightWing") topRightWing = child;
+            if (child.name === "bottomRightWing") bottomRightWing = child;
+            if (child.name === "topLeftWing") topLeftWing = child;
+            if (child.name === "bottomLeftWing") bottomLeftWing = child;
+        });
+        
+        // For the moon scene, sometimes the wings aren't findable by name
+        // Fall back to a single laser if not all wings are found
+        if (!topRightWing || !bottomRightWing || !topLeftWing || !bottomLeftWing) {
+            return createSingleLaser(spacecraft, scene, config, laserSpeed, isBoosting, now);
+        }
+        
+        // If wings are found, create lasers from each wingtip
+        if (topRightWing) {
+            try {
+                lasers.push(createWingtipLaser(topRightWing, scene, config, laserSpeed, isBoosting, now));
+            } catch (e) {
+                // Silent fail for individual wing laser creation
+            }
+        }
+        
+        if (bottomRightWing) {
+            try {
+                lasers.push(createWingtipLaser(bottomRightWing, scene, config, laserSpeed, isBoosting, now));
+            } catch (e) {
+                // Silent fail for individual wing laser creation
+            }
+        }
+        
+        if (topLeftWing) {
+            try {
+                lasers.push(createWingtipLaser(topLeftWing, scene, config, laserSpeed, isBoosting, now));
+            } catch (e) {
+                // Silent fail for individual wing laser creation
+            }
+        }
+        
+        if (bottomLeftWing) {
+            try {
+                lasers.push(createWingtipLaser(bottomLeftWing, scene, config, laserSpeed, isBoosting, now));
+            } catch (e) {
+                // Silent fail for individual wing laser creation
+            }
+        }
+        
+        // Optional: Play sound only once for all four lasers
+        if (lasers.length > 0) {
+            playLaserSound();
+            return lasers;
+        } else {
+            // Fallback to original laser if wings aren't found or lasers couldn't be created
+            return createSingleLaser(spacecraft, scene, config, laserSpeed, isBoosting, now);
+        }
+    } catch (error) {
+        // If anything goes wrong, just return without firing
+        console.error("Error firing laser:", error);
         return null;
     }
-    lastFireTime = now;
-    
-    // Determine speed based on boost state
-    const laserSpeed = isBoosting ? config.boostSpeed : config.speed;
-    
-    const lasers = [];
-    
-    // Find all wing objects
-    let topRightWing = null;
-    let bottomRightWing = null;
-    let topLeftWing = null;
-    let bottomLeftWing = null;
-    
-    // First, try to find wings by their names
-    spacecraft.traverse(child => {
-        if (child.name === "topRightWing") topRightWing = child;
-        if (child.name === "bottomRightWing") bottomRightWing = child;
-        if (child.name === "topLeftWing") topLeftWing = child;
-        if (child.name === "bottomLeftWing") bottomLeftWing = child;
-    });
-    
-    // If wings are found, create lasers from each wingtip
-    if (topRightWing) {
-        lasers.push(createWingtipLaser(topRightWing, scene, config, laserSpeed, isBoosting, now));
-    }
-    
-    if (bottomRightWing) {
-        lasers.push(createWingtipLaser(bottomRightWing, scene, config, laserSpeed, isBoosting, now));
-    }
-    
-    if (topLeftWing) {
-        lasers.push(createWingtipLaser(topLeftWing, scene, config, laserSpeed, isBoosting, now));
-    }
-    
-    if (bottomLeftWing) {
-        lasers.push(createWingtipLaser(bottomLeftWing, scene, config, laserSpeed, isBoosting, now));
-    }
-    
-    // Optional: Play sound only once for all four lasers
-    if (lasers.length > 0) {
-        playLaserSound();
-    } else {
-        console.warn("No wings found on spacecraft - falling back to single laser");
-        // Fallback to original laser if wings aren't found
-        return createSingleLaser(spacecraft, scene, config, laserSpeed, isBoosting, now);
-    }
-    
-    return lasers;
 }
 
 /**
@@ -267,36 +293,64 @@ function createSingleLaser(spacecraft, scene, config, laserSpeed, isBoosting, no
  * @param {number} deltaTime - Time since last update in seconds
  */
 export function updateLasers(deltaTime) {
-    const now = Date.now();
-    const lasersToRemove = [];
-    
-    // Update positions and find expired lasers
-    activeLasers.forEach((laser, index) => {
-        // Move laser forward
-        laser.mesh.position.add(laser.velocity.clone().multiplyScalar(deltaTime));
+    try {
+        const now = Date.now();
+        const lasersToRemove = [];
         
-        // Check if laser has expired
-        if (now - laser.createdAt > laser.duration) {
-            lasersToRemove.push(index);
+        // Safety check for reasonable deltaTime values
+        const safeDeltaTime = Math.min(deltaTime, 0.1); // Cap at 100ms to prevent huge jumps
+        
+        // Update positions and find expired lasers
+        activeLasers.forEach((laser, index) => {
+            try {
+                // Move laser forward
+                laser.mesh.position.add(laser.velocity.clone().multiplyScalar(safeDeltaTime));
+                
+                // Check if laser has expired
+                if (now - laser.createdAt > laser.duration) {
+                    lasersToRemove.push(index);
+                }
+            } catch (error) {
+                // If there's an error with a specific laser, mark it for removal
+                console.error("Error updating laser:", error);
+                lasersToRemove.push(index);
+            }
+        });
+        
+        // Remove expired lasers (in reverse order to avoid index issues)
+        for (let i = lasersToRemove.length - 1; i >= 0; i--) {
+            try {
+                const index = lasersToRemove[i];
+                const laser = activeLasers[index];
+                
+                // Remove from scene safely
+                if (laser && laser.mesh && laser.mesh.parent) {
+                    laser.mesh.parent.remove(laser.mesh);
+                }
+                
+                // Dispose of resources safely
+                if (laser && laser.mesh) {
+                    if (laser.mesh.geometry) laser.mesh.geometry.dispose();
+                    if (laser.mesh.material) laser.mesh.material.dispose();
+                }
+                
+                // Remove from array
+                activeLasers.splice(index, 1);
+            } catch (error) {
+                console.error("Error removing laser:", error);
+                // Just continue to the next laser
+            }
         }
-    });
-    
-    // Remove expired lasers (in reverse order to avoid index issues)
-    for (let i = lasersToRemove.length - 1; i >= 0; i--) {
-        const index = lasersToRemove[i];
-        const laser = activeLasers[index];
         
-        // Remove from scene
-        if (laser.mesh.parent) {
-            laser.mesh.parent.remove(laser.mesh);
+        // If we have an unreasonable number of active lasers, clear them all
+        if (activeLasers.length > 1000) {
+            console.warn("Too many active lasers detected, clearing all");
+            clearAllLasers();
         }
-        
-        // Dispose of resources
-        laser.mesh.geometry.dispose();
-        laser.mesh.material.dispose();
-        
-        // Remove from array
-        activeLasers.splice(index, 1);
+    } catch (error) {
+        console.error("Error in updateLasers:", error);
+        // In case of critical failure, clear all lasers
+        clearAllLasers();
     }
 }
 
@@ -330,13 +384,26 @@ export function checkLaserCollisions(scene, onHit) {
  * Removes all active lasers from the scene
  */
 export function clearAllLasers() {
-    activeLasers.forEach(laser => {
-        if (laser.mesh.parent) {
-            laser.mesh.parent.remove(laser.mesh);
-        }
-        laser.mesh.geometry.dispose();
-        laser.mesh.material.dispose();
-    });
-    
-    activeLasers.length = 0;
+    try {
+        activeLasers.forEach(laser => {
+            try {
+                if (laser && laser.mesh) {
+                    if (laser.mesh.parent) {
+                        laser.mesh.parent.remove(laser.mesh);
+                    }
+                    if (laser.mesh.geometry) laser.mesh.geometry.dispose();
+                    if (laser.mesh.material) laser.mesh.material.dispose();
+                }
+            } catch (e) {
+                // Silently fail for individual lasers
+            }
+        });
+        
+        // Clear the array
+        activeLasers.length = 0;
+    } catch (error) {
+        console.error("Error in clearAllLasers:", error);
+        // Last resort - force clear the array
+        activeLasers.length = 0;
+    }
 } 

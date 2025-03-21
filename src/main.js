@@ -28,6 +28,7 @@ import {
     // tiles as earthTiles,
     renderer as earthRenderer,
     spacecraft as earthSpacecraft  // Import the spacecraft from sanFran3D.js
+// } from './washington3D.js';
 } from './sanFran3D.js';
 
 // import moon surface functions
@@ -74,6 +75,9 @@ const streakSpeed = 500; // Speed of streaks moving past the camera
 
 // Added delta time calculation for smoother animations
 let lastFrameTime = 0;
+
+// Track previous state to detect changes for transitions
+let prevEarthSurfaceActive = false;
 
 // Initialize UI elements and directional indicator
 setupUIElements();
@@ -410,48 +414,57 @@ function animate(currentTime = 0) {
         // CASE 1 = earth surface view
         if (isEarthSurfaceActive && !isMoonSurfaceActive) {
             try {
-                // Only initialize Earth once
-                if (!earthInitialized) {
-                    console.log('Initializing Earth surface');
-                    const earthObjects = initEarthSurface();
-                    earthInitialized = true;
-                    console.log('Earth surface initialized successfully', earthObjects);
-
-                    // Hide space container to see surface scene
-                    const spaceContainer = document.getElementById('space-container');
-                    if (spaceContainer) {
-                        spaceContainer.style.display = 'none';
-                        console.log('Hid space-container');
-                    }
-                    
-                    // Show Earth surface message
-                    const earthMsg = document.createElement('div');
-                    earthMsg.id = 'earth-surface-message';
-                    earthMsg.style.position = 'fixed';
-                    earthMsg.style.top = '20px';
-                    earthMsg.style.right = '20px';
-                    earthMsg.style.color = 'white';
-                    earthMsg.style.fontFamily = 'Orbitron, sans-serif';
-                    earthMsg.style.fontSize = '16px';
-                    earthMsg.style.padding = '10px';
-                    earthMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-                    earthMsg.style.borderRadius = '5px';
-                    earthMsg.style.zIndex = '9999';
-                    earthMsg.innerHTML = 'EARTH SURFACE<br>Press ESC to return to space';
-                    document.body.appendChild(earthMsg);
-                    
-                    // Hide coordinates display in earth surface mode
-                    const coordsDiv = document.getElementById('coordinates');
-                    if (coordsDiv) {
-                        coordsDiv.style.display = 'none';
-                    }
+                // Detect if we just entered Earth's surface
+                if (!prevEarthSurfaceActive) {
+                    // Show transition before initializing Earth surface
+                    showEarthTransition(() => {
+                        // Initialize Earth once the transition is complete
+                        if (!earthInitialized) {
+                            console.log('Initializing Earth surface');
+                            const earthObjects = initEarthSurface();
+                            earthInitialized = true;
+                            console.log('Earth surface initialized successfully', earthObjects);
+    
+                            // Hide space container to see surface scene
+                            const spaceContainer = document.getElementById('space-container');
+                            if (spaceContainer) {
+                                spaceContainer.style.display = 'none';
+                                console.log('Hid space-container');
+                            }
+                            
+                            // Show Earth surface message
+                            const earthMsg = document.createElement('div');
+                            earthMsg.id = 'earth-surface-message';
+                            earthMsg.style.position = 'fixed';
+                            earthMsg.style.top = '20px';
+                            earthMsg.style.right = '20px';
+                            earthMsg.style.color = 'white';
+                            earthMsg.style.fontFamily = 'Orbitron, sans-serif';
+                            earthMsg.style.fontSize = '16px';
+                            earthMsg.style.padding = '10px';
+                            earthMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                            earthMsg.style.borderRadius = '5px';
+                            earthMsg.style.zIndex = '9999';
+                            earthMsg.innerHTML = 'EARTH SURFACE<br>Press ESC to return to space';
+                            document.body.appendChild(earthMsg);
+                            
+                            // Hide coordinates display in earth surface mode
+                            const coordsDiv = document.getElementById('coordinates');
+                            if (coordsDiv) {
+                                coordsDiv.style.display = 'none';
+                            }
+                        }
+                    });
                 }
                 
-                // Main update function that updates spacecraft, camera, tiles, world matrices
-                const earthUpdated = updateEarthSurface(deltaTime);              
-
-                // Render the earth scene with the earth camera using our renderer
-                earthRenderer.render(earthScene, earthCamera);
+                // If Earth is already initialized, update and render
+                if (earthInitialized) {
+                    // Main update function that updates spacecraft, camera, tiles, world matrices
+                    const earthUpdated = updateEarthSurface(deltaTime);              
+    
+                    // Render the earth scene with the earth camera using our renderer
+                    earthRenderer.render(earthScene, earthCamera);
+                }
             } catch (e) {
                 console.error('Earth surface animation error:', e);
             }
@@ -509,4 +522,41 @@ function animate(currentTime = 0) {
     } catch (e) {
         console.error('Main animation loop error:', e);
     }
+    
+    // Update previous state for next frame
+    prevEarthSurfaceActive = isEarthSurfaceActive;
+}
+
+// Function to show the blue transition effect when entering Earth's atmosphere
+function showEarthTransition(callback) {
+    const transitionElement = document.getElementById('earth-transition');
+    
+    if (!transitionElement) {
+        console.error('Earth transition element not found');
+        if (callback) callback();
+        return;
+    }
+    
+    // Make the transition element visible but with opacity 0
+    transitionElement.style.display = 'block';
+    
+    // Force a reflow to ensure the display change is applied before changing opacity
+    transitionElement.offsetHeight;
+    
+    // Set opacity to 1 to start the fade-in transition
+    transitionElement.style.opacity = '1';
+    
+    // Wait for the transition to complete (0.5 second)
+    setTimeout(() => {
+        // After transition completes, reset the element and call the callback
+        transitionElement.style.opacity = '0';
+        
+        // Wait for fade-out to complete before hiding
+        setTimeout(() => {
+            transitionElement.style.display = 'none';
+        }, 500);
+        
+        // Execute the callback if provided
+        if (callback) callback();
+    }, 500);
 }

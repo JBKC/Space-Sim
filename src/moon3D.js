@@ -5,6 +5,7 @@ import { GLTFExtensionsPlugin } from '/node_modules/3d-tiles-renderer/src/plugin
 import { DRACOLoader } from '/node_modules/three/examples/jsm/loaders/DRACOLoader.js';
 import { createSpacecraft } from './spacecraft.js';
 import { fireLaser, updateLasers } from './laser.js';
+import { keys } from './movement.js';
 
 let camera, scene, renderer, tiles, cameraTarget;
 let moonInitialized = false;
@@ -18,12 +19,16 @@ export {
     spacecraft
 };
 
+// Add a debug flag at the top to easily toggle console logging
+const DEBUG = false; // Set to false in production
+
 // Define spacecraft
 let spacecraft, engineGlowMaterial, lightMaterial;
 let topRightWing, bottomRightWing, topLeftWing, bottomLeftWing;
 let wingsOpen = true;
 let wingAnimation = 0;
 const wingTransitionFrames = 30;
+let lastMoonLaserFireTime = 0; // Add a moon-specific laser fire time tracker
 
 // Movement settings
 const baseSpeed = 50;
@@ -34,7 +39,6 @@ const turnSpeed = 0.03;
 const pitchSensitivity = 0.6; // Lower value = less sensitive
 const rollSensitivity = 1;  // Lower value = less sensitive
 const yawSensitivity = 0.5;   // Lower value = less sensitive
-let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false, space: false };
 
 // Camera settings
 const baseCameraOffset = new THREE.Vector3(0, 2, -10); // Camera sits behind the spacecraft
@@ -161,7 +165,7 @@ function checkCollisionInDirection(direction, terrainMeshes) {
 
 function checkTerrainCollision() {
     if (!tiles || !tiles.group) {
-        console.log("Tiles or tiles.group not available yet");
+        if (DEBUG) console.log("Tiles or tiles.group not available yet");
         return false;
     }
 
@@ -535,34 +539,6 @@ function reinstantiateTiles() {
     setupTiles();
 }
 
-function initControls() {
-    document.addEventListener('keydown', (event) => {
-        switch (event.key) {
-            case 'w': keys.w = true; break;
-            case 's': keys.s = true; break;
-            case 'a': keys.a = true; break;
-            case 'd': keys.d = true; break;
-            case 'ArrowLeft': keys.left = true; break;
-            case 'ArrowRight': keys.right = true; break;
-            case 'ArrowUp': keys.up = true; break;
-            case ' ': keys.space = true; break;
-        }
-    });
-
-    document.addEventListener('keyup', (event) => {
-        switch (event.key) {
-            case 'w': keys.w = false; break;
-            case 's': keys.s = false; break;
-            case 'a': keys.a = false; break;
-            case 'd': keys.d = false; break;
-            case 'ArrowLeft': keys.left = false; break;
-            case 'ArrowRight': keys.right = false; break;
-            case 'ArrowUp': keys.up = false; break;
-            case ' ': keys.space = false; break;
-        }
-    });
-}
-
 // Setup lighting for the moon scene
 function setupMoonLighting() {
     // Create a textureLoader if it doesn't exist
@@ -674,8 +650,6 @@ export function init() {
     onWindowResize();
     window.addEventListener('resize', onWindowResize, false);
 
-    initControls();
-
     moonInitialized = true;
     console.log("Moon3D initialization complete");
     
@@ -690,7 +664,7 @@ export function init() {
 export function update(deltaTime = 0.016) {
     try {
         if (!moonInitialized) {
-            console.log("Moon3D not initialized yet");
+            if (DEBUG) console.log("Moon3D not initialized yet");
             return false;
         }
 
@@ -701,9 +675,11 @@ export function update(deltaTime = 0.016) {
         updateMovement();
         updateCamera();
         
-        // Handle laser firing with spacebar
-        if (keys.space && spacecraft) {
+        // Handle laser firing with spacebar using moon-specific rate limiting
+        const now = Date.now();
+        if (keys.space && spacecraft && now - lastMoonLaserFireTime > 200) { // 200ms minimum between shots
             fireLaser(spacecraft, scene, 'moon', keys.up);
+            lastMoonLaserFireTime = now;
         }
         
         // Update all active lasers
@@ -711,11 +687,11 @@ export function update(deltaTime = 0.016) {
         
         // Update reticle position if available
         if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
-            console.log("Updating reticle in moon3D.js");
+            // Do not log - just update the reticle
             spacecraft.userData.updateReticle();
         } else {
             // Only log this warning once to avoid console spam
-            if (!window.reticleWarningLogged) {
+            if (!window.reticleWarningLogged && DEBUG) {
                 console.warn("Reticle update function not found on spacecraft userData", spacecraft);
                 window.reticleWarningLogged = true;
             }
@@ -734,7 +710,7 @@ export function update(deltaTime = 0.016) {
         updateMoonLighting();
 
         if (!camera) {
-            console.warn("Moon camera not initialized");
+            if (DEBUG) console.warn("Moon camera not initialized");
             return false;
         }
 
