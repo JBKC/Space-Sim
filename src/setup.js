@@ -202,7 +202,7 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         // Update reticle position if available
         if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
             console.log("Updating reticle in setup.js");
-            spacecraft.userData.updateReticle();
+            spacecraft.userData.updateReticle(isBoosting);
         } else {
             // Only log this warning once to avoid console spam
             if (!window.setupReticleWarningLogged) {

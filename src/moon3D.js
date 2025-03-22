@@ -688,7 +688,7 @@ export function update(deltaTime = 0.016) {
         // Update reticle position if available
         if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
             // Do not log - just update the reticle
-            spacecraft.userData.updateReticle();
+            spacecraft.userData.updateReticle(keys.up);
         } else {
             // Only log this warning once to avoid console spam
             if (!window.reticleWarningLogged && DEBUG) {

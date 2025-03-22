@@ -1,6 +1,21 @@
 import * as THREE from 'three';
 
-// Configuration for the reticle
+/**
+ * Configuration for the reticle
+ * @type {Object}
+ * @property {number} size - Overall size of the reticle
+ * @property {number} color - Color of the reticle in hex format
+ * @property {number} opacity - Opacity of the reticle (0-1)
+ * @property {number} distance - Distance from spacecraft in local Z direction
+ * @property {number} yOffset - Vertical offset from spacecraft center
+ * @property {number} lineThickness - Thickness of lines in the reticle
+ * @property {number} crosshairSize - Size of the central crosshair
+ * @property {number} ringRadius - Radius of the outer ring
+ * @property {number} ringThickness - Thickness of the outer ring
+ * @property {number} scale - Normal scale value when not boosting
+ * @property {number} boostScale - Reduced scale value when boosting
+ * @property {number} transitionSpeed - Speed of transition between scaling states (0-1)
+ */
 const config = {
     size: 0.3,             // Increased size for better visibility
     color: 0xe42747,       // Sci fi color
@@ -11,12 +26,17 @@ const config = {
     crosshairSize: 0.05,   // Larger crosshair
     ringRadius: 0.1,       // Larger ring
     ringThickness: 0.015,  // Thicker ring
-    scale: 100             // Larger overall scale
+    scale: 150,            // Normal scale
+    boostScale: 100,        // Smaller scale when boosting
+    transitionSpeed: 0.1   // Speed of transition between normal and boost scale (0-1)
 };
 
 // Reticle object to be attached to the spacecraft
 let reticle;
 let reticleObject;
+let currentScale = config.scale; // Track current scale
+let targetScale = config.scale;  // Target scale to transition to
+let lastBoostState = false;      // Track the last boost state to detect changes
 
 /**
  * Handles window resize events to ensure the reticle stays properly scaled
@@ -25,7 +45,7 @@ export function onWindowResize() {
     if (reticleObject) {
         // Scale reticle based on viewport size to maintain consistent visual size
         const viewportHeight = window.innerHeight;
-        const scaleFactor = (viewportHeight / 1080) * config.scale; // Base scale on a 1080p reference
+        const scaleFactor = (viewportHeight / 1080) * currentScale; // Base scale on a 1080p reference
         reticleObject.scale.set(scaleFactor, scaleFactor, scaleFactor);
     }
 }
@@ -136,10 +156,40 @@ export function createReticle(scene, spacecraft, camera) {
     const reticleOffset = new THREE.Vector3(0, config.yOffset, -config.distance);
     
     // Function to update the reticle position
-    function updateReticle() {
+    function updateReticle(isBoosting) {
         if (!spacecraft) {
             console.warn("Cannot update reticle: spacecraft not available");
             return;
+        }
+        
+        // Check if we need to update the scale based on boost state
+        // Try to determine if we're boosting from the spacecraft's userData or passed parameter
+        const boosting = isBoosting !== undefined ? isBoosting : 
+                        (spacecraft.userData && spacecraft.userData.isBoosting) || 
+                        (window.keys && window.keys.up);
+        
+        // Track if the boost state has changed
+        const boostStateChanged = boosting !== lastBoostState;
+        lastBoostState = boosting;
+        
+        // Update the target scale based on boost state
+        targetScale = boosting ? config.boostScale : config.scale;
+        
+        // Smoothly transition the current scale towards the target scale
+        // If we need to ensure it reaches exactly the target, add additional logic
+        if (Math.abs(currentScale - targetScale) > 0.1) {
+            currentScale += (targetScale - currentScale) * config.transitionSpeed;
+        } else {
+            // Make sure we snap to exact values when close enough
+            currentScale = targetScale;
+        }
+        
+        // Only update the scale if there's a noticeable difference or if boost state changed
+        if (Math.abs(reticleObject.scale.x - (window.innerHeight / 1080) * currentScale) > 0.1 || boostStateChanged) {
+            // Apply the new scale with window size adjustment
+            const viewportHeight = window.innerHeight;
+            const scaleFactor = (viewportHeight / 1080) * currentScale;
+            reticleObject.scale.set(scaleFactor, scaleFactor, scaleFactor);
         }
         
         // Option 1: Fixed offset from spacecraft (always follows spacecraft movement)
@@ -164,12 +214,12 @@ export function createReticle(scene, spacecraft, camera) {
         // Make the reticle face the same direction as the spacecraft
         reticleObject.quaternion.copy(spacecraft.quaternion);
         
-        // For debugging
-        console.log("Reticle updated - Position:", reticleObject.position.toArray().map(v => v.toFixed(2)).join(", "));
+        // Debug logging (commented out to avoid console spam)
+        // console.log("Reticle updated - Position:", reticleObject.position.toArray().map(v => v.toFixed(2)).join(", "));
     }
     
     // Initial update
-    updateReticle();
+    updateReticle(false);
     
     // Return the reticle object and update function
     return {
@@ -180,10 +230,11 @@ export function createReticle(scene, spacecraft, camera) {
 
 /**
  * Updates the reticle's position
+ * @param {boolean} isBoosting - Whether the spacecraft is boosting
  */
-export function updateReticle() {
+export function updateReticle(isBoosting) {
     if (reticle && typeof reticle.update === 'function') {
-        reticle.update();
+        reticle.update(isBoosting);
     }
 }
 
