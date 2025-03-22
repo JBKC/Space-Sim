@@ -130,6 +130,9 @@ const MAX_SLOPE_ANGLE = 45;
 // Add the declaration at the top of the file, near other global variables
 let gridHelper; // Declare gridHelper as a global variable
 
+// Add a global variable to reference the base plane for collision detection
+let basePlane;
+
 function initSpacecraft() {
  const spacecraftComponents = createSpacecraft(scene);
     spacecraft = spacecraftComponents.spacecraft;
@@ -484,6 +487,12 @@ export function updateMovement() {
     spacecraft.position.add(forward.multiplyScalar(currentSpeed));
 
     try {
+        // Check for collisions with the base plane
+        if (checkBasePlaneCollision()) {
+            console.log("Collision with base plane detected and resolved");
+        }
+        
+        // Check for collisions with terrain
         if (tiles && tiles.group && tiles.group.children.length > 0) {
             if (checkTerrainCollision()) {
                 console.log("Collision detected and resolved");
@@ -717,19 +726,53 @@ function createBasePlane() {
   // Add axes to our grid container
   gridPlaneSystem.add(axesHelper);
   
-  // Create a black plane with Z axis as normal
+  // Create a plane with checkered pattern
   const planeSize = 10000;
   const planeGeometry = new THREE.PlaneGeometry(planeSize, planeSize);
+  
+  // Create a checkered pattern texture
+  const size = 1024;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext('2d');
+  
+  // Draw the checkered pattern
+  const squareSize = 64; // Size of each checker square
+  const numSquares = size / squareSize;
+  
+  context.fillStyle = '#000000';
+  context.fillRect(0, 0, size, size);
+  
+  context.fillStyle = '#333333'; // Dark gray for contrast squares
+  
+  for (let i = 0; i < numSquares; i++) {
+    for (let j = 0; j < numSquares; j++) {
+      if ((i + j) % 2 === 0) {
+        context.fillRect(i * squareSize, j * squareSize, squareSize, squareSize);
+      }
+    }
+  }
+  
+  // Create texture from canvas
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(10, 10); // Repeat the pattern for more checkers
+  
   const planeMaterial = new THREE.MeshBasicMaterial({ 
-    color: 0x000000, 
+    map: texture,
     side: THREE.DoubleSide,
-    transparent: false,
-    opacity: 1.0
+    transparent: false
   });
-  const basePlane = new THREE.Mesh(planeGeometry, planeMaterial);
+  
+  basePlane = new THREE.Mesh(planeGeometry, planeMaterial);
   
   // Position the plane according to provided values
   basePlane.position.set(0, 0, -10);
+  
+  // Set a name to identify it for collision detection
+  basePlane.name = "basePlane";
   
   // Add the plane to our coordinate system
   gridPlaneSystem.add(basePlane);
@@ -737,7 +780,7 @@ function createBasePlane() {
   // Add the coordinate system to the scene
   scene.add(gridPlaneSystem);
   
-  console.log("Fixed coordinate system created with exact position and orientation");
+  console.log("Fixed coordinate system created with checkered pattern plane");
 }
 
 // Replace the dynamic alignGridToTerrain function with our fixed implementation
@@ -1061,4 +1104,62 @@ function onWindowResize() {
  camera.updateProjectionMatrix();
  renderer.setSize(window.innerWidth, window.innerHeight);
  renderer.setPixelRatio(window.devicePixelRatio);
+}
+
+// Add a function to check collision with base plane
+function checkBasePlaneCollision() {
+  if (!spacecraft || !basePlane || !window.gridCoordinateSystem) return false;
+  
+  // Get the world position of the spacecraft
+  const spacecraftWorldPosition = spacecraft.getWorldPosition(new THREE.Vector3());
+  
+  // Get the normal direction of the plane (the Z-axis of the grid system)
+  const planeNormal = new THREE.Vector3(0, 0, 1);
+  planeNormal.applyQuaternion(window.gridCoordinateSystem.quaternion);
+  
+  // Get position of the base plane in world coordinates
+  const planeWorldPosition = new THREE.Vector3();
+  basePlane.getWorldPosition(planeWorldPosition);
+  
+  // Calculate the projection of the spacecraft onto the plane normal
+  const spacecraftToPlane = new THREE.Vector3().subVectors(spacecraftWorldPosition, planeWorldPosition);
+  const distanceToPlane = spacecraftToPlane.dot(planeNormal);
+  
+  // Check collision from above (positive normal direction)
+  const raycasterUp = new THREE.Raycaster();
+  raycasterUp.set(spacecraftWorldPosition, planeNormal.clone().negate());
+  const intersectsUp = raycasterUp.intersectObject(basePlane);
+  
+  // Check collision from below (negative normal direction)
+  const raycasterDown = new THREE.Raycaster();
+  raycasterDown.set(spacecraftWorldPosition, planeNormal.clone());
+  const intersectsDown = raycasterDown.intersectObject(basePlane);
+  
+  let collided = false;
+  
+  // Handle collision from above (coming down through the plane)
+  if (intersectsUp.length > 0 && intersectsUp[0].distance < 50) {
+    // Calculate the bounce/repulsion needed
+    const pushDistance = 50 - intersectsUp[0].distance;
+    const pushDirection = planeNormal.clone();
+    
+    // Apply the push (up from the plane)
+    spacecraft.position.add(pushDirection.multiplyScalar(pushDistance));
+    console.log("Collision with plane from above detected");
+    collided = true;
+  }
+  
+  // Handle collision from below (coming up through the plane)
+  if (intersectsDown.length > 0 && intersectsDown[0].distance < 50) {
+    // Calculate the bounce/repulsion needed
+    const pushDistance = 50 - intersectsDown[0].distance;
+    const pushDirection = planeNormal.clone().negate();
+    
+    // Apply the push (down from the plane)
+    spacecraft.position.add(pushDirection.multiplyScalar(pushDistance));
+    console.log("Collision with plane from below detected");
+    collided = true;
+  }
+  
+  return collided;
 }
