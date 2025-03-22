@@ -632,8 +632,8 @@ function setupTiles() {
  scene.add(tiles.group);
 }
 
-// Add a new function to create fixed coordinate system
-function createFixedCoordinateSystem() {
+// Add a new function to create fixed coordinate system - values found empirically / trial and error
+function createBasePlane() {
   console.log("Creating fixed coordinate system");
   
   // First, remove any existing grid plane coordinate system if it exists
@@ -742,10 +742,10 @@ function createFixedCoordinateSystem() {
 
 // Replace the dynamic alignGridToTerrain function with our fixed implementation
 function alignGridToTerrain() {
-  createFixedCoordinateSystem();
+  createBasePlane();
 }
 
-// Modify the reinstantiateTiles function to call alignGridToTerrain after tiles are loaded
+// Modify the reinstantiateTiles function to call alignGridToTerrain immediately without the timeout delay
 function reinstantiateTiles() {
     if (tiles) {
  scene.remove(tiles.group);
@@ -764,8 +764,8 @@ function reinstantiateTiles() {
  console.log('San Francisco bounding sphere radius:', sphere.radius);
  console.log('San Francisco tileset loaded successfully');
  
- // Add this line to align the grid after tiles are loaded
- setTimeout(alignGridToTerrain, 2000); // Wait for tiles to fully render
+ // Call alignGridToTerrain immediately without timeout
+ alignGridToTerrain();
     });
     tiles.addEventListener('error', (error) => {
         console.error('Tileset loading error:', error);
@@ -856,222 +856,6 @@ function setupearthLighting() {
  console.log("Lighting setup for San Francisco scene");
 }
 
-// Create coordinate display element
-function createCoordinateDisplay() {
-  const coordDisplay = document.createElement('div');
-  coordDisplay.id = 'coord-display';
-  coordDisplay.style.position = 'absolute';
-  coordDisplay.style.top = '10px';
-  coordDisplay.style.left = '10px';
-  coordDisplay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-  coordDisplay.style.color = 'white';
-  coordDisplay.style.padding = '10px';
-  coordDisplay.style.borderRadius = '5px';
-  coordDisplay.style.fontFamily = 'monospace';
-  coordDisplay.style.fontSize = '14px';
-  coordDisplay.style.zIndex = '1000';
-  coordDisplay.style.width = '240px';
-  coordDisplay.style.maxHeight = '200px';
-  coordDisplay.style.overflowY = 'auto';
-  document.body.appendChild(coordDisplay);
-  
-  return coordDisplay;
-}
-
-// Update coordinate display with current position
-function updateCoordinateDisplay() {
-  if (!spacecraft || !localOrigin) return;
-  
-  const coordDisplay = document.getElementById('coord-display');
-  if (!coordDisplay) return;
-  
-  // Get world position of spacecraft
-  const worldPos = spacecraft.position.clone();
-  
-  // Convert to local coordinates
-  const localPos = worldToLocal(worldPos);
-  
-  // Format coordinates to 2 decimal places
-  const x = localPos.x.toFixed(2);
-  const y = localPos.y.toFixed(2);
-  const z = localPos.z.toFixed(2);
-  
-  let displayHtml = `
-    <strong>Spacecraft:</strong><br>
-    Local: (${x}, ${y}, ${z})<br>
-    World: (${worldPos.x.toFixed(0)}, ${worldPos.y.toFixed(0)}, ${worldPos.z.toFixed(0)})<br>
-  `;
-  
-  // Add terrain mesh (tiles) coordinates if available
-  if (tiles && tiles.group) {
-    const tilesetPosition = new THREE.Vector3();
-    const boundingSphere = new THREE.Sphere();
-    
-    // Get the bounding sphere of the tileset
-    if (tiles.getBoundingSphere(boundingSphere)) {
-      tilesetPosition.copy(boundingSphere.center);
-      const localTilesetPos = worldToLocal(tilesetPosition);
-      
-      displayHtml += `
-        <hr>
-        <strong>Terrain Mesh:</strong><br>
-        Local: (${localTilesetPos.x.toFixed(0)}, ${localTilesetPos.y.toFixed(0)}, ${localTilesetPos.z.toFixed(0)})<br>
-        World: (${tilesetPosition.x.toFixed(0)}, ${tilesetPosition.y.toFixed(0)}, ${tilesetPosition.z.toFixed(0)})<br>
-      `;
-    }
-  }
-  
-  // Add grid plane coordinates and orientation
-  if (localOrigin && gridHelper) {
-    const gridPos = gridHelper.position.clone();
-    const localGridPos = worldToLocal(gridPos);
-    
-    // Extract grid orientation (normal vector)
-    const gridNormal = new THREE.Vector3(0, 0, 1);
-    gridNormal.applyQuaternion(gridHelper.quaternion);
-    
-    displayHtml += `
-      <hr>
-      <strong>Grid Plane:</strong><br>
-      Local: (${localGridPos.x.toFixed(0)}, ${localGridPos.y.toFixed(0)}, ${localGridPos.z.toFixed(0)})<br>
-      World: (${gridPos.x.toFixed(0)}, ${gridPos.y.toFixed(0)}, ${gridPos.z.toFixed(0)})<br>
-      Normal: (${gridNormal.x.toFixed(2)}, ${gridNormal.y.toFixed(2)}, ${gridNormal.z.toFixed(2)})<br>
-    `;
-  }
-  
-  // Update display
-  coordDisplay.innerHTML = displayHtml;
-}
-
-// Create the orientation widget in the top-left corner
-function createOrientationWidget() {
-  // Create a new scene for the orientation widget
-  orientationScene = new THREE.Scene();
-  orientationScene.background = new THREE.Color(0x000000);
-  orientationScene.background.alpha = 0.2;
-  
-  // Create a camera
-  orientationCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
-  orientationCamera.position.set(0, 0, 3);
-  orientationCamera.lookAt(0, 0, 0);
-  
-  // Create renderer
-  orientationRenderer = new THREE.WebGLRenderer({ 
-    antialias: true,
-    alpha: true 
-  });
-  orientationRenderer.setSize(120, 120);
-  orientationRenderer.setClearColor(0x000000, 0.2);
-  
-  // Position the renderer in the top-left corner
-  const container = document.createElement('div');
-  container.style.position = 'absolute';
-  container.style.top = '10px';
-  container.style.left = '260px'; // Move it further right to avoid overlap with expanded coordinate display
-  container.style.zIndex = '1000';
-  container.appendChild(orientationRenderer.domElement);
-  document.body.appendChild(container);
-  
-  // Style the container
-  orientationRenderer.domElement.style.border = '1px solid rgba(255, 255, 255, 0.5)';
-  orientationRenderer.domElement.style.borderRadius = '5px';
-  
-  // Create the axes
-  orientationAxes = new THREE.Group();
-  
-  // X axis (red)
-  const xAxisGeometry = new THREE.CylinderGeometry(0.03, 0.03, 1.5, 8);
-  const xAxisMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-  const xAxis = new THREE.Mesh(xAxisGeometry, xAxisMaterial);
-  xAxis.rotation.z = -Math.PI / 2;
-  xAxis.position.x = 0.75;
-  
-  // X axis cone
-  const xConeGeometry = new THREE.ConeGeometry(0.1, 0.3, 8);
-  const xCone = new THREE.Mesh(xConeGeometry, xAxisMaterial);
-  xCone.rotation.z = -Math.PI / 2;
-  xCone.position.x = 1.5;
-  
-  // Y axis (green)
-  const yAxisGeometry = new THREE.CylinderGeometry(0.03, 0.03, 1.5, 8);
-  const yAxisMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-  const yAxis = new THREE.Mesh(yAxisGeometry, yAxisMaterial);
-  yAxis.position.y = 0.75;
-  
-  // Y axis cone
-  const yConeGeometry = new THREE.ConeGeometry(0.1, 0.3, 8);
-  const yCone = new THREE.Mesh(yConeGeometry, yAxisMaterial);
-  yCone.position.y = 1.5;
-  
-  // Z axis (blue)
-  const zAxisGeometry = new THREE.CylinderGeometry(0.03, 0.03, 1.5, 8);
-  const zAxisMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
-  const zAxis = new THREE.Mesh(zAxisGeometry, zAxisMaterial);
-  zAxis.rotation.x = Math.PI / 2;
-  zAxis.position.z = 0.75;
-  
-  // Z axis cone
-  const zConeGeometry = new THREE.ConeGeometry(0.1, 0.3, 8);
-  const zCone = new THREE.Mesh(zConeGeometry, zAxisMaterial);
-  zCone.rotation.x = Math.PI / 2;
-  zCone.position.z = 1.5;
-  
-  // Add the axes to the group
-  orientationAxes.add(xAxis, xCone, yAxis, yCone, zAxis, zCone);
-  
-  // Add labels
-  const xLabel = createTextSprite('X', '#ff0000', 0.5);
-  xLabel.position.set(1.7, 0, 0);
-  orientationAxes.add(xLabel);
-  
-  const yLabel = createTextSprite('Y', '#00ff00', 0.5);
-  yLabel.position.set(0, 1.7, 0);
-  orientationAxes.add(yLabel);
-  
-  const zLabel = createTextSprite('Z', '#0000ff', 0.5);
-  zLabel.position.set(0, 0, 1.7);
-  orientationAxes.add(zLabel);
-  
-  // Add a small sphere at the origin
-  const originGeometry = new THREE.SphereGeometry(0.08, 16, 16);
-  const originMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  const origin = new THREE.Mesh(originGeometry, originMaterial);
-  orientationAxes.add(origin);
-  
-  // Add the axes to the scene
-  orientationScene.add(orientationAxes);
-  
-  // Add some ambient light
-  const ambientLight = new THREE.AmbientLight(0xffffff, 1);
-  orientationScene.add(ambientLight);
-  
-  console.log("Orientation widget created");
-  return orientationRenderer;
-}
-
-// Update the orientation widget to match spacecraft orientation
-function updateOrientationWidget() {
-  if (!spacecraft || !orientationAxes) return;
-  
-  // Get the spacecraft's quaternion
-  const spacecraftQuaternion = spacecraft.quaternion.clone();
-  
-  // Apply the spacecraft's rotation to the axes
-  orientationAxes.quaternion.copy(spacecraftQuaternion);
-  
-  // For better visualization, apply an additional rotation
-  // This makes the widget show the forward direction correctly
-  const correction = new THREE.Quaternion().setFromEuler(
-    new THREE.Euler(0, Math.PI, 0, 'XYZ')
-  );
-  orientationAxes.quaternion.multiply(correction);
-  
-  // Render the orientation scene
-  if (orientationRenderer) {
-    orientationRenderer.render(orientationScene, orientationCamera);
-  }
-}
-
 export function init() {
  console.log("San Francisco 3D initialization started");
  
@@ -1114,9 +898,6 @@ export function init() {
     textureLoader = new THREE.TextureLoader();
  setupearthLighting();
     initSpacecraft();
- createCoordinateSystem(); // Create coordinate system before other elements
- createCoordinateDisplay(); // Create coordinate display element
- createOrientationWidget(); // Create the orientation widget
     reinstantiateTiles();
 
     onWindowResize();
@@ -1241,8 +1022,6 @@ export function update(deltaTime = 0.016) {
         }
         
  updateearthLighting();
- updateCoordinateDisplay(); // Update coordinate display each frame
- updateOrientationWidget(); // Update orientation widget each frame
 
  if (!camera) {
  console.warn("Camera not initialized");
