@@ -28,15 +28,18 @@ const coordConfig = {
  labelSize: 1
 };
 let coordinateSystem;
-
+let localOrigin; // Local origin point for coordinate system
 
 export { 
  scene, 
  camera, 
  renderer, 
- tiles, 
+    tiles, 
  cameraTarget,
- spacecraft
+ spacecraft,
+ localOrigin,  // Export local origin for other modules to use
+ worldToLocal,  // Export conversion functions
+ localToWorld
 };
 
 // Define spacecraft
@@ -88,54 +91,61 @@ const collisionOffset = new THREE.Vector3();
 let earthSun, sunGroup, sunMesh, sunHalo, sunFlare;
 let textureLoader = new THREE.TextureLoader();
 
+// Orientation widget variables
+let orientationScene, orientationCamera, orientationRenderer;
+let orientationAxes;
+
 const rotation = {
- pitch: new THREE.Quaternion(),
- yaw: new THREE.Quaternion(),
- roll: new THREE.Quaternion(),
- pitchAxis: new THREE.Vector3(1, 0, 0),
- yawAxis: new THREE.Vector3(0, 1, 0),
- rollAxis: new THREE.Vector3(0, 0, 1)
+    pitch: new THREE.Quaternion(),
+    yaw: new THREE.Quaternion(),
+    roll: new THREE.Quaternion(),
+    pitchAxis: new THREE.Vector3(1, 0, 0),
+    yawAxis: new THREE.Vector3(0, 1, 0),
+    rollAxis: new THREE.Vector3(0, 0, 1)
 };
 
 // Pull API key from config.json or localStorage
 let apiKey = localStorage.getItem('ionApiKey') ?? 'YOUR_CESIUM_TOKEN_HERE';
 if (typeof process !== 'undefined' && process.versions && process.versions.node) {
- const fs = await import('fs/promises');
- try {
- const configData = await fs.readFile('./config.json', 'utf8');
- const config = JSON.parse(configData);
+    const fs = await import('fs/promises');
+    try {
+        const configData = await fs.readFile('./config.json', 'utf8');
+        const config = JSON.parse(configData);
  apiKey = config.cesiumAccessToken || apiKey;
- } catch (error) {
- console.warn('Failed to load config.json, using localStorage or default token:', error);
- }
+    } catch (error) {
+        console.warn('Failed to load config.json, using localStorage or default token:', error);
+    }
 }
 
 // Parameters for San Francisco 3D tileset only
 const params = {
- ionAssetId: '1415196',
- ionAccessToken: apiKey,
- reload: reinstantiateTiles,
+    ionAssetId: '1415196',
+    ionAccessToken: apiKey,
+    reload: reinstantiateTiles,
 };
 
 const HOVER_HEIGHT = 40;
 const MAX_SLOPE_ANGLE = 45;
 
+// Add the declaration at the top of the file, near other global variables
+let gridHelper; // Declare gridHelper as a global variable
+
 function initSpacecraft() {
  const spacecraftComponents = createSpacecraft(scene);
- spacecraft = spacecraftComponents.spacecraft;
- engineGlowMaterial = spacecraftComponents.engineGlowMaterial;
- lightMaterial = spacecraftComponents.lightMaterial;
- topRightWing = spacecraftComponents.topRightWing;
- bottomRightWing = spacecraftComponents.bottomRightWing;
- topLeftWing = spacecraftComponents.topLeftWing;
- bottomLeftWing = spacecraftComponents.bottomLeftWing;
+    spacecraft = spacecraftComponents.spacecraft;
+    engineGlowMaterial = spacecraftComponents.engineGlowMaterial;
+    lightMaterial = spacecraftComponents.lightMaterial;
+    topRightWing = spacecraftComponents.topRightWing;
+    bottomRightWing = spacecraftComponents.bottomRightWing;
+    topLeftWing = spacecraftComponents.topLeftWing;
+    bottomLeftWing = spacecraftComponents.bottomLeftWing;
 
- spacecraft.traverse((object) => {
- if (object.isMesh) {
- object.castShadow = true;
- object.receiveShadow = true;
- }
- });
+    spacecraft.traverse((object) => {
+        if (object.isMesh) {
+            object.castShadow = true;
+            object.receiveShadow = true;
+        }
+    });
 
  // Verify reticle creation
  if (spacecraftComponents.reticle) {
@@ -149,7 +159,7 @@ function initSpacecraft() {
  const sfLon = -122.4194;
  const initialHeight = 1000;
  const position = latLonHeightToEcef(sfLat, sfLon, initialHeight);
- spacecraft.position.copy(position);
+    spacecraft.position.copy(position);
 
  spacecraft.quaternion.setFromEuler(new THREE.Euler(
  THREE.MathUtils.degToRad(-20),
@@ -162,31 +172,45 @@ function initSpacecraft() {
  spacecraft.add(cameraTarget);
  cameraTarget.position.set(0, 0, 0);
 
- updateEngineEffects = spacecraftComponents.updateEngineEffects;
+    updateEngineEffects = spacecraftComponents.updateEngineEffects;
 }
 
 // Helper function to create text sprites
-function createTextSprite(text, color) {
+function createTextSprite(text, color, size = 1) {
  const canvas = document.createElement('canvas');
- const size = 256; // Texture size
- canvas.width = size;
- canvas.height = size;
+ const canvasSize = 256; // Texture size
+ canvas.width = canvasSize;
+ canvas.height = canvasSize;
  const context = canvas.getContext('2d');
  context.fillStyle = 'rgba(0, 0, 0, 0)'; // Transparent background
- context.fillRect(0, 0, size, size);
+ context.fillRect(0, 0, canvasSize, canvasSize);
  context.font = 'Bold 100px Arial';
  context.fillStyle = color;
  context.textAlign = 'center';
  context.textBaseline = 'middle';
- context.fillText(text, size / 2, size / 2);
+ context.fillText(text, canvasSize / 2, canvasSize / 2);
 
  const texture = new THREE.Texture(canvas);
  texture.needsUpdate = true;
 
  const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
  const sprite = new THREE.Sprite(spriteMaterial);
- sprite.scale.set(coordConfig.labelSize, coordConfig.labelSize, 1);
+ sprite.scale.set(size, size, 1);
  return sprite;
+}
+
+// Convert world coordinates to local coordinates
+function worldToLocal(worldPos) {
+  if (!localOrigin) return worldPos.clone();
+  const localPos = worldPos.clone().sub(localOrigin);
+  return localPos;
+}
+
+// Convert local coordinates to world coordinates
+function localToWorld(localPos) {
+  if (!localOrigin) return localPos.clone();
+  const worldPos = localPos.clone().add(localOrigin);
+  return worldPos;
 }
 
 function createCoordinateSystem() {
@@ -203,7 +227,7 @@ function createCoordinateSystem() {
  const xArrow = new THREE.Mesh(xGeometry, xMaterial);
  xArrow.rotation.z = Math.PI / 2;
  xArrow.position.x = coordConfig.arrowLength / 2;
- const xLabel = createTextSprite('X', '#ff0000');
+ const xLabel = createTextSprite('X', '#ff0000', coordConfig.labelSize);
  xLabel.position.set(coordConfig.arrowLength + coordConfig.labelSize / 2, 0, 0);
  
  // Y axis (green)
@@ -216,7 +240,7 @@ function createCoordinateSystem() {
  const yMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
  const yArrow = new THREE.Mesh(yGeometry, yMaterial);
  yArrow.position.y = coordConfig.arrowLength / 2;
- const yLabel = createTextSprite('Y', '#00ff00');
+ const yLabel = createTextSprite('Y', '#00ff00', coordConfig.labelSize);
  yLabel.position.set(0, coordConfig.arrowLength + coordConfig.labelSize / 2, 0);
  
  // Z axis (blue)
@@ -230,21 +254,13 @@ function createCoordinateSystem() {
  const zArrow = new THREE.Mesh(zGeometry, zMaterial);
  zArrow.rotation.x = Math.PI / 2;
  zArrow.position.z = coordConfig.arrowLength / 2;
- const zLabel = createTextSprite('Z', '#0000ff');
+ const zLabel = createTextSprite('Z', '#0000ff', coordConfig.labelSize);
  zLabel.position.set(0, 0, coordConfig.arrowLength + coordConfig.labelSize / 2);
 
- // Ground plane with solid color
- const planeGeometry = new THREE.PlaneGeometry(10000, 10000);
- const planeMaterial = new THREE.MeshStandardMaterial({ 
-   color: 0x355f50, // san fran sea color
-   side: THREE.DoubleSide // Visible from both sides
- });
- const groundPlane = new THREE.Mesh(planeGeometry, planeMaterial);
- groundPlane.receiveShadow = true;
+ // Remove the ground plane with solid color
  
-
  // Add all components to coordinate system
- coordinateSystem.add(xArrow, yArrow, zArrow, xLabel, yLabel, zLabel, groundPlane);
+ coordinateSystem.add(xArrow, yArrow, zArrow, xLabel, yLabel, zLabel);
  
  // Set position and orientation
  const coordPos = latLonHeightToEcef(
@@ -253,6 +269,14 @@ function createCoordinateSystem() {
  coordConfig.position.height
  );
  coordinateSystem.position.copy(coordPos);
+ 
+ // Store this position as our local origin point
+ localOrigin = coordPos.clone();
+ 
+ // Make the coordinate system visible to help with orientation
+ coordConfig.arrowLength = 1000; // Make axes longer
+ coordConfig.arrowThickness = 50; // Make axes thicker
+ coordConfig.labelSize = 200;   // Make labels bigger
  
  coordinateSystem.scale.setScalar(coordConfig.scale);
  coordinateSystem.quaternion.setFromEuler(new THREE.Euler(
@@ -263,6 +287,14 @@ function createCoordinateSystem() {
  ));
 
  scene.add(coordinateSystem);
+ 
+ // Add a reference grid to help with positioning
+ gridHelper = new THREE.GridHelper(10000, 100, 0x888888, 0x444444);
+ gridHelper.position.copy(coordPos);
+ gridHelper.rotation.x = Math.PI / 2; // Initial rotation to lie on X-Y plane (Z-up)
+ scene.add(gridHelper);
+ 
+ console.log("Local coordinate system initialized with origin at:", localOrigin);
 }
 
 // Convert lat/lon/height to ECEF coordinates for Earth
@@ -276,118 +308,118 @@ function latLonHeightToEcef(lat, lon, height) {
  const x = (N + height) * Math.cos(latRad) * Math.cos(lonRad);
  const y = (N + height) * Math.cos(latRad) * Math.sin(lonRad);
  const z = (N * (1 - e2) + height) * Math.sin(latRad);
- return new THREE.Vector3(x, y, z);
+    return new THREE.Vector3(x, y, z);
 }
 
 function checkCollisionInDirection(direction, terrainMeshes) {
- if (!spacecraft || !terrainMeshes || terrainMeshes.length === 0) return null;
- 
- const rayDirection = direction.clone().normalize();
- raycaster.set(spacecraft.position, rayDirection);
- raycaster.near = 0;
- raycaster.far = spacecraftBoundingSphere.radius * 2;
- 
- const intersects = raycaster.intersectObjects(terrainMeshes, false);
- if (intersects.length > 0) {
- return intersects[0];
- }
- 
- return null;
+    if (!spacecraft || !terrainMeshes || terrainMeshes.length === 0) return null;
+    
+    const rayDirection = direction.clone().normalize();
+    raycaster.set(spacecraft.position, rayDirection);
+    raycaster.near = 0;
+    raycaster.far = spacecraftBoundingSphere.radius * 2;
+    
+    const intersects = raycaster.intersectObjects(terrainMeshes, false);
+    if (intersects.length > 0) {
+        return intersects[0];
+    }
+    
+    return null;
 }
 
 function checkTerrainCollision() {
- if (!tiles || !tiles.group) {
- console.log("Tiles or tiles.group not available yet");
- return false;
- }
+    if (!tiles || !tiles.group) {
+        console.log("Tiles or tiles.group not available yet");
+        return false;
+    }
 
- spacecraftBoundingSphere.center.copy(spacecraft.position);
+    spacecraftBoundingSphere.center.copy(spacecraft.position);
  spacecraftBoundingSphere.radius = 2;
 
- const terrainMeshes = [];
- tiles.group.traverse((object) => {
- if (object.isMesh && object.geometry) {
- object.updateWorldMatrix(true, false);
- if (!object.geometry.boundingSphere) {
- try {
- object.geometry.computeBoundingSphere();
- if (!object.geometry.boundingSphere) return;
- } catch (e) {
- console.error("Error computing bounding sphere:", e);
- return;
- }
- }
- const meshSphere = new THREE.Sphere();
- meshSphere.copy(object.geometry.boundingSphere).applyMatrix4(object.matrixWorld);
- if (spacecraftBoundingSphere.intersectsSphere(meshSphere)) {
- terrainMeshes.push(object);
- }
- }
- });
+    const terrainMeshes = [];
+    tiles.group.traverse((object) => {
+        if (object.isMesh && object.geometry) {
+            object.updateWorldMatrix(true, false);
+            if (!object.geometry.boundingSphere) {
+                try {
+                    object.geometry.computeBoundingSphere();
+                    if (!object.geometry.boundingSphere) return;
+                } catch (e) {
+                    console.error("Error computing bounding sphere:", e);
+                    return;
+                }
+            }
+            const meshSphere = new THREE.Sphere();
+            meshSphere.copy(object.geometry.boundingSphere).applyMatrix4(object.matrixWorld);
+            if (spacecraftBoundingSphere.intersectsSphere(meshSphere)) {
+                terrainMeshes.push(object);
+            }
+        }
+    });
 
- if (terrainMeshes.length === 0) {
- return false;
- }
+    if (terrainMeshes.length === 0) {
+        return false;
+    }
 
- try {
- const directions = [
- new THREE.Vector3(0, -1, 0),
- new THREE.Vector3(0, 0, 1),
- new THREE.Vector3(1, 0, 0),
- new THREE.Vector3(-1, 0, 0),
- new THREE.Vector3(0, 0, -1)
- ];
- 
- directions.forEach(dir => dir.applyQuaternion(spacecraft.quaternion));
- 
- for (const direction of directions) {
- const intersection = checkCollisionInDirection(direction, terrainMeshes);
- if (intersection && intersection.distance) {
- const distanceToSurface = intersection.distance;
- 
- if (distanceToSurface < spacecraftBoundingSphere.radius) {
- let normal = intersection.normal || 
- (intersection.point ? new THREE.Vector3().subVectors(intersection.point, new THREE.Vector3(0, 0, 0)).normalize() : 
- direction.clone().negate().normalize());
- 
- const pushFactor = 1.1;
- collisionOffset.copy(normal).multiplyScalar((spacecraftBoundingSphere.radius - distanceToSurface) * pushFactor);
- spacecraft.position.add(collisionOffset);
- return true;
- }
- }
- }
- } catch (error) {
- console.error("Error in terrain collision detection:", error);
- return false;
- }
+    try {
+        const directions = [
+            new THREE.Vector3(0, -1, 0),
+            new THREE.Vector3(0, 0, 1),
+            new THREE.Vector3(1, 0, 0),
+            new THREE.Vector3(-1, 0, 0),
+            new THREE.Vector3(0, 0, -1)
+        ];
+        
+        directions.forEach(dir => dir.applyQuaternion(spacecraft.quaternion));
+        
+        for (const direction of directions) {
+            const intersection = checkCollisionInDirection(direction, terrainMeshes);
+            if (intersection && intersection.distance) {
+                const distanceToSurface = intersection.distance;
+                
+                if (distanceToSurface < spacecraftBoundingSphere.radius) {
+                    let normal = intersection.normal || 
+                        (intersection.point ? new THREE.Vector3().subVectors(intersection.point, new THREE.Vector3(0, 0, 0)).normalize() : 
+                        direction.clone().negate().normalize());
+                    
+                    const pushFactor = 1.1;
+                    collisionOffset.copy(normal).multiplyScalar((spacecraftBoundingSphere.radius - distanceToSurface) * pushFactor);
+                    spacecraft.position.add(collisionOffset);
+                    return true;
+                }
+            }
+        }
+    } catch (error) {
+        console.error("Error in terrain collision detection:", error);
+        return false;
+    }
 
- return false;
+    return false;
 }
 
 export function updateMovement() {
- if (!spacecraft) {
- console.warn("Spacecraft not initialized yet");
- return;
- }
+    if (!spacecraft) {
+        console.warn("Spacecraft not initialized yet");
+        return;
+    }
 
- currentSpeed = keys.up ? boostSpeed : baseSpeed;
- 
- if (typeof updateEngineEffects === 'function') {
- updateEngineEffects(keys.up);
- }
+    currentSpeed = keys.up ? boostSpeed : baseSpeed;
+    
+    if (typeof updateEngineEffects === 'function') {
+        updateEngineEffects(keys.up);
+    }
 
- if (keys.up && wingsOpen) {
- wingsOpen = false;
- wingAnimation = wingTransitionFrames;
- } else if (!keys.up && !wingsOpen) {
- wingsOpen = true;
- wingAnimation = wingTransitionFrames;
- }
+    if (keys.up && wingsOpen) {
+        wingsOpen = false;
+        wingAnimation = wingTransitionFrames;
+    } else if (!keys.up && !wingsOpen) {
+        wingsOpen = true;
+        wingAnimation = wingTransitionFrames;
+    }
 
- rotation.pitch.identity();
- rotation.yaw.identity();
- rotation.roll.identity();
+    rotation.pitch.identity();
+    rotation.yaw.identity();
+    rotation.roll.identity();
 
  if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, turnSpeed * pitchSensitivity);
  if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -turnSpeed * pitchSensitivity);
@@ -396,269 +428,386 @@ export function updateMovement() {
  if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, turnSpeed * yawSensitivity);
  if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -turnSpeed * yawSensitivity);
 
- const combinedRotation = new THREE.Quaternion()
- .copy(rotation.roll)
- .multiply(rotation.pitch)
- .multiply(rotation.yaw);
+    const combinedRotation = new THREE.Quaternion()
+        .copy(rotation.roll)
+        .multiply(rotation.pitch)
+        .multiply(rotation.yaw);
 
- spacecraft.quaternion.multiply(combinedRotation);
+    spacecraft.quaternion.multiply(combinedRotation);
 
- const originalPosition = spacecraft.position.clone();
- const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(spacecraft.quaternion);
+    const originalPosition = spacecraft.position.clone();
+    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(spacecraft.quaternion);
 
- if (tiles && tiles.group && tiles.group.children.length > 0) {
- try {
- const terrainMeshes = [];
- tiles.group.traverse((object) => {
- if (object.isMesh && object.geometry) {
- terrainMeshes.push(object);
- }
- });
- 
- if (terrainMeshes.length > 0) {
- const downDirection = new THREE.Vector3(0, -1, 0);
- raycaster.set(spacecraft.position, downDirection);
- raycaster.near = 0;
- raycaster.far = 1000;
- 
- const groundHits = raycaster.intersectObjects(terrainMeshes, false);
- if (groundHits.length > 0) {
- const groundDistance = groundHits[0].distance;
- let groundNormal = groundHits[0].normal || 
- (groundHits[0].point ? new THREE.Vector3().subVectors(groundHits[0].point, new THREE.Vector3(0, 0, 0)).normalize() : null);
- 
- if (groundNormal) {
- const upVector = new THREE.Vector3(0, 1, 0);
- const slopeAngle = Math.acos(groundNormal.dot(upVector)) * (180 / Math.PI);
- if (slopeAngle > MAX_SLOPE_ANGLE) {
- const rightVector = new THREE.Vector3().crossVectors(forward, upVector).normalize();
- const adjustedForward = new THREE.Vector3().crossVectors(rightVector, groundNormal).normalize();
- forward.lerp(adjustedForward, 0.5);
- }
- }
- 
- if (groundDistance < HOVER_HEIGHT) {
- spacecraft.position.y += (HOVER_HEIGHT - groundDistance) * 0.1;
- } else if (groundDistance > HOVER_HEIGHT * 2) {
- spacecraft.position.y -= (groundDistance - HOVER_HEIGHT) * 0.01;
- }
- }
- }
- } catch (error) {
- console.error("Error in hover adjustment:", error);
- }
- }
- 
- spacecraft.position.add(forward.multiplyScalar(currentSpeed));
+    if (tiles && tiles.group && tiles.group.children.length > 0) {
+        try {
+            const terrainMeshes = [];
+            tiles.group.traverse((object) => {
+                if (object.isMesh && object.geometry) {
+                    terrainMeshes.push(object);
+                }
+            });
+            
+            if (terrainMeshes.length > 0) {
+                const downDirection = new THREE.Vector3(0, -1, 0);
+                raycaster.set(spacecraft.position, downDirection);
+                raycaster.near = 0;
+                raycaster.far = 1000;
+                
+                const groundHits = raycaster.intersectObjects(terrainMeshes, false);
+                if (groundHits.length > 0) {
+                    const groundDistance = groundHits[0].distance;
+                    let groundNormal = groundHits[0].normal || 
+                        (groundHits[0].point ? new THREE.Vector3().subVectors(groundHits[0].point, new THREE.Vector3(0, 0, 0)).normalize() : null);
+                    
+                    if (groundNormal) {
+                        const upVector = new THREE.Vector3(0, 1, 0);
+                        const slopeAngle = Math.acos(groundNormal.dot(upVector)) * (180 / Math.PI);
+                        if (slopeAngle > MAX_SLOPE_ANGLE) {
+                            const rightVector = new THREE.Vector3().crossVectors(forward, upVector).normalize();
+                            const adjustedForward = new THREE.Vector3().crossVectors(rightVector, groundNormal).normalize();
+                            forward.lerp(adjustedForward, 0.5);
+                        }
+                    }
+                    
+                    if (groundDistance < HOVER_HEIGHT) {
+                        spacecraft.position.y += (HOVER_HEIGHT - groundDistance) * 0.1;
+                    } else if (groundDistance > HOVER_HEIGHT * 2) {
+                        spacecraft.position.y -= (groundDistance - HOVER_HEIGHT) * 0.01;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("Error in hover adjustment:", error);
+        }
+    }
+    
+    spacecraft.position.add(forward.multiplyScalar(currentSpeed));
 
- try {
- if (tiles && tiles.group && tiles.group.children.length > 0) {
- if (checkTerrainCollision()) {
- console.log("Collision detected and resolved");
- targetCameraOffset = collisionCameraOffset.clone();
- 
- if (checkTerrainCollision()) {
- console.log("Multiple collisions detected, reverting to original position");
- spacecraft.position.copy(originalPosition);
- }
- } else {
- if (keys.up) {
- targetCameraOffset = boostCameraOffset.clone();
- } else {
- targetCameraOffset = baseCameraOffset.clone();
- }
- }
- }
- } catch (error) {
- console.error("Error during collision detection:", error);
- spacecraft.position.copy(originalPosition);
- }
+    try {
+        if (tiles && tiles.group && tiles.group.children.length > 0) {
+            if (checkTerrainCollision()) {
+                console.log("Collision detected and resolved");
+                targetCameraOffset = collisionCameraOffset.clone();
+                
+                if (checkTerrainCollision()) {
+                    console.log("Multiple collisions detected, reverting to original position");
+                    spacecraft.position.copy(originalPosition);
+                }
+            } else {
+                if (keys.up) {
+                    targetCameraOffset = boostCameraOffset.clone();
+                } else {
+                    targetCameraOffset = baseCameraOffset.clone();
+                }
+            }
+        }
+    } catch (error) {
+        console.error("Error during collision detection:", error);
+        spacecraft.position.copy(originalPosition);
+    }
 
- if (wingAnimation > 0 && topRightWing && bottomRightWing && topLeftWing && bottomLeftWing) {
- const angleStep = (Math.PI / 8) / wingTransitionFrames;
- if (wingsOpen) {
- topRightWing.rotation.z = Math.max(topRightWing.rotation.z - angleStep, -Math.PI / 8);
- bottomRightWing.rotation.z = Math.min(bottomRightWing.rotation.z + angleStep, Math.PI / 8);
- topLeftWing.rotation.z = Math.min(topLeftWing.rotation.z + angleStep, Math.PI + Math.PI / 8);
- bottomLeftWing.rotation.z = Math.max(bottomLeftWing.rotation.z - angleStep, Math.PI - Math.PI / 8);
- } else {
- topRightWing.rotation.z = Math.min(topRightWing.rotation.z + angleStep, 0);
- bottomRightWing.rotation.z = Math.max(bottomRightWing.rotation.z - angleStep, 0);
- topLeftWing.rotation.z = Math.max(topLeftWing.rotation.z - angleStep, Math.PI);
- bottomLeftWing.rotation.z = Math.min(bottomLeftWing.rotation.z + angleStep, Math.PI);
- }
- wingAnimation--;
- }
+    if (wingAnimation > 0 && topRightWing && bottomRightWing && topLeftWing && bottomLeftWing) {
+        const angleStep = (Math.PI / 8) / wingTransitionFrames;
+        if (wingsOpen) {
+            topRightWing.rotation.z = Math.max(topRightWing.rotation.z - angleStep, -Math.PI / 8);
+            bottomRightWing.rotation.z = Math.min(bottomRightWing.rotation.z + angleStep, Math.PI / 8);
+            topLeftWing.rotation.z = Math.min(topLeftWing.rotation.z + angleStep, Math.PI + Math.PI / 8);
+            bottomLeftWing.rotation.z = Math.max(bottomLeftWing.rotation.z - angleStep, Math.PI - Math.PI / 8);
+        } else {
+            topRightWing.rotation.z = Math.min(topRightWing.rotation.z + angleStep, 0);
+            bottomRightWing.rotation.z = Math.max(bottomRightWing.rotation.z - angleStep, 0);
+            topLeftWing.rotation.z = Math.max(topLeftWing.rotation.z - angleStep, Math.PI);
+            bottomLeftWing.rotation.z = Math.min(bottomLeftWing.rotation.z + angleStep, Math.PI);
+        }
+        wingAnimation--;
+    }
 }
 
 export function updateCamera() {
- if (!spacecraft) {
- console.warn("Spacecraft not initialized yet, skipping updateCamera");
- return;
- }
+    if (!spacecraft) {
+        console.warn("Spacecraft not initialized yet, skipping updateCamera");
+        return;
+    }
 
- if (keys.up) {
- targetCameraOffset = boostCameraOffset.clone();
- } else {
- targetCameraOffset = baseCameraOffset.clone();
- }
- 
- if (keys.w) {
+    if (keys.up) {
+        targetCameraOffset = boostCameraOffset.clone();
+    } else {
+        targetCameraOffset = baseCameraOffset.clone();
+    }
+    
+    if (keys.w) {
  targetPitchOffset = -MAX_PITCH_OFFSET;
  targetLocalPitchRotation = -MAX_LOCAL_PITCH_ROTATION;
- } else if (keys.s) {
+    } else if (keys.s) {
  targetPitchOffset = MAX_PITCH_OFFSET;
  targetLocalPitchRotation = MAX_LOCAL_PITCH_ROTATION;
- } else {
+    } else {
  targetPitchOffset = 0;
  targetLocalPitchRotation = 0;
- }
- 
- if (keys.left) {
+    }
+    
+    if (keys.left) {
  targetYawOffset = MAX_YAW_OFFSET;
  targetLocalYawRotation = -MAX_LOCAL_YAW_ROTATION;
- } else if (keys.right) {
+    } else if (keys.right) {
  targetYawOffset = -MAX_YAW_OFFSET;
  targetLocalYawRotation = MAX_LOCAL_YAW_ROTATION;
- } else {
+    } else {
  targetYawOffset = 0;
  targetLocalYawRotation = 0;
- }
- 
- currentCameraOffset.lerp(targetCameraOffset, cameraTransitionSpeed);
- currentPitchOffset += (targetPitchOffset - currentPitchOffset) * CAMERA_LAG_FACTOR;
- currentYawOffset += (targetYawOffset - currentYawOffset) * CAMERA_LAG_FACTOR;
- currentLocalPitchRotation += (targetLocalPitchRotation - currentLocalPitchRotation) * LOCAL_ROTATION_SPEED;
- currentLocalYawRotation += (targetLocalYawRotation - currentLocalYawRotation) * LOCAL_ROTATION_SPEED;
- 
+    }
+    
+    currentCameraOffset.lerp(targetCameraOffset, cameraTransitionSpeed);
+    currentPitchOffset += (targetPitchOffset - currentPitchOffset) * CAMERA_LAG_FACTOR;
+    currentYawOffset += (targetYawOffset - currentYawOffset) * CAMERA_LAG_FACTOR;
+    currentLocalPitchRotation += (targetLocalPitchRotation - currentLocalPitchRotation) * LOCAL_ROTATION_SPEED;
+    currentLocalYawRotation += (targetLocalYawRotation - currentLocalYawRotation) * LOCAL_ROTATION_SPEED;
+    
  const position = new THREE.Vector3().copy(currentCameraOffset);
- spacecraft.updateMatrixWorld();
- const worldMatrix = spacecraft.matrixWorld.clone();
- 
- const localPitchRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), currentLocalPitchRotation);
- const localYawRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), currentLocalYawRotation);
- 
- position.applyQuaternion(localPitchRotation);
- position.applyQuaternion(localYawRotation);
- position.applyMatrix4(worldMatrix);
- 
+    spacecraft.updateMatrixWorld();
+    const worldMatrix = spacecraft.matrixWorld.clone();
+    
+    const localPitchRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), currentLocalPitchRotation);
+    const localYawRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), currentLocalYawRotation);
+    
+    position.applyQuaternion(localPitchRotation);
+    position.applyQuaternion(localYawRotation);
+    position.applyMatrix4(worldMatrix);
+    
  camera.position.copy(position);
- 
- const baseQuaternion = spacecraft.getWorldQuaternion(new THREE.Quaternion());
- const pitchOffset = new THREE.Quaternion().setFromAxisAngle(rotation.pitchAxis, currentPitchOffset);
- const yawOffset = new THREE.Quaternion().setFromAxisAngle(rotation.yawAxis, currentYawOffset);
- 
+    
+    const baseQuaternion = spacecraft.getWorldQuaternion(new THREE.Quaternion());
+    const pitchOffset = new THREE.Quaternion().setFromAxisAngle(rotation.pitchAxis, currentPitchOffset);
+    const yawOffset = new THREE.Quaternion().setFromAxisAngle(rotation.yawAxis, currentYawOffset);
+    
  camera.quaternion.copy(baseQuaternion)
  .multiply(pitchOffset)
  .multiply(yawOffset)
  .multiply(localPitchRotation)
  .multiply(localYawRotation);
  
- const forwardRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0));
+    const forwardRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0));
  camera.quaternion.multiply(forwardRotation);
 }
 
 let updateEngineEffects;
 
 function rotationBetweenDirections(dir1, dir2) {
- const rotation = new THREE.Quaternion();
- const a = new THREE.Vector3().crossVectors(dir1, dir2);
- rotation.x = a.x;
- rotation.y = a.y;
- rotation.z = a.z;
- rotation.w = 1 + dir1.clone().dot(dir2);
- rotation.normalize();
- return rotation;
+    const rotation = new THREE.Quaternion();
+    const a = new THREE.Vector3().crossVectors(dir1, dir2);
+    rotation.x = a.x;
+    rotation.y = a.y;
+    rotation.z = a.z;
+    rotation.w = 1 + dir1.clone().dot(dir2);
+    rotation.normalize();
+    return rotation;
 }
 
 function setupTiles() {
- tiles.fetchOptions.mode = 'cors';
- tiles.registerPlugin(new GLTFExtensionsPlugin({
- dracoLoader: new DRACOLoader().setDecoderPath('./draco/')
- }));
- 
- tiles.onLoadModel = (model) => {
- model.traverse((node) => {
- if (node.isMesh) {
- node.receiveShadow = true;
- if (node.material) {
- if (Array.isArray(node.material)) {
- node.material.forEach(mat => {
- mat.shadowSide = THREE.FrontSide;
- mat.needsUpdate = true;
- });
- } else {
- node.material.shadowSide = THREE.FrontSide;
- node.material.needsUpdate = true;
- }
- }
- }
- });
+    tiles.fetchOptions.mode = 'cors';
+    tiles.registerPlugin(new GLTFExtensionsPlugin({
+        dracoLoader: new DRACOLoader().setDecoderPath('./draco/')
+    }));
+    
+    tiles.onLoadModel = (model) => {
+        model.traverse((node) => {
+            if (node.isMesh) {
+                node.receiveShadow = true;
+                if (node.material) {
+                    if (Array.isArray(node.material)) {
+                        node.material.forEach(mat => {
+                            mat.shadowSide = THREE.FrontSide;
+                            mat.needsUpdate = true;
+                        });
+                    } else {
+                        node.material.shadowSide = THREE.FrontSide;
+                        node.material.needsUpdate = true;
+                    }
+                }
+            }
+        });
  console.log("Loaded San Francisco model with shadow settings");
  };
  
  scene.add(tiles.group);
 }
 
+// Add a new function to create fixed coordinate system
+function createFixedCoordinateSystem() {
+  console.log("Creating fixed coordinate system");
+  
+  // First, remove any existing grid plane coordinate system if it exists
+  if (window.gridCoordinateSystem) {
+    scene.remove(window.gridCoordinateSystem);
+  }
+  
+  // ==================== FIXED COORDINATE SYSTEM SETUP ====================
+  // Create a container for both the grid and coordinate system
+  const gridPlaneSystem = new THREE.Group();
+  window.gridCoordinateSystem = gridPlaneSystem;
+  
+  // Set fixed position based on provided coordinates
+  const fixedPosition = new THREE.Vector3(-2704597.993, -4260866.335, 3886911.844);
+  gridPlaneSystem.position.copy(fixedPosition);
+  
+  // Set fixed rotation based on provided quaternion
+  const fixedQuaternion = new THREE.Quaternion(0.6390, 0.6326, 0.4253, -0.1034);
+  gridPlaneSystem.quaternion.copy(fixedQuaternion);
+  
+  // Create our coordinate axes for the grid
+  const axesSize = 500; // Size of the coordinate axes
+  const axesHelper = new THREE.Group();
+  
+  // X axis (red)
+  const xGeometry = new THREE.CylinderGeometry(20, 20, axesSize, 8);
+  const xMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  const xAxis = new THREE.Mesh(xGeometry, xMaterial);
+  xAxis.rotation.z = -Math.PI / 2;
+  xAxis.position.x = axesSize / 2;
+  
+  // X arrow
+  const xConeGeometry = new THREE.ConeGeometry(40, 100, 8);
+  const xCone = new THREE.Mesh(xConeGeometry, xMaterial);
+  xCone.rotation.z = -Math.PI / 2;
+  xCone.position.x = axesSize + 50;
+  
+  // Y axis (green)
+  const yGeometry = new THREE.CylinderGeometry(20, 20, axesSize, 8);
+  const yMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+  const yAxis = new THREE.Mesh(yGeometry, yMaterial);
+  yAxis.position.y = axesSize / 2;
+  
+  // Y arrow
+  const yConeGeometry = new THREE.ConeGeometry(40, 100, 8);
+  const yCone = new THREE.Mesh(yConeGeometry, yMaterial);
+  yCone.position.y = axesSize + 50;
+  
+  // Z axis (blue)
+  const zGeometry = new THREE.CylinderGeometry(20, 20, axesSize, 8);
+  const zMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+  const zAxis = new THREE.Mesh(zGeometry, zMaterial);
+  zAxis.rotation.x = Math.PI / 2;
+  zAxis.position.z = axesSize / 2;
+  
+  // Z arrow
+  const zConeGeometry = new THREE.ConeGeometry(40, 100, 8);
+  const zCone = new THREE.Mesh(zConeGeometry, zMaterial);
+  zCone.rotation.x = Math.PI / 2;
+  zCone.position.z = axesSize + 50;
+  
+  // Labels
+  const labelSize = 100;
+  const xLabel = createTextSprite('X', '#ff0000', labelSize / 500);
+  xLabel.position.set(axesSize + 150, 0, 0);
+  
+  const yLabel = createTextSprite('Y', '#00ff00', labelSize / 500);
+  yLabel.position.set(0, axesSize + 150, 0);
+  
+  const zLabel = createTextSprite('Z', '#0000ff', labelSize / 500);
+  zLabel.position.set(0, 0, axesSize + 150);
+  
+  // Add a sphere at the origin
+  const originGeometry = new THREE.SphereGeometry(40, 16, 16);
+  const originMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const origin = new THREE.Mesh(originGeometry, originMaterial);
+  
+  // Add everything to the axes helper
+  axesHelper.add(xAxis, xCone, yAxis, yCone, zAxis, zCone, xLabel, yLabel, zLabel, origin);
+  
+  // Add axes to our grid container
+  gridPlaneSystem.add(axesHelper);
+  
+  // Create a black plane with Z axis as normal
+  const planeSize = 10000;
+  const planeGeometry = new THREE.PlaneGeometry(planeSize, planeSize);
+  const planeMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0x000000, 
+    side: THREE.DoubleSide,
+    transparent: false,
+    opacity: 1.0
+  });
+  const basePlane = new THREE.Mesh(planeGeometry, planeMaterial);
+  
+  // Position the plane according to provided values
+  basePlane.position.set(0, 0, -10);
+  
+  // Add the plane to our coordinate system
+  gridPlaneSystem.add(basePlane);
+  
+  // Add the coordinate system to the scene
+  scene.add(gridPlaneSystem);
+  
+  console.log("Fixed coordinate system created with exact position and orientation");
+}
+
+// Replace the dynamic alignGridToTerrain function with our fixed implementation
+function alignGridToTerrain() {
+  createFixedCoordinateSystem();
+}
+
+// Modify the reinstantiateTiles function to call alignGridToTerrain after tiles are loaded
 function reinstantiateTiles() {
- if (tiles) {
+    if (tiles) {
  scene.remove(tiles.group);
- tiles.dispose();
- tiles = null;
- }
+        tiles.dispose();
+        tiles = null;
+    }
 
- localStorage.setItem('ionApiKey', params.ionAccessToken);
+    localStorage.setItem('ionApiKey', params.ionAccessToken);
 
- tiles = new TilesRenderer();
- tiles.registerPlugin(new CesiumIonAuthPlugin({ apiToken: params.ionAccessToken, assetId: params.ionAssetId }));
- tiles.addEventListener('load-tile-set', () => {
- const sphere = new THREE.Sphere();
- tiles.getBoundingSphere(sphere);
+    tiles = new TilesRenderer();
+    tiles.registerPlugin(new CesiumIonAuthPlugin({ apiToken: params.ionAccessToken, assetId: params.ionAssetId }));
+    tiles.addEventListener('load-tile-set', () => {
+        const sphere = new THREE.Sphere();
+        tiles.getBoundingSphere(sphere);
  console.log('San Francisco bounding sphere center:', sphere.center);
  console.log('San Francisco bounding sphere radius:', sphere.radius);
  console.log('San Francisco tileset loaded successfully');
- });
- tiles.addEventListener('error', (error) => {
- console.error('Tileset loading error:', error);
- });
+ 
+ // Add this line to align the grid after tiles are loaded
+ setTimeout(alignGridToTerrain, 2000); // Wait for tiles to fully render
+    });
+    tiles.addEventListener('error', (error) => {
+        console.error('Tileset loading error:', error);
+    });
 
- setupTiles();
+    setupTiles();
 }
 
 function initControls() {
- document.addEventListener('keydown', (event) => {
- switch (event.key) {
- case 'w': keys.w = true; break;
- case 's': keys.s = true; break;
- case 'a': keys.a = true; break;
- case 'd': keys.d = true; break;
- case 'ArrowLeft': keys.left = true; break;
- case 'ArrowRight': keys.right = true; break;
- case 'ArrowUp': keys.up = true; break;
+    document.addEventListener('keydown', (event) => {
+        switch (event.key) {
+            case 'w': keys.w = true; break;
+            case 's': keys.s = true; break;
+            case 'a': keys.a = true; break;
+            case 'd': keys.d = true; break;
+            case 'ArrowLeft': keys.left = true; break;
+            case 'ArrowRight': keys.right = true; break;
+            case 'ArrowUp': keys.up = true; break;
  case ' ': keys.space = true; break;
- }
- });
+        }
+    });
 
- document.addEventListener('keyup', (event) => {
- switch (event.key) {
- case 'w': keys.w = false; break;
- case 's': keys.s = false; break;
- case 'a': keys.a = false; break;
- case 'd': keys.d = false; break;
- case 'ArrowLeft': keys.left = false; break;
- case 'ArrowRight': keys.right = false; break;
- case 'ArrowUp': keys.up = false; break;
+    document.addEventListener('keyup', (event) => {
+        switch (event.key) {
+            case 'w': keys.w = false; break;
+            case 's': keys.s = false; break;
+            case 'a': keys.a = false; break;
+            case 'd': keys.d = false; break;
+            case 'ArrowLeft': keys.left = false; break;
+            case 'ArrowRight': keys.right = false; break;
+            case 'ArrowUp': keys.up = false; break;
  case ' ': keys.space = false; break;
- }
- });
+        }
+    });
 }
 
 function setupearthLighting() {
- if (!textureLoader) {
- textureLoader = new THREE.TextureLoader();
- }
- 
- const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
+    if (!textureLoader) {
+        textureLoader = new THREE.TextureLoader();
+    }
+    
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
  scene.add(ambientLight);
  
  earthSun = new THREE.DirectionalLight(0xffffff, 10);
@@ -676,7 +825,7 @@ function setupearthLighting() {
  earthSun.shadow.mapSize.height = 4096;
  earthSun.shadow.camera.near = 1000;
  earthSun.shadow.camera.far = 200000;
- const shadowSize = 20000;
+    const shadowSize = 20000;
  earthSun.shadow.camera.left = -shadowSize;
  earthSun.shadow.camera.right = shadowSize;
  earthSun.shadow.camera.top = shadowSize;
@@ -689,22 +838,238 @@ function setupearthLighting() {
  const targetLon = -122.4194;
  const targetHeight = 0; // Ground level
  const targetPosition = latLonHeightToEcef(targetLat, targetLon, targetHeight);
- const target = new THREE.Object3D();
+    const target = new THREE.Object3D();
  target.position.copy(targetPosition);
  scene.add(target);
  earthSun.target = target;
  
  scene.add(earthSun);
  
- const sideLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    const sideLight = new THREE.DirectionalLight(0xffffff, 0.5);
  sideLight.position.set(-1, -1, 1).normalize(); // Keep as directional for now
  scene.add(sideLight);
- 
- const fillLight = new THREE.DirectionalLight(0xaaaaff, 0.2);
+    
+    const fillLight = new THREE.DirectionalLight(0xaaaaff, 0.2);
  fillLight.position.set(0, -1, 0); // Keep as directional for now
  scene.add(fillLight);
  
  console.log("Lighting setup for San Francisco scene");
+}
+
+// Create coordinate display element
+function createCoordinateDisplay() {
+  const coordDisplay = document.createElement('div');
+  coordDisplay.id = 'coord-display';
+  coordDisplay.style.position = 'absolute';
+  coordDisplay.style.top = '10px';
+  coordDisplay.style.left = '10px';
+  coordDisplay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+  coordDisplay.style.color = 'white';
+  coordDisplay.style.padding = '10px';
+  coordDisplay.style.borderRadius = '5px';
+  coordDisplay.style.fontFamily = 'monospace';
+  coordDisplay.style.fontSize = '14px';
+  coordDisplay.style.zIndex = '1000';
+  coordDisplay.style.width = '240px';
+  coordDisplay.style.maxHeight = '200px';
+  coordDisplay.style.overflowY = 'auto';
+  document.body.appendChild(coordDisplay);
+  
+  return coordDisplay;
+}
+
+// Update coordinate display with current position
+function updateCoordinateDisplay() {
+  if (!spacecraft || !localOrigin) return;
+  
+  const coordDisplay = document.getElementById('coord-display');
+  if (!coordDisplay) return;
+  
+  // Get world position of spacecraft
+  const worldPos = spacecraft.position.clone();
+  
+  // Convert to local coordinates
+  const localPos = worldToLocal(worldPos);
+  
+  // Format coordinates to 2 decimal places
+  const x = localPos.x.toFixed(2);
+  const y = localPos.y.toFixed(2);
+  const z = localPos.z.toFixed(2);
+  
+  let displayHtml = `
+    <strong>Spacecraft:</strong><br>
+    Local: (${x}, ${y}, ${z})<br>
+    World: (${worldPos.x.toFixed(0)}, ${worldPos.y.toFixed(0)}, ${worldPos.z.toFixed(0)})<br>
+  `;
+  
+  // Add terrain mesh (tiles) coordinates if available
+  if (tiles && tiles.group) {
+    const tilesetPosition = new THREE.Vector3();
+    const boundingSphere = new THREE.Sphere();
+    
+    // Get the bounding sphere of the tileset
+    if (tiles.getBoundingSphere(boundingSphere)) {
+      tilesetPosition.copy(boundingSphere.center);
+      const localTilesetPos = worldToLocal(tilesetPosition);
+      
+      displayHtml += `
+        <hr>
+        <strong>Terrain Mesh:</strong><br>
+        Local: (${localTilesetPos.x.toFixed(0)}, ${localTilesetPos.y.toFixed(0)}, ${localTilesetPos.z.toFixed(0)})<br>
+        World: (${tilesetPosition.x.toFixed(0)}, ${tilesetPosition.y.toFixed(0)}, ${tilesetPosition.z.toFixed(0)})<br>
+      `;
+    }
+  }
+  
+  // Add grid plane coordinates and orientation
+  if (localOrigin && gridHelper) {
+    const gridPos = gridHelper.position.clone();
+    const localGridPos = worldToLocal(gridPos);
+    
+    // Extract grid orientation (normal vector)
+    const gridNormal = new THREE.Vector3(0, 0, 1);
+    gridNormal.applyQuaternion(gridHelper.quaternion);
+    
+    displayHtml += `
+      <hr>
+      <strong>Grid Plane:</strong><br>
+      Local: (${localGridPos.x.toFixed(0)}, ${localGridPos.y.toFixed(0)}, ${localGridPos.z.toFixed(0)})<br>
+      World: (${gridPos.x.toFixed(0)}, ${gridPos.y.toFixed(0)}, ${gridPos.z.toFixed(0)})<br>
+      Normal: (${gridNormal.x.toFixed(2)}, ${gridNormal.y.toFixed(2)}, ${gridNormal.z.toFixed(2)})<br>
+    `;
+  }
+  
+  // Update display
+  coordDisplay.innerHTML = displayHtml;
+}
+
+// Create the orientation widget in the top-left corner
+function createOrientationWidget() {
+  // Create a new scene for the orientation widget
+  orientationScene = new THREE.Scene();
+  orientationScene.background = new THREE.Color(0x000000);
+  orientationScene.background.alpha = 0.2;
+  
+  // Create a camera
+  orientationCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+  orientationCamera.position.set(0, 0, 3);
+  orientationCamera.lookAt(0, 0, 0);
+  
+  // Create renderer
+  orientationRenderer = new THREE.WebGLRenderer({ 
+    antialias: true,
+    alpha: true 
+  });
+  orientationRenderer.setSize(120, 120);
+  orientationRenderer.setClearColor(0x000000, 0.2);
+  
+  // Position the renderer in the top-left corner
+  const container = document.createElement('div');
+  container.style.position = 'absolute';
+  container.style.top = '10px';
+  container.style.left = '260px'; // Move it further right to avoid overlap with expanded coordinate display
+  container.style.zIndex = '1000';
+  container.appendChild(orientationRenderer.domElement);
+  document.body.appendChild(container);
+  
+  // Style the container
+  orientationRenderer.domElement.style.border = '1px solid rgba(255, 255, 255, 0.5)';
+  orientationRenderer.domElement.style.borderRadius = '5px';
+  
+  // Create the axes
+  orientationAxes = new THREE.Group();
+  
+  // X axis (red)
+  const xAxisGeometry = new THREE.CylinderGeometry(0.03, 0.03, 1.5, 8);
+  const xAxisMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  const xAxis = new THREE.Mesh(xAxisGeometry, xAxisMaterial);
+  xAxis.rotation.z = -Math.PI / 2;
+  xAxis.position.x = 0.75;
+  
+  // X axis cone
+  const xConeGeometry = new THREE.ConeGeometry(0.1, 0.3, 8);
+  const xCone = new THREE.Mesh(xConeGeometry, xAxisMaterial);
+  xCone.rotation.z = -Math.PI / 2;
+  xCone.position.x = 1.5;
+  
+  // Y axis (green)
+  const yAxisGeometry = new THREE.CylinderGeometry(0.03, 0.03, 1.5, 8);
+  const yAxisMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+  const yAxis = new THREE.Mesh(yAxisGeometry, yAxisMaterial);
+  yAxis.position.y = 0.75;
+  
+  // Y axis cone
+  const yConeGeometry = new THREE.ConeGeometry(0.1, 0.3, 8);
+  const yCone = new THREE.Mesh(yConeGeometry, yAxisMaterial);
+  yCone.position.y = 1.5;
+  
+  // Z axis (blue)
+  const zAxisGeometry = new THREE.CylinderGeometry(0.03, 0.03, 1.5, 8);
+  const zAxisMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+  const zAxis = new THREE.Mesh(zAxisGeometry, zAxisMaterial);
+  zAxis.rotation.x = Math.PI / 2;
+  zAxis.position.z = 0.75;
+  
+  // Z axis cone
+  const zConeGeometry = new THREE.ConeGeometry(0.1, 0.3, 8);
+  const zCone = new THREE.Mesh(zConeGeometry, zAxisMaterial);
+  zCone.rotation.x = Math.PI / 2;
+  zCone.position.z = 1.5;
+  
+  // Add the axes to the group
+  orientationAxes.add(xAxis, xCone, yAxis, yCone, zAxis, zCone);
+  
+  // Add labels
+  const xLabel = createTextSprite('X', '#ff0000', 0.5);
+  xLabel.position.set(1.7, 0, 0);
+  orientationAxes.add(xLabel);
+  
+  const yLabel = createTextSprite('Y', '#00ff00', 0.5);
+  yLabel.position.set(0, 1.7, 0);
+  orientationAxes.add(yLabel);
+  
+  const zLabel = createTextSprite('Z', '#0000ff', 0.5);
+  zLabel.position.set(0, 0, 1.7);
+  orientationAxes.add(zLabel);
+  
+  // Add a small sphere at the origin
+  const originGeometry = new THREE.SphereGeometry(0.08, 16, 16);
+  const originMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const origin = new THREE.Mesh(originGeometry, originMaterial);
+  orientationAxes.add(origin);
+  
+  // Add the axes to the scene
+  orientationScene.add(orientationAxes);
+  
+  // Add some ambient light
+  const ambientLight = new THREE.AmbientLight(0xffffff, 1);
+  orientationScene.add(ambientLight);
+  
+  console.log("Orientation widget created");
+  return orientationRenderer;
+}
+
+// Update the orientation widget to match spacecraft orientation
+function updateOrientationWidget() {
+  if (!spacecraft || !orientationAxes) return;
+  
+  // Get the spacecraft's quaternion
+  const spacecraftQuaternion = spacecraft.quaternion.clone();
+  
+  // Apply the spacecraft's rotation to the axes
+  orientationAxes.quaternion.copy(spacecraftQuaternion);
+  
+  // For better visualization, apply an additional rotation
+  // This makes the widget show the forward direction correctly
+  const correction = new THREE.Quaternion().setFromEuler(
+    new THREE.Euler(0, Math.PI, 0, 'XYZ')
+  );
+  orientationAxes.quaternion.multiply(correction);
+  
+  // Render the orientation scene
+  if (orientationRenderer) {
+    orientationRenderer.render(orientationScene, orientationCamera);
+  }
 }
 
 export function init() {
@@ -716,20 +1081,19 @@ export function init() {
  }
 
  scene = new THREE.Scene();
- const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(255), 64, 64);
+    const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(255), 64, 64);
  env.mapping = THREE.EquirectangularReflectionMapping ;
- env.needsUpdate = true;
+    env.needsUpdate = true;
  scene.environment = env;
 
- // Add fog to the scene
- scene.fog = new THREE.FogExp2(0x87ceeb, 0.0003);
-
+ // Remove fog from the scene
+ 
  renderer = new THREE.WebGLRenderer({ 
- antialias: true,
- precision: 'highp',
- powerPreference: 'high-performance'
- });
- renderer.setClearColor(0x87ceeb); // Match fog color for smooth blending
+        antialias: true,
+        precision: 'highp',
+        powerPreference: 'high-performance'
+    });
+ renderer.setClearColor(0x87ceeb); // Set background to blue
  renderer.setSize(window.innerWidth, window.innerHeight);
  renderer.setPixelRatio(window.devicePixelRatio);
  renderer.shadowMap.enabled = true;
@@ -747,40 +1111,106 @@ export function init() {
  camera.position.set(100, 100, -100);
  camera.lookAt(0, 0, 0);
  
- textureLoader = new THREE.TextureLoader();
+    textureLoader = new THREE.TextureLoader();
  setupearthLighting();
- initSpacecraft();
- createCoordinateSystem();
- reinstantiateTiles();
+    initSpacecraft();
+ createCoordinateSystem(); // Create coordinate system before other elements
+ createCoordinateDisplay(); // Create coordinate display element
+ createOrientationWidget(); // Create the orientation widget
+    reinstantiateTiles();
 
- onWindowResize();
- window.addEventListener('resize', onWindowResize, false);
- initControls();
+    onWindowResize();
+    window.addEventListener('resize', onWindowResize, false);
+    initControls();
 
  earthInitialized = true;
  console.log("San Francisco 3D initialization complete");
- 
- return { 
+    
+    return { 
  scene: scene, 
  camera: camera, 
  renderer: renderer, 
- tiles: tiles 
- };
+        tiles: tiles 
+    };
 }
 
+// Add this function to update grid alignment based on spacecraft position
+function updateGridAlignment() {
+  if (!spacecraft || !tiles || !tiles.group || !gridHelper) {
+    return;
+  }
+  
+  // Only update the grid position every few seconds for performance
+  if (!updateGridAlignment.lastUpdate || Date.now() - updateGridAlignment.lastUpdate > 5000) {
+    updateGridAlignment.lastUpdate = Date.now();
+    
+    // Find terrain meshes near the spacecraft
+    const terrainMeshes = [];
+    tiles.group.traverse((object) => {
+      if (object.isMesh && object.geometry) {
+        // Check if this mesh is within a reasonable distance of the spacecraft
+        const distance = object.position.distanceTo(spacecraft.position);
+        if (distance < 5000) { // Adjust this threshold as needed
+          terrainMeshes.push(object);
+        }
+      }
+    });
+    
+    if (terrainMeshes.length === 0) {
+      return; // No nearby terrain
+    }
+    
+    // Cast a ray downward from the spacecraft
+    const raycaster = new THREE.Raycaster();
+    const downDirection = new THREE.Vector3(0, -1, 0);
+    raycaster.set(spacecraft.position, downDirection);
+    raycaster.near = 0;
+    raycaster.far = 10000;
+    
+    const intersects = raycaster.intersectObjects(terrainMeshes, false);
+    if (intersects.length > 0) {
+      const hit = intersects[0];
+      
+      // Position the grid at the intersection point
+      gridHelper.position.copy(hit.point);
+      
+      // Align the grid to the terrain normal at this point
+      if (hit.face && hit.face.normal) {
+        const normal = hit.face.normal.clone();
+        normal.transformDirection(hit.object.matrixWorld);
+        
+        // Get the current grid up vector
+        const gridUpVector = new THREE.Vector3(0, 0, 1); // After initial rotation, Z is up
+        
+        // Calculate quaternion to align grid with terrain normal
+        const quaternion = new THREE.Quaternion().setFromUnitVectors(gridUpVector, normal);
+        gridHelper.quaternion.copy(quaternion);
+        
+        // Move the grid slightly above the terrain
+        const offsetDistance = 10;
+        gridHelper.position.add(normal.multiplyScalar(offsetDistance));
+      }
+    }
+  }
+}
+
+// Add a call to updateGridAlignment in the update function
 export function update(deltaTime = 0.016) {
  try {
  if (!earthInitialized) {
  console.log("Not initialized yet");
- return false;
- }
+            return false;
+        }
 
- if (!tiles) {
- return false;
- }
+        if (!tiles) {
+            return false;
+        }
 
- updateMovement();
- updateCamera();
+        updateMovement();
+        updateCamera();
+        
+ // Call the grid alignment update
+ updateGridAlignment();
  
  // Handle laser firing with spacebar
  if (keys.space && spacecraft) {
@@ -802,47 +1232,49 @@ export function update(deltaTime = 0.016) {
    }
  }
  
- if (tiles.group) {
- tiles.group.traverse((node) => {
- if (node.isMesh && node.receiveShadow === undefined) {
- node.receiveShadow = true;
- }
- });
- }
- 
+        if (tiles.group) {
+            tiles.group.traverse((node) => {
+                if (node.isMesh && node.receiveShadow === undefined) {
+                    node.receiveShadow = true;
+                }
+            });
+        }
+        
  updateearthLighting();
+ updateCoordinateDisplay(); // Update coordinate display each frame
+ updateOrientationWidget(); // Update orientation widget each frame
 
  if (!camera) {
  console.warn("Camera not initialized");
- return false;
- }
+            return false;
+        }
 
  tiles.setCamera(camera);
  tiles.setResolutionFromRenderer(camera, renderer);
  camera.updateMatrixWorld();
- tiles.update();
- 
- return true;
- } catch (error) {
+        tiles.update();
+        
+        return true;
+    } catch (error) {
  console.error("Error in update:", error);
- return false;
- }
+        return false;
+    }
 }
 
 function updateearthLighting() {
  if (!earthSun || !spacecraft) return;
- 
- const spacecraftPosition = spacecraft.position.clone();
+    
+    const spacecraftPosition = spacecraft.position.clone();
  earthSun.position.set(
- spacecraftPosition.x,
+        spacecraftPosition.x,
  spacecraftPosition.y + 100000,
- spacecraftPosition.z
- );
- 
+        spacecraftPosition.z
+    );
+    
  if (earthSun.target) {
  earthSun.target.position.copy(spacecraftPosition);
  earthSun.target.updateMatrixWorld();
- }
+    }
 }
 
 function onWindowResize() {
