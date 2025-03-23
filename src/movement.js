@@ -137,7 +137,7 @@ export function updateMovement(isBoosting, isHyperspace) {
     if (typeof updateEngineEffects === 'function') {
         updateEngineEffects(isBoosting || keys.up, keys.down);
         // Debug to confirm function call
-        console.log(`Engine effects updated - Boosting: ${isBoosting || keys.up}, Slowing: ${keys.down}`);
+        // console.log(`Engine effects updated - Boosting: ${isBoosting || keys.up}, Slowing: ${keys.down}`);
     }
 
     // Trigger wing animation based on hyperspace and boost state

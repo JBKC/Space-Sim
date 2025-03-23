@@ -11,6 +11,14 @@ export const spaceCamera = {
     hyperspace: new THREE.Vector3(0, 2, 2245),   // Extreme distance during hyperspace
 };
 
+// cockpit camera offsets
+export const cockpitCamera = {
+    base: new THREE.Vector3(0, 0, 44),         // Inside cockpit, looking forward
+    boost: new THREE.Vector3(0, 1.7, -0.3),        // Slight downward tilt when boosting
+    slow: new THREE.Vector3(0, 1.9, -0.7),         // Slight upward tilt when slow
+    hyperspace: new THREE.Vector3(0, 1.8, -0.2),   // Closer to the front during hyperspace
+};
+
 // San Francisco camera offsets
 export const sanFranCamera = {
     base: new THREE.Vector3(0, 2, -2),
@@ -74,6 +82,9 @@ export function getCameraOffsets(scene) {
     switch (scene) {
         case 'space':
             return spaceCamera;
+        case 'cockpit':
+            console.log(">>> RETRIEVING COCKPIT CAMERA OFFSETS <<<");
+            return cockpitCamera;
         case 'earth':
             return earthCamera;
         case 'moon':
@@ -108,6 +119,8 @@ export function createForwardRotation() {
 // Create a camera state object that can be used to track camera state in each scene
 export function createCameraState(scene) {
     const offsets = getCameraOffsets(scene);
+    
+    console.log("Creating new camera state for scene:", scene, "with initial offset:", offsets.base);
     
     return {
         // Current camera offsets that will be interpolated

@@ -6,6 +6,7 @@ import { fireLaser, updateLasers } from './laser.js';
 import { updateControlsDropdown } from './ui.js';
 import { 
     spaceCamera, 
+    cockpitCamera,
     createCameraState, 
     updateTargetOffsets,
     updateCameraOffsets,
@@ -61,8 +62,21 @@ function updateCamera(camera, isHyperspace) {
     spacecraft.add(spacecraftCenter);
     spacecraftCenter.updateMatrixWorld();
 
-    // Update target offsets based on keys and hyperspace state
-    updateTargetOffsets(cameraState, keys, 'space', isHyperspace);
+    // Check if we're in first-person view
+    const isFirstPerson = spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? spacecraft.isFirstPersonView() : false;
+    
+    // Debug log - only log 1% of the time to avoid spam
+    if (Math.random() < 0.01) {
+        console.log(
+            "🎥 CAMERA DEBUG: isFirstPerson =", isFirstPerson, 
+            "| isFirstPersonView() =", spacecraft.isFirstPersonView(), 
+            "| isFirstPersonView exists:", typeof spacecraft.isFirstPersonView === 'function'
+        );
+    }
+
+    // Update target offsets based on keys, hyperspace state and view mode
+    const viewMode = isFirstPerson ? 'cockpit' : 'space';
+    updateTargetOffsets(cameraState, keys, viewMode, isHyperspace);
     
     // Update current offsets by interpolating toward targets
     updateCameraOffsets(cameraState, rotation);
@@ -75,17 +89,29 @@ function updateCamera(camera, isHyperspace) {
     let offset = new THREE.Vector3();
     
     if (isHyperspace) {
-        // Hyperspace offset
-        offset.copy(spaceCamera.hyperspace);
+        if (!isFirstPerson) {
+            offset.copy(spaceCamera.hyperspace);
+        } else {
+            offset.copy(cockpitCamera.hyperspace);
+        }
     } else if (keys.up) {
-        // Boost offset
-        offset.copy(spaceCamera.boost);
+        if (!isFirstPerson) {
+            offset.copy(spaceCamera.boost);
+        } else {
+            offset.copy(cockpitCamera.boost);
+        }
     } else if (keys.down) {
-        // Slow offset
-        offset.copy(spaceCamera.slow);
+        if (!isFirstPerson) {
+            offset.copy(spaceCamera.slow);
+        } else {
+            offset.copy(cockpitCamera.slow);
+        }
     } else {
-        // Base offset
-        offset.copy(spaceCamera.base);
+        if (!isFirstPerson) {
+            offset.copy(spaceCamera.base);
+        } else {
+            offset.copy(cockpitCamera.base);
+        }
     }
     
     // Apply spacecraft's rotation to the offset
@@ -182,6 +208,15 @@ function initSpacecraft() {
 
     // Expose the toggleView function for cockpit view
     spacecraft.toggleView = spacecraftComponents.toggleView;
+    
+    // Store the isFirstPersonView state for camera logic
+    spacecraft.isFirstPersonView = function() {
+        // Add a direct reference to the spacecraftComponents object
+        return this._spacecraftComponents ? this._spacecraftComponents.isFirstPersonView : false;
+    };
+    
+    // Store a direct reference to the spacecraftComponents
+    spacecraft._spacecraftComponents = spacecraftComponents;
 
     // Verify reticle creation
     if (spacecraftComponents.reticle) {

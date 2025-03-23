@@ -318,13 +318,16 @@ export function createSpacecraft(scene) {
     }
     
     // Function to toggle between first-person and third-person views
-    function toggleView(camera) {
+    function toggleView(camera, callback) {
         if (!cockpitLoaded) {
             console.warn("Cockpit model not yet loaded. Cannot switch to first-person view.");
             return;
         }
         
+        console.log("⭐ TOGGLING VIEW - Before: isFirstPersonView =", isFirstPersonView);
         isFirstPersonView = !isFirstPersonView;
+        console.log("⭐ TOGGLING VIEW - After: isFirstPersonView =", isFirstPersonView);
+        console.log("*** TOGGLED VIEW: isFirstPersonView is now:", isFirstPersonView, " ***");
         
         if (isFirstPersonView) {
             // Switch to first-person view
@@ -347,6 +350,9 @@ export function createSpacecraft(scene) {
             const cockpitModel = cockpit.getObjectByName('cockpitModel');
             if (cockpitModel) {
                 cockpitModel.position.set(0, 0, 0); // distance between the camera and the cockpit - set in camera.js
+                console.log("Cockpit model positioned");
+            } else {
+                console.warn("Cockpit model not found");
             }
             
             // // Make HUD visible
@@ -356,6 +362,8 @@ export function createSpacecraft(scene) {
             // // Position HUD in front of the camera
             // hudGroup.position.set(0d, 0, -0.3);
             
+            hudGroup.visible = false;
+            camera.remove(hudGroup);
         } else {
             // Switch back to third-person view
             console.log("Switching to third-person view");
@@ -371,6 +379,12 @@ export function createSpacecraft(scene) {
             // Hide HUD
             hudGroup.visible = false;
             camera.remove(hudGroup);
+        }
+        
+        // Call the callback with the current state if provided
+        if (typeof callback === 'function') {
+            console.log("Calling toggleView callback with isFirstPersonView:", isFirstPersonView);
+            callback(isFirstPersonView);
         }
         
         return isFirstPersonView;
@@ -403,6 +417,13 @@ export function createSpacecraft(scene) {
         updateLasers,
         wingtipObjects,
         toggleView,
+        
+        // Export current state of isFirstPersonView
+        get isFirstPersonView() {
+            console.log("DEBUG - Accessing isFirstPersonView property, value:", isFirstPersonView);
+            return isFirstPersonView;
+        },
+        
         // Define dummy wing objects to maintain compatibility
         topRightWing: wingtipObjects[0],
         bottomRightWing: wingtipObjects[1],

@@ -126,17 +126,36 @@ document.addEventListener('keydown', (event) => {
     }
     // Toggle first-person/third-person view with 'C' key
     if (event.code === 'KeyC') {
+        console.log('===== C KEY PRESSED - TOGGLE COCKPIT VIEW =====');
+        console.log('Is on Earth surface:', isEarthSurfaceActive);
+        console.log('Has spacecraft:', !!spacecraft);
+        console.log('Has earth spacecraft:', !!earthSpacecraft);
+        
         if (isEarthSurfaceActive && earthSpacecraft) {
             console.log('C pressed - toggling cockpit view in Earth scene');
             if (typeof earthSpacecraft.toggleView === 'function') {
-                earthSpacecraft.toggleView(earthCamera);
+                earthSpacecraft.toggleView(earthCamera, (isFirstPerson) => {
+                    // Reset camera state based on new view mode
+                    console.log(`Resetting Earth camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
+                    // If you have access to Earth's camera state, reset it here
+                });
             } else {
                 console.warn('Toggle view function not available on Earth spacecraft');
             }
         } else if (spacecraft) {
             console.log('C pressed - toggling cockpit view in Space scene');
             if (typeof spacecraft.toggleView === 'function') {
-                spacecraft.toggleView(spaceCamera);
+                const result = spacecraft.toggleView(spaceCamera, (isFirstPerson) => {
+                    // Reset camera state based on new view mode
+                    console.log(`Resetting space camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
+                    // Use the imported createCameraState function
+                    const viewMode = isFirstPerson ? 'cockpit' : 'space';
+                    
+                    // Reset camera state with new view mode
+                    spaceCamera.position.copy(spaceCamera.position);
+                    spaceCamera.quaternion.copy(spaceCamera.quaternion);
+                });
+                console.log('Toggle view result:', result);
             } else {
                 console.warn('Toggle view function not available on Space spacecraft');
             }
