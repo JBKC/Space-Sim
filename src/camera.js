@@ -13,10 +13,10 @@ export const spaceCamera = {
 
 // cockpit camera offsets
 export const cockpitCamera = {
-    base: new THREE.Vector3(0, 0, 44),         // Inside cockpit, looking forward
-    boost: new THREE.Vector3(0, 0, 222),        // Slight downward tilt when boosting
-    slow: new THREE.Vector3(0, 0, 23),         // Slight upward tilt when slow
-    hyperspace: new THREE.Vector3(0, 0, 2249),   // Closer to the front during hyperspace
+    base: new THREE.Vector3(0, 0, 44.9),         // Inside cockpit, looking forward (45 is the exact center of the cockpit with scale (1,1,1)
+    boost: new THREE.Vector3(0, 0, 224.7),        // Slight downward tilt when boosting
+    slow: new THREE.Vector3(0, 0, 22.5),         // Slight upward tilt when slow
+    hyperspace: new THREE.Vector3(0, 0, 2250.1),   // Closer to the front during hyperspace
 };
 
 // San Francisco camera offsets
@@ -25,6 +25,14 @@ export const sanFranCamera = {
     boost: new THREE.Vector3(0, 2, 10),
     slow: new THREE.Vector3(0, 2, -4),
     collision: new THREE.Vector3(0, 5, -20),
+};
+
+// San Francisco cockpit camera offsets
+export const sanFranCockpitCamera = {
+    base: new THREE.Vector3(0, 0, 7),         // Inside cockpit, looking forward
+    boost: new THREE.Vector3(0, 0, 5),        // Slightly downward tilt when boosting
+    slow: new THREE.Vector3(0, 0, 5),         // Slightly upward tilt when slow
+    collision: new THREE.Vector3(0, 2, -1),        // Pulled back during collision
 };
 
 // // Earth surface camera offsets
@@ -93,6 +101,9 @@ export function getCameraOffsets(scene) {
             return washingtonCamera;
         case 'sanFran':
             return sanFranCamera;
+        case 'sanFranCockpit':
+            console.log(">>> RETRIEVING SAN FRANCISCO COCKPIT CAMERA OFFSETS <<<");
+            return sanFranCockpitCamera;
         default:
             console.warn(`Unknown scene '${scene}', defaulting to space camera`);
             return spaceCamera;

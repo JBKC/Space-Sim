@@ -8,6 +8,7 @@ import { createSpacecraft } from './spacecraft.js';
 import { fireLaser, updateLasers } from './laser.js';
 import { 
     sanFranCamera, 
+    sanFranCockpitCamera,
     createCameraState, 
     updateTargetOffsets, 
     updateCameraOffsets, 
@@ -165,6 +166,15 @@ function initSpacecraft() {
     
     // Expose the toggleView function for cockpit view
     spacecraft.toggleView = spacecraftComponents.toggleView;
+    
+    // Store the isFirstPersonView state for camera logic
+    spacecraft.isFirstPersonView = function() {
+        // Add a direct reference to the spacecraftComponents object
+        return this._spacecraftComponents ? this._spacecraftComponents.isFirstPersonView : false;
+    };
+    
+    // Store a direct reference to the spacecraftComponents
+    spacecraft._spacecraftComponents = spacecraftComponents;
 
     spacecraft.traverse((object) => {
         if (object.isMesh) {
@@ -605,15 +615,36 @@ export function updateCamera() {
         return;
     }
 
-    // Update target offsets based on keys
-    updateTargetOffsets(cameraState, keys, 'sanFran');
+    // Check if we're in first-person view
+    const isFirstPerson = spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? spacecraft.isFirstPersonView() : false;
+    
+    // Debug log - only log 1% of the time to avoid spam
+    if (Math.random() < 0.01) {
+        console.log(
+            "🎥 SAN FRAN CAMERA DEBUG: isFirstPerson =", isFirstPerson, 
+            "| isFirstPersonView() =", spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? spacecraft.isFirstPersonView() : false
+        );
+    }
+
+    // Update target offsets based on keys - use appropriate view mode
+    const viewMode = isFirstPerson ? 'sanFranCockpit' : 'sanFran';
+    updateTargetOffsets(cameraState, keys, viewMode);
     
     // Update current offsets by interpolating toward targets
     updateCameraOffsets(cameraState, rotation);
     
     // For sanFran3D we'll use a simpler camera approach without all the cinematic effects
     // This maintains compatibility with the existing code while using the new camera module
-    const localOffset = keys.up ? sanFranCamera.boost.clone() : cameraState.currentOffset.clone();
+    let localOffset;
+    
+    if (keys.up) {
+        localOffset = isFirstPerson ? sanFranCockpitCamera.boost.clone() : sanFranCamera.boost.clone();
+    } else if (keys.down) {
+        localOffset = isFirstPerson ? sanFranCockpitCamera.slow.clone() : sanFranCamera.slow.clone();
+    } else {
+        localOffset = isFirstPerson ? sanFranCockpitCamera.base.clone() : sanFranCamera.base.clone();
+    }
+    
     const cameraPosition = localOffset.applyMatrix4(spacecraft.matrixWorld);
 
     camera.position.lerp(cameraPosition, smoothFactor);

@@ -134,11 +134,13 @@ document.addEventListener('keydown', (event) => {
         if (isEarthSurfaceActive && earthSpacecraft) {
             console.log('C pressed - toggling cockpit view in Earth scene');
             if (typeof earthSpacecraft.toggleView === 'function') {
-                earthSpacecraft.toggleView(earthCamera, (isFirstPerson) => {
+                const result = earthSpacecraft.toggleView(earthCamera, (isFirstPerson) => {
                     // Reset camera state based on new view mode
                     console.log(`Resetting Earth camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
+                    console.log('Earth camera reset callback executed');
                     // If you have access to Earth's camera state, reset it here
                 });
+                console.log('Earth toggle view result:', result);
             } else {
                 console.warn('Toggle view function not available on Earth spacecraft');
             }

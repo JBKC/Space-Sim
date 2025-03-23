@@ -98,7 +98,7 @@ export function createSpacecraft(scene) {
                 const model = gltf.scene;
                 
 
-                model.scale.set(10, 10, 10);
+                model.scale.set(1, 1, 1);
                 
                 // Add the model to our cockpit group
                 cockpit.add(model);
