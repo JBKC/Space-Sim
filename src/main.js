@@ -124,6 +124,24 @@ document.addEventListener('keydown', (event) => {
         console.log('R pressed - resetting position in San Francisco');
         resetSanFranPosition();
     }
+    // Toggle first-person/third-person view with 'C' key
+    if (event.code === 'KeyC') {
+        if (isEarthSurfaceActive && earthSpacecraft) {
+            console.log('C pressed - toggling cockpit view in Earth scene');
+            if (typeof earthSpacecraft.toggleView === 'function') {
+                earthSpacecraft.toggleView(earthCamera);
+            } else {
+                console.warn('Toggle view function not available on Earth spacecraft');
+            }
+        } else if (spacecraft) {
+            console.log('C pressed - toggling cockpit view in Space scene');
+            if (typeof spacecraft.toggleView === 'function') {
+                spacecraft.toggleView(spaceCamera);
+            } else {
+                console.warn('Toggle view function not available on Space spacecraft');
+            }
+        }
+    }
     // Enhanced ESC key to exit Moon surface or Earth surface
     if (event.code === 'Escape') {
         /* if (isMoonSurfaceActive) {

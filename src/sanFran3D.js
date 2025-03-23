@@ -151,6 +151,9 @@ function initSpacecraft() {
     bottomRightWing = spacecraftComponents.bottomRightWing;
     topLeftWing = spacecraftComponents.topLeftWing;
     bottomLeftWing = spacecraftComponents.bottomLeftWing;
+    
+    // Expose the toggleView function for cockpit view
+    spacecraft.toggleView = spacecraftComponents.toggleView;
 
     spacecraft.traverse((object) => {
         if (object.isMesh) {
@@ -1270,7 +1273,7 @@ function checkBasePlaneCollision() {
     for (let i = 0; i < walls.length; i++) {
       const wall = walls[i];
 
-      // Get wall’s normal in world space (Z-axis of wall’s local space)
+      // Get wall's normal in world space (Z-axis of wall's local space)
       const wallNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(wall.quaternion);
 
       // Check intersection with the wall

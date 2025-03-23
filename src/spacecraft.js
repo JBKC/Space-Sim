@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createReticle } from './reticle.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 // AXES: x = yaw, y = pitch, z = roll
 
@@ -8,13 +9,16 @@ export function createSpacecraft(scene) {
     // X-wing spacecraft
     const spacecraft = new THREE.Group();
     spacecraft.name = 'spacecraft';
-
-    // Materials
-    const metalMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8, roughness: 0.3, envMapIntensity: 1.0 });
-    const paintMaterial = new THREE.MeshStandardMaterial({ color: 0xe5e5e5, metalness: 0.2, roughness: 0.7 });
-    const redPaintMaterial = new THREE.MeshStandardMaterial({ color: 0xff3333, metalness: 0.2, roughness: 0.7 });
-    const darkMetalMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.9, roughness: 0.2 });
-    const glassMaterial = new THREE.MeshPhysicalMaterial({ color: 0x000000, metalness: 0, roughness: 0, transmission: 1, transparent: true, opacity: 0.3, envMapIntensity: 1.0 });
+    
+    // First person cockpit view
+    const cockpit = new THREE.Group();
+    cockpit.name = 'cockpit';
+    
+    // Flag to track view mode (false = third-person, true = first-person)
+    let isFirstPersonView = false;
+    let cockpitLoaded = false;
+    
+    // Materials for engine effects
     const engineGlowMaterial = new THREE.MeshStandardMaterial({ color: 0xff00ff, emissive: 0xff00ff, emissiveIntensity: 2.5, transparent: true, opacity: 0.9 });
     const boostFlameMaterial = new THREE.ShaderMaterial({
         uniforms: { time: { value: 0 }, intensity: { value: 0.0 } },
@@ -53,80 +57,88 @@ export function createSpacecraft(scene) {
     });
     const lightMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.0, transparent: true, opacity: 0.7 });
 
-    // Fuselage
-    const fuselageGeometry = new THREE.CylinderGeometry(0.3, 0.3, 3.5, 12);
-    const fuselage = new THREE.Mesh(fuselageGeometry, paintMaterial);
-    fuselage.rotation.z = Math.PI / 2;
-    spacecraft.add(fuselage);
-
-    const fuselageDetailGeometry = new THREE.CylinderGeometry(0.32, 0.32, 0.1, 12);
-    const detailPositions = [-1.5, -1.0, -0.5, 0, 0.5, 1.0, 1.5];
-    detailPositions.forEach(pos => {
-        const detail = new THREE.Mesh(fuselageDetailGeometry, metalMaterial);
-        detail.rotation.z = Math.PI / 2;
-        detail.position.z = pos;
-        fuselage.add(detail);
+    // Load the X-Wing glTF model
+    const loader = new GLTFLoader();
+    const xWingModel = new THREE.Group(); // This will hold the loaded model
+    
+    // Promise to load the glTF model
+    const loadModel = new Promise((resolve, reject) => {
+        loader.load(
+            '/star_wars_x-wing/scene.gltf',
+            (gltf) => {
+                const model = gltf.scene;
+                
+                // Scale and position the model appropriately
+                model.scale.set(0.5, 0.5, 0.5); // Adjust scale as needed
+                
+                // Add the model to our x-wing group
+                xWingModel.add(model);
+                
+                // Add engine glow effects
+                addEngineEffects(xWingModel);
+                
+                resolve(xWingModel);
+            },
+            (xhr) => {
+                console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+            },
+            (error) => {
+                console.error('An error happened loading the X-Wing model:', error);
+                reject(error);
+            }
+        );
     });
-
-    // Nose
-    const noseGeometry = new THREE.CylinderGeometry(0.3, 0.05, 1.2, 12);
-    const nose = new THREE.Mesh(noseGeometry, paintMaterial);
-    nose.position.z = 2.35;
-    nose.rotation.x = Math.PI / 2;
-    spacecraft.add(nose);
-
-    const noseRingGeometry = new THREE.TorusGeometry(0.31, 0.02, 8, 24);
-    const noseRing1 = new THREE.Mesh(noseRingGeometry, metalMaterial);
-    noseRing1.position.z = 2.0;
-    spacecraft.add(noseRing1);
-
-    const noseRing2 = new THREE.Mesh(noseRingGeometry, metalMaterial);
-    noseRing2.position.z = 2.3;
-    spacecraft.add(noseRing2);
-
-    // Cockpit
-    const cockpitGeometry = new THREE.SphereGeometry(0.25, 32, 24, 0, Math.PI * 2, 0, Math.PI / 1.5);
-    const cockpitOuter = new THREE.Mesh(cockpitGeometry, metalMaterial);
-    cockpitOuter.position.set(0, 0.25, 0);
-    spacecraft.add(cockpitOuter);
-
-    const cockpitGlassGeometry = new THREE.SphereGeometry(0.24, 32, 24, 0, Math.PI * 2, 0, Math.PI / 1.5);
-    const cockpitGlass = new THREE.Mesh(cockpitGlassGeometry, glassMaterial);
-    cockpitGlass.position.set(0, 0.25, 0);
-    spacecraft.add(cockpitGlass);
-
-    // Engines
-    const engineGeometry = new THREE.CylinderGeometry(0.15, 0.12, 0.8, 12);
-    const enginePositions = [
-        { x: 0.4, y: 0.3, z: -1 },
-        { x: -0.4, y: 0.3, z: -1 },
-        { x: 0.4, y: -0.3, z: -1 },
-        { x: -0.4, y: -0.3, z: -1 }
-    ];
-    enginePositions.forEach(pos => {
-        const engine = new THREE.Mesh(engineGeometry, metalMaterial);
-        engine.position.set(pos.x, pos.y, pos.z);
-        engine.rotation.x = Math.PI / 2;
-        spacecraft.add(engine);
-
-        const intakeGeometry = new THREE.TorusGeometry(0.15, 0.02, 8, 24);
-        const intake = new THREE.Mesh(intakeGeometry, darkMetalMaterial);
-        intake.position.set(pos.x, pos.y, pos.z - 0.4);
-        spacecraft.add(intake);
-
-        const innerGlowGeometry = new THREE.CylinderGeometry(0.08, 0.08, 0.1, 12);
-        const innerGlow = new THREE.Mesh(innerGlowGeometry, engineGlowMaterial);
-        innerGlow.position.set(pos.x, pos.y, pos.z + 0.35);
-        innerGlow.rotation.x = Math.PI / 2;
-        spacecraft.add(innerGlow);
-
-        const glowSphereGeometry = new THREE.SphereGeometry(0.2, 16, 16);
-        const glowSphere = new THREE.Mesh(glowSphereGeometry, boostFlameMaterial);
-        glowSphere.position.set(pos.x, pos.y, pos.z - 0.4);
-        glowSphere.visible = true;
-        spacecraft.add(glowSphere);
+    
+    // Load the cockpit model for first-person view
+    const loadCockpitModel = new Promise((resolve, reject) => {
+        loader.load(
+            '/x-wing_cockpit/scene.gltf',
+            (gltf) => {
+                const model = gltf.scene;
+                
+                // Scale and position the cockpit model appropriately
+                model.scale.set(0.3, 0.3, 0.3);
+                model.rotation.y = Math.PI; // Face forward
+                
+                // Position to surround the camera
+                model.position.set(0, -0.2, 0.2);
+                
+                // Add the model to our cockpit group
+                cockpit.add(model);
+                cockpitLoaded = true;
+                
+                resolve(cockpit);
+            },
+            (xhr) => {
+                console.log('Cockpit: ' + (xhr.loaded / xhr.total * 100) + '% loaded');
+            },
+            (error) => {
+                console.error('An error happened loading the cockpit model:', error);
+                reject(error);
+            }
+        );
     });
-
+    
+    // Function to add engine glow effects to the model
+    function addEngineEffects(model) {
+        // Create engine glow meshes at the appropriate positions
+        const enginePositions = [
+            { x: -0.7, y: 0.15, z: -0.8 },
+            { x: 0.7, y: 0.15, z: -0.8 },
+            { x: -0.7, y: -0.15, z: -0.8 },
+            { x: 0.7, y: -0.15, z: -0.8 }
+        ];
+        
+        enginePositions.forEach(pos => {
+            // Create engine glow
+            const glowSphereGeometry = new THREE.SphereGeometry(0.1, 16, 16);
+            const glowSphere = new THREE.Mesh(glowSphereGeometry, boostFlameMaterial);
+            glowSphere.position.set(pos.x, pos.y, pos.z);
+            model.add(glowSphere);
+        });
+    }
+    
+    // Engine effects update function
     let engineTime = 0;
     function updateEngineEffects(isBoost, isSlow) {
         engineTime += 0.016;
@@ -152,140 +164,38 @@ export function createSpacecraft(scene) {
         });
     }
 
-    // Wing creation
-    function createWing(x, y, z, rotationZ) {
-        const wingGroup = new THREE.Group();
-        wingGroup.position.set(x, y, z);
-        wingGroup.rotation.z = rotationZ;
-
-        const wingShape = new THREE.Shape();
-        wingShape.moveTo(0, -0.1);
-        wingShape.lineTo(2.5, -0.15);
-        wingShape.lineTo(2.5, 0.15);
-        wingShape.lineTo(0, 0.1);
-        wingShape.lineTo(0, -0.1);
-
-        const wingExtrudeSettings = { steps: 1, depth: 0.05, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 3 };
-        const wingGeometry = new THREE.ExtrudeGeometry(wingShape, wingExtrudeSettings);
-        const wing = new THREE.Mesh(wingGeometry, paintMaterial);
-        wingGroup.add(wing);
-
-        const stripeGeometry = new THREE.BoxGeometry(0.5, 0.06, 0.08);
-        const stripe1 = new THREE.Mesh(stripeGeometry, redPaintMaterial);
-        stripe1.position.set(0.6, 0, 0);
-        wingGroup.add(stripe1);
-
-        const stripe2 = new THREE.Mesh(stripeGeometry, redPaintMaterial);
-        stripe2.position.set(1.2, 0, 0);
-        wingGroup.add(stripe2);
-
-        const wingTipGeometry = new THREE.CylinderGeometry(0.1, 0.08, 0.4, 8);
-        const wingTip = new THREE.Mesh(wingTipGeometry, metalMaterial);
-        wingTip.position.set(2.5, 0, 0);
-        wingTip.rotation.z = Math.PI / 2;
-        wingGroup.add(wingTip);
-
-        const cannonGeometry = new THREE.CylinderGeometry(0.04, 0.03, 1.2, 8);
-        const cannonPositions = [{ x: 3.0, y: 0, z: 0.2 }, { x: 3.0, y: 0, z: -0.2 }];
-        cannonPositions.forEach(pos => {
-            const cannon = new THREE.Mesh(cannonGeometry, darkMetalMaterial);
-            cannon.position.set(pos.x, pos.y, pos.z);
-            cannon.rotation.x = Math.PI / 2;
-            wingGroup.add(cannon);
-
-            const ringGeometry = new THREE.TorusGeometry(0.04, 0.01, 8, 16);
-            const positions = [-0.4, -0.2, 0, 0.2, 0.4];
-            positions.forEach(ringPos => {
-                const ring = new THREE.Mesh(ringGeometry, metalMaterial);
-                ring.position.set(pos.x, pos.y, pos.z + ringPos);
-                ring.rotation.x = Math.PI / 2;
-                wingGroup.add(ring);
-            });
-        });
-
-        return wingGroup;
-    }
-
-    const topRightWing = createWing(0, 0.3, -0.5, -Math.PI / 8);
-    topRightWing.name = "topRightWing";
-    const bottomRightWing = createWing(0, -0.3, -0.5, Math.PI / 8);
-    bottomRightWing.name = "bottomRightWing";
-    const topLeftWing = createWing(0, 0.3, -0.5, Math.PI + Math.PI / 8);
-    topLeftWing.name = "topLeftWing";
-    const bottomLeftWing = createWing(0, -0.3, -0.5, Math.PI - Math.PI / 8);
-    bottomLeftWing.name = "bottomLeftWing";
-    spacecraft.add(topRightWing);
-    spacecraft.add(bottomRightWing);
-    spacecraft.add(topLeftWing);
-    spacecraft.add(bottomLeftWing);
-
-    // Struts
-    function createEnhancedStrut(x, y, z, rotationZ) {
-        const strutGroup = new THREE.Group();
-        const strutGeometry = new THREE.BoxGeometry(0.6, 0.08, 0.08);
-        const strut = new THREE.Mesh(strutGeometry, metalMaterial);
-        strut.position.set(x, y, z - 0.5);
-        strut.rotation.z = rotationZ;
-        strutGroup.add(strut);
-
-        const detailGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
-        const detail1 = new THREE.Mesh(detailGeometry, darkMetalMaterial);
-        detail1.position.set(x - 0.25, y, z - 0.5);
-        detail1.rotation.z = rotationZ;
-        strutGroup.add(detail1);
-
-        const detail2 = new THREE.Mesh(detailGeometry, darkMetalMaterial);
-        detail2.position.set(x + 0.25, y, z - 0.5);
-        detail2.rotation.z = rotationZ;
-        strutGroup.add(detail2);
-
-        return strutGroup;
-    }
-
-    spacecraft.add(createEnhancedStrut(0, 0.15, 0, 0));
-    spacecraft.add(createEnhancedStrut(0, -0.15, 0, 0));
-
-    // Surface details
-    function addSurfaceDetails() {
-        const panelLineGeometry = new THREE.BoxGeometry(0.01, 0.01, 0.5);
-        const panelLineMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.5, roughness: 0.8 });
-        for (let i = 0; i < 8; i++) {
-            const panelLine = new THREE.Mesh(panelLineGeometry, panelLineMaterial);
-            panelLine.position.set(0.2, 0.1, -1 + i * 0.5);
-            spacecraft.add(panelLine);
-        }
-
-        const detailGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
-        const detailPositions = [
-            { x: 0.2, y: 0.2, z: -1 },
-            { x: -0.2, y: 0.2, z: -1 },
-            { x: 0.2, y: -0.2, z: -1 },
-            { x: -0.2, y: -0.2, z: -1 }
-        ];
-        detailPositions.forEach(pos => {
-            const detail = new THREE.Mesh(detailGeometry, darkMetalMaterial);
-            detail.position.set(pos.x, pos.y, pos.z);
-            spacecraft.add(detail);
-        });
-    }
-
-    addSurfaceDetails();
-
-    const xwingLight = new THREE.PointLight(0xffffff, 0.5);
-    xwingLight.position.set(0, 2, 0);
-    spacecraft.add(xwingLight);
-
-    // Position spacecraft
-    spacecraft.position.set(40000, 40000, 40000);
-    const centerPoint = new THREE.Vector3(0, 0, 10000);
-    spacecraft.lookAt(centerPoint);
-    scene.add(spacecraft);
+    // Load the model first, then add to spacecraft group
+    loadModel.then((model) => {
+        spacecraft.add(model);
+        
+        // Position spacecraft after model is loaded
+        spacecraft.position.set(40000, 40000, 40000);
+        const centerPoint = new THREE.Vector3(0, 0, 10000);
+        spacecraft.lookAt(centerPoint);
+        
+        // Add a light to the spacecraft
+        const xwingLight = new THREE.PointLight(0xffffff, 0.5);
+        xwingLight.position.set(0, 2, 0);
+        spacecraft.add(xwingLight);
+    }).catch(error => {
+        console.error("Failed to load X-Wing model:", error);
+    });
+    
+    // Also load the cockpit model
+    loadCockpitModel.then(() => {
+        console.log("Cockpit model loaded successfully");
+    }).catch(error => {
+        console.error("Failed to load cockpit model:", error);
+    });
     
     // Create a reticle that's attached to the spacecraft
     console.log("Creating reticle as part of spacecraft creation");
     const reticleComponent = createReticle(scene, spacecraft);
     spacecraft.userData.reticle = reticleComponent.reticle;
     spacecraft.userData.updateReticle = reticleComponent.update;
+    
+    // Add the spacecraft to the scene
+    scene.add(spacecraft);
     
     // Laser setup
     const laserLength = 100;
@@ -297,26 +207,31 @@ export function createSpacecraft(scene) {
     let isFiring = false;
     let firingInterval = null;
 
+    // Define wingtip positions for lasers
     const wingtipObjects = [
         new THREE.Object3D(),
         new THREE.Object3D(),
         new THREE.Object3D(),
         new THREE.Object3D()
     ];
-    const wingtipOffsets = [
-        new THREE.Vector3(3.0, 0, 0.2),
-        new THREE.Vector3(3.0, 0, -0.2),
-        new THREE.Vector3(-3.0, 0, 0.2),
-        new THREE.Vector3(-3.0, 0, -0.2)
-    ];
-    wingtipObjects[0].position.copy(wingtipOffsets[0]);
-    topRightWing.add(wingtipObjects[0]);
-    wingtipObjects[1].position.copy(wingtipOffsets[1]);
-    bottomRightWing.add(wingtipObjects[1]);
-    wingtipObjects[2].position.copy(wingtipOffsets[2]);
-    topLeftWing.add(wingtipObjects[2]);
-    wingtipObjects[3].position.copy(wingtipOffsets[3]);
-    bottomLeftWing.add(wingtipObjects[3]);
+    
+    // Add wingtip objects to the spacecraft
+    wingtipObjects.forEach((obj, index) => {
+        // Position will be adjusted when model is loaded
+        spacecraft.add(obj);
+        
+        // After model is loaded, position the wingtip objects at appropriate locations
+        loadModel.then(() => {
+            const positions = [
+                { x: 0.7, y: 0.15, z: 0.7 },   // top right
+                { x: 0.7, y: -0.15, z: 0.7 },  // bottom right
+                { x: -0.7, y: 0.15, z: 0.7 },  // top left
+                { x: -0.7, y: -0.15, z: 0.7 }  // bottom left
+            ];
+            
+            obj.position.set(positions[index].x, positions[index].y, positions[index].z);
+        });
+    });
 
     function createLaser(startPosition, direction) {
         const laser = new THREE.Mesh(laserGeometry, laserMaterial);
@@ -331,8 +246,12 @@ export function createSpacecraft(scene) {
         const forward = new THREE.Vector3(0, 0, 1);
         forward.applyQuaternion(spacecraft.quaternion);
         wingtipObjects.forEach(obj => {
-            const marker = new THREE.Mesh(new THREE.SphereGeometry(0.05), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
-            obj.add(marker);
+            const worldPosition = new THREE.Vector3();
+            obj.getWorldPosition(worldPosition);
+            
+            const laser = createLaser(worldPosition, forward);
+            scene.add(laser);
+            activeLasers.push(laser);
         });
     }
 
@@ -358,24 +277,75 @@ export function createSpacecraft(scene) {
             }
         }
     }
+    
+    // Function to toggle between first-person and third-person views
+    function toggleView(camera) {
+        if (!cockpitLoaded) {
+            console.warn("Cockpit model not yet loaded. Cannot switch to first-person view.");
+            return;
+        }
+        
+        isFirstPersonView = !isFirstPersonView;
+        
+        if (isFirstPersonView) {
+            // Switch to first-person view
+            console.log("Switching to first-person view");
+            
+            // Hide the spacecraft model
+            spacecraft.traverse(child => {
+                if (child !== cockpit && child.isMesh) {
+                    child.visible = false;
+                }
+            });
+            
+            // Make sure cockpit is positioned correctly relative to the camera
+            cockpit.position.copy(camera.position);
+            cockpit.quaternion.copy(camera.quaternion);
+            
+            // Add cockpit to the scene and make it visible
+            scene.add(cockpit);
+            
+            // Attach cockpit to the camera
+            camera.add(cockpit);
+            
+        } else {
+            // Switch back to third-person view
+            console.log("Switching to third-person view");
+            
+            // Make spacecraft visible again
+            spacecraft.traverse(child => {
+                if (child.isMesh) {
+                    child.visible = true;
+                }
+            });
+            
+            // Remove cockpit from camera and scene
+            camera.remove(cockpit);
+            scene.remove(cockpit);
+        }
+        
+        return isFirstPersonView;
+    }
 
     // Return an object containing the spacecraft and all necessary methods and attributes
     return {
         spacecraft,
+        cockpit,
         engineGlowMaterial,
         boostFlameMaterial,
         lightMaterial,
-        topRightWing,
-        bottomRightWing,
-        topLeftWing,
-        bottomLeftWing,
         updateEngineEffects,
-        createWing,
         fireLasers,
         startFiring,
         stopFiring,
         updateLasers,
-        wingtipObjects, // Include wingtipObjects for laser functionality
+        wingtipObjects,
+        toggleView,
+        // Define dummy wing objects to maintain compatibility
+        topRightWing: wingtipObjects[0],
+        bottomRightWing: wingtipObjects[1],
+        topLeftWing: wingtipObjects[2],
+        bottomLeftWing: wingtipObjects[3],
         reticle: reticleComponent.reticle,
         updateReticle: reticleComponent.update
     };

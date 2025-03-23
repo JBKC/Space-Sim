@@ -66,6 +66,9 @@ function initSpacecraft() {
     topLeftWing = spacecraftComponents.topLeftWing;
     bottomLeftWing = spacecraftComponents.bottomLeftWing;
 
+    // Expose the toggleView function for cockpit view
+    spacecraft.toggleView = spacecraftComponents.toggleView;
+
     // Set initial position
     spacecraft.position.set(0, 0, 0);
 

@@ -93,6 +93,9 @@ function initSpacecraft() {
     topLeftWing = spacecraftComponents.topLeftWing;
     bottomLeftWing = spacecraftComponents.bottomLeftWing;
 
+    // Expose the toggleView function for cockpit view
+    spacecraft.toggleView = spacecraftComponents.toggleView;
+
     // Verify reticle creation
     if (spacecraftComponents.reticle) {
         console.log("Reticle was successfully created with spacecraft in setup.js");

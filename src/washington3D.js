@@ -131,6 +131,9 @@ function initSpacecraft() {
  topLeftWing = spacecraftComponents.topLeftWing;
  bottomLeftWing = spacecraftComponents.bottomLeftWing;
 
+ // Expose the toggleView function for cockpit view
+ spacecraft.toggleView = spacecraftComponents.toggleView;
+
  spacecraft.traverse((object) => {
  if (object.isMesh) {
  object.castShadow = true;
