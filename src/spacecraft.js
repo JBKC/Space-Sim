@@ -60,6 +60,7 @@ export function createSpacecraft(scene) {
     // Load the X-Wing glTF model
     const loader = new GLTFLoader();
     const xWingModel = new THREE.Group(); // This will hold the loaded model
+    xWingModel.name = 'xWingModel'; // Set a name for the model
     
     // Promise to load the glTF model
     const loadModel = new Promise((resolve, reject) => {
@@ -97,14 +98,15 @@ export function createSpacecraft(scene) {
                 const model = gltf.scene;
                 
                 // Scale and position the cockpit model appropriately
-                model.scale.set(0.3, 0.3, 0.3);
-                model.rotation.y = Math.PI; // Face forward
+                model.scale.set(1000, 1000, 1000);
+                // model.rotation.y = Math.PI; // Face forward
                 
-                // Position to surround the camera
-                model.position.set(0, -0.2, 0.2);
+                // Position the cockpit
+                model.position.set(0, 0, 0);
                 
                 // Add the model to our cockpit group
                 cockpit.add(model);
+                cockpit.name = 'cockpitModel'; // Set a name for the cockpit
                 cockpitLoaded = true;
                 
                 resolve(cockpit);
@@ -196,6 +198,47 @@ export function createSpacecraft(scene) {
     
     // Add the spacecraft to the scene
     scene.add(spacecraft);
+    
+    // Create HUD elements for cockpit view
+    const hudGroup = new THREE.Group();
+    hudGroup.name = "cockpitHUD";
+    hudGroup.visible = false; // Initially hidden
+    
+    // Create targeting reticle for HUD
+    const reticleGeometry = new THREE.RingGeometry(0.01, 0.012, 32);
+    const reticleMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x00ff00, 
+        transparent: true, 
+        opacity: 0.7,
+        side: THREE.DoubleSide
+    });
+    const hudReticle = new THREE.Mesh(reticleGeometry, reticleMaterial);
+    hudReticle.position.set(0, 0, -0.2); // Position in front of the camera
+    hudReticle.name = "hudReticle"; // Add a name for the reticle
+    hudGroup.add(hudReticle);
+    
+    // Create targeting brackets
+    const createBracket = (x, y, size, rotation) => {
+        const bracket = new THREE.Mesh(
+            new THREE.BoxGeometry(size, 0.002, 0.001),
+            reticleMaterial
+        );
+        bracket.position.set(x, y, -0.2);
+        bracket.rotation.z = rotation;
+        hudGroup.add(bracket);
+        return bracket;
+    };
+    
+    // Add brackets around the reticle
+    createBracket(0.02, 0.02, 0.01, 0);
+    createBracket(0.02, -0.02, 0.01, 0);
+    createBracket(-0.02, 0.02, 0.01, 0);
+    createBracket(-0.02, -0.02, 0.01, 0);
+    
+    createBracket(0.02, 0.02, 0.01, Math.PI/2);
+    createBracket(0.02, -0.02, 0.01, Math.PI/2);
+    createBracket(-0.02, 0.02, 0.01, Math.PI/2);
+    createBracket(-0.02, -0.02, 0.01, Math.PI/2);
     
     // Laser setup
     const laserLength = 100;
@@ -291,40 +334,63 @@ export function createSpacecraft(scene) {
             // Switch to first-person view
             console.log("Switching to first-person view");
             
-            // Hide the spacecraft model
-            spacecraft.traverse(child => {
-                if (child !== cockpit && child.isMesh) {
-                    child.visible = false;
-                }
-            });
+            // Remove X-wing model from spacecraft
+            const xWing = spacecraft.getObjectByName('xWingModel');
+            if (xWing) {
+                spacecraft.remove(xWing);
+            }
             
-            // Make sure cockpit is positioned correctly relative to the camera
-            cockpit.position.copy(camera.position);
-            cockpit.quaternion.copy(camera.quaternion);
+            // Add cockpit model to spacecraft
+            spacecraft.add(cockpit);
             
-            // Add cockpit to the scene and make it visible
-            scene.add(cockpit);
+            // Position cockpit correctly for first-person view
+            cockpit.position.set(0, 0, 0);
+            cockpit.rotation.set(0, 0, 0);
             
-            // Attach cockpit to the camera
-            camera.add(cockpit);
+            // Adjust the cockpit to be centered on camera
+            const cockpitModel = cockpit.getObjectByName('cockpitModel');
+            if (cockpitModel) {
+                cockpitModel.position.set(0, -0.08, 0);
+            }
+            
+            // Make HUD visible
+            hudGroup.visible = true;
+            camera.add(hudGroup);
+            
+            // Position HUD in front of the camera
+            hudGroup.position.set(0, 0, -0.3);
             
         } else {
             // Switch back to third-person view
             console.log("Switching to third-person view");
             
-            // Make spacecraft visible again
-            spacecraft.traverse(child => {
-                if (child.isMesh) {
-                    child.visible = true;
-                }
+            // Remove cockpit model from spacecraft
+            spacecraft.remove(cockpit);
+            
+            // Add X-wing model back to spacecraft
+            loadModel.then((model) => {
+                spacecraft.add(model);
             });
             
-            // Remove cockpit from camera and scene
-            camera.remove(cockpit);
-            scene.remove(cockpit);
+            // Hide HUD
+            hudGroup.visible = false;
+            camera.remove(hudGroup);
         }
         
         return isFirstPersonView;
+    }
+
+    // Function to update cockpit elements
+    function updateCockpit(deltaTime = 0.016) {
+        if (!isFirstPersonView) return;
+        
+        // Animate HUD elements
+        hudGroup.children.forEach((element, index) => {
+            // Rotate the main reticle
+            if (index === 0) { // First element is the main reticle
+                element.rotation.z += deltaTime * 0.5; // Slowly rotate the reticle
+            }
+        });
     }
 
     // Return an object containing the spacecraft and all necessary methods and attributes
@@ -347,6 +413,7 @@ export function createSpacecraft(scene) {
         topLeftWing: wingtipObjects[2],
         bottomLeftWing: wingtipObjects[3],
         reticle: reticleComponent.reticle,
-        updateReticle: reticleComponent.update
+        updateReticle: reticleComponent.update,
+        updateCockpit
     };
 }

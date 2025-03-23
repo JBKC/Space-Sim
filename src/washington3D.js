@@ -867,14 +867,14 @@ export function update(deltaTime = 0.016) {
  // Update all active lasers
  updateLasers(deltaTime);
  
- // Update reticle with both boost and slow states
+ // Update reticle
  if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
    spacecraft.userData.updateReticle(keys.up, keys.down);
- } else {
-   if (!window.reticleWarningLogged) {
-     console.warn("Reticle update function not found on spacecraft userData", spacecraft);
-     window.reticleWarningLogged = true;
-   }
+ }
+ 
+ // Update cockpit elements if in first-person view
+ if (spacecraft && spacecraft.updateCockpit) {
+   spacecraft.updateCockpit(deltaTime);
  }
  
  if (tiles.group) {

@@ -331,6 +331,11 @@ export function update(deltaTime) {
     if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
         spacecraft.userData.updateReticle(keys.up, keys.down);
     }
+    
+    // Update cockpit elements if in first-person view
+    if (spacecraft && spacecraft.updateCockpit) {
+        spacecraft.updateCockpit(deltaTime);
+    }
 }
 
 function onWindowResize() {

@@ -64,7 +64,7 @@ export function renderScene() {
         console.log("Earth surface active, deferring rendering");
     } else {
         // Render space scene
-        console.log("Rendering space scene");
+        // console.log("Rendering space scene");
         renderer.render(scene, camera);
     }
 }
@@ -208,7 +208,7 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         
         // Update reticle position if available
         if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
-            console.log("Updating reticle in setup.js");
+            // console.log("Updating reticle in setup.js");
             spacecraft.userData.updateReticle(isBoosting, keys.down);  // Pass both boost and slow states
         } else {
             // Only log this warning once to avoid console spam
@@ -216,6 +216,11 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
                 console.warn("Reticle update function not found on spacecraft userData in setup.js", spacecraft);
                 window.setupReticleWarningLogged = true;
             }
+        }
+        
+        // Update cockpit elements if in first-person view
+        if (spacecraft && spacecraft.updateCockpit) {
+            spacecraft.updateCockpit(deltaTime);
         }
 
         updateStars();

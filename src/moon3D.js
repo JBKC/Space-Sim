@@ -709,6 +709,11 @@ export function update(deltaTime = 0.016) {
             }
         }
         
+        // Update cockpit elements if in first-person view
+        if (spacecraft && spacecraft.updateCockpit) {
+            spacecraft.updateCockpit(deltaTime);
+        }
+        
         // Ensure tiles receive shadows
         if (tiles.group) {
             tiles.group.traverse((node) => {
