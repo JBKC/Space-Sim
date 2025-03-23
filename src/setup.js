@@ -3,6 +3,7 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/thr
 import { updateMovement, updateCamera, keys } from './movement.js';
 import { createSpacecraft } from './spacecraft.js';
 import { fireLaser, updateLasers } from './laser.js';
+import { updateControlsDropdown } from './ui.js';
 
 // General initialization - scene, camera, renderer
 // do outside of init function as scene is required by multiple other files
@@ -282,6 +283,9 @@ export function checkPlanetProximity() {
 export function exitEarthSurface() {
     console.log("Exiting Earth's surface!");
     isEarthSurfaceActive = false;
+    
+    // Update the controls dropdown to show hyperspace option again
+    updateControlsDropdown(false);
     
     // Remove the persistent surface message if it exists
     const persistentMessage = document.getElementById('earth-surface-message');

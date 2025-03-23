@@ -49,6 +49,68 @@ export function setupUIElements() {
         glowOverlay.style.zIndex = '1000';
         document.body.appendChild(glowOverlay);
     }
+    
+    // Setup controls dropdown
+    setupControlsDropdown();
+}
+
+// Setup controls dropdown functionality
+function setupControlsDropdown() {
+    const controlsPrompt = document.getElementById('controls-prompt');
+    const controlsDropdown = document.getElementById('controls-dropdown');
+    
+    if (!controlsPrompt || !controlsDropdown) return;
+    
+    // Hide controls prompt on welcome screen
+    const welcomeScreen = document.getElementById('welcome-screen');
+    if (welcomeScreen && welcomeScreen.style.display !== 'none') {
+        controlsPrompt.style.display = 'none';
+    }
+    
+    // Toggle dropdown on Enter key
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            toggleControlsDropdown();
+        }
+    });
+    
+    // Toggle dropdown when clicking the prompt
+    controlsPrompt.addEventListener('click', toggleControlsDropdown);
+}
+
+// Export the toggle function to be accessible from other modules
+export function toggleControlsDropdown() {
+    const controlsDropdown = document.getElementById('controls-dropdown');
+    const controlsPrompt = document.getElementById('controls-prompt');
+    if (!controlsDropdown || !controlsPrompt) return;
+    
+    if (controlsDropdown.style.display === 'none' || controlsDropdown.style.display === '') {
+        controlsDropdown.style.display = 'block';
+        controlsPrompt.textContent = 'Press Enter to hide controls';
+    } else {
+        controlsDropdown.style.display = 'none';
+        controlsPrompt.textContent = 'Press Enter to view controls';
+    }
+}
+
+// Update controls dropdown content based on current scene
+export function updateControlsDropdown(isEarthSurfaceActive) {
+    const controlsDropdown = document.getElementById('controls-dropdown');
+    if (!controlsDropdown) return;
+    
+    const hyperspaceOption = controlsDropdown.querySelector('.hyperspace-option');
+    if (hyperspaceOption) {
+        // Hide the hyperspace option when on Earth's surface
+        hyperspaceOption.style.display = isEarthSurfaceActive ? 'none' : 'block';
+    }
+}
+
+// Show controls prompt when game starts
+export function showControlsPrompt() {
+    const controlsPrompt = document.getElementById('controls-prompt');
+    if (controlsPrompt) {
+        controlsPrompt.style.display = 'block';
+    }
 }
 
 export function showRaceModeUI() {

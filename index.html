@@ -63,6 +63,30 @@
             color: #b3e5fc;
             letter-spacing: 1px;
         }
+        /* Control columns layout */
+        .control-columns {
+            display: flex;
+            justify-content: space-around;
+            margin: 0 auto;
+            max-width: 900px;
+            gap: 20px;
+        }
+        .control-column {
+            flex: 1;
+            padding: 0 15px;
+            border: 1px solid rgba(79, 195, 247, 0.3);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+        .control-column h3 {
+            font-size: 20px;
+            color: #4fc3f7;
+            text-transform: uppercase;
+            margin: 15px 0;
+            letter-spacing: 2px;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(79, 195, 247, 0.5);
+        }
         .mode-buttons {
             display: flex;
             gap: 20px;
@@ -99,7 +123,7 @@
 
         #coordinates {
             position: absolute;
-            top: 10px;
+            bottom: 10px;
             left: 10px;
             color: #4fc3f7;
             font-family: 'Orbitron', sans-serif;
@@ -170,6 +194,57 @@
             box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
             transform-origin: right; /* Ensure it shrinks from the right */
         }
+        
+        /* Controls prompt and dropdown */
+        #controls-prompt {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            color: #4fc3f7;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 12px;
+            border-radius: 4px;
+            z-index: 1000;
+            cursor: pointer;
+            text-shadow: 0 0 5px rgba(79, 195, 247, 0.7);
+            pointer-events: auto;
+            border: 1px solid rgba(79, 195, 247, 0.5);
+            box-shadow: 0 0 10px rgba(79, 195, 247, 0.3);
+        }
+        
+        #controls-dropdown {
+            position: fixed;
+            top: 50px;
+            left: 10px;
+            width: 280px;
+            font-family: 'Orbitron', sans-serif;
+            color: #b3e5fc;
+            background: rgba(0, 0, 0, 0.9);
+            border: 1px solid rgba(79, 195, 247, 0.5);
+            border-radius: 4px;
+            padding: 15px;
+            z-index: 999;
+            display: none;
+            box-shadow: 0 0 20px rgba(79, 195, 247, 0.3);
+        }
+        
+        #controls-dropdown h3 {
+            font-size: 18px;
+            color: #4fc3f7;
+            text-transform: uppercase;
+            margin: 10px 0;
+            border-bottom: 1px solid rgba(79, 195, 247, 0.3);
+            padding-bottom: 5px;
+            letter-spacing: 2px;
+        }
+        
+        #controls-dropdown p {
+            font-size: 14px;
+            margin: 6px 0;
+            letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
@@ -180,13 +255,25 @@
             <h1>PLANETARY</h1>
             <div class="instructions">
                 <h2>CONTROLS</h2>
-                <p>W / S: Pitch Down / Up</p>
-                <p>A / D: Roll Left / Right</p>
-                <p>Left / Right Arrow: Yaw Left / Right</p>
-                <p>Up Arrow: Boost</p>
-                <p>Down Arrow: Slow</p>
-                <p>Shift: Hyperspace</p>
-                <p>Spacebar: Fire Lasers</p>
+                <div class="control-columns">
+                    <div class="control-column">
+                        <h3>MOVEMENT</h3>
+                        <p>W / S: Pitch Down / Up</p>
+                        <p>A / D: Roll Left / Right</p>
+                        <p>Left / Right Arrow: Yaw Left / Right</p>
+                    </div>
+                    <div class="control-column">
+                        <h3>SPEED</h3>
+                        <p>Up Arrow: Boost</p>
+                        <p>Down Arrow: Slow</p>
+                        <p>Shift: Hyperspace</p>
+                    </div>
+                    <div class="control-column">
+                        <h3>ACTIONS</h3>
+                        <p>Spacebar: Fire Lasers</p>
+                        <p>C: First Person View</p>
+                    </div>
+                </div>
             </div>
             <div class="mode-buttons">
                 <button class="mode-button" id="explore-button">Explore the Galaxy</button>
@@ -199,6 +286,24 @@
             <div class="bar"></div>
         </div>
         <div id="hyperspace-progress-label">HYPERSPACE</div>
+    </div>
+    
+    <!-- Controls prompt and dropdown -->
+    <div id="controls-prompt" style="display: none;">Press Enter to view controls</div>
+    <div id="controls-dropdown">
+        <h3>MOVEMENT</h3>
+        <p>W / S: Pitch Down / Up</p>
+        <p>A / D: Roll Left / Right</p>
+        <p>Left / Right Arrow: Yaw Left / Right</p>
+        
+        <h3>SPEED</h3>
+        <p>Up Arrow: Boost</p>
+        <p>Down Arrow: Slow</p>
+        <p class="hyperspace-option">Shift: Hyperspace</p>
+        
+        <h3>ACTIONS</h3>
+        <p>Spacebar: Fire Lasers</p>
+        <p>C: First Person View</p>
     </div>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>

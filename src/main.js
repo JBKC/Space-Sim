@@ -45,7 +45,16 @@ import {
 
 
 import { setGameMode, resetMovementInputs, keys } from './movement.js'; // Added keys import
-import { setupUIElements, setupDirectionalIndicator, updateDirectionalIndicator, showRaceModeUI, hideRaceModeUI, updateUI } from './ui.js';
+import { 
+    setupUIElements, 
+    setupDirectionalIndicator, 
+    updateDirectionalIndicator, 
+    showRaceModeUI, 
+    hideRaceModeUI, 
+    updateUI,
+    showControlsPrompt,
+    updateControlsDropdown
+} from './ui.js';
 
 // Import the reticle functions but we won't initialize them here
 import { setReticleVisibility } from './reticle.js';
@@ -174,6 +183,10 @@ function startGame(mode) {
     if (coordsDiv) {
         coordsDiv.style.display = 'block';
     }
+    
+    // Show the controls prompt and initialize dropdown state
+    showControlsPrompt();
+    updateControlsDropdown(isEarthSurfaceActive);
 
     if (!isAnimating) {
         isAnimating = true;
@@ -405,19 +418,15 @@ function animate(currentTime = 0) {
                 
                 // Update coordinates display - only show in space mode
                 const coordsDiv = document.getElementById('coordinates');
-                if (coordsDiv && spacecraft) {
+                if (coordsDiv) {
+                    if (spacecraft) {
+                        // Format coordinates to 1 decimal place
+                        coordsDiv.textContent = `X: ${spacecraft.position.x.toFixed(1)}, Y: ${spacecraft.position.y.toFixed(1)}, Z: ${spacecraft.position.z.toFixed(1)}`;
+                    }
                     coordsDiv.style.display = 'block';
-                    coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
-                    const pos = spacecraft.position;
-                    coordsDiv.textContent = `X: ${pos.x.toFixed(0)}, Y: ${pos.y.toFixed(0)}, Z: ${pos.z.toFixed(0)}`;
-                } else if (coordsDiv) {
-                    coordsDiv.style.display = 'block';
-                    coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
-                    coordsDiv.textContent = 'Spacecraft initializing...';
                 }
                 
-                updateUI();
-                
+                // Render the scene
                 renderScene();
             } catch (e) {
                 console.error('Space animation error:', e);
@@ -466,35 +475,6 @@ function animate(currentTime = 0) {
                             if (coordsDiv) {
                                 coordsDiv.style.display = 'none';
                             }
-                        } else {
-                            // If Earth is already initialized, just show the message
-                            const earthMsg = document.createElement('div');
-                            earthMsg.id = 'earth-surface-message';
-                            earthMsg.style.position = 'fixed';
-                            earthMsg.style.top = '20px';
-                            earthMsg.style.right = '20px';
-                            earthMsg.style.color = 'white';
-                            earthMsg.style.fontFamily = 'Orbitron, sans-serif';
-                            earthMsg.style.fontSize = '16px';
-                            earthMsg.style.padding = '10px';
-                            earthMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-                            earthMsg.style.borderRadius = '5px';
-                            earthMsg.style.zIndex = '9999';
-                            earthMsg.innerHTML = 'EARTH SURFACE<br>Press ESC to return to space<br>Press R to reset position';
-                            document.body.appendChild(earthMsg);
-                            
-                            // Hide space container to see surface scene
-                            const spaceContainer = document.getElementById('space-container');
-                            if (spaceContainer) {
-                                spaceContainer.style.display = 'none';
-                                console.log('Hid space-container');
-                            }
-                            
-                            // Hide coordinates display in earth surface mode
-                            const coordsDiv = document.getElementById('coordinates');
-                            if (coordsDiv) {
-                                coordsDiv.style.display = 'none';
-                            }
                         }
                         
                         // Reset position to starting point over San Francisco every time we enter Earth surface
@@ -514,6 +494,11 @@ function animate(currentTime = 0) {
             } catch (e) {
                 console.error('Earth surface animation error:', e);
             }
+        }
+        
+        // Update the hyperspace option in the controls dropdown when scene changes
+        if (prevEarthSurfaceActive !== isEarthSurfaceActive) {
+            updateControlsDropdown(isEarthSurfaceActive);
         }
         
         // CASE 2 = moon surface view
