@@ -40,7 +40,7 @@ export {
  spacecraft,
  localOrigin,  // Export local origin for other modules to use
  worldToLocal,  // Export conversion functions
- localToWorld
+ localToWorld,
 };
 
 // Define spacecraft
@@ -134,6 +134,12 @@ let gridHelper; // Declare gridHelper as a global variable
 // Add a global variable to reference the base plane for collision detection
 let basePlane;
 
+// Add global variables to control the base plane position and rotation
+const basePlaneConfig = {
+  position: { x: 400, y: 1000, z: -10 },
+  rotation: { x: 0, y: 0, z: 30 }
+};
+
 function initSpacecraft() {
  const spacecraftComponents = createSpacecraft(scene);
     spacecraft = spacecraftComponents.spacecraft;
@@ -158,10 +164,10 @@ function initSpacecraft() {
    console.warn("Reticle not found in spacecraft components");
  }
 
- // Set initial position above San Francisco
+ // Set initial position of craft above San Francisco
  const sfLat = 37.7749;
  const sfLon = -122.4194;
- const initialHeight = 1000;
+ const initialHeight = 5000;
  const position = latLonHeightToEcef(sfLat, sfLon, initialHeight);
     spacecraft.position.copy(position);
 
@@ -734,19 +740,30 @@ function createBasePlane() {
   // Add axes to our grid container
   gridPlaneSystem.add(axesHelper);
   
-  // Create a black plane with Z axis as normal - keep this visible for the checkered pattern
-  const planeSize = 10000;
-  const planeGeometry = new THREE.PlaneGeometry(planeSize, planeSize);
+  // Create a plane with Z axis as normal
+  // seelect planesize
+  const planeGeometry = new THREE.PlaneGeometry(7000, 6000);
   const planeMaterial = new THREE.MeshBasicMaterial({ 
-    color: 0x507160, 
+    color: 0x507062, 
     side: THREE.DoubleSide,
     transparent: false,
     opacity: 1.0
   });
   basePlane = new THREE.Mesh(planeGeometry, planeMaterial);
   
-  // Position the plane according to provided values
-  basePlane.position.set(0, 0, -10);
+  // Position the plane according to provided values in basePlaneConfig
+  basePlane.position.set(
+    basePlaneConfig.position.x,
+    basePlaneConfig.position.y,
+    basePlaneConfig.position.z
+  );
+  
+  // Apply rotation to the plane (in radians)
+  basePlane.rotation.set(
+    THREE.MathUtils.degToRad(basePlaneConfig.rotation.x),
+    THREE.MathUtils.degToRad(basePlaneConfig.rotation.y),
+    THREE.MathUtils.degToRad(basePlaneConfig.rotation.z)
+  );
   
   // Set a name to identify it for collision detection
   basePlane.name = "basePlane";
@@ -757,7 +774,43 @@ function createBasePlane() {
   // Add the coordinate system to the scene
   scene.add(gridPlaneSystem);
   
-  console.log("Fixed coordinate system created with exact position and orientation (axes hidden)");
+  console.log("Fixed coordinate system created with position:", basePlaneConfig.position, "and rotation:", basePlaneConfig.rotation);
+}
+
+// Add a function to update the base plane position and rotation
+export function updateBasePlane(position, rotation) {
+  // Update the configuration
+  if (position) {
+    basePlaneConfig.position.x = position.x !== undefined ? position.x : basePlaneConfig.position.x;
+    basePlaneConfig.position.y = position.y !== undefined ? position.y : basePlaneConfig.position.y;
+    basePlaneConfig.position.z = position.z !== undefined ? position.z : basePlaneConfig.position.z;
+  }
+  
+  if (rotation) {
+    basePlaneConfig.rotation.x = rotation.x !== undefined ? rotation.x : basePlaneConfig.rotation.x;
+    basePlaneConfig.rotation.y = rotation.y !== undefined ? rotation.y : basePlaneConfig.rotation.y;
+    basePlaneConfig.rotation.z = rotation.z !== undefined ? rotation.z : basePlaneConfig.rotation.z;
+  }
+  
+  // If the plane already exists, update its position and rotation
+  if (basePlane) {
+    basePlane.position.set(
+      basePlaneConfig.position.x,
+      basePlaneConfig.position.y,
+      basePlaneConfig.position.z
+    );
+    
+    basePlane.rotation.set(
+      THREE.MathUtils.degToRad(basePlaneConfig.rotation.x),
+      THREE.MathUtils.degToRad(basePlaneConfig.rotation.y),
+      THREE.MathUtils.degToRad(basePlaneConfig.rotation.z)
+    );
+    
+    console.log("Updated base plane position:", basePlaneConfig.position, "and rotation:", basePlaneConfig.rotation);
+  } else {
+    // If the plane doesn't exist yet, recreate it
+    createBasePlane();
+  }
 }
 
 // Replace the dynamic alignGridToTerrain function with our fixed implementation
