@@ -115,7 +115,8 @@ document.addEventListener('keydown', (event) => {
             coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
         }
     }
-    if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
+    // Only allow hyperspace if not on Earth's surface
+    if ((event.code === 'ShiftLeft' || event.code === 'ShiftRight') && !isEarthSurfaceActive) {
         startHyperspace();
     }
     // Reset position in Earth surface mode
@@ -264,7 +265,8 @@ function updateStreaks() {
 
 // Function to start hyperspace with progress bar and streaks
 function startHyperspace() {
-    if (isHyperspace) return;
+    // Don't activate hyperspace if already in hyperspace or on Earth's surface
+    if (isHyperspace || isEarthSurfaceActive) return;
     
     isHyperspace = true;
     console.log('Entering hyperspace... Speed should increase dramatically!');
@@ -475,6 +477,19 @@ function animate(currentTime = 0) {
                             if (coordsDiv) {
                                 coordsDiv.style.display = 'none';
                             }
+                            
+                            // Hide hyperspace progress container on Earth's surface
+                            const progressContainer = document.getElementById('hyperspace-progress-container');
+                            if (progressContainer) {
+                                progressContainer.style.display = 'none';
+                            }
+                            
+                            // Clean up any existing hyperspace streaks
+                            if (streakLines && streakLines.length > 0) {
+                                streakLines.forEach(streak => spaceScene.remove(streak.line));
+                                streakLines = [];
+                                isHyperspace = false;
+                            }
                         }
                         
                         // Reset position to starting point over San Francisco every time we enter Earth surface
@@ -499,6 +514,12 @@ function animate(currentTime = 0) {
         // Update the hyperspace option in the controls dropdown when scene changes
         if (prevEarthSurfaceActive !== isEarthSurfaceActive) {
             updateControlsDropdown(isEarthSurfaceActive);
+            
+            // Hide hyperspace progress bar when on Earth's surface
+            const progressContainer = document.getElementById('hyperspace-progress-container');
+            if (progressContainer) {
+                progressContainer.style.display = 'none'; // Always hide when scene changes
+            }
         }
         
         // CASE 2 = moon surface view

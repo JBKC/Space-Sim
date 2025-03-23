@@ -1005,7 +1005,8 @@ export const PLANET_POSITION = earthGroup.position;
 // Hyperspace
 let isHyperspaceActive = false;
 function activateHyperspace() {
-    if (!isHyperspaceActive) {
+    // Don't activate hyperspace if on Earth's surface
+    if (!isHyperspaceActive && !isEarthSurfaceActive) {
         isHyperspaceActive = true;
         console.log("Hyperspace activated!");
         setTimeout(deactivateHyperspace, 2000);
@@ -1020,7 +1021,8 @@ function deactivateHyperspace() {
 }
 
 window.addEventListener('keydown', (event) => {
-    if (event.key === 'Shift') activateHyperspace();
+    // Only activate hyperspace if not on Earth's surface
+    if (event.key === 'Shift' && !isEarthSurfaceActive) activateHyperspace();
 });
 window.addEventListener('keyup', (event) => {
     if (event.key === 'Shift') deactivateHyperspace();
