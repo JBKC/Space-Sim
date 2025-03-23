@@ -5,17 +5,17 @@ import * as THREE from 'three';
 
 // Space view camera offsets
 export const spaceCamera = {
-    base: new THREE.Vector3(0, 2, 0),         // Normal camera position (behind spacecraft)
-    boost: new THREE.Vector3(0, 3, 0),        // Further back during boost (less extreme than before)
-    slow: new THREE.Vector3(0, 1.5, 0),       // Closer camera during slow mode
+    base: new THREE.Vector3(0, 2, 30),         // Normal camera position (behind spacecraft)
+    boost: new THREE.Vector3(0, 2, 200),        // Further back during boost
+    slow: new THREE.Vector3(0, 2, 12),       // Closer camera during slow mode
     hyperspace: new THREE.Vector3(0, 2, -4),   // Close camera during hyperspace
 };
 
 // San Francisco camera offsets
 export const sanFranCamera = {
-    base: new THREE.Vector3(0, 2, 0),
-    boost: new THREE.Vector3(0, 3, 0),
-    slow: new THREE.Vector3(0, 1.5, 0),
+    base: new THREE.Vector3(0, 30, -50),         // Normal camera position (behind spacecraft)
+    boost: new THREE.Vector3(0, 20, 100),        // Further back during boost
+    slow: new THREE.Vector3(0, 30, -30),       // Closer camera during slow mode
     collision: new THREE.Vector3(0, 5, -20),
 };
 

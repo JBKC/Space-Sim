@@ -19,8 +19,8 @@ import {
 } from './setup.js';
 
 // Movement and boost variables
-export const baseSpeed = 1.5;
-export const boostSpeed = baseSpeed * 3;
+export const baseSpeed = 5;
+export const boostSpeed = baseSpeed * 5;
 export const slowSpeed = baseSpeed * 0.5; // Half of base speed for slow mode
 export let currentSpeed = baseSpeed;
 export const turnSpeed = 0.03;
@@ -84,7 +84,7 @@ document.addEventListener('keydown', (event) => {
         case 'ArrowUp': keys.up = true; break;
         case 'ArrowDown': keys.down = true; break;
         case ' ': case 'Space': // Handle both space character and 'Space' string
-            keys.space = true; 
+            keys.space = true;
             break;
     }
     
@@ -124,7 +124,7 @@ export function updateMovement(isBoosting, isHyperspace) {
     
     // Original space movement behavior
     if (isHyperspace) {
-        currentSpeed = baseSpeed * 150;
+        currentSpeed = baseSpeed * 50;
     } else if (isBoosting || keys.up) {
         currentSpeed = boostSpeed;
     } else if (keys.down) {

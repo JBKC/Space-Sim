@@ -56,31 +56,57 @@ function updateCamera() {
         return;
     }
 
+    // Create a fixed pivot at the center of the spacecraft
+    const spacecraftCenter = new THREE.Object3D();
+    spacecraft.add(spacecraftCenter);
+    spacecraftCenter.updateMatrixWorld();
+
     // Update target offsets based on keys
     updateTargetOffsets(cameraState, keys, 'space');
     
     // Update current offsets by interpolating toward targets
     updateCameraOffsets(cameraState, rotation);
     
-    // Select appropriate offset based on state
-    let localOffset;
+    // Get the world position of the spacecraft's center
+    const pivotPosition = new THREE.Vector3();
+    spacecraftCenter.getWorldPosition(pivotPosition);
+    
+    // Calculate camera offset based on state
+    let offset = new THREE.Vector3();
     
     if (isHyperspace) {
-        // Special case for hyperspace
-        localOffset = spaceCamera.hyperspace.clone();
+        // Hyperspace offset
+        offset.copy(spaceCamera.hyperspace);
+    } else if (keys.up) {
+        // Boost offset
+        offset.copy(spaceCamera.boost);
+    } else if (keys.down) {
+        // Slow offset
+        offset.copy(spaceCamera.slow);
     } else {
-        // Using the exact same pattern as SanFran3D.js
-        localOffset = keys.up ? spaceCamera.boost.clone() : cameraState.currentOffset.clone();
+        // Base offset
+        offset.copy(spaceCamera.base);
     }
     
-    // Always apply the camera updates regardless of which mode we're in
-    const cameraPosition = localOffset.applyMatrix4(spacecraft.matrixWorld);
-    camera.position.lerp(cameraPosition, smoothFactor);
+    // Apply spacecraft's rotation to the offset
+    const quaternion = spacecraft.quaternion.clone();
+    offset.applyQuaternion(quaternion);
+    
+    // Calculate final camera position by adding offset to pivot
+    const finalPosition = new THREE.Vector3().addVectors(pivotPosition, offset);
+    
+    // Update camera position with smooth interpolation
+    camera.position.lerp(finalPosition, smoothFactor);
+    
+    // Make camera look at the spacecraft's forward direction
     camera.quaternion.copy(spacecraft.quaternion);
-
-    // Apply 180-degree rotation to look forward
+    
+    // Apply the 180-degree rotation to look forward
     const adjustment = createForwardRotation();
     camera.quaternion.multiply(adjustment);
+    
+    // Remove the temporary pivot (to avoid cluttering the scene)
+    spacecraft.remove(spacecraftCenter);
 }
 
 // Renderer settings
