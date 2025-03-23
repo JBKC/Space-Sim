@@ -46,16 +46,19 @@ scene.add(sideLight);
 scene.background = new THREE.Color(0x000000);
 
 // Flag to track which scene is active
-export let isMoonSurfaceActive = false;
+// export let isMoonSurfaceActive = false; // Moon surface access disabled
 export let isEarthSurfaceActive = false;
 
 // Render function that delegates to earth3D.js when in Earth surface mode
 // Update the renderScene function to avoid initializing earth3D multiple times
 export function renderScene() {
+    /* Moon surface access disabled
     if (isMoonSurfaceActive) {
         // nothing to do here
         console.log("Moon surface active, deferring rendering");
-    } else if (isEarthSurfaceActive) {
+    } else 
+    */
+    if (isEarthSurfaceActive) {
         // nothing to do here
         console.log("Earth surface active, deferring rendering");
     } else {
@@ -124,8 +127,6 @@ function initControls() {
             case 'ArrowLeft': keys.left = true; break;
             case 'ArrowRight': keys.right = true; break;
             case 'ArrowUp': keys.up = true; break;
-            case 'ArrowDown': keys.down = true; break;
-            case ' ': case 'Space': keys.space = true; break;
         }
     });
 
@@ -139,8 +140,6 @@ function initControls() {
             case 'ArrowLeft': keys.left = false; break;
             case 'ArrowRight': keys.right = false; break;
             case 'ArrowUp': keys.up = false; break;
-            case 'ArrowDown': keys.down = false; break;
-            case ' ': case 'Space': keys.space = false; break;
         }
     });
     
@@ -184,14 +183,14 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         // Check if spacecraft is near celestial body
         checkPlanetProximity();
 
-        // Handle laser firing if spacebar is pressed and not in hyperspace
-        if (keys.space && spacecraft && !isHyperspace) {
-            fireLaser(spacecraft, scene, 'space', isBoosting, keys.down);
+        // Handle laser firing if spacebar is pressed
+        if (keys.space && spacecraft) {
+            fireLaser(spacecraft, scene, 'space', isBoosting);
         }
 
         // Use the passed isBoosting and isHyperspace parameters
         updateMovement(isBoosting, isHyperspace);
-        updateCamera(camera, isHyperspace, keys.down);
+        updateCamera(camera, isHyperspace);
         
         // Handle laser updates
         if (typeof updateLasers === 'function') {
@@ -200,7 +199,7 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
 
         // Update spacecraft effects
         if (updateEngineEffects) {
-            updateEngineEffects(isBoosting, keys.down);
+            updateEngineEffects(isBoosting);
         }
         
         // Update reticle position if available
@@ -239,20 +238,21 @@ export function checkPlanetProximity() {
     // Define entry threshold directly in this function
     const moonEntryThreshold = 500; // Distance threshold for Moon entry
     
-    // Commented out Moon entry code
-    // if (distanceToMoon < moonRadius + moonEntryThreshold && !isMoonSurfaceActive) {
-    //     // If close enough - activate moon surface
-    //     isMoonSurfaceActive = true;
-    //     console.log("Moon surface active - distance:", distanceToMoon.toFixed(2));
-    //     
-    //     // Initialize the Moon surface (if needed)
-    //     // initMoonSurface();
-    // } else if (distanceToMoon >= moonRadius + moonEntryThreshold * 1.2 && isMoonSurfaceActive) {
-    //     // Add a small buffer (20% larger) to avoid oscillation at the boundary
-    //     // If moving away from Moon, exit Moon surface
-    //     isMoonSurfaceActive = false;
-    //     console.log("Exiting Moon surface - distance:", distanceToMoon.toFixed(2));
-    // }
+    /* Moon surface access disabled
+    if (distanceToMoon < moonRadius + moonEntryThreshold && !isMoonSurfaceActive) {
+        // If close enough - activate moon surface
+        isMoonSurfaceActive = true;
+        console.log("Moon surface active - distance:", distanceToMoon.toFixed(2));
+        
+        // Initialize the Moon surface (if needed)
+        // initMoonSurface();
+    } else if (distanceToMoon >= moonRadius + moonEntryThreshold * 1.2 && isMoonSurfaceActive) {
+        // Add a small buffer (20% larger) to avoid oscillation at the boundary
+        // If moving away from Moon, exit Moon surface
+        isMoonSurfaceActive = false;
+        console.log("Exiting Moon surface - distance:", distanceToMoon.toFixed(2));
+    }
+    */
     
     // Check Earth proximity (separate check)
     const earthPosition = earthGroup.position.clone();
@@ -287,6 +287,12 @@ export function exitEarthSurface() {
     const persistentMessage = document.getElementById('earth-surface-message');
     if (persistentMessage) {
         document.body.removeChild(persistentMessage);
+    }
+    
+    // Remove the reset position message if it exists
+    const resetMessage = document.getElementById('reset-position-message');
+    if (resetMessage) {
+        document.body.removeChild(resetMessage);
     }
     
     // Position spacecraft away from Earth to avoid immediate re-entry
@@ -335,6 +341,7 @@ export function exitEarthSurface() {
     }
 }
 
+/* Moon surface access disabled
 export function exitMoonSurface() {
     console.log("Exiting Moon's surface!");
     isMoonSurfaceActive = false;
@@ -390,6 +397,7 @@ export function exitMoonSurface() {
         console.warn('animate function not found on window object');
     }
 }
+*/
 
 ///////////////////// Solar System Setup /////////////////////
 
@@ -861,7 +869,7 @@ document.body.appendChild(moonDistanceIndicator);
 // Function to update label positions
 export function updatePlanetLabels() {
     // If on surface, hide all planet labels
-    if (isMoonSurfaceActive || isEarthSurfaceActive) {
+    if (isEarthSurfaceActive) {
         labels.forEach(label => {
             label.element.style.display = 'none';
         });
@@ -927,12 +935,15 @@ export function updatePlanetLabels() {
             }
             
             // If this is the Moon, position the distance indicator below it
+            // Moon entry functionality disabled
+            /*
             if (label.planetGroup === moonGroup) {
-                // moonDistanceIndicator.style.left = `${x}px`;
-                // moonDistanceIndicator.style.top = `${y + 35}px`;
-                // moonDistanceIndicator.style.transform = 'translateX(-50%)';
-                // moonDistanceIndicator.style.display = 'block'; // Show the distance indicator
+                moonDistanceIndicator.style.left = `${x}px`;
+                moonDistanceIndicator.style.top = `${y + 35}px`;
+                moonDistanceIndicator.style.transform = 'translateX(-50%)';
+                moonDistanceIndicator.style.display = 'block'; // Show the distance indicator
             }
+            */
         } else {
             // Hide the label if the planet is behind the camera
             label.element.style.display = 'none';
@@ -943,9 +954,12 @@ export function updatePlanetLabels() {
             }
             
             // If this is the Moon, also hide the distance indicator
+            // Moon entry functionality disabled
+            /*
             if (label.planetGroup === moonGroup) {
-                // moonDistanceIndicator.style.display = 'none';
+                moonDistanceIndicator.style.display = 'none';
             }
+            */
         }
     });
 }

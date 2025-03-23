@@ -187,6 +187,38 @@ function initSpacecraft() {
     updateEngineEffects = spacecraftComponents.updateEngineEffects;
 }
 
+/**
+ * Resets the spacecraft to its initial position over San Francisco
+ */
+export function resetSanFranPosition() {
+    if (!spacecraft) {
+        console.warn("Cannot reset position: spacecraft not initialized");
+        return;
+    }
+
+    console.log("Resetting spacecraft position to San Francisco starting point");
+    
+    // Set initial position of craft above San Francisco (same coordinates as in initialization)
+    const sfLat = 37.7749;
+    const sfLon = -122.4194;
+    const initialHeight = 1000;
+    const position = latLonHeightToEcef(sfLat, sfLon, initialHeight);
+    spacecraft.position.copy(position);
+
+    // Reset orientation
+    spacecraft.quaternion.setFromEuler(new THREE.Euler(
+        THREE.MathUtils.degToRad(-20),
+        THREE.MathUtils.degToRad(75),
+        THREE.MathUtils.degToRad(150),
+        'XYZ'
+    ));
+    
+    // Reset any velocity
+    if (spacecraft.userData && spacecraft.userData.velocity) {
+        spacecraft.userData.velocity.set(0, 0, 0);
+    }
+}
+
 // Helper function to create text sprites
 function createTextSprite(text, color, size = 1) {
  const canvas = document.createElement('canvas');
@@ -1195,17 +1227,17 @@ function checkBasePlaneCollision() {
   // Get the world position of the spacecraft
   const spacecraftWorldPosition = spacecraft.getWorldPosition(new THREE.Vector3());
 
-  // Get the plane’s world position and quaternion
+  // Get the plane's world position and quaternion
   const planeWorldPosition = new THREE.Vector3();
   basePlane.getWorldPosition(planeWorldPosition);
   const planeQuaternion = window.gridCoordinateSystem.quaternion;
 
-  // Get the plane’s normal (Z-axis of the grid system, pointing "up" in local space)
+  // Get the plane's normal (Z-axis of the grid system, pointing "up" in local space)
   const planeNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(planeQuaternion);
 
   // Define collision thresholds
-  const planeCollisionThreshold = 50;
-  const wallCollisionThreshold = 60;
+  const planeCollisionThreshold = 2;
+  const wallCollisionThreshold = 60;    // side walls that represent limits of the map
 
   // --- Plane Collision (prevent passing through the base plane) ---
   const raycasterPlane = new THREE.Raycaster();
@@ -1226,7 +1258,7 @@ function checkBasePlaneCollision() {
     const walls = [north, south, east, west];
     const wallNames = ["north", "south", "east", "west"];
 
-    // Get the plane’s local dimensions
+    // Get the plane's local dimensions
     const planeWidth = 7000;
     const planeDepth = 6000;
     const halfWidth = planeWidth / 2;

@@ -5,10 +5,10 @@ import {
     updateStars, 
     updatePlanetLabels, 
     checkPlanetProximity, 
-    isMoonSurfaceActive,
+    // isMoonSurfaceActive, // Moon surface access disabled
     isEarthSurfaceActive,
     exitEarthSurface,
-    exitMoonSurface,
+    // exitMoonSurface, // Moon surface access disabled
     updateMoonPosition,
     init as initSpace,
     update as updateSpace,
@@ -27,7 +27,8 @@ import {
     camera as earthCamera,
     // tiles as earthTiles,
     renderer as earthRenderer,
-    spacecraft as earthSpacecraft  // Import the spacecraft from sanFran3D.js
+    spacecraft as earthSpacecraft,  // Import the spacecraft from sanFran3D.js
+    resetSanFranPosition  // Import the reset position function
 // } from './washington3D.js';
 } from './sanFran3D.js';
 
@@ -62,6 +63,8 @@ let isSpacePressed = false;
 let spaceInitialized = false;
 let earthInitialized = false;  // Move to top-level scope for exports
 let moonInitialized = false;  // Move to top-level scope for exports
+// Moon surface access disabled - create dummy variable to prevent errors
+let isMoonSurfaceActive = false;
 
 // Laser firing variables
 let lastFired = 0;
@@ -105,6 +108,11 @@ document.addEventListener('keydown', (event) => {
     }
     if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
         startHyperspace();
+    }
+    // Reset position in Earth surface mode
+    if (event.code === 'KeyR' && isEarthSurfaceActive) {
+        console.log('R pressed - resetting position in San Francisco');
+        resetSanFranPosition();
     }
     // Enhanced ESC key to exit Moon surface or Earth surface
     if (event.code === 'Escape') {
@@ -342,11 +350,13 @@ function animate(currentTime = 0) {
             let activeSpacecraft = spacecraft;
             let sceneType = 'space';
             
+            /* Moon surface access disabled
             if (isMoonSurfaceActive) {
                 activeScene = moonScene;
                 activeSpacecraft = moonSpacecraft || spacecraft;
                 sceneType = 'moon';
             }
+            */
             if (isEarthSurfaceActive) {
                 activeScene = earthScene;
                 activeSpacecraft = earthSpacecraft || spacecraft;
@@ -365,7 +375,7 @@ function animate(currentTime = 0) {
         updateLasers(deltaTime);
 
         // CASE 0 = normal space view
-        if (!isEarthSurfaceActive && !isMoonSurfaceActive) {
+        if (!isEarthSurfaceActive /* && !isMoonSurfaceActive */) {
             // If we just exited a planet surface, make sure space container is visible
             const spaceContainer = document.getElementById('space-container');
             if (spaceContainer && spaceContainer.style.display === 'none') {
@@ -415,7 +425,7 @@ function animate(currentTime = 0) {
         }
 
         // CASE 1 = earth surface view
-        if (isEarthSurfaceActive && !isMoonSurfaceActive) {
+        if (isEarthSurfaceActive /* && !isMoonSurfaceActive */) {
             try {
                 // Detect if we just entered Earth's surface
                 if (!prevEarthSurfaceActive) {
@@ -448,7 +458,7 @@ function animate(currentTime = 0) {
                             earthMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
                             earthMsg.style.borderRadius = '5px';
                             earthMsg.style.zIndex = '9999';
-                            earthMsg.innerHTML = 'EARTH SURFACE<br>Press ESC to return to space';
+                            earthMsg.innerHTML = 'EARTH SURFACE<br>Press ESC to return to space<br>Press R to reset position';
                             document.body.appendChild(earthMsg);
                             
                             // Hide coordinates display in earth surface mode
@@ -456,7 +466,40 @@ function animate(currentTime = 0) {
                             if (coordsDiv) {
                                 coordsDiv.style.display = 'none';
                             }
+                        } else {
+                            // If Earth is already initialized, just show the message
+                            const earthMsg = document.createElement('div');
+                            earthMsg.id = 'earth-surface-message';
+                            earthMsg.style.position = 'fixed';
+                            earthMsg.style.top = '20px';
+                            earthMsg.style.right = '20px';
+                            earthMsg.style.color = 'white';
+                            earthMsg.style.fontFamily = 'Orbitron, sans-serif';
+                            earthMsg.style.fontSize = '16px';
+                            earthMsg.style.padding = '10px';
+                            earthMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                            earthMsg.style.borderRadius = '5px';
+                            earthMsg.style.zIndex = '9999';
+                            earthMsg.innerHTML = 'EARTH SURFACE<br>Press ESC to return to space<br>Press R to reset position';
+                            document.body.appendChild(earthMsg);
+                            
+                            // Hide space container to see surface scene
+                            const spaceContainer = document.getElementById('space-container');
+                            if (spaceContainer) {
+                                spaceContainer.style.display = 'none';
+                                console.log('Hid space-container');
+                            }
+                            
+                            // Hide coordinates display in earth surface mode
+                            const coordsDiv = document.getElementById('coordinates');
+                            if (coordsDiv) {
+                                coordsDiv.style.display = 'none';
+                            }
                         }
+                        
+                        // Reset position to starting point over San Francisco every time we enter Earth surface
+                        console.log('Automatically resetting position to San Francisco starting point');
+                        resetSanFranPosition();
                     });
                 }
                 
