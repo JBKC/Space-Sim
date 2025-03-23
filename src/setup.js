@@ -184,8 +184,8 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         // Check if spacecraft is near celestial body
         checkPlanetProximity();
 
-        // Handle laser firing if spacebar is pressed
-        if (keys.space && spacecraft) {
+        // Handle laser firing if spacebar is pressed and not in hyperspace
+        if (keys.space && spacecraft && !isHyperspace) {
             fireLaser(spacecraft, scene, 'space', isBoosting, keys.down);
         }
 
@@ -888,7 +888,7 @@ export function updatePlanetLabels() {
     const moonEntryDistance = Math.max(0, distanceToMoon - (moonRadius + 500)); // 200 is the entry threshold
     
     // Update the Moon distance indicator text
-    moonDistanceIndicator.textContent = `MOON ENTRY: ${Math.round(moonEntryDistance)}`;
+    // moonDistanceIndicator.textContent = `MOON ENTRY: ${Math.round(moonEntryDistance)}`;
 
     labels.forEach(label => {
         // Get planet's world position
@@ -927,10 +927,10 @@ export function updatePlanetLabels() {
             
             // If this is the Moon, position the distance indicator below it
             if (label.planetGroup === moonGroup) {
-                moonDistanceIndicator.style.left = `${x}px`;
-                moonDistanceIndicator.style.top = `${y + 35}px`;
-                moonDistanceIndicator.style.transform = 'translateX(-50%)';
-                moonDistanceIndicator.style.display = 'block'; // Show the distance indicator
+                // moonDistanceIndicator.style.left = `${x}px`;
+                // moonDistanceIndicator.style.top = `${y + 35}px`;
+                // moonDistanceIndicator.style.transform = 'translateX(-50%)';
+                // moonDistanceIndicator.style.display = 'block'; // Show the distance indicator
             }
         } else {
             // Hide the label if the planet is behind the camera
@@ -943,7 +943,7 @@ export function updatePlanetLabels() {
             
             // If this is the Moon, also hide the distance indicator
             if (label.planetGroup === moonGroup) {
-                moonDistanceIndicator.style.display = 'none';
+                // moonDistanceIndicator.style.display = 'none';
             }
         }
     });

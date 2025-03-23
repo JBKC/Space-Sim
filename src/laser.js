@@ -28,8 +28,8 @@ const LASER_CONFIG = {
         duration: 1500,        // Shorter duration due to atmospheric interference
         cooldown: 80,          // Slower firing rate due to atmospheric resistance
         offset: 485,             // No offset - lasers start right at wingtips
-        boostOffset: 450,      // Forward offset when boosting in atmosphere
-        slowOffset: 455        // Slightly forward offset when in slow mode
+        boostOffset: 455,      // Forward offset when boosting in atmosphere
+        slowOffset: 487        // Slightly forward offset when in slow mode
     },
     
     // Moon scene configuration

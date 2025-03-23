@@ -51,7 +51,7 @@ let wingAnimation = 0;
 const wingTransitionFrames = 30;
 
 // Movement settings
-const baseSpeed = 1;
+const baseSpeed = 1.5;
 const boostSpeed = baseSpeed * 3;
 const slowSpeed = baseSpeed * 0.5; // Half of base speed
 let currentSpeed = baseSpeed;

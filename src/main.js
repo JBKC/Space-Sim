@@ -352,9 +352,12 @@ function animate(currentTime = 0) {
                 sceneType = 'sanFran';
             }
             
-            // Get the key states
-            const slowMode = document.querySelector('[data-key="ArrowDown"]')?.classList.contains('active') || false;
-            fireLaser(activeSpacecraft, activeScene, sceneType, isBoosting, keys.down);
+            // Don't fire lasers if in space scene and hyperspace is active
+            if (!(sceneType === 'space' && isHyperspace)) {
+                // Get the key states
+                const slowMode = document.querySelector('[data-key="ArrowDown"]')?.classList.contains('active') || false;
+                fireLaser(activeSpacecraft, activeScene, sceneType, isBoosting, keys.down);
+            }
         }
         
         // Update laser positions and cleanup expired lasers
