@@ -29,9 +29,9 @@ export const sanFranCamera = {
 
 // San Francisco cockpit camera offsets
 export const sanFranCockpitCamera = {
-    base: new THREE.Vector3(0, 0, 7),         // Inside cockpit, looking forward
-    boost: new THREE.Vector3(0, 0, 5),        // Slightly downward tilt when boosting
-    slow: new THREE.Vector3(0, 0, 5),         // Slightly upward tilt when slow
+    base: new THREE.Vector3(0, 0, 13.35),         // Inside cockpit, looking forward
+    boost: new THREE.Vector3(0, 0, 40.1),        // Slightly downward tilt when boosting
+    slow: new THREE.Vector3(0, 0, 6.7),         // Slightly upward tilt when slow
     collision: new THREE.Vector3(0, 2, -1),        // Pulled back during collision
 };
 
