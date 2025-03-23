@@ -3,6 +3,7 @@ import { TilesRenderer } from '/node_modules/3d-tiles-renderer/src/three/TilesRe
 import { CesiumIonAuthPlugin } from '/node_modules/3d-tiles-renderer/src/plugins/three/CesiumIonAuthPlugin.js';
 import { GLTFExtensionsPlugin } from '/node_modules/3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js';
 import { DRACOLoader } from '/node_modules/three/examples/jsm/loaders/DRACOLoader.js';
+import { Water } from '/node_modules/three/examples/jsm/objects/Water.js'; // Correct import for ocean
 import { createSpacecraft } from './spacecraft.js';
 import { fireLaser, updateLasers } from './laser.js';
 
@@ -276,10 +277,10 @@ function createCoordinateSystem() {
  // Store this position as our local origin point
  localOrigin = coordPos.clone();
  
- // Make the coordinate system visible to help with orientation
- coordConfig.arrowLength = 1000; // Make axes longer
- coordConfig.arrowThickness = 50; // Make axes thicker
- coordConfig.labelSize = 200;   // Make labels bigger
+ // Make the coordinate system very small to effectively hide it
+ coordConfig.arrowLength = 1; // Tiny arrows
+ coordConfig.arrowThickness = 0.1; // Very thin
+ coordConfig.labelSize = 0.1; // Tiny labels
  
  coordinateSystem.scale.setScalar(coordConfig.scale);
  coordinateSystem.quaternion.setFromEuler(new THREE.Euler(
@@ -289,15 +290,18 @@ function createCoordinateSystem() {
  'XYZ'
  ));
 
+ // Hide the coordinate system entirely
+ coordinateSystem.visible = false;
  scene.add(coordinateSystem);
  
- // Add a reference grid to help with positioning
+ // Create a hidden grid helper (needed for structure but won't be visible)
  gridHelper = new THREE.GridHelper(10000, 100, 0x888888, 0x444444);
  gridHelper.position.copy(coordPos);
  gridHelper.rotation.x = Math.PI / 2; // Initial rotation to lie on X-Y plane (Z-up)
+ gridHelper.visible = false; // Hide the grid helper
  scene.add(gridHelper);
  
- console.log("Local coordinate system initialized with origin at:", localOrigin);
+ console.log("Local coordinate system initialized but hidden from view");
 }
 
 // Convert lat/lon/height to ECEF coordinates for Earth
@@ -663,13 +667,14 @@ function createBasePlane() {
   const fixedQuaternion = new THREE.Quaternion(0.6390, 0.6326, 0.4253, -0.1034);
   gridPlaneSystem.quaternion.copy(fixedQuaternion);
   
-  // Create our coordinate axes for the grid
+  // Create our coordinate axes for the grid, but make them invisible
   const axesSize = 500; // Size of the coordinate axes
   const axesHelper = new THREE.Group();
+  axesHelper.visible = false; // Hide the entire axes system
   
   // X axis (red)
   const xGeometry = new THREE.CylinderGeometry(20, 20, axesSize, 8);
-  const xMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  const xMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, visible: false });
   const xAxis = new THREE.Mesh(xGeometry, xMaterial);
   xAxis.rotation.z = -Math.PI / 2;
   xAxis.position.x = axesSize / 2;
@@ -682,7 +687,7 @@ function createBasePlane() {
   
   // Y axis (green)
   const yGeometry = new THREE.CylinderGeometry(20, 20, axesSize, 8);
-  const yMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+  const yMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, visible: false });
   const yAxis = new THREE.Mesh(yGeometry, yMaterial);
   yAxis.position.y = axesSize / 2;
   
@@ -693,7 +698,7 @@ function createBasePlane() {
   
   // Z axis (blue)
   const zGeometry = new THREE.CylinderGeometry(20, 20, axesSize, 8);
-  const zMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+  const zMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff, visible: false });
   const zAxis = new THREE.Mesh(zGeometry, zMaterial);
   zAxis.rotation.x = Math.PI / 2;
   zAxis.position.z = axesSize / 2;
@@ -704,20 +709,23 @@ function createBasePlane() {
   zCone.rotation.x = Math.PI / 2;
   zCone.position.z = axesSize + 50;
   
-  // Labels
+  // Labels - make them invisible
   const labelSize = 100;
   const xLabel = createTextSprite('X', '#ff0000', labelSize / 500);
   xLabel.position.set(axesSize + 150, 0, 0);
+  xLabel.visible = false;
   
   const yLabel = createTextSprite('Y', '#00ff00', labelSize / 500);
   yLabel.position.set(0, axesSize + 150, 0);
+  yLabel.visible = false;
   
   const zLabel = createTextSprite('Z', '#0000ff', labelSize / 500);
   zLabel.position.set(0, 0, axesSize + 150);
+  zLabel.visible = false;
   
-  // Add a sphere at the origin
+  // Add a sphere at the origin - make it invisible
   const originGeometry = new THREE.SphereGeometry(40, 16, 16);
-  const originMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const originMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, visible: false });
   const origin = new THREE.Mesh(originGeometry, originMaterial);
   
   // Add everything to the axes helper
@@ -726,11 +734,11 @@ function createBasePlane() {
   // Add axes to our grid container
   gridPlaneSystem.add(axesHelper);
   
-  // Create a black plane with Z axis as normal
+  // Create a black plane with Z axis as normal - keep this visible for the checkered pattern
   const planeSize = 10000;
   const planeGeometry = new THREE.PlaneGeometry(planeSize, planeSize);
   const planeMaterial = new THREE.MeshBasicMaterial({ 
-    color: 0x000000, 
+    color: 0x507160, 
     side: THREE.DoubleSide,
     transparent: false,
     opacity: 1.0
@@ -749,7 +757,7 @@ function createBasePlane() {
   // Add the coordinate system to the scene
   scene.add(gridPlaneSystem);
   
-  console.log("Fixed coordinate system created with exact position and orientation");
+  console.log("Fixed coordinate system created with exact position and orientation (axes hidden)");
 }
 
 // Replace the dynamic alignGridToTerrain function with our fixed implementation
@@ -907,14 +915,17 @@ export function init() {
  camera.position.set(100, 100, -100);
  camera.lookAt(0, 0, 0);
  
-    textureLoader = new THREE.TextureLoader();
- setupearthLighting();
-    initSpacecraft();
-    reinstantiateTiles();
+textureLoader = new THREE.TextureLoader();
+setupearthLighting();
+initSpacecraft();
 
-    onWindowResize();
-    window.addEventListener('resize', onWindowResize, false);
-    initControls();
+const water = addRealisticOcean();
+
+reinstantiateTiles();
+
+onWindowResize();
+window.addEventListener('resize', onWindowResize, false);
+initControls();
 
  earthInitialized = true;
  console.log("San Francisco 3D initialization complete");
@@ -929,6 +940,10 @@ export function init() {
 
 // Add this function to update grid alignment based on spacecraft position
 function updateGridAlignment() {
+  // Function disabled - grid is now hidden
+  return;
+  
+  /* Original code kept for reference
   if (!spacecraft || !tiles || !tiles.group || !gridHelper) {
     return;
   }
@@ -985,9 +1000,10 @@ function updateGridAlignment() {
       }
     }
   }
+  */
 }
 
-// Add a call to updateGridAlignment in the update function
+// Remove the call to updateGridAlignment in the update function
 export function update(deltaTime = 0.016) {
  try {
  if (!earthInitialized) {
@@ -1002,8 +1018,7 @@ export function update(deltaTime = 0.016) {
         updateMovement();
         updateCamera();
         
- // Call the grid alignment update
- updateGridAlignment();
+ // Call to updateGridAlignment removed since grid is now hidden
  
  // Handle laser firing with spacebar
  if (keys.space && spacecraft) {
@@ -1128,4 +1143,30 @@ function checkBasePlaneCollision() {
   }
   
   return false;
+}
+
+
+function addRealisticOcean() {
+    const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
+  
+    const water = new Water(waterGeometry, {
+      textureWidth: 512,
+      textureHeight: 512,
+      waterNormals: new THREE.TextureLoader().load(
+        'https://threejs.org/examples/textures/waternormals.jpg',
+        (texture) => {
+          texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        }
+      ),
+      alpha: 1.0,
+      sunDirection: new THREE.Vector3(0, 1, 0), // Adjusted to match lighting
+      sunColor: 0xffffff,
+      waterColor: 0x001e0f,
+      distortionScale: 3.7,
+      fog: true
+    });
+  
+    water.rotation.x = -Math.PI / 2; // Rotate to lie flat
+  
+    return water;
 }
