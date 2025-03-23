@@ -239,19 +239,20 @@ export function checkPlanetProximity() {
     // Define entry threshold directly in this function
     const moonEntryThreshold = 500; // Distance threshold for Moon entry
     
-    if (distanceToMoon < moonRadius + moonEntryThreshold && !isMoonSurfaceActive) {
-        // If close enough - activate moon surface
-        isMoonSurfaceActive = true;
-        console.log("Moon surface active - distance:", distanceToMoon.toFixed(2));
-        
-        // Initialize the Moon surface (if needed)
-        // initMoonSurface();
-    } else if (distanceToMoon >= moonRadius + moonEntryThreshold * 1.2 && isMoonSurfaceActive) {
-        // Add a small buffer (20% larger) to avoid oscillation at the boundary
-        // If moving away from Moon, exit Moon surface
-        isMoonSurfaceActive = false;
-        console.log("Exiting Moon surface - distance:", distanceToMoon.toFixed(2));
-    }
+    // Commented out Moon entry code
+    // if (distanceToMoon < moonRadius + moonEntryThreshold && !isMoonSurfaceActive) {
+    //     // If close enough - activate moon surface
+    //     isMoonSurfaceActive = true;
+    //     console.log("Moon surface active - distance:", distanceToMoon.toFixed(2));
+    //     
+    //     // Initialize the Moon surface (if needed)
+    //     // initMoonSurface();
+    // } else if (distanceToMoon >= moonRadius + moonEntryThreshold * 1.2 && isMoonSurfaceActive) {
+    //     // Add a small buffer (20% larger) to avoid oscillation at the boundary
+    //     // If moving away from Moon, exit Moon surface
+    //     isMoonSurfaceActive = false;
+    //     console.log("Exiting Moon surface - distance:", distanceToMoon.toFixed(2));
+    // }
     
     // Check Earth proximity (separate check)
     const earthPosition = earthGroup.position.clone();

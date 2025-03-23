@@ -32,15 +32,15 @@ import {
 } from './sanFran3D.js';
 
 // import moon surface functions
-import { 
-    init as initMoonSurface, 
-    update as updateMoonSurface,
-    scene as moonScene,
-    camera as moonCamera,
-    // tiles as moonTiles,
-    renderer as moonRenderer,
-    // spacecraft as moonSpacecraft
-} from './moon3D.js';
+// import { 
+//     init as initMoonSurface, 
+//     update as updateMoonSurface,
+//     scene as moonScene,
+//     camera as moonCamera,
+//     // tiles as moonTiles,
+//     renderer as moonRenderer,
+//     // spacecraft as moonSpacecraft
+// } from './moon3D.js';
 
 
 import { setGameMode, resetMovementInputs, keys } from './movement.js'; // Added keys import
@@ -108,10 +108,10 @@ document.addEventListener('keydown', (event) => {
     }
     // Enhanced ESC key to exit Moon surface or Earth surface
     if (event.code === 'Escape') {
-        if (isMoonSurfaceActive) {
+        /* if (isMoonSurfaceActive) {
             console.log('ESC pressed - exiting Moon surface');
             exitMoonSurface();
-        } else if (isEarthSurfaceActive) {
+        } else */ if (isEarthSurfaceActive) {
             console.log('ESC pressed - exiting Earth surface');
             exitEarthSurface();
         }
@@ -346,7 +346,8 @@ function animate(currentTime = 0) {
                 activeScene = moonScene;
                 activeSpacecraft = moonSpacecraft || spacecraft;
                 sceneType = 'moon';
-            } else if (isEarthSurfaceActive) {
+            }
+            if (isEarthSurfaceActive) {
                 activeScene = earthScene;
                 activeSpacecraft = earthSpacecraft || spacecraft;
                 sceneType = 'sanFran';
