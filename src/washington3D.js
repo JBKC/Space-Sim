@@ -5,6 +5,15 @@ import { GLTFExtensionsPlugin } from '/node_modules/3d-tiles-renderer/src/plugin
 import { DRACOLoader } from '/node_modules/three/examples/jsm/loaders/DRACOLoader.js';
 import { createSpacecraft } from './spacecraft.js';
 import { fireLaser, updateLasers } from './laser.js';
+import { 
+    washingtonCamera as washingtonCameraConfig, 
+    createCameraState, 
+    updateTargetOffsets, 
+    updateCameraOffsets, 
+    applyCameraState, 
+    createForwardRotation, 
+    rotationBetweenDirections 
+} from './camera.js';
 
 let camera, scene, renderer, tiles, cameraTarget;
 let earthInitialized = false;
@@ -120,6 +129,10 @@ const params = {
 
 const HOVER_HEIGHT = 40;
 const MAX_SLOPE_ANGLE = 45;
+
+// Create camera state for washington scene
+const cameraState = createCameraState('washington');
+const smoothFactor = 0.1;
 
 function initSpacecraft() {
  const spacecraftComponents = createSpacecraft(scene);
@@ -550,87 +563,31 @@ export function updateMovement() {
 }
 
 export function updateCamera() {
- if (!spacecraft) {
- console.warn("Spacecraft not initialized yet, skipping updateCamera");
- return;
- }
+    if (!spacecraft) {
+        console.warn("Spacecraft not initialized yet, skipping updateCamera");
+        return;
+    }
 
- // Set camera offset based on movement mode
- if (keys.up) {
- targetCameraOffset = boostCameraOffset.clone();
- } else if (keys.down) {
- targetCameraOffset = slowCameraOffset.clone();
- } else {
- targetCameraOffset = baseCameraOffset.clone();
- }
- 
- if (keys.w) {
- targetPitchOffset = -MAX_PITCH_OFFSET;
- targetLocalPitchRotation = -MAX_LOCAL_PITCH_ROTATION;
- } else if (keys.s) {
- targetPitchOffset = MAX_PITCH_OFFSET;
- targetLocalPitchRotation = MAX_LOCAL_PITCH_ROTATION;
- } else {
- targetPitchOffset = 0;
- targetLocalPitchRotation = 0;
- }
- 
- if (keys.left) {
- targetYawOffset = MAX_YAW_OFFSET;
- targetLocalYawRotation = -MAX_LOCAL_YAW_ROTATION;
- } else if (keys.right) {
- targetYawOffset = -MAX_YAW_OFFSET;
- targetLocalYawRotation = MAX_LOCAL_YAW_ROTATION;
- } else {
- targetYawOffset = 0;
- targetLocalYawRotation = 0;
- }
- 
- currentCameraOffset.lerp(targetCameraOffset, cameraTransitionSpeed);
- currentPitchOffset += (targetPitchOffset - currentPitchOffset) * CAMERA_LAG_FACTOR;
- currentYawOffset += (targetYawOffset - currentYawOffset) * CAMERA_LAG_FACTOR;
- currentLocalPitchRotation += (targetLocalPitchRotation - currentLocalPitchRotation) * LOCAL_ROTATION_SPEED;
- currentLocalYawRotation += (targetLocalYawRotation - currentLocalYawRotation) * LOCAL_ROTATION_SPEED;
- 
- const position = new THREE.Vector3().copy(currentCameraOffset);
- spacecraft.updateMatrixWorld();
- const worldMatrix = spacecraft.matrixWorld.clone();
- 
- const localPitchRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), currentLocalPitchRotation);
- const localYawRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), currentLocalYawRotation);
- 
- position.applyQuaternion(localPitchRotation);
- position.applyQuaternion(localYawRotation);
- position.applyMatrix4(worldMatrix);
- 
- camera.position.copy(position);
- 
- const baseQuaternion = spacecraft.getWorldQuaternion(new THREE.Quaternion());
- const pitchOffset = new THREE.Quaternion().setFromAxisAngle(rotation.pitchAxis, currentPitchOffset);
- const yawOffset = new THREE.Quaternion().setFromAxisAngle(rotation.yawAxis, currentYawOffset);
- 
- camera.quaternion.copy(baseQuaternion)
- .multiply(pitchOffset)
- .multiply(yawOffset)
- .multiply(localPitchRotation)
- .multiply(localYawRotation);
- 
- const forwardRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0));
- camera.quaternion.multiply(forwardRotation);
+    // Update target offsets based on keys
+    updateTargetOffsets(cameraState, keys, 'washington');
+    
+    // Update current offsets by interpolating toward targets
+    updateCameraOffsets(cameraState, rotation);
+    
+    // For washington3D we'll use a simpler camera approach without all the cinematic effects
+    // This maintains compatibility with the existing code while using the new camera module
+    const localOffset = keys.up ? washingtonCameraConfig.boost.clone() : cameraState.currentOffset.clone();
+    const cameraPosition = localOffset.applyMatrix4(spacecraft.matrixWorld);
+
+    camera.position.lerp(cameraPosition, smoothFactor);
+    camera.quaternion.copy(spacecraft.quaternion);
+
+    // Apply 180-degree rotation to look forward
+    const adjustment = createForwardRotation();
+    camera.quaternion.multiply(adjustment);
 }
 
 let updateEngineEffects;
-
-function rotationBetweenDirections(dir1, dir2) {
- const rotation = new THREE.Quaternion();
- const a = new THREE.Vector3().crossVectors(dir1, dir2);
- rotation.x = a.x;
- rotation.y = a.y;
- rotation.z = a.z;
- rotation.w = 1 + dir1.clone().dot(dir2);
- rotation.normalize();
- return rotation;
-}
 
 function setupTiles() {
  tiles.fetchOptions.mode = 'cors';
@@ -832,76 +789,57 @@ export function init() {
 }
 
 export function update(deltaTime = 0.016) {
- try {
- if (!earthInitialized) {
- console.log("Not initialized yet");
- return false;
- }
+    try {
+        if (!earthInitialized) {
+            console.log("Not initialized yet");
+            return false;
+        }
 
- if (!tiles) {
- return false;
- }
+        if (!tiles) {
+            return false;
+        }
 
- updateMovement();
- updateCamera();
- 
- // Update sky backdrop to follow camera (without moving directly with it)
- const skyBackdrop = scene.getObjectByName('skyBackdrop');
- const horizon = scene.getObjectByName('horizon');
- if (skyBackdrop && camera) {
-   // Position sky elements to follow camera but maintain distance
-   skyBackdrop.position.x = camera.position.x;
-   skyBackdrop.position.z = camera.position.z;
-   
-   if (horizon) {
-     horizon.position.x = camera.position.x;
-     horizon.position.z = camera.position.z;
-   }
- }
- 
- // Handle laser firing with spacebar
- if (keys.space && spacecraft) {
-   fireLaser(spacecraft, scene, 'sanFran', keys.up, keys.down);
- }
- 
- // Update all active lasers
- updateLasers(deltaTime);
- 
- // Update reticle
- if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
-   spacecraft.userData.updateReticle(keys.up, keys.down);
- }
- 
- // Update cockpit elements if in first-person view
- if (spacecraft && spacecraft.updateCockpit) {
-   spacecraft.updateCockpit(deltaTime);
- }
- 
- if (tiles.group) {
- tiles.group.traverse((node) => {
- if (node.isMesh && node.receiveShadow === undefined) {
- node.receiveShadow = true;
- }
- });
- }
- 
- updateearthLighting();
+        updateMovement();
+        updateCamera();
+        
+        // Update sky backdrop to follow camera (without moving directly with it)
+        const skyBackdrop = scene.getObjectByName('skyBackdrop');
+        const horizon = scene.getObjectByName('horizon');
+        
+        // Handle laser firing with spacebar
+        if (keys.space && spacecraft) {
+            fireLaser(spacecraft, scene, 'washington', keys.up, keys.down);
+        }
+        
+        // Update all active lasers
+        updateLasers(deltaTime);
+        
+        // Update reticle with both boost and slow states
+        if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
+            spacecraft.userData.updateReticle(keys.up, keys.down);
+        }
+        
+        // Update cockpit elements if in first-person view
+        if (spacecraft && spacecraft.updateCockpit) {
+            spacecraft.updateCockpit(deltaTime);
+        }
+        
+        tiles.setCamera(camera);
+        tiles.setResolutionFromRenderer(camera, renderer);
 
- if (!camera) {
- console.warn("Camera not initialized");
- return false;
- }
-
- tiles.setCamera(camera);
- tiles.setResolutionFromRenderer(camera, renderer);
- camera.updateMatrixWorld();
- tiles.update();
- 
- return true;
- } catch (error) {
- console.error("Error in update:", error);
- return false;
- }
+        camera.updateMatrixWorld();
+        tiles.update();
+        
+        // Update orientation widget if it exists
+        if (orientationAxes && orientationCamera && orientationRenderer) {
+            updateOrientationWidget();
+        }
+        
+        return true;
+    } catch (error) {
+        console.error("Error in Washington 3D update:", error);
+        return false;
+    }
 }
 
 function updateearthLighting() {

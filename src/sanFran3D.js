@@ -6,6 +6,13 @@ import { DRACOLoader } from '/node_modules/three/examples/jsm/loaders/DRACOLoade
 import { Water } from '/node_modules/three/examples/jsm/objects/Water.js'; // Correct import for ocean
 import { createSpacecraft } from './spacecraft.js';
 import { fireLaser, updateLasers } from './laser.js';
+import { 
+    sanFranCamera, 
+    createCameraState, 
+    updateTargetOffsets, 
+    updateCameraOffsets, 
+    createForwardRotation, 
+} from './camera.js';
 
 let camera, scene, renderer, tiles, cameraTarget;
 let earthInitialized = false;
@@ -141,6 +148,10 @@ const basePlaneConfig = {
   position: { x: 400, y: 1000, z: -10 },
   rotation: { x: 0, y: 0, z: 30 }
 };
+
+// Create camera state for sanFran scene
+const cameraState = createCameraState('sanFran');
+const smoothFactor = 0.1;
 
 function initSpacecraft() {
  const spacecraftComponents = createSpacecraft(scene);
@@ -594,82 +605,26 @@ export function updateCamera() {
         return;
     }
 
-    // Set camera offset based on movement mode
-    if (keys.up) {
-        targetCameraOffset = boostCameraOffset.clone();
-    } else if (keys.down) {
-        targetCameraOffset = slowCameraOffset.clone();
-    } else {
-        targetCameraOffset = baseCameraOffset.clone();
-    }
+    // Update target offsets based on keys
+    updateTargetOffsets(cameraState, keys, 'sanFran');
     
-    if (keys.w) {
- targetPitchOffset = -MAX_PITCH_OFFSET;
- targetLocalPitchRotation = -MAX_LOCAL_PITCH_ROTATION;
-    } else if (keys.s) {
- targetPitchOffset = MAX_PITCH_OFFSET;
- targetLocalPitchRotation = MAX_LOCAL_PITCH_ROTATION;
-    } else {
- targetPitchOffset = 0;
- targetLocalPitchRotation = 0;
-    }
+    // Update current offsets by interpolating toward targets
+    updateCameraOffsets(cameraState, rotation);
     
-    if (keys.left) {
- targetYawOffset = MAX_YAW_OFFSET;
- targetLocalYawRotation = -MAX_LOCAL_YAW_ROTATION;
-    } else if (keys.right) {
- targetYawOffset = -MAX_YAW_OFFSET;
- targetLocalYawRotation = MAX_LOCAL_YAW_ROTATION;
-    } else {
- targetYawOffset = 0;
- targetLocalYawRotation = 0;
-    }
-    
-    currentCameraOffset.lerp(targetCameraOffset, cameraTransitionSpeed);
-    currentPitchOffset += (targetPitchOffset - currentPitchOffset) * CAMERA_LAG_FACTOR;
-    currentYawOffset += (targetYawOffset - currentYawOffset) * CAMERA_LAG_FACTOR;
-    currentLocalPitchRotation += (targetLocalPitchRotation - currentLocalPitchRotation) * LOCAL_ROTATION_SPEED;
-    currentLocalYawRotation += (targetLocalYawRotation - currentLocalYawRotation) * LOCAL_ROTATION_SPEED;
-    
- const position = new THREE.Vector3().copy(currentCameraOffset);
-    spacecraft.updateMatrixWorld();
-    const worldMatrix = spacecraft.matrixWorld.clone();
-    
-    const localPitchRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), currentLocalPitchRotation);
-    const localYawRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), currentLocalYawRotation);
-    
-    position.applyQuaternion(localPitchRotation);
-    position.applyQuaternion(localYawRotation);
-    position.applyMatrix4(worldMatrix);
-    
- camera.position.copy(position);
-    
-    const baseQuaternion = spacecraft.getWorldQuaternion(new THREE.Quaternion());
-    const pitchOffset = new THREE.Quaternion().setFromAxisAngle(rotation.pitchAxis, currentPitchOffset);
-    const yawOffset = new THREE.Quaternion().setFromAxisAngle(rotation.yawAxis, currentYawOffset);
-    
- camera.quaternion.copy(baseQuaternion)
- .multiply(pitchOffset)
- .multiply(yawOffset)
- .multiply(localPitchRotation)
- .multiply(localYawRotation);
- 
-    const forwardRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0));
- camera.quaternion.multiply(forwardRotation);
+    // For sanFran3D we'll use a simpler camera approach without all the cinematic effects
+    // This maintains compatibility with the existing code while using the new camera module
+    const localOffset = keys.up ? sanFranCamera.boost.clone() : cameraState.currentOffset.clone();
+    const cameraPosition = localOffset.applyMatrix4(spacecraft.matrixWorld);
+
+    camera.position.lerp(cameraPosition, smoothFactor);
+    camera.quaternion.copy(spacecraft.quaternion);
+
+    // Apply 180-degree rotation to look forward
+    const adjustment = createForwardRotation();
+    camera.quaternion.multiply(adjustment);
 }
 
 let updateEngineEffects;
-
-function rotationBetweenDirections(dir1, dir2) {
-    const rotation = new THREE.Quaternion();
-    const a = new THREE.Vector3().crossVectors(dir1, dir2);
-    rotation.x = a.x;
-    rotation.y = a.y;
-    rotation.z = a.z;
-    rotation.w = 1 + dir1.clone().dot(dir2);
-    rotation.normalize();
-    return rotation;
-}
 
 function setupTiles() {
     tiles.fetchOptions.mode = 'cors';
@@ -1044,7 +999,8 @@ export function init() {
  document.body.appendChild(renderer.domElement);
  renderer.domElement.tabIndex = 1;
 
- camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 100000);
+//  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 100000);
+ camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
  camera.position.set(100, 100, -100);
  camera.lookAt(0, 0, 0);
  
@@ -1192,6 +1148,11 @@ export function update(deltaTime = 0.016) {
  tiles.setResolutionFromRenderer(camera, renderer);
  camera.updateMatrixWorld();
         tiles.update();
+        
+        // Update cockpit elements if in first-person view
+        if (spacecraft && spacecraft.updateCockpit) {
+            spacecraft.updateCockpit(deltaTime);
+        }
         
         return true;
     } catch (error) {

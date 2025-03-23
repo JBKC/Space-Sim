@@ -6,6 +6,15 @@ import { DRACOLoader } from '/node_modules/three/examples/jsm/loaders/DRACOLoade
 import { createSpacecraft } from './spacecraft.js';
 import { fireLaser, updateLasers } from './laser.js';
 import { keys } from './movement.js';
+import { 
+    moonCamera as moonCameraConfig, 
+    createCameraState, 
+    updateTargetOffsets, 
+    updateCameraOffsets, 
+    applyCameraState, 
+    createForwardRotation, 
+    rotationBetweenDirections 
+} from './camera.js';
 
 let camera, scene, renderer, tiles, cameraTarget;
 let moonInitialized = false;
@@ -41,39 +50,9 @@ const pitchSensitivity = 0.6; // Lower value = less sensitive
 const rollSensitivity = 1;  // Lower value = less sensitive
 const yawSensitivity = 0.5;   // Lower value = less sensitive
 
-// Camera settings
-const baseCameraOffset = new THREE.Vector3(0, 2, -10); // Camera sits behind the spacecraft
-const boostCameraOffset = new THREE.Vector3(0, 3, -20); // Further back during boost
-const slowCameraOffset = new THREE.Vector3(0, 1.5, -7); // Closer camera for slow mode
-// Current camera offset that will be interpolated
-let currentCameraOffset = baseCameraOffset.clone();
-// Target offset that we're interpolating towards
-let targetCameraOffset = baseCameraOffset.clone();
-
-// Camera transition parameters
-const cameraTransitionSpeed = 0.2; // Lower = slower transition, Higher = faster transition
-
-// Cinematic camera effect parameters
-const MAX_PITCH_OFFSET = 0.1; // Maximum pitch offset in radians (about 5.7 degrees)
-const MAX_YAW_OFFSET = 0.15; // Maximum yaw offset in radians (about 8.6 degrees)
-const CAMERA_LAG_FACTOR = 0.1; // How quickly the camera catches up (0.1 = slow, 0.5 = fast)
-// Current rotational offsets that will be smoothly interpolated
-let currentPitchOffset = 0;
-let currentYawOffset = 0;
-// Target rotational offsets based on input
-let targetPitchOffset = 0;
-let targetYawOffset = 0;
-
-// Local rotation parameters (new)
-const MAX_LOCAL_PITCH_ROTATION = 0.06; // Maximum rotation around local X axis (about 3.4 degrees)
-const MAX_LOCAL_YAW_ROTATION = 0.08; // Maximum rotation around local Y axis (about 4.6 degrees)
-const LOCAL_ROTATION_SPEED = 0.08; // How quickly local rotations are applied
-// Current local rotation angles (new)
-let currentLocalPitchRotation = 0;
-let currentLocalYawRotation = 0;
-// Target local rotation angles (new)
-let targetLocalPitchRotation = 0;
-let targetLocalYawRotation = 0;
+// Create camera state for moon scene
+const cameraState = createCameraState('moon');
+const smoothFactor = 0.1;
 
 // Collision detection
 const spacecraftBoundingSphere = new THREE.Sphere();
@@ -84,6 +63,7 @@ const collisionOffset = new THREE.Vector3();
 let moonSun, sunGroup, sunMesh, sunHalo, sunFlare;
 let textureLoader = new THREE.TextureLoader();
 
+// Rotation configuration
 const rotation = {
     pitch: new THREE.Quaternion(),
     yaw: new THREE.Quaternion(),
@@ -375,127 +355,31 @@ export function updateMovement() {
 }
 
 export function updateCamera() {
-    /**
-     * Enhanced Cinematic Camera System with Local Rotations
-     * ------------------------------------------------------------
-     * This camera system creates a dynamic cinematic effect by:
-     * 
-     * 1. Maintaining a fixed local-space position relative to the spacecraft
-     * 2. Adding both positional and rotational offsets during turning
-     * 3. Rotating the camera around the spacecraft's local axes during maneuvers
-     * 4. Creating a "lag" effect that follows the spacecraft's movements
-     */
-    
     if (!spacecraft) {
         console.warn("Spacecraft not initialized yet, skipping updateCamera");
         return;
     }
 
-    // Set camera offset based on movement mode
-    if (keys.up) {
-        targetCameraOffset = boostCameraOffset.clone();
-    } else if (keys.down) {
-        targetCameraOffset = slowCameraOffset.clone();
-    } else {
-        targetCameraOffset = baseCameraOffset.clone();
-    }
+    // Update target offsets based on keys
+    updateTargetOffsets(cameraState, keys, 'moon');
     
-    // Add collision detection here if needed
-    // if (collisionDetected) {
-    //     targetCameraOffset = collisionCameraOffset.clone();
-    // }
+    // Update current offsets by interpolating toward targets
+    updateCameraOffsets(cameraState, rotation);
     
-    // Determine rotational offsets based on input
-    // For pitch (up/down), INVERTED so camera moves opposite to pitch direction
-    if (keys.w) {
-        targetPitchOffset = -MAX_PITCH_OFFSET; // Look up when pitching up
-        targetLocalPitchRotation = -MAX_LOCAL_PITCH_ROTATION; // INVERTED: Move toward bottom when pitching up
-    } else if (keys.s) {
-        targetPitchOffset = MAX_PITCH_OFFSET; // Look down when pitching down
-        targetLocalPitchRotation = MAX_LOCAL_PITCH_ROTATION; // INVERTED: Move toward top when pitching down
-    } else {
-        targetPitchOffset = 0; // Return to neutral when no input
-        targetLocalPitchRotation = 0; // Return local rotation to neutral
-    }
-    
-    // For yaw (left/right), the camera should rotate counter to the spacecraft motion
-    if (keys.left) {
-        targetYawOffset = MAX_YAW_OFFSET; // Look right when turning left
-        targetLocalYawRotation = -MAX_LOCAL_YAW_ROTATION; // Rotate around local Y axis
-    } else if (keys.right) {
-        targetYawOffset = -MAX_YAW_OFFSET; // Look left when turning right
-        targetLocalYawRotation = MAX_LOCAL_YAW_ROTATION; // Rotate around local Y axis in opposite direction
-    } else {
-        targetYawOffset = 0; // Return to neutral when no input
-        targetLocalYawRotation = 0; // Return local rotation to neutral
-    }
-    
-    // Smooth interpolation for position, global rotational offsets, and local rotations
-    currentCameraOffset.lerp(targetCameraOffset, cameraTransitionSpeed);
-    currentPitchOffset += (targetPitchOffset - currentPitchOffset) * CAMERA_LAG_FACTOR;
-    currentYawOffset += (targetYawOffset - currentYawOffset) * CAMERA_LAG_FACTOR;
-    
-    // Apply smooth interpolation to local rotational values
-    currentLocalPitchRotation += (targetLocalPitchRotation - currentLocalPitchRotation) * LOCAL_ROTATION_SPEED;
-    currentLocalYawRotation += (targetLocalYawRotation - currentLocalYawRotation) * LOCAL_ROTATION_SPEED;
-    
-    // Create a position vector from the interpolated offset
-    const position = new THREE.Vector3();
-    position.copy(currentCameraOffset);
-    
-    // Get spacecraft's world matrix and apply it to the position
-    spacecraft.updateMatrixWorld();
-    const worldMatrix = spacecraft.matrixWorld.clone();
-    
-    // Apply local rotations to the camera position before transforming to world space
-    // Create rotation quaternions for local rotations
-    const localPitchRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), currentLocalPitchRotation);
-    const localYawRotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), currentLocalYawRotation);
-    
-    // Apply local rotations to the position
-    position.applyQuaternion(localPitchRotation);
-    position.applyQuaternion(localYawRotation);
-    
-    // Now transform to world space
-    position.applyMatrix4(worldMatrix);
-    
-    // Set camera position
-    camera.position.copy(position);
-    
-    // Get the base spacecraft orientation
-    const baseQuaternion = spacecraft.getWorldQuaternion(new THREE.Quaternion());
-    
-    // Create the global rotational offsets
-    const pitchOffset = new THREE.Quaternion().setFromAxisAngle(rotation.pitchAxis, currentPitchOffset);
-    const yawOffset = new THREE.Quaternion().setFromAxisAngle(rotation.yawAxis, currentYawOffset);
-    
-    // Combine the orientations: base orientation + global offsets + local rotations
-    camera.quaternion.copy(baseQuaternion);
-    camera.quaternion.multiply(pitchOffset);
-    camera.quaternion.multiply(yawOffset);
-    camera.quaternion.multiply(localPitchRotation);
-    camera.quaternion.multiply(localYawRotation);
-    
-    // Apply the 180-degree rotation to look forward
-    const forwardRotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0));
-    camera.quaternion.multiply(forwardRotation);
-    
-    // Debug information
-    // console.log(`Camera local rotations - Pitch: ${(currentLocalPitchRotation * 180/Math.PI).toFixed(2)}°, Yaw: ${(currentLocalYawRotation * 180/Math.PI).toFixed(2)}°`);
+    // For moon3D we'll use a simpler camera approach without all the cinematic effects
+    // This maintains compatibility with the existing code while using the new camera module
+    const localOffset = keys.up ? moonCameraConfig.boost.clone() : cameraState.currentOffset.clone();
+    const cameraPosition = localOffset.applyMatrix4(spacecraft.matrixWorld);
+
+    camera.position.lerp(cameraPosition, smoothFactor);
+    camera.quaternion.copy(spacecraft.quaternion);
+
+    // Apply 180-degree rotation to look forward
+    const adjustment = createForwardRotation();
+    camera.quaternion.multiply(adjustment);
 }
 
 let updateEngineEffects;
-
-function rotationBetweenDirections(dir1, dir2) {
-    const rotation = new THREE.Quaternion();
-    const a = new THREE.Vector3().crossVectors(dir1, dir2);
-    rotation.x = a.x;
-    rotation.y = a.y;
-    rotation.z = a.z;
-    rotation.w = 1 + dir1.clone().dot(dir2);
-    rotation.normalize();
-    return rotation;
-}
 
 function setupTiles() {
     tiles.fetchOptions.mode = 'cors';

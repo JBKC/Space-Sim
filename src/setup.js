@@ -1,9 +1,16 @@
 // src/setup.js
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.module.js';
-import { updateMovement, updateCamera, keys } from './movement.js';
+import { updateMovement, keys } from './movement.js';
 import { createSpacecraft } from './spacecraft.js';
 import { fireLaser, updateLasers } from './laser.js';
 import { updateControlsDropdown } from './ui.js';
+import { 
+    spaceCamera, 
+    createCameraState, 
+    updateTargetOffsets,
+    updateCameraOffsets,
+    createForwardRotation
+} from './camera.js';
 
 // General initialization - scene, camera, renderer
 // do outside of init function as scene is required by multiple other files
@@ -11,6 +18,10 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
 camera.position.set(100, 100, -100);
 camera.lookAt(0, 0, 0);
+
+// Create camera state for the space scene
+const cameraState = createCameraState('space');
+const smoothFactor = 0.1; // Exactly the same as SanFran3D
 
 // set up renderer for default space view
 const renderer = new THREE.WebGLRenderer();
@@ -24,7 +35,53 @@ export {
     renderer, 
     scene, 
     camera, 
+    rotation,
+    cameraState
 };
+
+// Rotation configuration for camera
+const rotation = {
+    pitch: new THREE.Quaternion(),
+    yaw: new THREE.Quaternion(),
+    roll: new THREE.Quaternion(),
+    pitchAxis: new THREE.Vector3(1, 0, 0),
+    yawAxis: new THREE.Vector3(0, 1, 0),
+    rollAxis: new THREE.Vector3(0, 0, 1)
+};
+
+// Camera update function exactly matching SanFran3D's implementation
+function updateCamera() {
+    if (!spacecraft) {
+        console.warn("Spacecraft not initialized yet, skipping updateCamera");
+        return;
+    }
+
+    // Update target offsets based on keys
+    updateTargetOffsets(cameraState, keys, 'space');
+    
+    // Update current offsets by interpolating toward targets
+    updateCameraOffsets(cameraState, rotation);
+    
+    // Select appropriate offset based on state
+    let localOffset;
+    
+    if (isHyperspace) {
+        // Special case for hyperspace
+        localOffset = spaceCamera.hyperspace.clone();
+    } else {
+        // Using the exact same pattern as SanFran3D.js
+        localOffset = keys.up ? spaceCamera.boost.clone() : cameraState.currentOffset.clone();
+    }
+    
+    // Always apply the camera updates regardless of which mode we're in
+    const cameraPosition = localOffset.applyMatrix4(spacecraft.matrixWorld);
+    camera.position.lerp(cameraPosition, smoothFactor);
+    camera.quaternion.copy(spacecraft.quaternion);
+
+    // Apply 180-degree rotation to look forward
+    const adjustment = createForwardRotation();
+    camera.quaternion.multiply(adjustment);
+}
 
 // Renderer settings
 renderer.setPixelRatio(window.devicePixelRatio);
@@ -194,7 +251,7 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
 
         // Use the passed isBoosting and isHyperspace parameters
         updateMovement(isBoosting, isHyperspace);
-        updateCamera(camera, isHyperspace);
+        updateCamera();
         
         // Handle laser updates
         if (typeof updateLasers === 'function') {

@@ -5,6 +5,15 @@ import { GLTFExtensionsPlugin } from '/node_modules/3d-tiles-renderer/src/plugin
 import { DRACOLoader } from '/node_modules/three/examples/jsm/loaders/DRACOLoader.js';
 import { GUI } from '/node_modules/three/examples/jsm/libs/lil-gui.module.min.js';
 import { createSpacecraft } from './spacecraft.js'; // Import the spacecraft function
+import { 
+    earthCamera as earthCameraConfig, 
+    createCameraState, 
+    updateTargetOffsets, 
+    updateCameraOffsets, 
+    applyCameraState, 
+    createForwardRotation, 
+    rotationBetweenDirections 
+} from './camera.js';
 
 let earthCamera, earthControls, earthScene, earthRenderer, tiles, earthCameraTarget;
 let earthInitialized = false;
@@ -17,10 +26,8 @@ export {
     earthCameraTarget 
 };
 
-const baseCameraOffset = new THREE.Vector3(0, 2, -10);
-const boostCameraOffset = new THREE.Vector3(0, 3, -20);
-const slowCameraOffset = new THREE.Vector3(0, 1.5, -7);
-let currentCameraOffset = baseCameraOffset.clone();
+// Create camera state for earth scene
+const cameraState = createCameraState('earth');
 const smoothFactor = 0.1;
 
 const rotation = {
@@ -149,37 +156,26 @@ export function updateCamera() {
         return;
     }
 
-    if (keys.up) {
-        targetCameraOffset = boostCameraOffset.clone();
-    } else if (keys.down) {
-        targetCameraOffset = slowCameraOffset.clone();
-    } else {
-        targetCameraOffset = baseCameraOffset.clone();
-    }
+    // Update target offsets based on keys
+    updateTargetOffsets(cameraState, keys, 'earth');
     
-    const isBoosting = keys.up;
-    const localOffset = isBoosting ? boostCameraOffset.clone() : currentCameraOffset.clone();
+    // Update current offsets by interpolating toward targets
+    updateCameraOffsets(cameraState, rotation);
+    
+    // For earth3D we'll use a simpler camera approach without all the cinematic effects
+    // This maintains compatibility with the existing code while using the new camera module
+    const localOffset = keys.up ? earthCameraConfig.boost.clone() : cameraState.currentOffset.clone();
     const cameraPosition = localOffset.applyMatrix4(spacecraft.matrixWorld);
 
     earthCamera.position.lerp(cameraPosition, smoothFactor);
     earthCamera.quaternion.copy(spacecraft.quaternion);
 
-    const adjustment = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0));
+    // Apply 180-degree rotation to look forward
+    const adjustment = createForwardRotation();
     earthCamera.quaternion.multiply(adjustment);
 }
 
 let updateEngineEffects; // This will be assigned in initSpacecraft
-
-function rotationBetweenDirections(dir1, dir2) {
-    const rotation = new THREE.Quaternion();
-    const a = new THREE.Vector3().crossVectors(dir1, dir2);
-    rotation.x = a.x;
-    rotation.y = a.y;
-    rotation.z = a.z;
-    rotation.w = 1 + dir1.clone().dot(dir2);
-    rotation.normalize();
-    return rotation;
-}
 
 function setupTiles() {
     tiles.fetchOptions.mode = 'cors';

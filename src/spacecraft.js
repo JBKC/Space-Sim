@@ -70,7 +70,7 @@ export function createSpacecraft(scene) {
                 const model = gltf.scene;
                 
                 // Scale and position the model appropriately
-                model.scale.set(0.5, 0.5, 0.5); // Adjust scale as needed
+                model.scale.set(1, 1, 1); // Adjust scale as needed
                 
                 // Add the model to our x-wing group
                 xWingModel.add(model);
@@ -97,16 +97,12 @@ export function createSpacecraft(scene) {
             (gltf) => {
                 const model = gltf.scene;
                 
-                // Scale and position the cockpit model appropriately
-                model.scale.set(1000, 1000, 1000);
-                // model.rotation.y = Math.PI; // Face forward
-                
-                // Position the cockpit
-                model.position.set(0, 0, 0);
+                // Reduce the scale significantly (from 1000 to something smaller)
+                model.scale.set(1, 1, 1); // 10x smaller than before
                 
                 // Add the model to our cockpit group
                 cockpit.add(model);
-                cockpit.name = 'cockpitModel'; // Set a name for the cockpit
+                cockpit.name = 'cockpitModel';
                 cockpitLoaded = true;
                 
                 resolve(cockpit);
@@ -350,15 +346,15 @@ export function createSpacecraft(scene) {
             // Adjust the cockpit to be centered on camera
             const cockpitModel = cockpit.getObjectByName('cockpitModel');
             if (cockpitModel) {
-                cockpitModel.position.set(0, -0.08, 0);
+                cockpitModel.position.set(0, 0, 0); // distance between the camera and the cockpit - set in camera.js
             }
             
-            // Make HUD visible
-            hudGroup.visible = true;
-            camera.add(hudGroup);
+            // // Make HUD visible
+            // hudGroup.visible = true;
+            // camera.add(hudGroup);
             
-            // Position HUD in front of the camera
-            hudGroup.position.set(0, 0, -0.3);
+            // // Position HUD in front of the camera
+            // hudGroup.position.set(0d, 0, -0.3);
             
         } else {
             // Switch back to third-person view
@@ -380,18 +376,18 @@ export function createSpacecraft(scene) {
         return isFirstPersonView;
     }
 
-    // Function to update cockpit elements
-    function updateCockpit(deltaTime = 0.016) {
-        if (!isFirstPersonView) return;
+    // // Function to update cockpit elements
+    // function updateCockpit(deltaTime = 0.016) {
+    //     if (!isFirstPersonView) return;
         
-        // Animate HUD elements
-        hudGroup.children.forEach((element, index) => {
-            // Rotate the main reticle
-            if (index === 0) { // First element is the main reticle
-                element.rotation.z += deltaTime * 0.5; // Slowly rotate the reticle
-            }
-        });
-    }
+    //     // Animate HUD elements
+    //     hudGroup.children.forEach((element, index) => {
+    //         // Rotate the main reticle
+    //         if (index === 0) { // First element is the main reticle
+    //             element.rotation.z += deltaTime * 0.5; // Slowly rotate the reticle
+    //         }
+    //     });
+    // }
 
     // Return an object containing the spacecraft and all necessary methods and attributes
     return {
@@ -414,6 +410,6 @@ export function createSpacecraft(scene) {
         bottomLeftWing: wingtipObjects[3],
         reticle: reticleComponent.reticle,
         updateReticle: reticleComponent.update,
-        updateCockpit
+        // updateCockpit
     };
 }
