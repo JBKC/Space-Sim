@@ -48,17 +48,19 @@ const wingTransitionFrames = 30;
 // Movement settings
 const baseSpeed = 2;
 const boostSpeed = baseSpeed * 3;
+const slowSpeed = baseSpeed * 0.5; // Half of base speed for slow mode
 let currentSpeed = baseSpeed;
 const turnSpeed = 0.03;
 // Add sensitivity multipliers for each rotation axis
 const pitchSensitivity = 0.6; // Lower value = less sensitive
 const rollSensitivity = 1;  // Lower value = less sensitive
 const yawSensitivity = 0.5;   // Lower value = less sensitive
-let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false, space: false };
+let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false, down: false, space: false };
 
 // Camera settings
 const baseCameraOffset = new THREE.Vector3(0, 2, -10);
 const boostCameraOffset = new THREE.Vector3(0, 3, -20);
+const slowCameraOffset = new THREE.Vector3(0, 1.5, -7); // Closer camera for slow mode
 const collisionCameraOffset = new THREE.Vector3(0, 5, -20);
 let currentCameraOffset = baseCameraOffset.clone();
 let targetCameraOffset = baseCameraOffset.clone();
@@ -414,10 +416,18 @@ export function updateMovement() {
  return;
  }
 
- currentSpeed = keys.up ? boostSpeed : baseSpeed;
+ // Set speed based on movement mode
+ if (keys.up) {
+ currentSpeed = boostSpeed;
+ } else if (keys.down) {
+ currentSpeed = slowSpeed;
+ } else {
+ currentSpeed = baseSpeed;
+ }
  
+ // Update engine effects based on movement mode
  if (typeof updateEngineEffects === 'function') {
- updateEngineEffects(keys.up);
+ updateEngineEffects(keys.up, keys.down);
  }
 
  if (keys.up && wingsOpen) {
@@ -507,6 +517,8 @@ export function updateMovement() {
  } else {
  if (keys.up) {
  targetCameraOffset = boostCameraOffset.clone();
+ } else if (keys.down) {
+ targetCameraOffset = slowCameraOffset.clone();
  } else {
  targetCameraOffset = baseCameraOffset.clone();
  }
@@ -540,8 +552,11 @@ export function updateCamera() {
  return;
  }
 
+ // Set camera offset based on movement mode
  if (keys.up) {
  targetCameraOffset = boostCameraOffset.clone();
+ } else if (keys.down) {
+ targetCameraOffset = slowCameraOffset.clone();
  } else {
  targetCameraOffset = baseCameraOffset.clone();
  }
@@ -678,6 +693,7 @@ function initControls() {
  case 'ArrowLeft': keys.left = true; break;
  case 'ArrowRight': keys.right = true; break;
  case 'ArrowUp': keys.up = true; break;
+ case 'ArrowDown': keys.down = true; break;
  case ' ': keys.space = true; break;
  }
  });
@@ -691,6 +707,7 @@ function initControls() {
  case 'ArrowLeft': keys.left = false; break;
  case 'ArrowRight': keys.right = false; break;
  case 'ArrowUp': keys.up = false; break;
+ case 'ArrowDown': keys.down = false; break;
  case ' ': keys.space = false; break;
  }
  });
@@ -841,16 +858,15 @@ export function update(deltaTime = 0.016) {
  
  // Handle laser firing with spacebar
  if (keys.space && spacecraft) {
-   fireLaser(spacecraft, scene, 'mountRainier', keys.up);
+   fireLaser(spacecraft, scene, 'sanFran', keys.up, keys.down);
  }
  
  // Update all active lasers
  updateLasers(deltaTime);
  
- // Update reticle position if available
+ // Update reticle with both boost and slow states
  if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
-   console.log("Updating reticle in mountRainier3D.js");
-   spacecraft.userData.updateReticle(keys.up);
+   spacecraft.userData.updateReticle(keys.up, keys.down);
  } else {
    if (!window.reticleWarningLogged) {
      console.warn("Reticle update function not found on spacecraft userData", spacecraft);

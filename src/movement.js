@@ -20,14 +20,14 @@ import {
 // Movement and boost variables
 export const baseSpeed = 5;
 export const boostSpeed = baseSpeed * 5;
-export const surfaceBoostSpeed = baseSpeed * 2; // Surface boost is 2x base speed
+export const slowSpeed = baseSpeed * 0.5; // Half of base speed for slow mode
 export let currentSpeed = baseSpeed;
 export const turnSpeed = 0.03;
 // Add sensitivity multipliers for each rotation axis
 export const pitchSensitivity = 0.6; // Lower value = less sensitive
 export const rollSensitivity = 1;  // Lower value = less sensitive
 export const yawSensitivity = 0.5;   // Lower value = less sensitive
-export let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false, space: false };
+export let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false, down: false, space: false };
 
 // Wing animation variables
 export let wingsOpen = true;
@@ -47,7 +47,8 @@ let gameMode = null;
 // Camera offsets - using negative Z to position behind the spacecraft
 const baseCameraOffset = new THREE.Vector3(0, 2, -8); // Camera sits behind the spacecraft
 const boostCameraOffset = new THREE.Vector3(0, 3, -20); // Further back during boost
-const hyperspaceCameraOffset = new THREE.Vector3(0, 2, -5); // Even further back during hyperspace
+const slowCameraOffset = new THREE.Vector3(0, 2, -6); // Closer camera for slow mode
+const hyperspaceCameraOffset = new THREE.Vector3(0, 2, -4); 
 export const surfaceCameraOffset = new THREE.Vector3(0, 2, -10);
 // Current camera offset that will be interpolated
 let currentCameraOffset = baseCameraOffset.clone();
@@ -103,6 +104,7 @@ export function resetMovementInputs() {
     keys.left = false;
     keys.right = false;
     keys.up = false;
+    keys.down = false;
     keys.space = false;
     console.log('Movement inputs reset:', keys);
     // Reset wing animation to default open state after hyperspace
@@ -122,6 +124,7 @@ document.addEventListener('keydown', (event) => {
         case 'ArrowLeft': keys.left = true; break;
         case 'ArrowRight': keys.right = true; break;
         case 'ArrowUp': keys.up = true; break;
+        case 'ArrowDown': keys.down = true; break;
         case ' ': case 'Space': // Handle both space character and 'Space' string
             keys.space = true; 
             break;
@@ -142,6 +145,7 @@ document.addEventListener('keyup', (event) => {
         case 'ArrowLeft': keys.left = false; break;
         case 'ArrowRight': keys.right = false; break;
         case 'ArrowUp': keys.up = false; break;
+        case 'ArrowDown': keys.down = false; break;
         case ' ': case 'Space': // Handle both space character and 'Space' string
             keys.space = false; 
             break;
@@ -163,7 +167,7 @@ export const rotation = {
     rollAxis: new THREE.Vector3(0, 0, 1)
 };
 
-export function updateCamera(camera, isHyperspace) {
+export function updateCamera(camera, isHyperspace, isSlowing) {
     /**
      * Enhanced Cinematic Camera System with Local Rotations
      * ------------------------------------------------------------
@@ -185,6 +189,8 @@ export function updateCamera(camera, isHyperspace) {
         targetCameraOffset = hyperspaceCameraOffset.clone();
     } else if (keys.up) {
         targetCameraOffset = boostCameraOffset.clone();
+    } else if (isSlowing || keys.down) { // Check both passed parameter and keys state
+        targetCameraOffset = slowCameraOffset.clone();
     } else {
         targetCameraOffset = baseCameraOffset.clone();
     }
@@ -278,17 +284,19 @@ export function updateMovement(isBoosting, isHyperspace) {
     // Original space movement behavior
     if (isHyperspace) {
         currentSpeed = baseSpeed * 50;
-    } else if (isBoosting) {
+    } else if (isBoosting || keys.up) {
         currentSpeed = boostSpeed;
+    } else if (keys.down) {
+        currentSpeed = slowSpeed;
     } else {
         currentSpeed = baseSpeed;
     }
 
     // Update engine effects
     if (typeof updateEngineEffects === 'function') {
-        updateEngineEffects(isBoosting);
+        updateEngineEffects(isBoosting || keys.up, keys.down);
         // Debug to confirm function call
-        console.log(`Engine effects updated - Boosting: ${isBoosting}`);
+        console.log(`Engine effects updated - Boosting: ${isBoosting || keys.up}, Slowing: ${keys.down}`);
     }
 
     // Trigger wing animation based on hyperspace and boost state

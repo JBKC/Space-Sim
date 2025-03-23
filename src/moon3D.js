@@ -31,8 +31,9 @@ const wingTransitionFrames = 30;
 let lastMoonLaserFireTime = 0; // Add a moon-specific laser fire time tracker
 
 // Movement settings
-const baseSpeed = 50;
-const boostSpeed = baseSpeed * 5;
+const baseSpeed = 2;
+const boostSpeed = baseSpeed * 3;
+const slowSpeed = baseSpeed * 0.5; // Half of base speed for slow mode
 let currentSpeed = baseSpeed;
 const turnSpeed = 0.03;
 // Add sensitivity multipliers for each rotation axis
@@ -43,7 +44,7 @@ const yawSensitivity = 0.5;   // Lower value = less sensitive
 // Camera settings
 const baseCameraOffset = new THREE.Vector3(0, 2, -10); // Camera sits behind the spacecraft
 const boostCameraOffset = new THREE.Vector3(0, 3, -20); // Further back during boost
-const collisionCameraOffset = new THREE.Vector3(0, 5, -20); // Shifted upward but keeps Z distances
+const slowCameraOffset = new THREE.Vector3(0, 1.5, -7); // Closer camera for slow mode
 // Current camera offset that will be interpolated
 let currentCameraOffset = baseCameraOffset.clone();
 // Target offset that we're interpolating towards
@@ -239,10 +240,18 @@ export function updateMovement() {
         return;
     }
 
-    currentSpeed = keys.up ? boostSpeed : baseSpeed;
+    // Set speed based on movement mode
+    if (keys.up) {
+        currentSpeed = boostSpeed;
+    } else if (keys.down) {
+        currentSpeed = slowSpeed;
+    } else {
+        currentSpeed = baseSpeed;
+    }
     
+    // Update engine effects based on movement mode
     if (typeof updateEngineEffects === 'function') {
-        updateEngineEffects(keys.up);
+        updateEngineEffects(keys.up, keys.down);
     }
 
     if (keys.up && wingsOpen) {
@@ -334,6 +343,8 @@ export function updateMovement() {
                 // Return to normal target offset when no collision
                 if (keys.up) {
                     targetCameraOffset = boostCameraOffset.clone();
+                } else if (keys.down) {
+                    targetCameraOffset = slowCameraOffset.clone();
                 } else {
                     targetCameraOffset = baseCameraOffset.clone();
                 }
@@ -378,9 +389,11 @@ export function updateCamera() {
         return;
     }
 
-    // Determine the target camera offset based on the current mode
+    // Set camera offset based on movement mode
     if (keys.up) {
         targetCameraOffset = boostCameraOffset.clone();
+    } else if (keys.down) {
+        targetCameraOffset = slowCameraOffset.clone();
     } else {
         targetCameraOffset = baseCameraOffset.clone();
     }
@@ -675,20 +688,17 @@ export function update(deltaTime = 0.016) {
         updateMovement();
         updateCamera();
         
-        // Handle laser firing with spacebar using moon-specific rate limiting
-        const now = Date.now();
-        if (keys.space && spacecraft && now - lastMoonLaserFireTime > 200) { // 200ms minimum between shots
-            fireLaser(spacecraft, scene, 'moon', keys.up);
-            lastMoonLaserFireTime = now;
+        // Handle laser firing with spacebar
+        if (keys.space && spacecraft) {
+            fireLaser(spacecraft, scene, 'moon', keys.up, keys.down);
         }
         
         // Update all active lasers
         updateLasers(deltaTime);
         
-        // Update reticle position if available
+        // Update reticle with both boost and slow states
         if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
-            // Do not log - just update the reticle
-            spacecraft.userData.updateReticle(keys.up);
+            spacecraft.userData.updateReticle(keys.up, keys.down);
         } else {
             // Only log this warning once to avoid console spam
             if (!window.reticleWarningLogged && DEBUG) {
@@ -754,4 +764,35 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
+}
+
+// Update the event listeners to include down arrow key
+function initControls() {
+    document.addEventListener('keydown', (event) => {
+        switch (event.key) {
+            case 'w': keys.w = true; break;
+            case 's': keys.s = true; break;
+            case 'a': keys.a = true; break;
+            case 'd': keys.d = true; break;
+            case 'ArrowLeft': keys.left = true; break;
+            case 'ArrowRight': keys.right = true; break;
+            case 'ArrowUp': keys.up = true; break;
+            case 'ArrowDown': keys.down = true; break;
+            case ' ': keys.space = true; break;
+        }
+    });
+
+    document.addEventListener('keyup', (event) => {
+        switch (event.key) {
+            case 'w': keys.w = false; break;
+            case 's': keys.s = false; break;
+            case 'a': keys.a = false; break;
+            case 'd': keys.d = false; break;
+            case 'ArrowLeft': keys.left = false; break;
+            case 'ArrowRight': keys.right = false; break;
+            case 'ArrowUp': keys.up = false; break;
+            case 'ArrowDown': keys.down = false; break;
+            case ' ': keys.space = false; break;
+        }
+    });
 }

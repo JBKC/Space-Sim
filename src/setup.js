@@ -124,6 +124,8 @@ function initControls() {
             case 'ArrowLeft': keys.left = true; break;
             case 'ArrowRight': keys.right = true; break;
             case 'ArrowUp': keys.up = true; break;
+            case 'ArrowDown': keys.down = true; break;
+            case ' ': case 'Space': keys.space = true; break;
         }
     });
 
@@ -137,6 +139,8 @@ function initControls() {
             case 'ArrowLeft': keys.left = false; break;
             case 'ArrowRight': keys.right = false; break;
             case 'ArrowUp': keys.up = false; break;
+            case 'ArrowDown': keys.down = false; break;
+            case ' ': case 'Space': keys.space = false; break;
         }
     });
     
@@ -182,12 +186,12 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
 
         // Handle laser firing if spacebar is pressed
         if (keys.space && spacecraft) {
-            fireLaser(spacecraft, scene, 'space', isBoosting);
+            fireLaser(spacecraft, scene, 'space', isBoosting, keys.down);
         }
 
         // Use the passed isBoosting and isHyperspace parameters
         updateMovement(isBoosting, isHyperspace);
-        updateCamera(camera, isHyperspace);
+        updateCamera(camera, isHyperspace, keys.down);
         
         // Handle laser updates
         if (typeof updateLasers === 'function') {
@@ -196,13 +200,13 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
 
         // Update spacecraft effects
         if (updateEngineEffects) {
-            updateEngineEffects(isBoosting);
+            updateEngineEffects(isBoosting, keys.down);
         }
         
         // Update reticle position if available
         if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
             console.log("Updating reticle in setup.js");
-            spacecraft.userData.updateReticle(isBoosting);
+            spacecraft.userData.updateReticle(isBoosting, keys.down);  // Pass both boost and slow states
         } else {
             // Only log this warning once to avoid console spam
             if (!window.setupReticleWarningLogged) {

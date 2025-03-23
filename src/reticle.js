@@ -14,6 +14,7 @@ import * as THREE from 'three';
  * @property {number} ringThickness - Thickness of the outer ring
  * @property {number} scale - Normal scale value when not boosting
  * @property {number} boostScale - Reduced scale value when boosting
+ * @property {number} slowScale - Larger scale value when in slow mode
  * @property {number} transitionSpeed - Speed of transition between scaling states (0-1)
  */
 const config = {
@@ -28,6 +29,7 @@ const config = {
     ringThickness: 0.015,  // Thicker ring
     scale: 150,            // Normal scale
     boostScale: 100,        // Smaller scale when boosting
+    slowScale: 180,        // Larger scale when in slow mode
     transitionSpeed: 0.1   // Speed of transition between normal and boost scale (0-1)
 };
 
@@ -37,6 +39,7 @@ let reticleObject;
 let currentScale = config.scale; // Track current scale
 let targetScale = config.scale;  // Target scale to transition to
 let lastBoostState = false;      // Track the last boost state to detect changes
+let lastSlowState = false;       // Track the last slow state to detect changes
 
 /**
  * Handles window resize events to ensure the reticle stays properly scaled
@@ -156,24 +159,36 @@ export function createReticle(scene, spacecraft, camera) {
     const reticleOffset = new THREE.Vector3(0, config.yOffset, -config.distance);
     
     // Function to update the reticle position
-    function updateReticle(isBoosting) {
+    function updateReticle(isBoosting, isSlowing) {
         if (!spacecraft) {
             console.warn("Cannot update reticle: spacecraft not available");
             return;
         }
         
-        // Check if we need to update the scale based on boost state
-        // Try to determine if we're boosting from the spacecraft's userData or passed parameter
+        // Check if we need to update the scale based on movement state
+        // Try to determine states from passed parameters or from spacecraft's userData
         const boosting = isBoosting !== undefined ? isBoosting : 
                         (spacecraft.userData && spacecraft.userData.isBoosting) || 
                         (window.keys && window.keys.up);
         
-        // Track if the boost state has changed
-        const boostStateChanged = boosting !== lastBoostState;
-        lastBoostState = boosting;
+        const slowing = isSlowing !== undefined ? isSlowing :
+                       (spacecraft.userData && spacecraft.userData.isSlowing) ||
+                       (window.keys && window.keys.down);
         
-        // Update the target scale based on boost state
-        targetScale = boosting ? config.boostScale : config.scale;
+        // Track if the states have changed
+        const boostStateChanged = boosting !== lastBoostState;
+        const slowStateChanged = slowing !== lastSlowState;
+        lastBoostState = boosting;
+        lastSlowState = slowing;
+        
+        // Update the target scale based on movement state
+        if (boosting) {
+            targetScale = config.boostScale;
+        } else if (slowing) {
+            targetScale = config.slowScale;
+        } else {
+            targetScale = config.scale;
+        }
         
         // Smoothly transition the current scale towards the target scale
         // If we need to ensure it reaches exactly the target, add additional logic
@@ -184,8 +199,9 @@ export function createReticle(scene, spacecraft, camera) {
             currentScale = targetScale;
         }
         
-        // Only update the scale if there's a noticeable difference or if boost state changed
-        if (Math.abs(reticleObject.scale.x - (window.innerHeight / 1080) * currentScale) > 0.1 || boostStateChanged) {
+        // Only update the scale if there's a noticeable difference or if states changed
+        if (Math.abs(reticleObject.scale.x - (window.innerHeight / 1080) * currentScale) > 0.1 || 
+            boostStateChanged || slowStateChanged) {
             // Apply the new scale with window size adjustment
             const viewportHeight = window.innerHeight;
             const scaleFactor = (viewportHeight / 1080) * currentScale;
@@ -219,7 +235,7 @@ export function createReticle(scene, spacecraft, camera) {
     }
     
     // Initial update
-    updateReticle(false);
+    updateReticle(false, false);
     
     // Return the reticle object and update function
     return {
@@ -231,10 +247,11 @@ export function createReticle(scene, spacecraft, camera) {
 /**
  * Updates the reticle's position
  * @param {boolean} isBoosting - Whether the spacecraft is boosting
+ * @param {boolean} isSlowing - Whether the spacecraft is in slow mode
  */
-export function updateReticle(isBoosting) {
+export function updateReticle(isBoosting, isSlowing) {
     if (reticle && typeof reticle.update === 'function') {
-        reticle.update(isBoosting);
+        reticle.update(isBoosting, isSlowing);
     }
 }
 

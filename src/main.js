@@ -43,7 +43,7 @@ import {
 } from './moon3D.js';
 
 
-import { setGameMode, resetMovementInputs } from './movement.js'; // Added keys import
+import { setGameMode, resetMovementInputs, keys } from './movement.js'; // Added keys import
 import { setupUIElements, setupDirectionalIndicator, updateDirectionalIndicator, showRaceModeUI, hideRaceModeUI, updateUI } from './ui.js';
 
 // Import the reticle functions but we won't initialize them here
@@ -352,10 +352,9 @@ function animate(currentTime = 0) {
                 sceneType = 'sanFran';
             }
             
-            // Fire the laser
-            if (activeSpacecraft) {
-                fireLaser(activeSpacecraft, activeScene, sceneType, isBoosting);
-            }
+            // Get the key states
+            const slowMode = document.querySelector('[data-key="ArrowDown"]')?.classList.contains('active') || false;
+            fireLaser(activeSpacecraft, activeScene, sceneType, isBoosting, keys.down);
         }
         
         // Update laser positions and cleanup expired lasers
@@ -471,54 +470,54 @@ function animate(currentTime = 0) {
         }
         
         // CASE 2 = moon surface view
-        if (isMoonSurfaceActive && !isEarthSurfaceActive) {
-            try {
-                // Only initialize Moon once
-                if (!moonInitialized) {
-                    console.log('Initializing Moon surface');
-                    const moonObjects = initMoonSurface();
-                    moonInitialized = true;
-                    console.log('Moon surface initialized successfully', moonObjects);
+        // if (isMoonSurfaceActive && !isEarthSurfaceActive) {
+        //     try {
+        //         // Only initialize Moon once
+        //         if (!moonInitialized) {
+        //             console.log('Initializing Moon surface');
+        //             const moonObjects = initMoonSurface();
+        //             moonInitialized = true;
+        //             console.log('Moon surface initialized successfully', moonObjects);
 
-                    // Hide space container to see surface scene
-                    const spaceContainer = document.getElementById('space-container');
-                    if (spaceContainer) {
-                        spaceContainer.style.display = 'none';
-                        console.log('Hid space-container');
-                    }
+        //             // Hide space container to see surface scene
+        //             const spaceContainer = document.getElementById('space-container');
+        //             if (spaceContainer) {
+        //                 spaceContainer.style.display = 'none';
+        //                 console.log('Hid space-container');
+        //             }
                     
-                    // Show Moon surface message
-                    const moonMsg = document.createElement('div');
-                    moonMsg.id = 'moon-surface-message';
-                    moonMsg.style.position = 'fixed';
-                    moonMsg.style.top = '20px';
-                    moonMsg.style.right = '20px';
-                    moonMsg.style.color = 'white';
-                    moonMsg.style.fontFamily = 'Orbitron, sans-serif';
-                    moonMsg.style.fontSize = '16px';
-                    moonMsg.style.padding = '10px';
-                    moonMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-                    moonMsg.style.borderRadius = '5px';
-                    moonMsg.style.zIndex = '9999';
-                    moonMsg.innerHTML = 'MOON SURFACE<br>Press ESC to return to space';
-                    document.body.appendChild(moonMsg);
+        //             // Show Moon surface message
+        //             const moonMsg = document.createElement('div');
+        //             moonMsg.id = 'moon-surface-message';
+        //             moonMsg.style.position = 'fixed';
+        //             moonMsg.style.top = '20px';
+        //             moonMsg.style.right = '20px';
+        //             moonMsg.style.color = 'white';
+        //             moonMsg.style.fontFamily = 'Orbitron, sans-serif';
+        //             moonMsg.style.fontSize = '16px';
+        //             moonMsg.style.padding = '10px';
+        //             moonMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        //             moonMsg.style.borderRadius = '5px';
+        //             moonMsg.style.zIndex = '9999';
+        //             moonMsg.innerHTML = 'MOON SURFACE<br>Press ESC to return to space';
+        //             document.body.appendChild(moonMsg);
                     
-                    // Hide coordinates display in moon surface mode
-                    const coordsDiv = document.getElementById('coordinates');
-                    if (coordsDiv) {
-                        coordsDiv.style.display = 'none';
-                    }
-                }
+        //             // Hide coordinates display in moon surface mode
+        //             const coordsDiv = document.getElementById('coordinates');
+        //             if (coordsDiv) {
+        //                 coordsDiv.style.display = 'none';
+        //             }
+        //         }
                 
-                // Main update function that updates spacecraft, camera, tiles, world matrices
-                const moonUpdated = updateMoonSurface(deltaTime);              
+        //         // Main update function that updates spacecraft, camera, tiles, world matrices
+        //         const moonUpdated = updateMoonSurface(deltaTime);              
 
-                // Render the moon scene
-                moonRenderer.render(moonScene, moonCamera);
-            } catch (e) {
-                console.error('Moon surface animation error:', e);
-            }
-        }
+        //         // Render the moon scene
+        //         moonRenderer.render(moonScene, moonCamera);
+        //     } catch (e) {
+        //         console.error('Moon surface animation error:', e);
+        //     }
+        // }
     } catch (e) {
         console.error('Main animation loop error:', e);
     }

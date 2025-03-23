@@ -17,8 +17,9 @@ export {
     earthCameraTarget 
 };
 
-const baseCameraOffset = new THREE.Vector3(0, 2, 10);
-const boostCameraOffset = new THREE.Vector3(0, 3, 70);
+const baseCameraOffset = new THREE.Vector3(0, 2, -10);
+const boostCameraOffset = new THREE.Vector3(0, 3, -20);
+const slowCameraOffset = new THREE.Vector3(0, 1.5, -7);
 let currentCameraOffset = baseCameraOffset.clone();
 const smoothFactor = 0.1;
 
@@ -45,14 +46,15 @@ let wingsOpen = true;
 let wingAnimation = 0;
 const wingTransitionFrames = 30;
 const baseSpeed = 2;
-const boostSpeed = baseSpeed * 5;
+const boostSpeed = baseSpeed * 3;
+const slowSpeed = baseSpeed * 0.5;
 let currentSpeed = baseSpeed;
 const turnSpeed = 0.03;
 // Add sensitivity multipliers for each rotation axis
 const pitchSensitivity = 0.3; // Lower value = less sensitive
 const rollSensitivity = 0.4;  // Lower value = less sensitive
 const yawSensitivity = 0.3;   // Lower value = less sensitive
-let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false };
+let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false, down: false, space: false };
 
 function initSpacecraft() {
     const spacecraftComponents = createSpacecraft(earthScene); // Pass the scene to add the spacecraft
@@ -77,8 +79,17 @@ function initSpacecraft() {
 }
 
 export function updateMovement() {
-    currentSpeed = keys.up ? boostSpeed : baseSpeed;
-    updateEngineEffects(keys.up);
+    if (keys.up) {
+        currentSpeed = boostSpeed;
+    } else if (keys.down) {
+        currentSpeed = slowSpeed;
+    } else {
+        currentSpeed = baseSpeed;
+    }
+    
+    if (typeof updateEngineEffects === 'function') {
+        updateEngineEffects(keys.up, keys.down);
+    }
 
     if (keys.up && wingsOpen) {
         wingsOpen = false;
@@ -130,6 +141,19 @@ export function updateMovement() {
 }
 
 export function updateCamera() {
+    if (!spacecraft) {
+        console.warn("Spacecraft not initialized yet, skipping updateCamera");
+        return;
+    }
+
+    if (keys.up) {
+        targetCameraOffset = boostCameraOffset.clone();
+    } else if (keys.down) {
+        targetCameraOffset = slowCameraOffset.clone();
+    } else {
+        targetCameraOffset = baseCameraOffset.clone();
+    }
+    
     const isBoosting = keys.up;
     const localOffset = isBoosting ? boostCameraOffset.clone() : currentCameraOffset.clone();
     const cameraPosition = localOffset.applyMatrix4(spacecraft.matrixWorld);
@@ -207,6 +231,8 @@ function initControls() {
             case 'ArrowLeft': keys.left = true; break;
             case 'ArrowRight': keys.right = true; break;
             case 'ArrowUp': keys.up = true; break;
+            case 'ArrowDown': keys.down = true; break;
+            case ' ': keys.space = true; break;
         }
     });
 
@@ -219,6 +245,8 @@ function initControls() {
             case 'ArrowLeft': keys.left = false; break;
             case 'ArrowRight': keys.right = false; break;
             case 'ArrowUp': keys.up = false; break;
+            case 'ArrowDown': keys.down = false; break;
+            case ' ': keys.space = false; break;
         }
     });
 }
@@ -276,7 +304,7 @@ export function init() {
     };
 }
 
-export function update() {
+export function update(deltaTime) {
     if (!tiles) {
         console.log("Earth tiles not loaded yet");
         return;
@@ -289,9 +317,19 @@ export function update() {
     tiles.setResolutionFromRenderer(earthCamera, earthRenderer);
 
     earthCamera.updateMatrixWorld();
-            tiles.update();
-        }
-        
+    tiles.update();
+
+    // Handle laser firing with spacebar
+    if (keys.space && spacecraft) {
+        fireLaser(spacecraft, earthScene, 'earth', keys.up, keys.down);
+    }
+    
+    // Update reticle with both boost and slow states
+    if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
+        spacecraft.userData.updateReticle(keys.up, keys.down);
+    }
+}
+
 function onWindowResize() {
     earthCamera.aspect = window.innerWidth / window.innerHeight;
     earthCamera.updateProjectionMatrix();

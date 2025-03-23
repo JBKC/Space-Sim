@@ -51,19 +51,21 @@ let wingAnimation = 0;
 const wingTransitionFrames = 30;
 
 // Movement settings
-const baseSpeed = 2;
+const baseSpeed = 1;
 const boostSpeed = baseSpeed * 3;
+const slowSpeed = baseSpeed * 0.5; // Half of base speed
 let currentSpeed = baseSpeed;
 const turnSpeed = 0.03;
 // Add sensitivity multipliers for each rotation axis
 const pitchSensitivity = 0.6; // Lower value = less sensitive
 const rollSensitivity = 1;  // Lower value = less sensitive
 const yawSensitivity = 0.5;   // Lower value = less sensitive
-let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false, space: false };
+let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false, down: false, space: false };
 
 // Camera settings
 const baseCameraOffset = new THREE.Vector3(0, 2, -10);
 const boostCameraOffset = new THREE.Vector3(0, 3, -20);
+const slowCameraOffset = new THREE.Vector3(0, 1.5, -7); // Closer camera for slow mode
 const collisionCameraOffset = new THREE.Vector3(0, 5, -20);
 let currentCameraOffset = baseCameraOffset.clone();
 let targetCameraOffset = baseCameraOffset.clone();
@@ -167,7 +169,7 @@ function initSpacecraft() {
  // Set initial position of craft above San Francisco
  const sfLat = 37.7749;
  const sfLon = -122.4194;
- const initialHeight = 5000;
+ const initialHeight = 1000;
  const position = latLonHeightToEcef(sfLat, sfLon, initialHeight);
     spacecraft.position.copy(position);
 
@@ -416,12 +418,21 @@ export function updateMovement() {
         return;
     }
 
-    currentSpeed = keys.up ? boostSpeed : baseSpeed;
+    // Set speed based on movement mode
+    if (keys.up) {
+        currentSpeed = boostSpeed;
+    } else if (keys.down) {
+        currentSpeed = slowSpeed;
+    } else {
+        currentSpeed = baseSpeed;
+    }
     
+    // Update engine effects based on movement mode
     if (typeof updateEngineEffects === 'function') {
-        updateEngineEffects(keys.up);
+        updateEngineEffects(keys.up, keys.down);
     }
 
+    // Handle wing animation for boost mode
     if (keys.up && wingsOpen) {
         wingsOpen = false;
         wingAnimation = wingTransitionFrames;
@@ -548,8 +559,11 @@ export function updateCamera() {
         return;
     }
 
+    // Set camera offset based on movement mode
     if (keys.up) {
         targetCameraOffset = boostCameraOffset.clone();
+    } else if (keys.down) {
+        targetCameraOffset = slowCameraOffset.clone();
     } else {
         targetCameraOffset = baseCameraOffset.clone();
     }
@@ -654,94 +668,65 @@ function setupTiles() {
 // Add a new function to create fixed coordinate system - values found empirically / trial and error
 function createBasePlane() {
   console.log("Creating fixed coordinate system");
-  
-  // First, remove any existing grid plane coordinate system if it exists
+
   if (window.gridCoordinateSystem) {
     scene.remove(window.gridCoordinateSystem);
   }
-  
-  // ==================== FIXED COORDINATE SYSTEM SETUP ====================
-  // Create a container for both the grid and coordinate system
+
   const gridPlaneSystem = new THREE.Group();
   window.gridCoordinateSystem = gridPlaneSystem;
-  
-  // Set fixed position based on provided coordinates
+
   const fixedPosition = new THREE.Vector3(-2704597.993, -4260866.335, 3886911.844);
   gridPlaneSystem.position.copy(fixedPosition);
-  
-  // Set fixed rotation based on provided quaternion
   const fixedQuaternion = new THREE.Quaternion(0.6390, 0.6326, 0.4253, -0.1034);
   gridPlaneSystem.quaternion.copy(fixedQuaternion);
-  
-  // Create our coordinate axes for the grid, but make them invisible
-  const axesSize = 500; // Size of the coordinate axes
+
+  // Axes setup (unchanged, remains invisible)
+  const axesSize = 500;
   const axesHelper = new THREE.Group();
-  axesHelper.visible = false; // Hide the entire axes system
-  
-  // X axis (red)
+  axesHelper.visible = false;
   const xGeometry = new THREE.CylinderGeometry(20, 20, axesSize, 8);
   const xMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, visible: false });
   const xAxis = new THREE.Mesh(xGeometry, xMaterial);
   xAxis.rotation.z = -Math.PI / 2;
   xAxis.position.x = axesSize / 2;
-  
-  // X arrow
   const xConeGeometry = new THREE.ConeGeometry(40, 100, 8);
   const xCone = new THREE.Mesh(xConeGeometry, xMaterial);
   xCone.rotation.z = -Math.PI / 2;
   xCone.position.x = axesSize + 50;
-  
-  // Y axis (green)
   const yGeometry = new THREE.CylinderGeometry(20, 20, axesSize, 8);
   const yMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, visible: false });
   const yAxis = new THREE.Mesh(yGeometry, yMaterial);
   yAxis.position.y = axesSize / 2;
-  
-  // Y arrow
   const yConeGeometry = new THREE.ConeGeometry(40, 100, 8);
   const yCone = new THREE.Mesh(yConeGeometry, yMaterial);
   yCone.position.y = axesSize + 50;
-  
-  // Z axis (blue)
   const zGeometry = new THREE.CylinderGeometry(20, 20, axesSize, 8);
   const zMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff, visible: false });
   const zAxis = new THREE.Mesh(zGeometry, zMaterial);
   zAxis.rotation.x = Math.PI / 2;
   zAxis.position.z = axesSize / 2;
-  
-  // Z arrow
   const zConeGeometry = new THREE.ConeGeometry(40, 100, 8);
   const zCone = new THREE.Mesh(zConeGeometry, zMaterial);
   zCone.rotation.x = Math.PI / 2;
   zCone.position.z = axesSize + 50;
-  
-  // Labels - make them invisible
   const labelSize = 100;
   const xLabel = createTextSprite('X', '#ff0000', labelSize / 500);
   xLabel.position.set(axesSize + 150, 0, 0);
   xLabel.visible = false;
-  
   const yLabel = createTextSprite('Y', '#00ff00', labelSize / 500);
   yLabel.position.set(0, axesSize + 150, 0);
   yLabel.visible = false;
-  
   const zLabel = createTextSprite('Z', '#0000ff', labelSize / 500);
   zLabel.position.set(0, 0, axesSize + 150);
   zLabel.visible = false;
-  
-  // Add a sphere at the origin - make it invisible
   const originGeometry = new THREE.SphereGeometry(40, 16, 16);
   const originMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, visible: false });
   const origin = new THREE.Mesh(originGeometry, originMaterial);
-  
-  // Add everything to the axes helper
   axesHelper.add(xAxis, xCone, yAxis, yCone, zAxis, zCone, xLabel, yLabel, zLabel, origin);
-  
-  // Add axes to our grid container
   gridPlaneSystem.add(axesHelper);
-  
-  // Create a plane with Z axis as normal
-  // seelect planesize
+
+  // Base plane (unchanged)
   const planeGeometry = new THREE.PlaneGeometry(7000, 6000);
   const planeMaterial = new THREE.MeshBasicMaterial({ 
     color: 0x507062, 
@@ -750,32 +735,80 @@ function createBasePlane() {
     opacity: 1.0
   });
   basePlane = new THREE.Mesh(planeGeometry, planeMaterial);
-  
-  // Position the plane according to provided values in basePlaneConfig
   basePlane.position.set(
     basePlaneConfig.position.x,
     basePlaneConfig.position.y,
     basePlaneConfig.position.z
   );
-  
-  // Apply rotation to the plane (in radians)
   basePlane.rotation.set(
     THREE.MathUtils.degToRad(basePlaneConfig.rotation.x),
     THREE.MathUtils.degToRad(basePlaneConfig.rotation.y),
     THREE.MathUtils.degToRad(basePlaneConfig.rotation.z)
   );
-  
-  // Set a name to identify it for collision detection
   basePlane.name = "basePlane";
-  
-  // Add the plane to our coordinate system
   gridPlaneSystem.add(basePlane);
-  
-  // Add the coordinate system to the scene
+
+  // Opaque fog wall material
+  const fogWallMaterial = new THREE.MeshBasicMaterial({
+    color: 0x87ceeb, // Sky color
+    side: THREE.DoubleSide,
+    transparent: false,
+    opacity: 1.0
+  });
+
+  // Wall dimensions
+  const wallHeight = 5000;
+  const planeWidth = 7000;
+  const planeDepth = 6000;
+  const halfWidth = planeWidth / 2;
+  const halfDepth = planeDepth / 2;
+
+  // Create the four fog walls
+  const northWallGeometry = new THREE.PlaneGeometry(planeWidth, wallHeight);
+  const northWall = new THREE.Mesh(northWallGeometry, fogWallMaterial);
+  northWall.position.set(0, halfDepth, -wallHeight / 2);
+  northWall.rotation.set(Math.PI / 2, 0, 0);
+  northWall.name = "northWall";
+
+  const southWallGeometry = new THREE.PlaneGeometry(planeWidth, wallHeight);
+  const southWall = new THREE.Mesh(southWallGeometry, fogWallMaterial);
+  southWall.position.set(0, -halfDepth, -wallHeight / 2);
+  southWall.rotation.set(Math.PI / 2, Math.PI, 0);
+  southWall.name = "southWall";
+
+  const eastWallGeometry = new THREE.PlaneGeometry(planeDepth, wallHeight);
+  const eastWall = new THREE.Mesh(eastWallGeometry, fogWallMaterial);
+  eastWall.position.set(halfWidth, 0, -wallHeight / 2);
+  eastWall.rotation.set(Math.PI / 2, Math.PI / 2, 0);
+  eastWall.name = "eastWall";
+
+  const westWallGeometry = new THREE.PlaneGeometry(planeDepth, wallHeight);
+  const westWall = new THREE.Mesh(westWallGeometry, fogWallMaterial);
+  westWall.position.set(-halfWidth, 0, -wallHeight / 2);
+  westWall.rotation.set(Math.PI / 2, -Math.PI / 2, 0);
+  westWall.name = "westWall";
+
+  // Walls container
+  const wallsContainer = new THREE.Group();
+  wallsContainer.add(northWall, southWall, eastWall, westWall);
+  wallsContainer.position.copy(basePlane.position);
+  wallsContainer.rotation.copy(basePlane.rotation);
+  gridPlaneSystem.add(wallsContainer);
+
+  // Store wall references
+  basePlane.userData.walls = {
+    north: northWall,
+    south: southWall,
+    east: eastWall,
+    west: westWall
+  };
+  basePlane.userData.wallsContainer = wallsContainer;
+
   scene.add(gridPlaneSystem);
-  
-  console.log("Fixed coordinate system created with position:", basePlaneConfig.position, "and rotation:", basePlaneConfig.rotation);
+
+  console.log("Fixed coordinate system created with opaque fog walls at position:", basePlaneConfig.position, "and rotation:", basePlaneConfig.rotation);
 }
+
 
 // Add a function to update the base plane position and rotation
 export function updateBasePlane(position, rotation) {
@@ -805,6 +838,16 @@ export function updateBasePlane(position, rotation) {
       THREE.MathUtils.degToRad(basePlaneConfig.rotation.y),
       THREE.MathUtils.degToRad(basePlaneConfig.rotation.z)
     );
+    
+    // Update walls if they exist
+    if (basePlane.userData.walls) {
+      const wallsContainer = basePlane.userData.wallsContainer;
+      if (wallsContainer) {
+        // Update the position and rotation of the walls container to match the base plane
+        wallsContainer.position.copy(basePlane.position);
+        wallsContainer.rotation.copy(basePlane.rotation);
+      }
+    }
     
     console.log("Updated base plane position:", basePlaneConfig.position, "and rotation:", basePlaneConfig.rotation);
   } else {
@@ -857,7 +900,8 @@ function initControls() {
             case 'ArrowLeft': keys.left = true; break;
             case 'ArrowRight': keys.right = true; break;
             case 'ArrowUp': keys.up = true; break;
- case ' ': keys.space = true; break;
+            case 'ArrowDown': keys.down = true; break;
+            case ' ': keys.space = true; break;
         }
     });
 
@@ -870,7 +914,8 @@ function initControls() {
             case 'ArrowLeft': keys.left = false; break;
             case 'ArrowRight': keys.right = false; break;
             case 'ArrowUp': keys.up = false; break;
- case ' ': keys.space = false; break;
+            case 'ArrowDown': keys.down = false; break;
+            case ' ': keys.space = false; break;
         }
     });
 }
@@ -925,7 +970,7 @@ function setupearthLighting() {
     const fillLight = new THREE.DirectionalLight(0xaaaaff, 0.2);
  fillLight.position.set(0, -1, 0); // Keep as directional for now
  scene.add(fillLight);
- 
+    
  console.log("Lighting setup for San Francisco scene");
 }
 
@@ -968,17 +1013,17 @@ export function init() {
  camera.position.set(100, 100, -100);
  camera.lookAt(0, 0, 0);
  
-textureLoader = new THREE.TextureLoader();
+    textureLoader = new THREE.TextureLoader();
 setupearthLighting();
 initSpacecraft();
-
+    
 const water = addRealisticOcean();
+    
+    reinstantiateTiles();
 
-reinstantiateTiles();
-
-onWindowResize();
-window.addEventListener('resize', onWindowResize, false);
-initControls();
+    onWindowResize();
+    window.addEventListener('resize', onWindowResize, false);
+    initControls();
 
  earthInitialized = true;
  console.log("San Francisco 3D initialization complete");
@@ -1075,7 +1120,7 @@ export function update(deltaTime = 0.016) {
  
  // Handle laser firing with spacebar
  if (keys.space && spacecraft) {
-   fireLaser(spacecraft, scene, 'sanFran', keys.up);
+   fireLaser(spacecraft, scene, 'sanFran', keys.up, keys.down);
  }
  
  // Update all active lasers
@@ -1083,8 +1128,8 @@ export function update(deltaTime = 0.016) {
  
  // Update reticle position if available
  if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
-   // Pass the boosting state to the reticle update function
-   spacecraft.userData.updateReticle(keys.up);
+   // Pass both boost and slow states to the reticle update function
+   spacecraft.userData.updateReticle(keys.up, keys.down);
  } else {
    // Only log this warning once to avoid console spam
    if (!window.reticleWarningLogged) {
@@ -1146,58 +1191,101 @@ function onWindowResize() {
 // Add a function to check collision with base plane
 function checkBasePlaneCollision() {
   if (!spacecraft || !basePlane || !window.gridCoordinateSystem) return false;
-  
+
   // Get the world position of the spacecraft
   const spacecraftWorldPosition = spacecraft.getWorldPosition(new THREE.Vector3());
-  
-  // Get the normal direction of the plane (the Z-axis of the grid system)
-  const planeNormal = new THREE.Vector3(0, 0, 1);
-  planeNormal.applyQuaternion(window.gridCoordinateSystem.quaternion);
-  
-  // Get position of the base plane in world coordinates
+
+  // Get the plane’s world position and quaternion
   const planeWorldPosition = new THREE.Vector3();
   basePlane.getWorldPosition(planeWorldPosition);
-  
-  // Define collision distance threshold
-  const collisionThreshold = 50;
-  
-  // Check for collision from above the plane (normal direction)
-  const raycasterFromAbove = new THREE.Raycaster();
-  raycasterFromAbove.set(spacecraftWorldPosition, planeNormal.clone().negate());
-  const intersectsFromAbove = raycasterFromAbove.intersectObject(basePlane);
-  
-  // Check for collision from below the plane (opposite normal direction)
-  const raycasterFromBelow = new THREE.Raycaster();
-  raycasterFromBelow.set(spacecraftWorldPosition, planeNormal.clone());
-  const intersectsFromBelow = raycasterFromBelow.intersectObject(basePlane);
-  
-  // Handle collision from above
-  if (intersectsFromAbove.length > 0 && intersectsFromAbove[0].distance < collisionThreshold) {
-    // Calculate the bounce/repulsion needed
-    const pushDistance = collisionThreshold - intersectsFromAbove[0].distance;
-    const pushDirection = planeNormal.clone();
-    
-    // Apply the push away from the plane (in positive normal direction)
+  const planeQuaternion = window.gridCoordinateSystem.quaternion;
+
+  // Get the plane’s normal (Z-axis of the grid system, pointing "up" in local space)
+  const planeNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(planeQuaternion);
+
+  // Define collision thresholds
+  const planeCollisionThreshold = 50;
+  const wallCollisionThreshold = 60;
+
+  // --- Plane Collision (prevent passing through the base plane) ---
+  const raycasterPlane = new THREE.Raycaster();
+  raycasterPlane.set(spacecraftWorldPosition, planeNormal.clone().negate()); // Ray downward
+  const planeIntersects = raycasterPlane.intersectObject(basePlane);
+
+  if (planeIntersects.length > 0 && planeIntersects[0].distance < planeCollisionThreshold) {
+    const pushDistance = planeCollisionThreshold - planeIntersects[0].distance;
+    const pushDirection = planeNormal.clone(); // Push upward
     spacecraft.position.add(pushDirection.multiplyScalar(pushDistance));
-    console.log("Collision detected from above the plane");
+    console.log("Collision detected with base plane, pushing upward");
     return true;
   }
-  
-  // Handle collision from below
-  if (intersectsFromBelow.length > 0 && intersectsFromBelow[0].distance < collisionThreshold) {
-    // Calculate the bounce/repulsion needed
-    const pushDistance = collisionThreshold - intersectsFromBelow[0].distance;
-    const pushDirection = planeNormal.clone().negate();
-    
-    // Apply the push away from the plane (in negative normal direction)
-    spacecraft.position.add(pushDirection.multiplyScalar(pushDistance));
-    console.log("Collision detected from below the plane");
-    return true;
+
+  // --- Wall Collision (keep spacecraft inside the box) ---
+  if (basePlane.userData.walls) {
+    const { north, south, east, west } = basePlane.userData.walls;
+    const walls = [north, south, east, west];
+    const wallNames = ["north", "south", "east", "west"];
+
+    // Get the plane’s local dimensions
+    const planeWidth = 7000;
+    const planeDepth = 6000;
+    const halfWidth = planeWidth / 2;
+    const halfDepth = planeDepth / 2;
+
+    // Convert spacecraft position to local coordinates relative to the plane
+    const localSpacecraftPos = spacecraftWorldPosition.clone().sub(planeWorldPosition).applyQuaternion(planeQuaternion.clone().invert());
+
+    for (let i = 0; i < walls.length; i++) {
+      const wall = walls[i];
+
+      // Get wall’s normal in world space (Z-axis of wall’s local space)
+      const wallNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(wall.quaternion);
+
+      // Check intersection with the wall
+      const raycasterWall = new THREE.Raycaster();
+      raycasterWall.set(spacecraftWorldPosition, wallNormal.clone().negate()); // Ray toward wall
+      const intersectsToward = raycasterWall.intersectObject(wall);
+
+      raycasterWall.set(spacecraftWorldPosition, wallNormal.clone()); // Ray away from wall
+      const intersectsAway = raycasterWall.intersectObject(wall);
+
+      // Determine push direction based on wall and spacecraft position
+      let pushDirection;
+      let collisionDetected = false;
+
+      if (intersectsToward.length > 0 && intersectsToward[0].distance < wallCollisionThreshold) {
+        // Approaching from the "outside" (e.g., trying to enter)
+        collisionDetected = true;
+        switch (wallNames[i]) {
+          case "north": pushDirection = new THREE.Vector3(0, -1, 0); break;
+          case "south": pushDirection = new THREE.Vector3(0, 1, 0); break;
+          case "east": pushDirection = new THREE.Vector3(-1, 0, 0); break;
+          case "west": pushDirection = new THREE.Vector3(1, 0, 0); break;
+        }
+      } else if (intersectsAway.length > 0 && intersectsAway[0].distance < wallCollisionThreshold) {
+        // Approaching from the "inside" (e.g., trying to exit)
+        collisionDetected = true;
+        switch (wallNames[i]) {
+          case "north": pushDirection = new THREE.Vector3(0, 1, 0); break;  // Push south (inward)
+          case "south": pushDirection = new THREE.Vector3(0, -1, 0); break; // Push north (inward)
+          case "east": pushDirection = new THREE.Vector3(1, 0, 0); break;   // Push west (inward)
+          case "west": pushDirection = new THREE.Vector3(-1, 0, 0); break;  // Push east (inward)
+        }
+      }
+
+      if (collisionDetected) {
+        // Convert push direction to world space
+        pushDirection.applyQuaternion(planeQuaternion);
+        const pushDistance = wallCollisionThreshold - (intersectsToward.length > 0 ? intersectsToward[0].distance : intersectsAway[0].distance);
+        spacecraft.position.add(pushDirection.multiplyScalar(pushDistance));
+        console.log(`Collision detected with ${wallNames[i]} wall, pushing inward`);
+        return true;
+      }
+    }
   }
-  
+
   return false;
 }
-
 
 function addRealisticOcean() {
     const waterGeometry = new THREE.PlaneGeometry(10000, 10000);

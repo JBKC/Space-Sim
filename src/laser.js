@@ -5,14 +5,16 @@ const LASER_CONFIG = {
     // Space scene configuration
     space: {
         color: 0xe42747,       // Bright red in space
-        speed: 1000,           // Fast in vacuum
+        speed: 5000,           // Fast in vacuum
         boostSpeed: 5000,      // 5x faster when boosting
+        slowSpeed: 1000,        // Half speed in slow mode
         length: 1000,          // Long beam in space
         thickness: 0.2,        // Standard thickness
         duration: 3000,        // Longer visible time in space
         cooldown: 50,          // Fast firing rate in space
-        offset: 490,           // Forward offset in space - creates lasers ahead of wingtips
-        boostOffset: 450       // Forward offset when boosting in space - even further ahead
+        offset: 423,           // Forward offset in space - creates lasers ahead of wingtips
+        boostOffset: 450,      // Forward offset when boosting in space - even further ahead
+        slowOffset: 486        // Closer offset when in slow mode
     },
     
     // Earth/San Francisco scene configuration
@@ -20,12 +22,14 @@ const LASER_CONFIG = {
         color: 0xe42747,       // Orange-red tint for atmosphere
         speed: 1000,            // Slower in atmosphere
         boostSpeed: 3000,      // Boost speed in atmosphere
+        slowSpeed: 1000,        // Half speed in slow mode
         length: 1000,          // Shorter due to atmospheric visibility
         thickness: 0.2,        // Thicker for better visibility in atmosphere
         duration: 1500,        // Shorter duration due to atmospheric interference
         cooldown: 80,          // Slower firing rate due to atmospheric resistance
-        offset: 492,             // No offset - lasers start right at wingtips
-        boostOffset: 480       // Forward offset when boosting in atmosphere
+        offset: 485,             // No offset - lasers start right at wingtips
+        boostOffset: 450,      // Forward offset when boosting in atmosphere
+        slowOffset: 455        // Slightly forward offset when in slow mode
     },
     
     // Moon scene configuration
@@ -33,12 +37,14 @@ const LASER_CONFIG = {
         color: 0xe42747,       // Orange-red tint for atmosphere
         speed: 1000,            // Slower in atmosphere
         boostSpeed: 3000,      // Boost speed in atmosphere
+        slowSpeed: 500,        // Half speed in slow mode
         length: 1000,          // Shorter due to atmospheric visibility
         thickness: 0.2,        // Thicker for better visibility in atmosphere
         duration: 1500,        // Shorter duration due to atmospheric interference
         cooldown: 80,          // Slower firing rate due to atmospheric resistance
         offset: 492,             // No offset - lasers start right at wingtips (matching sanFran)
-        boostOffset: 480       // Forward offset when boosting in atmosphere
+        boostOffset: 480,      // Forward offset when boosting in atmosphere
+        slowOffset: 500        // Slightly forward offset when in slow mode
     },
 };
 
@@ -56,10 +62,11 @@ const WING_TIP_RELATIVE_POSITION = new THREE.Vector3(2.5, 0, 0);
  * @param {Object} config - The laser configuration
  * @param {number} laserSpeed - The speed of the laser
  * @param {boolean} isBoosting - Whether the spacecraft is boosting
+ * @param {boolean} isSlowing - Whether the spacecraft is in slow mode
  * @param {number} now - Current timestamp 
  * @returns {Object} The created laser object
  */
-function createWingtipLaser(wing, scene, config, laserSpeed, isBoosting, now) {
+function createWingtipLaser(wing, scene, config, laserSpeed, isBoosting, isSlowing, now) {
     // Create laser geometry and material
     const geometry = new THREE.CylinderGeometry(
         config.thickness, 
@@ -90,9 +97,15 @@ function createWingtipLaser(wing, scene, config, laserSpeed, isBoosting, now) {
     // Then add an offset forward in the wing's local z-direction based on config
     const tipPosition = WING_TIP_RELATIVE_POSITION.clone();
     
-    // Determine which offset to use based on boost state
-    const offsetToUse = isBoosting && config.boostOffset !== undefined ? 
-                        config.boostOffset : config.offset;
+    // Determine which offset to use based on movement state
+    let offsetToUse;
+    if (isBoosting && config.boostOffset !== undefined) {
+        offsetToUse = config.boostOffset;
+    } else if (isSlowing && config.slowOffset !== undefined) {
+        offsetToUse = config.slowOffset;
+    } else {
+        offsetToUse = config.offset;
+    }
     
     // Get spacecraft's forward direction for the laser direction
     const spacecraft = wing.parent;
@@ -137,9 +150,10 @@ function createWingtipLaser(wing, scene, config, laserSpeed, isBoosting, now) {
  * @param {THREE.Scene} scene - The scene to add the lasers to
  * @param {string} sceneType - The current scene type ('space', 'sanFran', or 'moon')
  * @param {boolean} isBoosting - Whether the spacecraft is currently boosting
+ * @param {boolean} isSlowing - Whether the spacecraft is in slow mode
  * @returns {Array} The created laser objects
  */
-export function fireLaser(spacecraft, scene, sceneType = 'space', isBoosting = false) {
+export function fireLaser(spacecraft, scene, sceneType = 'space', isBoosting = false, isSlowing = false) {
     try {
         // Get the appropriate configuration
         const config = LASER_CONFIG[sceneType] || LASER_CONFIG.space;
@@ -151,8 +165,15 @@ export function fireLaser(spacecraft, scene, sceneType = 'space', isBoosting = f
         }
         lastFireTime = now;
         
-        // Determine speed based on boost state
-        const laserSpeed = isBoosting ? config.boostSpeed : config.speed;
+        // Determine speed based on movement state
+        let laserSpeed;
+        if (isBoosting) {
+            laserSpeed = config.boostSpeed;
+        } else if (isSlowing) {
+            laserSpeed = config.slowSpeed;
+        } else {
+            laserSpeed = config.speed;
+        }
         
         const lasers = [];
         
@@ -173,13 +194,13 @@ export function fireLaser(spacecraft, scene, sceneType = 'space', isBoosting = f
         // For the moon scene, sometimes the wings aren't findable by name
         // Fall back to a single laser if not all wings are found
         if (!topRightWing || !bottomRightWing || !topLeftWing || !bottomLeftWing) {
-            return createSingleLaser(spacecraft, scene, config, laserSpeed, isBoosting, now);
+            return createSingleLaser(spacecraft, scene, config, laserSpeed, isBoosting, isSlowing, now);
         }
         
         // If wings are found, create lasers from each wingtip
         if (topRightWing) {
             try {
-                lasers.push(createWingtipLaser(topRightWing, scene, config, laserSpeed, isBoosting, now));
+                lasers.push(createWingtipLaser(topRightWing, scene, config, laserSpeed, isBoosting, isSlowing, now));
             } catch (e) {
                 // Silent fail for individual wing laser creation
             }
@@ -187,7 +208,7 @@ export function fireLaser(spacecraft, scene, sceneType = 'space', isBoosting = f
         
         if (bottomRightWing) {
             try {
-                lasers.push(createWingtipLaser(bottomRightWing, scene, config, laserSpeed, isBoosting, now));
+                lasers.push(createWingtipLaser(bottomRightWing, scene, config, laserSpeed, isBoosting, isSlowing, now));
             } catch (e) {
                 // Silent fail for individual wing laser creation
             }
@@ -195,7 +216,7 @@ export function fireLaser(spacecraft, scene, sceneType = 'space', isBoosting = f
         
         if (topLeftWing) {
             try {
-                lasers.push(createWingtipLaser(topLeftWing, scene, config, laserSpeed, isBoosting, now));
+                lasers.push(createWingtipLaser(topLeftWing, scene, config, laserSpeed, isBoosting, isSlowing, now));
             } catch (e) {
                 // Silent fail for individual wing laser creation
             }
@@ -203,7 +224,7 @@ export function fireLaser(spacecraft, scene, sceneType = 'space', isBoosting = f
         
         if (bottomLeftWing) {
             try {
-                lasers.push(createWingtipLaser(bottomLeftWing, scene, config, laserSpeed, isBoosting, now));
+                lasers.push(createWingtipLaser(bottomLeftWing, scene, config, laserSpeed, isBoosting, isSlowing, now));
             } catch (e) {
                 // Silent fail for individual wing laser creation
             }
@@ -215,7 +236,7 @@ export function fireLaser(spacecraft, scene, sceneType = 'space', isBoosting = f
             return lasers;
         } else {
             // Fallback to original laser if wings aren't found or lasers couldn't be created
-            return createSingleLaser(spacecraft, scene, config, laserSpeed, isBoosting, now);
+            return createSingleLaser(spacecraft, scene, config, laserSpeed, isBoosting, isSlowing, now);
         }
     } catch (error) {
         // If anything goes wrong, just return without firing
@@ -227,7 +248,7 @@ export function fireLaser(spacecraft, scene, sceneType = 'space', isBoosting = f
 /**
  * Creates a single laser beam from the front of the spacecraft (fallback method)
  */
-function createSingleLaser(spacecraft, scene, config, laserSpeed, isBoosting, now) {
+function createSingleLaser(spacecraft, scene, config, laserSpeed, isBoosting, isSlowing, now) {
     // Create laser geometry and material
     const geometry = new THREE.CylinderGeometry(
         config.thickness, 
@@ -254,9 +275,15 @@ function createSingleLaser(spacecraft, scene, config, laserSpeed, isBoosting, no
     // Position the laser in front of the spacecraft
     spacecraft.updateMatrixWorld(true); // Ensure matrix is updated
     
-    // Determine which offset to use based on boost state
-    const offsetToUse = isBoosting && config.boostOffset !== undefined ? 
-                        config.boostOffset : config.offset;
+    // Determine which offset to use based on movement state
+    let offsetToUse;
+    if (isBoosting && config.boostOffset !== undefined) {
+        offsetToUse = config.boostOffset;
+    } else if (isSlowing && config.slowOffset !== undefined) {
+        offsetToUse = config.slowOffset;
+    } else {
+        offsetToUse = config.offset;
+    }
     
     // Calculate position in front of the spacecraft (along its local z-axis)
     const position = new THREE.Vector3(0, 0, offsetToUse);

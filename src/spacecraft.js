@@ -128,13 +128,26 @@ export function createSpacecraft(scene) {
     });
 
     let engineTime = 0;
-    function updateEngineEffects(isBoost) {
+    function updateEngineEffects(isBoost, isSlow) {
         engineTime += 0.016;
         spacecraft.traverse((child) => {
             if (child.material === boostFlameMaterial) {
                 child.material.uniforms.time.value = engineTime;
-                child.material.uniforms.intensity.value = isBoost ? 1.0 : 0.0;
-                child.scale.setScalar(isBoost ? 1.5 : 1.0);
+                
+                // Handle the three states: boost, normal, slow
+                if (isBoost) {
+                    // Boost mode - high intensity
+                    child.material.uniforms.intensity.value = 1.0;
+                    child.scale.setScalar(1.5);
+                } else if (isSlow) {
+                    // Slow mode - very low intensity
+                    child.material.uniforms.intensity.value = 0.0;
+                    child.scale.setScalar(0.7);
+                } else {
+                    // Normal mode - normal intensity
+                    child.material.uniforms.intensity.value = 0.0;
+                    child.scale.setScalar(1.0);
+                }
             }
         });
     }
