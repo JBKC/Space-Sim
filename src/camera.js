@@ -14,9 +14,9 @@ export const spaceCamera = {
 // cockpit camera offsets
 export const cockpitCamera = {
     base: new THREE.Vector3(0, 0, 44),         // Inside cockpit, looking forward
-    boost: new THREE.Vector3(0, 1.7, -0.3),        // Slight downward tilt when boosting
-    slow: new THREE.Vector3(0, 1.9, -0.7),         // Slight upward tilt when slow
-    hyperspace: new THREE.Vector3(0, 1.8, -0.2),   // Closer to the front during hyperspace
+    boost: new THREE.Vector3(0, 0, 222),        // Slight downward tilt when boosting
+    slow: new THREE.Vector3(0, 0, 23),         // Slight upward tilt when slow
+    hyperspace: new THREE.Vector3(0, 0, 2249),   // Closer to the front during hyperspace
 };
 
 // San Francisco camera offsets
