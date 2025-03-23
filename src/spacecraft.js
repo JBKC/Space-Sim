@@ -97,8 +97,8 @@ export function createSpacecraft(scene) {
             (gltf) => {
                 const model = gltf.scene;
                 
-                // Reduce the scale significantly (from 1000 to something smaller)
-                model.scale.set(1, 1, 1); // 10x smaller than before
+
+                model.scale.set(10, 10, 10);
                 
                 // Add the model to our cockpit group
                 cockpit.add(model);

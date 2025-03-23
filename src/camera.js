@@ -8,14 +8,14 @@ export const spaceCamera = {
     base: new THREE.Vector3(0, 2, 30),         // Normal camera position (behind spacecraft)
     boost: new THREE.Vector3(0, 2, 200),        // Further back during boost
     slow: new THREE.Vector3(0, 2, 12),       // Closer camera during slow mode
-    hyperspace: new THREE.Vector3(0, 2, -4),   // Close camera during hyperspace
+    hyperspace: new THREE.Vector3(0, 2, 2245),   // Extreme distance during hyperspace
 };
 
 // San Francisco camera offsets
 export const sanFranCamera = {
-    base: new THREE.Vector3(0, 30, -50),         // Normal camera position (behind spacecraft)
-    boost: new THREE.Vector3(0, 20, 100),        // Further back during boost
-    slow: new THREE.Vector3(0, 30, -30),       // Closer camera during slow mode
+    base: new THREE.Vector3(0, 2, -2),
+    boost: new THREE.Vector3(0, 2, 10),
+    slow: new THREE.Vector3(0, 2, -4),
     collision: new THREE.Vector3(0, 5, -20),
 };
 
@@ -59,6 +59,11 @@ export const cinematicEffects = {
     
     // Camera transition speed
     transitionSpeed: 0.15, // Lower = slower, smoother transitions
+    
+    // Field of View settings
+    DEFAULT_FOV: 75,       // Default camera FOV (in degrees)
+    HYPERSPACE_FOV: 100,   // FOV during hyperspace (in degrees)
+    FOV_TRANSITION_SPEED: 0.1 // How quickly to transition FOV
 };
 
 // UTILITY FUNCTIONS
@@ -120,20 +125,30 @@ export function createCameraState(scene) {
         currentLocalYawRotation: 0,
         targetLocalPitchRotation: 0,
         targetLocalYawRotation: 0,
+        
+        // Field of View properties
+        currentFOV: cinematicEffects.DEFAULT_FOV,
+        targetFOV: cinematicEffects.DEFAULT_FOV,
     };
 }
 
 // Updates the target offsets based on current input
-export function updateTargetOffsets(cameraState, keys, scene) {
+export function updateTargetOffsets(cameraState, keys, scene, isHyperspace = false) {
     const offsets = getCameraOffsets(scene);
     
     // Update positional offset based on movement mode
-    if (keys.up) {
+    if (isHyperspace) {
+        cameraState.targetOffset = offsets.hyperspace.clone();
+        cameraState.targetFOV = cinematicEffects.HYPERSPACE_FOV;
+    } else if (keys.up) {
         cameraState.targetOffset = offsets.boost.clone();
+        cameraState.targetFOV = cinematicEffects.DEFAULT_FOV;
     } else if (keys.down) {
         cameraState.targetOffset = offsets.slow.clone();
+        cameraState.targetFOV = cinematicEffects.DEFAULT_FOV;
     } else {
         cameraState.targetOffset = offsets.base.clone();
+        cameraState.targetFOV = cinematicEffects.DEFAULT_FOV;
     }
     
     // Update rotational offsets for cinematic effect
@@ -188,6 +203,11 @@ export function updateCameraOffsets(cameraState, rotation) {
         cameraState.targetLocalYawRotation - cameraState.currentLocalYawRotation
     ) * cinematicEffects.LOCAL_ROTATION_SPEED;
     
+    // Interpolate FOV
+    cameraState.currentFOV += (
+        cameraState.targetFOV - cameraState.currentFOV
+    ) * cinematicEffects.FOV_TRANSITION_SPEED;
+    
     return cameraState;
 }
 
@@ -241,4 +261,8 @@ export function applyCameraState(camera, cameraState, spacecraft, rotation) {
     // Apply the 180-degree rotation to look forward
     const forwardRotation = createForwardRotation();
     camera.quaternion.multiply(forwardRotation);
+    
+    // Apply FOV
+    camera.fov = cameraState.currentFOV;
+    camera.updateProjectionMatrix();
 } 

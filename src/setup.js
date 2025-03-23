@@ -50,7 +50,7 @@ const rotation = {
 };
 
 // Camera update function exactly matching SanFran3D's implementation
-function updateCamera() {
+function updateCamera(camera, isHyperspace) {
     if (!spacecraft) {
         console.warn("Spacecraft not initialized yet, skipping updateCamera");
         return;
@@ -61,8 +61,8 @@ function updateCamera() {
     spacecraft.add(spacecraftCenter);
     spacecraftCenter.updateMatrixWorld();
 
-    // Update target offsets based on keys
-    updateTargetOffsets(cameraState, keys, 'space');
+    // Update target offsets based on keys and hyperspace state
+    updateTargetOffsets(cameraState, keys, 'space', isHyperspace);
     
     // Update current offsets by interpolating toward targets
     updateCameraOffsets(cameraState, rotation);
@@ -104,6 +104,10 @@ function updateCamera() {
     // Apply the 180-degree rotation to look forward
     const adjustment = createForwardRotation();
     camera.quaternion.multiply(adjustment);
+    
+    // Apply FOV changes from camera state
+    camera.fov = cameraState.currentFOV;
+    camera.updateProjectionMatrix();
     
     // Remove the temporary pivot (to avoid cluttering the scene)
     spacecraft.remove(spacecraftCenter);
@@ -277,7 +281,7 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
 
         // Use the passed isBoosting and isHyperspace parameters
         updateMovement(isBoosting, isHyperspace);
-        updateCamera();
+        updateCamera(camera, isHyperspace);
         
         // Handle laser updates
         if (typeof updateLasers === 'function') {
