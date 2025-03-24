@@ -10,27 +10,35 @@ import * as THREE from 'three';
  * @property {number} yOffset - Vertical offset from spacecraft center
  * @property {number} lineThickness - Thickness of lines in the reticle
  * @property {number} crosshairSize - Size of the central crosshair
- * @property {number} ringRadius - Radius of the outer ring
- * @property {number} ringThickness - Thickness of the outer ring
+ * @property {number} triangleSize - Size of the triangle (replacing ringRadius)
+ * @property {number} triangleThickness - Thickness of the triangle border
  * @property {number} scale - Normal scale value when not boosting
  * @property {number} boostScale - Reduced scale value when boosting
  * @property {number} slowScale - Larger scale value when in slow mode
  * @property {number} transitionSpeed - Speed of transition between scaling states (0-1)
+ * @property {number} glowIntensity - Intensity of the glow effect
+ * @property {number} glowSize - Size of the glow effect
+ * @property {number} secondaryGlowSize - Size of the secondary glow effect
+ * @property {number} secondaryGlowIntensity - Intensity of the secondary glow
  */
 const config = {
     size: 0.3,             // Increased size for better visibility
-    color: 0xe42747,       // Sci fi color
+    color: 0x4fc3f7,       // Sci-fi blue color that matches UI
     opacity: 1.0,          // Fully opaque
-    distance: -500,          // Distance from spacecraft in local Z direction
+    distance: -500,        // Distance from spacecraft in local Z direction
     yOffset: 0,            // No vertical offset
-    lineThickness: 3,      // Thicker lines
+    lineThickness: 4.5,    // Increased thickness for better visibility
     crosshairSize: 0.05,   // Larger crosshair
-    ringRadius: 0.1,       // Larger ring
-    ringThickness: 0.015,  // Thicker ring
+    triangleSize: 0.12,    // Size of the triangle (replacing ringRadius)
+    triangleThickness: 0.02, // Increased thickness of the triangle border
     scale: 150,            // Normal scale
-    boostScale: 100,        // Smaller scale when boosting
+    boostScale: 100,       // Smaller scale when boosting
     slowScale: 180,        // Larger scale when in slow mode
-    transitionSpeed: 0.1   // Speed of transition between normal and boost scale (0-1)
+    transitionSpeed: 0.1,  // Speed of transition between normal and boost scale (0-1)
+    glowIntensity: 1.5,    // Significantly increased glow intensity
+    glowSize: 0.06,        // Significantly increased glow size
+    secondaryGlowSize: 0.1, // Size of the secondary glow effect
+    secondaryGlowIntensity: 0.8 // Intensity of the secondary glow
 };
 
 // Reticle object to be attached to the spacecraft
@@ -96,13 +104,25 @@ export function createReticle(scene, spacecraft, camera) {
     crosshairGeometry.setFromPoints(crosshairPoints);
     const crosshair = new THREE.LineSegments(crosshairGeometry, material);
     
-    // Create the outer ring
-    const ringGeometry = new THREE.RingGeometry(
-        config.ringRadius - config.ringThickness / 2,
-        config.ringRadius + config.ringThickness / 2,
-        32
-    );
-    const ringMaterial = new THREE.MeshBasicMaterial({
+    // Create a triangular reticle instead of a ring
+    const triangleShape = new THREE.Shape();
+    const size = config.triangleSize;
+    triangleShape.moveTo(0, size);
+    triangleShape.lineTo(-size * 0.866, -size * 0.5); // Bottom left point
+    triangleShape.lineTo(size * 0.866, -size * 0.5);  // Bottom right point
+    triangleShape.lineTo(0, size);                    // Back to top point
+    
+    // Create inner triangle for hollow effect
+    const innerSize = size - config.triangleThickness;
+    const holeShape = new THREE.Shape();
+    holeShape.moveTo(0, innerSize);
+    holeShape.lineTo(-innerSize * 0.866, -innerSize * 0.5); // Bottom left point
+    holeShape.lineTo(innerSize * 0.866, -innerSize * 0.5);  // Bottom right point
+    holeShape.lineTo(0, innerSize);                         // Back to top point
+    triangleShape.holes.push(holeShape);
+    
+    const triangleGeometry = new THREE.ShapeGeometry(triangleShape);
+    const triangleMaterial = new THREE.MeshBasicMaterial({
         color: config.color,
         opacity: config.opacity,
         transparent: true,
@@ -110,11 +130,123 @@ export function createReticle(scene, spacecraft, camera) {
         depthTest: false,
         depthWrite: false,
     });
-    const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+    const triangle = new THREE.Mesh(triangleGeometry, triangleMaterial);
+    
+    // Create primary glow effect with improved shader
+    const glowMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            color: { value: new THREE.Color(config.color) },
+            intensity: { value: config.glowIntensity },
+            time: { value: 0.0 }
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 color;
+            uniform float intensity;
+            uniform float time;
+            varying vec2 vUv;
+            
+            void main() {
+                vec2 center = vec2(0.5, 0.5);
+                float dist = distance(vUv, center);
+                
+                // Create a sharper edge with smoother falloff
+                float glow = 1.0 - smoothstep(0.0, 0.5, dist);
+                
+                // Add a slight pulsing effect
+                float pulse = 0.05 * sin(time * 2.0) + 1.0;
+                
+                // Add some subtle noise to the glow
+                float noise = fract(sin(dot(vUv, vec2(12.9898, 78.233)) * 43758.5453) * pulse);
+                glow = glow * (1.0 + noise * 0.1);
+                
+                // Make the glow brighter in the center
+                glow = pow(glow, 1.5) * intensity;
+                
+                // Output the final color with high intensity in the center
+                gl_FragColor = vec4(color, glow * intensity);
+            }
+        `,
+        transparent: true,
+        depthWrite: false,
+        depthTest: false,
+        blending: THREE.AdditiveBlending
+    });
+    
+    // Create slightly larger triangle shape for the primary glow
+    const glowSize = size + config.glowSize;
+    const glowShape = new THREE.Shape();
+    glowShape.moveTo(0, glowSize);
+    glowShape.lineTo(-glowSize * 0.866, -glowSize * 0.5);
+    glowShape.lineTo(glowSize * 0.866, -glowSize * 0.5);
+    glowShape.lineTo(0, glowSize);
+    
+    const glowGeometry = new THREE.ShapeGeometry(glowShape);
+    const primaryGlow = new THREE.Mesh(glowGeometry, glowMaterial);
+    primaryGlow.position.z = -0.01; // Position slightly behind the triangle
+    
+    // Create secondary, larger glow for more dramatic effect
+    const secondaryGlowMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            color: { value: new THREE.Color(config.color) },
+            intensity: { value: config.secondaryGlowIntensity },
+            time: { value: 0.0 }
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 color;
+            uniform float intensity;
+            uniform float time;
+            varying vec2 vUv;
+            
+            void main() {
+                vec2 center = vec2(0.5, 0.5);
+                float dist = distance(vUv, center);
+                
+                // Softer falloff for the outer glow
+                float glow = 1.0 - smoothstep(0.0, 0.7, dist);
+                
+                // Add a very subtle opposite-phase pulsing
+                float pulse = 0.05 * sin(time * 2.0 + 3.14) + 1.0;
+                glow = glow * pulse;
+                
+                // Make outer glow more ethereal
+                gl_FragColor = vec4(color, glow * intensity * (1.0 - dist));
+            }
+        `,
+        transparent: true,
+        depthWrite: false,
+        depthTest: false,
+        blending: THREE.AdditiveBlending
+    });
+    
+    // Create even larger triangle for secondary glow
+    const secondaryGlowSize = size + config.secondaryGlowSize;
+    const secondaryGlowShape = new THREE.Shape();
+    secondaryGlowShape.moveTo(0, secondaryGlowSize);
+    secondaryGlowShape.lineTo(-secondaryGlowSize * 0.866, -secondaryGlowSize * 0.5);
+    secondaryGlowShape.lineTo(secondaryGlowSize * 0.866, -secondaryGlowSize * 0.5);
+    secondaryGlowShape.lineTo(0, secondaryGlowSize);
+    
+    const secondaryGlowGeometry = new THREE.ShapeGeometry(secondaryGlowShape);
+    const secondaryGlow = new THREE.Mesh(secondaryGlowGeometry, secondaryGlowMaterial);
+    secondaryGlow.position.z = -0.02; // Position behind the primary glow
     
     // Create the corner brackets
     const bracketGeometry = new THREE.BufferGeometry();
-    const bracketSize = config.ringRadius * 1.3;
+    const bracketSize = config.triangleSize * 1.3;
     const bracketWidth = bracketSize * 0.2;
     const bracketPoints = [
         // Top-right bracket
@@ -145,9 +277,11 @@ export function createReticle(scene, spacecraft, camera) {
     const brackets = new THREE.LineSegments(bracketGeometry, material);
     
     // Add all components to the reticle object
-    reticleObject.add(crosshair);
-    reticleObject.add(ring);
-    reticleObject.add(brackets);
+    reticleObject.add(secondaryGlow); // Add secondary glow first (furthest back)
+    reticleObject.add(primaryGlow);   // Add primary glow
+    reticleObject.add(triangle);      // Add triangle
+    reticleObject.add(crosshair);     // Add crosshair
+    reticleObject.add(brackets);      // Add brackets
     
     // Scale the entire reticle
     reticleObject.scale.set(config.scale, config.scale, config.scale);
@@ -207,6 +341,23 @@ export function createReticle(scene, spacecraft, camera) {
             const scaleFactor = (viewportHeight / 1080) * currentScale;
             reticleObject.scale.set(scaleFactor, scaleFactor, scaleFactor);
         }
+        
+        // Animate the glow effect
+        const time = performance.now() * 0.001; // Convert to seconds
+        reticleObject.children.forEach(child => {
+            if (child.material && child.material.uniforms) {
+                if (child.material.uniforms.intensity) {
+                    const pulseFactor = Math.sin(time * 2.0) * 0.2 + 0.8; // More noticeable pulsing
+                    child.material.uniforms.intensity.value = 
+                        child === secondaryGlow 
+                            ? config.secondaryGlowIntensity * pulseFactor * 0.9
+                            : config.glowIntensity * pulseFactor;
+                }
+                if (child.material.uniforms.time) {
+                    child.material.uniforms.time.value = time;
+                }
+            }
+        });
         
         // Option 1: Fixed offset from spacecraft (always follows spacecraft movement)
         spacecraft.updateMatrixWorld();
@@ -301,8 +452,36 @@ export function setReticleColor(color) {
     if (reticleObject) {
         reticleObject.traverse((child) => {
             if (child.material) {
-                child.material.color.set(color);
+                if (child.material.color) {
+                    child.material.color.set(color);
+                }
+                if (child.material.uniforms && child.material.uniforms.color) {
+                    child.material.uniforms.color.value.set(color);
+                }
             }
         });
     }
+}
+
+/**
+ * Ensures the reticle color is consistent across all environments
+ * This should be called when switching between environments to maintain the appearance
+ */
+export function ensureReticleConsistency() {
+    // Reset to the config color
+    setReticleColor(config.color);
+    
+    // Make sure the reticle is visible
+    if (reticleObject) {
+        reticleObject.visible = true;
+    }
+    
+    // Ensure the glow effect is active
+    reticleObject.children.forEach(child => {
+        if (child.material && child.material.uniforms && child.material.uniforms.intensity) {
+            child.material.uniforms.intensity.value = config.glowIntensity;
+        }
+    });
+    
+    console.log("Reticle consistency ensured - color reset to default blue");
 } 

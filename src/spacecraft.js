@@ -617,13 +617,13 @@ export function createSpacecraft(scene) {
         // Update the animation mixer
         mixer.update(clampedDelta);
         
-        // Debug every 100 frames (~1-2 seconds) to avoid console spam
-        if (Math.random() < 0.01) {
-            console.log(`Animation update: mixer active = ${mixer.time > 0}, current state = ${animationState}`);
-            if (currentAnimation) {
-                console.log(`Current animation: ${currentAnimation.getClip().name}, time: ${currentAnimation.time.toFixed(2)}`);
-            }
-        }
+        // // Debug every 100 frames (~1-2 seconds) to avoid console spam
+        // if (Math.random() < 0.01) {
+        //     console.log(`Animation update: mixer active = ${mixer.time > 0}, current state = ${animationState}`);
+        //     if (currentAnimation) {
+        //         console.log(`Current animation: ${currentAnimation.getClip().name}, time: ${currentAnimation.time.toFixed(2)}`);
+        //     }
+        // }
     }
     
     // Function to control wing animations
@@ -637,7 +637,7 @@ export function createSpacecraft(scene) {
             return;
         }
         
-        console.log(`Setting wings to ${targetState} (currently ${animationState})`);
+        // console.log(`Setting wings to ${targetState} (currently ${animationState})`);
         
         // Get wing references - use the stored wing references if available
         const wings = xWingModel?.userData?.wings || {};
@@ -675,7 +675,7 @@ export function createSpacecraft(scene) {
             }
         } else {
             // Use smooth animation instead of immediate rotation
-            console.log("Using smooth wing animation for transition");
+            // console.log("Using smooth wing animation for transition");
             
             // Calculate start and end positions
             const startPos = animationState === 'open' ? 1 : 0;
@@ -775,7 +775,7 @@ export function createSpacecraft(scene) {
         
         // Direct wing position control for debugging (0 = closed, 1 = fully open)
         setWingsPosition: function(position) {
-            console.log(`Setting wings to position: ${position} (0=closed, 1=open)`);
+            // console.log(`Setting wings to position: ${position} (0=closed, 1=open)`);
             
             // Get wing references
             const wings = xWingModel?.userData?.wings || {};
@@ -808,7 +808,7 @@ export function createSpacecraft(scene) {
         
         // Export current state of isFirstPersonView
         get isFirstPersonView() {
-            console.log("DEBUG - Accessing isFirstPersonView property, value:", isFirstPersonView);
+            // console.log("DEBUG - Accessing isFirstPersonView property, value:", isFirstPersonView);
             return isFirstPersonView;
         },
         

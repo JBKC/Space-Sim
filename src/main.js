@@ -27,11 +27,11 @@ import {
     camera as earthCamera,
     // tiles as earthTiles,
     renderer as earthRenderer,
-    spacecraft as earthSpacecraft,  // Import the spacecraft from sanFran3D.js
-    resetSanFranPosition  // Import the reset position function
-// } from './washington3D.js';
-} from './sanFran3D.js';
-
+    spacecraft as earthSpacecraft,  // Import the spacecraft from the 3D scene
+    resetPosition,  // Import the generic reset position function
+} from './washington3D.js';
+// } from './sanFran3D.js';
+// 
 // import moon surface functions
 // import { 
 //     init as initMoonSurface, 
@@ -149,7 +149,7 @@ document.addEventListener('keydown', (event) => {
     // Reset position in Earth surface mode
     if (event.code === 'KeyR' && isEarthSurfaceActive) {
         console.log('R pressed - resetting position in San Francisco');
-        resetSanFranPosition();
+        resetPosition();
     }
     // Toggle first-person/third-person view with 'C' key
     if (event.code === 'KeyC') {
@@ -651,8 +651,8 @@ function animate(currentTime = 0) {
                         // Reset position to starting point over San Francisco every time we enter Earth surface
                         console.log('Scheduling automatic position reset with 200ms delay');
                         setTimeout(() => {
-                            console.log('Automatically resetting position to San Francisco starting point');
-                            resetSanFranPosition();
+                            console.log('Automatically resetting position to starting point');
+                            resetPosition();
                             
                             // Set first entry flag to false AFTER the initial position reset
                             if (isFirstEarthEntry) {
@@ -670,7 +670,7 @@ function animate(currentTime = 0) {
                         console.log('First Earth entry this session - ensuring proper position reset with 200ms delay');
                         setTimeout(() => {
                             console.log('Executing first-entry position reset');
-                            resetSanFranPosition();
+                            resetPosition();
                             isFirstEarthEntry = false;
                         }, 200);
                     }

@@ -214,7 +214,7 @@ function initSpacecraft() {
 /**
  * Resets the spacecraft to its initial position over San Francisco
  */
-export function resetSanFranPosition() {
+export function resetPosition() {
     if (!spacecraft) {
         console.warn("Cannot reset position: spacecraft not initialized");
         return;
@@ -1159,4 +1159,3 @@ function checkBasePlaneCollision() {
 
   return false;
 }
-

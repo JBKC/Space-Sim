@@ -32,6 +32,79 @@ let spaceInitialized = false;
 let isBoosting = false;
 let isHyperspace = false;
 
+// Create a raycaster for planet detection
+const raycaster = new THREE.Raycaster();
+let lastHoveredPlanet = null;
+
+// Create planet info data
+const planetInfo = {
+    'mercury': {
+        composition: 'Metallic core, silicate crust',
+        atmosphere: 'Thin exosphere',
+        gravity: '38% of Earth'
+    },
+    'venus': {
+        composition: 'Rocky, iron core',
+        atmosphere: 'Thick CO₂, sulfuric acid',
+        gravity: '90% of Earth'
+    },
+    'earth': {
+        composition: 'Iron core, silicate mantle',
+        atmosphere: 'Nitrogen, oxygen',
+        gravity: '1.98 m/s² (100%)'
+    },
+    'moon': {
+        composition: 'Rocky, silicate crust',
+        atmosphere: 'Thin exosphere',
+        gravity: '16% of Earth'
+    },
+    'mars': {
+        composition: 'Rocky, iron-nickel core',
+        atmosphere: 'Thin CO₂',
+        gravity: '38% of Earth'
+    },
+    'jupiter': {
+        composition: 'Hydrogen, helium',
+        atmosphere: 'Dynamic storms',
+        gravity: '250% of Earth'
+    },
+    'saturn': {
+        composition: 'Hydrogen, helium',
+        atmosphere: 'Fast winds, methane',
+        gravity: '107% of Earth'
+    },
+    'uranus': {
+        composition: 'Icy, hydrogen, helium',
+        atmosphere: 'Methane haze',
+        gravity: '89% of Earth'
+    },
+    'neptune': {
+        composition: 'Icy, rocky core',
+        atmosphere: 'Methane clouds',
+        gravity: '114% of Earth'
+    }
+};
+
+// Create a planet info box
+const planetInfoBox = document.createElement('div');
+planetInfoBox.className = 'planet-info-box';
+planetInfoBox.style.position = 'absolute';
+planetInfoBox.style.fontFamily = 'Orbitron, sans-serif';
+planetInfoBox.style.fontSize = '16px';
+planetInfoBox.style.color = 'white';
+planetInfoBox.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+planetInfoBox.style.border = '2px solid #4fc3f7';
+planetInfoBox.style.borderRadius = '5px';
+planetInfoBox.style.padding = '15px';
+planetInfoBox.style.width = '320px';
+planetInfoBox.style.pointerEvents = 'none';
+planetInfoBox.style.zIndex = '1000';
+planetInfoBox.style.display = 'none'; // Hidden by default
+document.body.appendChild(planetInfoBox);
+
+// Variable to track if Earth surface is active
+export let isEarthSurfaceActive = false;
+
 export { 
     renderer, 
     scene, 
@@ -161,7 +234,6 @@ scene.background = new THREE.Color(0x000000);
 
 // Flag to track which scene is active
 // export let isMoonSurfaceActive = false; // Moon surface access disabled
-export let isEarthSurfaceActive = false;
 
 // Render function that delegates to earth3D.js when in Earth surface mode
 // Update the renderScene function to avoid initializing earth3D multiple times
@@ -227,7 +299,7 @@ function initSpacecraft() {
     // Make sure wings are open by default (set timeout to ensure model is loaded)
     setTimeout(() => {
         if (spacecraft && spacecraft.setWingsOpen) {
-            console.log("Setting wings to OPEN position in setup.js");
+            // console.log("Setting wings to OPEN position in setup.js");
             spacecraft.setWingsOpen(true);
         }
     }, 1000); // 1 second delay to ensure model is fully loaded and processed
@@ -322,6 +394,9 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
 
         // Check if spacecraft is near celestial body
         checkPlanetProximity();
+        
+        // Check if reticle is hovering over a planet (only in space mode)
+        checkReticleHover();
 
         // Handle laser firing if spacebar is pressed
         if (keys.space && spacecraft) {
@@ -346,10 +421,10 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         if (spacecraft && spacecraft.setWingsOpen) {
             const shouldWingsBeOpen = !isBoosting && !isHyperspace;
             
-            // Log wing state changes at a low frequency to avoid console spam
-            if (Math.random() < 0.01) {
-                console.log(`Wing state check: boosting=${isBoosting}, hyperspace=${isHyperspace}, shouldBeOpen=${shouldWingsBeOpen}`);
-            }
+            // // Log wing state changes at a low frequency to avoid console spam
+            // if (Math.random() < 0.01) {
+            //     console.log(`Wing state check: boosting=${isBoosting}, hyperspace=${isHyperspace}, shouldBeOpen=${shouldWingsBeOpen}`);
+            // }
             
             // The setWingsOpen function now has smooth animations and handles state management internally
             // It will only trigger an animation if the target state is different from the current state
@@ -380,7 +455,8 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
 
         updateStars();
         updatePlanetLabels();
-
+        
+        return true;
     } catch (error) {
         console.error("Error in space update:", error);
         return false;
@@ -1042,6 +1118,7 @@ export function updatePlanetLabels() {
         });
         earthDistanceIndicator.style.display = 'none';
         moonDistanceIndicator.style.display = 'none';
+        planetInfoBox.style.display = 'none'; // Also hide the planet info box
         return;
     }
 
@@ -1061,10 +1138,13 @@ export function updatePlanetLabels() {
     // Calculate distance to Moon for the indicator - using direct position since Moon is now in global coordinates
     const moonPosition = moonGroup.position.clone();
     const distanceToMoon = moonPosition.distanceTo(spacecraftPosition);
-    const moonEntryDistance = Math.max(0, distanceToMoon - (moonRadius + 500)); // 200 is the entry threshold
+    const moonEntryDistance = Math.max(0, distanceToMoon - (moonRadius + 500));
     
     // Update the Moon distance indicator text
     // moonDistanceIndicator.textContent = `MOON ENTRY: ${Math.round(moonEntryDistance)}`;
+
+    // To track if the currently hovered planet is visible
+    let hoveredPlanetVisible = false;
 
     labels.forEach(label => {
         // Get planet's world position
@@ -1101,16 +1181,15 @@ export function updatePlanetLabels() {
                 earthDistanceIndicator.style.display = 'block'; // Show the distance indicator
             }
             
-            // If this is the Moon, position the distance indicator below it
-            // Moon entry functionality disabled
-            /*
-            if (label.planetGroup === moonGroup) {
-                moonDistanceIndicator.style.left = `${x}px`;
-                moonDistanceIndicator.style.top = `${y + 35}px`;
-                moonDistanceIndicator.style.transform = 'translateX(-50%)';
-                moonDistanceIndicator.style.display = 'block'; // Show the distance indicator
+            // Update the info box position if we're currently hovering over this planet
+            if (lastHoveredPlanet && lastHoveredPlanet === label.element.textContent.toLowerCase()) {
+                hoveredPlanetVisible = true;
+                if (planetInfoBox.style.display === 'block') {
+                    planetInfoBox.style.left = `${x + 170}px`; // Adjusted for larger box
+                    planetInfoBox.style.top = `${y}px`;
+                    planetInfoBox.style.transform = 'translateY(-50%)';
+                }
             }
-            */
         } else {
             // Hide the label if the planet is behind the camera
             label.element.style.display = 'none';
@@ -1119,16 +1198,13 @@ export function updatePlanetLabels() {
             if (label.planetGroup === earthGroup) {
                 earthDistanceIndicator.style.display = 'none';
             }
-            
-            // If this is the Moon, also hide the distance indicator
-            // Moon entry functionality disabled
-            /*
-            if (label.planetGroup === moonGroup) {
-                moonDistanceIndicator.style.display = 'none';
-            }
-            */
         }
     });
+
+    // If the hovered planet is not visible, hide the info box
+    if (lastHoveredPlanet && !hoveredPlanetVisible) {
+        planetInfoBox.style.display = 'none';
+    }
 }
 
 // Stars
@@ -1196,4 +1272,110 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
+}
+
+// Add a function to detect when the reticle intersects with planets
+export function checkReticleHover() {
+    if (!spacecraft || !camera || isEarthSurfaceActive) {
+        return;
+    }
+
+    // Cast a ray from the camera center forward
+    const direction = new THREE.Vector3(0, 0, -1);
+    direction.applyQuaternion(camera.quaternion);
+    raycaster.set(camera.position, direction);
+    
+    // Create a list of all planets and their meshes
+    const planetDetectionList = [
+        { name: 'mercury', mesh: mercury },
+        { name: 'venus', mesh: venus },
+        { name: 'earth', mesh: planet },
+        { name: 'moon', mesh: moon },
+        { name: 'mars', mesh: mars },
+        { name: 'jupiter', mesh: jupiter },
+        { name: 'saturn', mesh: saturn },
+        { name: 'uranus', mesh: uranus },
+        { name: 'neptune', mesh: neptune }
+    ];
+    
+    // Flag to track if we're hovering over any planet
+    let planetDetected = false;
+    
+    // Check intersections with all planets
+    for (const planetObj of planetDetectionList) {
+        const intersects = raycaster.intersectObject(planetObj.mesh, false);
+        
+        if (intersects.length > 0) {
+            // Planet was detected by the reticle
+            planetDetected = true;
+            
+            if (lastHoveredPlanet !== planetObj.name) {
+                console.log(`${planetObj.name} detected`);
+                lastHoveredPlanet = planetObj.name;
+                
+                // Update info box content if we have info for this planet
+                if (planetInfo[planetObj.name]) {
+                    const info = planetInfo[planetObj.name];
+                    planetInfoBox.innerHTML = `
+                        <div style="text-align: center; margin-bottom: 10px; font-size: 20px; color: #4fc3f7;">
+                            ${planetObj.name.toUpperCase()}
+                        </div>
+                        <div style="margin-bottom: 8px;">
+                            <span style="color: #4fc3f7;">Composition:</span> ${info.composition}
+                        </div>
+                        <div style="margin-bottom: 8px;">
+                            <span style="color: #4fc3f7;">Atmosphere:</span> ${info.atmosphere}
+                        </div>
+                        <div>
+                            <span style="color: #4fc3f7;">Gravity:</span> ${info.gravity}
+                        </div>
+                    `;
+                    
+                    // Find the corresponding label to position the info box
+                    for (const label of labels) {
+                        // Map planet name to its corresponding group
+                        let planetGroup;
+                        switch(planetObj.name) {
+                            case 'mercury': planetGroup = mercuryGroup; break;
+                            case 'venus': planetGroup = venusGroup; break;
+                            case 'earth': planetGroup = earthGroup; break;
+                            case 'moon': planetGroup = moonGroup; break;
+                            case 'mars': planetGroup = marsGroup; break;
+                            case 'jupiter': planetGroup = jupiterGroup; break;
+                            case 'saturn': planetGroup = saturnGroup; break;
+                            case 'uranus': planetGroup = uranusGroup; break;
+                            case 'neptune': planetGroup = neptuneGroup; break;
+                        }
+                        
+                        // Check if this label corresponds to the detected planet
+                        if (label.planetGroup === planetGroup) {
+                            // If the label is visible, position the info box next to it
+                            if (label.element.style.display !== 'none') {
+                                const labelRect = label.element.getBoundingClientRect();
+                                const labelX = labelRect.left + labelRect.width / 2;
+                                const labelY = labelRect.top;
+                                
+                                // Position the info box to the right of the label
+                                planetInfoBox.style.left = `${labelX + 170}px`; // Adjusted for larger box
+                                planetInfoBox.style.top = `${labelY}px`;
+                                planetInfoBox.style.transform = 'translateY(-50%)';
+                                planetInfoBox.style.display = 'block';
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Break out of the loop since we found an intersection
+            break;
+        }
+    }
+    
+    // If no planet was detected but we had one before, clear the hover state
+    if (!planetDetected && lastHoveredPlanet) {
+        console.log(`${lastHoveredPlanet} no longer detected`);
+        lastHoveredPlanet = null;
+        planetInfoBox.style.display = 'none'; // Hide the info box
+    }
 }
