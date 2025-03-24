@@ -282,34 +282,6 @@ export function createSpacecraft(scene) {
                 });
                 console.log(meshNames);
                 
-                // Check specifically for the wing engine and greeble elements
-                console.log("===== CHECKING FOR ENGINE AND GREEBLE ELEMENTS =====");
-                const exactWingElements = [
-                    'RightWingBottomEngineAndGreebles_3',
-                    'RightWingTopEngineAndGreebles_3',
-                    'LeftWingBottomEngineAndGreebles_3',
-                    'LeftWingTopEngineAndGreebles_3'
-                ];
-                
-                let foundExactElements = false;
-                // Check for exact matches only
-                exactWingElements.forEach(name => {
-                    if (meshNames.includes(name)) {
-                        console.log(`✓ Found exact element: ${name}`);
-                        foundExactElements = true;
-                    } else {
-                        console.log(`✗ Missing exact element: ${name}`);
-                    }
-                });
-                
-                if (!foundExactElements) {
-                    console.log("Note: None of the specific elements were found by exact name.");
-                    console.log("They might be named differently in this model or be part of other objects.");
-                    console.log("All available mesh names in the model:");
-                    console.log(meshNames);
-                }
-                console.log("===================================");
-                
                 // Original log
                 console.log("Found X-wing wings:", 
                     wings.topLeft ? "Top Left ✓" : "Top Left ✗",
