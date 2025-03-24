@@ -26,43 +26,7 @@ export function createSpacecraft(scene) {
     let currentAnimation = null;
     let animationState = 'open'; // 'open' or 'closed'
     
-    // Materials for engine effects
-    const engineGlowMaterial = new THREE.MeshStandardMaterial({ color: 0xff00ff, emissive: 0xff00ff, emissiveIntensity: 2.5, transparent: true, opacity: 0.9 });
-    const boostFlameMaterial = new THREE.ShaderMaterial({
-        uniforms: { time: { value: 0 }, intensity: { value: 0.0 } },
-        vertexShader: `
-            varying vec3 vPosition;
-            varying vec3 vNormal;
-            void main() {
-                vPosition = position;
-                vNormal = normalize(normalMatrix * normal);
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-        `,
-        fragmentShader: `
-            uniform float time;
-            uniform float intensity;
-            varying vec3 vPosition;
-            varying vec3 vNormal;
-            float rand(vec2 co) {
-                return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
-            }
-            void main() {
-                float t = time * 3.0;
-                float pulse = (sin(t) * 0.5 + 0.5) * 0.3;
-                float glow = pow(0.9 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 1.5);
-                vec3 coreColor = vec3(1.0, 0.0, 1.0);
-                vec3 outerColor = vec3(0.8, 0.2, 1.0);
-                vec3 color = mix(outerColor, coreColor, glow + pulse);
-                glow *= (1.0 + intensity * 1.5);
-                color *= (1.0 + intensity * 0.5);
-                color *= 1.5 + intensity * 0.5;
-                gl_FragColor = vec4(color, (glow + pulse) * (0.7 + intensity * 0.3));
-            }
-        `,
-        transparent: true,
-        blending: THREE.AdditiveBlending
-    });
+    // Materials
     const lightMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.0, transparent: true, opacity: 0.7 });
 
     // Create a purple/pink material for the engine greebles
@@ -357,9 +321,6 @@ export function createSpacecraft(scene) {
                 // Store wings reference for later use in the export
                 xWingModel.userData.wings = wings;
                 
-                // Add engine glow effects
-                addEngineEffects(xWingModel);
-                
                 // Explicitly set wings to open position after model is loaded
                 if (wings.topLeft && wings.topRight && wings.bottomLeft && wings.bottomRight) {
                     console.log("Setting initial wing position to OPEN");
@@ -415,51 +376,6 @@ export function createSpacecraft(scene) {
         );
     });
     
-    // Function to add engine glow effects to the model
-    function addEngineEffects(model) {
-        // Create engine glow meshes at the appropriate positions
-        const enginePositions = [
-            { x: -0.7, y: 0.15, z: -0.8 },
-            { x: 0.7, y: 0.15, z: -0.8 },
-            { x: -0.7, y: -0.15, z: -0.8 },
-            { x: 0.7, y: -0.15, z: -0.8 }
-        ];
-        
-        enginePositions.forEach(pos => {
-            // Create engine glow
-            const glowSphereGeometry = new THREE.SphereGeometry(0.1, 16, 16);
-            const glowSphere = new THREE.Mesh(glowSphereGeometry, boostFlameMaterial);
-            glowSphere.position.set(pos.x, pos.y, pos.z);
-            model.add(glowSphere);
-        });
-    }
-    
-    // Engine effects update function
-    let engineTime = 0;
-    function updateEngineEffects(isBoost, isSlow) {
-        engineTime += 0.016;
-        spacecraft.traverse((child) => {
-            if (child.material === boostFlameMaterial) {
-                child.material.uniforms.time.value = engineTime;
-                
-                // Handle the three states: boost, normal, slow
-                if (isBoost) {
-                    // Boost mode - high intensity
-                    child.material.uniforms.intensity.value = 1.0;
-                    child.scale.setScalar(1.5);
-                } else if (isSlow) {
-                    // Slow mode - very low intensity
-                    child.material.uniforms.intensity.value = 0.0;
-                    child.scale.setScalar(0.7);
-                } else {
-                    // Normal mode - normal intensity
-                    child.material.uniforms.intensity.value = 0.0;
-                    child.scale.setScalar(1.0);
-                }
-            }
-        });
-    }
-
     // Load the model first, then add to spacecraft group
     loadModel.then((model) => {
         spacecraft.add(model);
@@ -470,9 +386,9 @@ export function createSpacecraft(scene) {
         spacecraft.lookAt(centerPoint);
         
         // Add a light to the spacecraft
-    const xwingLight = new THREE.PointLight(0xffffff, 0.5);
-    xwingLight.position.set(0, 2, 0);
-    spacecraft.add(xwingLight);
+        const xwingLight = new THREE.PointLight(0xffffff, 0.5);
+        xwingLight.position.set(0, 2, 0);
+        spacecraft.add(xwingLight);
     }).catch(error => {
         console.error("Failed to load X-Wing model:", error);
     });
@@ -688,19 +604,6 @@ export function createSpacecraft(scene) {
         return isFirstPersonView;
     }
 
-    // // Function to update cockpit elements
-    // function updateCockpit(deltaTime = 0.016) {
-    //     if (!isFirstPersonView) return;
-        
-    //     // Animate HUD elements
-    //     hudGroup.children.forEach((element, index) => {
-    //         // Rotate the main reticle
-    //         if (index === 0) { // First element is the main reticle
-    //             element.rotation.z += deltaTime * 0.5; // Slowly rotate the reticle
-    //         }
-    //     });
-    // }
-
     // Function to update the animation mixer
     function updateAnimations(deltaTime) {
         // Skip if no mixer exists
@@ -851,10 +754,7 @@ export function createSpacecraft(scene) {
     return {
         spacecraft,
         cockpit,
-        engineGlowMaterial,
-        boostFlameMaterial,
         lightMaterial,
-        updateEngineEffects,
         fireLasers,
         startFiring,
         stopFiring,
@@ -928,6 +828,5 @@ export function createSpacecraft(scene) {
         },
         reticle: reticleComponent.reticle,
         updateReticle: reticleComponent.update,
-        // updateCockpit
     };
 }

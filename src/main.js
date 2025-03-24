@@ -74,6 +74,8 @@ let earthInitialized = false;  // Move to top-level scope for exports
 let moonInitialized = false;  // Move to top-level scope for exports
 // Moon surface access disabled - create dummy variable to prevent errors
 let isMoonSurfaceActive = false;
+// Add a flag to track first Earth entry in a session
+let isFirstEarthEntry = true;
 
 // Laser firing variables
 let lastFired = 0;
@@ -196,6 +198,8 @@ document.addEventListener('keydown', (event) => {
         } else */ if (isEarthSurfaceActive) {
             console.log('ESC pressed - exiting Earth surface');
             exitEarthSurface();
+            // Reset the first entry flag so next time we enter Earth, it's treated as a first entry
+            isFirstEarthEntry = true;
         }
     }
 });
@@ -635,16 +639,42 @@ function animate(currentTime = 0) {
                                 streakLines = [];
                                 isHyperspace = false;
                             }
+                            
+                            // Ensure keyboard focus is on the page after scene change
+                            setTimeout(() => {
+                                window.focus();
+                                document.body.focus();
+                                console.log('Set keyboard focus after Earth initialization');
+                            }, 300);
                         }
                         
                         // Reset position to starting point over San Francisco every time we enter Earth surface
-                        console.log('Automatically resetting position to San Francisco starting point');
-                        resetSanFranPosition();
+                        console.log('Scheduling automatic position reset with 200ms delay');
+                        setTimeout(() => {
+                            console.log('Automatically resetting position to San Francisco starting point');
+                            resetSanFranPosition();
+                            
+                            // Set first entry flag to false AFTER the initial position reset
+                            if (isFirstEarthEntry) {
+                                console.log('First Earth entry completed');
+                                isFirstEarthEntry = false;
+                            }
+                        }, 200);
                     });
                 }
                 
                 // If Earth is already initialized, update and render
                 if (earthInitialized) {
+                    // If this is the first time entering Earth in this session, reset position to ensure proper loading
+                    if (isFirstEarthEntry) {
+                        console.log('First Earth entry this session - ensuring proper position reset with 200ms delay');
+                        setTimeout(() => {
+                            console.log('Executing first-entry position reset');
+                            resetSanFranPosition();
+                            isFirstEarthEntry = false;
+                        }, 200);
+                    }
+                    
                     // Main update function that updates spacecraft, camera, tiles, world matrices
                     const earthUpdated = updateEarthSurface(deltaTime);              
     
