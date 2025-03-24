@@ -1189,7 +1189,8 @@ starDestroyerGroup.name = "imperialStarDestroyer"; // Add name for reference
 scene.add(starDestroyerGroup);
 
 // Create collision boxes for the Star Destroyers (for efficient raycast detection)
-const collisionGeometry = new THREE.BoxGeometry(3000, 1000, 5000);
+// Increased size to fully encompass both ships with plenty of overhang
+const collisionGeometry = new THREE.BoxGeometry(10000, 3000, 8000);
 const collisionMaterial = new THREE.MeshBasicMaterial({ 
     visible: false // Invisible collision box
 });
@@ -1199,6 +1200,7 @@ collisionBox1.position.set(-7000, 2000, 0);
 collisionBox1.name = "starDestroyer1Collision";
 starDestroyerGroup.add(collisionBox1);
 
+// Single larger collision box that covers both Star Destroyers
 const collisionBox2 = new THREE.Mesh(collisionGeometry, collisionMaterial);
 collisionBox2.position.set(0, 0, 0);
 collisionBox2.name = "starDestroyer2Collision";
