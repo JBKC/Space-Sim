@@ -33,7 +33,7 @@ export function createSpacecraft(scene) {
     const purplePinkMaterial = new THREE.MeshStandardMaterial({
         color: 0xff00ff,         // Bright purple/pink
         emissive: 0xaa00aa,      // Slightly darker purple/pink for emissive
-        emissiveIntensity: 0.5,  // Medium intensity glow
+        emissiveIntensity: 5,  // Glowing
         metalness: 0.7,          // A bit metallic
         roughness: 0.3           // Fairly smooth
     });
