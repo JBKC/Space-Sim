@@ -342,8 +342,8 @@ function startHyperspace() {
     isHyperspace = true;
     // Make sure to set the global isHyperspace flag immediately so other modules can detect it
     window.isHyperspace = true;
-    console.log('🚀 ENTERING HYPERSPACE - Wings should CLOSE!');
-    console.log('Setting window.isHyperspace =', window.isHyperspace);
+    // console.log('🚀 ENTERING HYPERSPACE - Wings should CLOSE!');
+    // console.log('Setting window.isHyperspace =', window.isHyperspace);
 
     // Create hyperspace streaks
     createStreaks();
@@ -391,8 +391,8 @@ function startHyperspace() {
     setTimeout(() => {
         isHyperspace = false;
         window.isHyperspace = false;
-        console.log('🚀 EXITING HYPERSPACE - Wings should OPEN!');
-        console.log('Setting window.isHyperspace =', window.isHyperspace);
+        // console.log('🚀 EXITING HYPERSPACE - Wings should OPEN!');
+        // console.log('Setting window.isHyperspace =', window.isHyperspace);
         resetMovementInputs();
         
         // Reset visual indication

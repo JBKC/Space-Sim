@@ -62,7 +62,6 @@ export {
  localOrigin,  // Export local origin for other modules to use
  worldToLocal,  // Export conversion functions
  localToWorld,
- deathStar,     // Export the Death Star
 };
 
 // Define spacecraft
@@ -114,7 +113,48 @@ const collisionOffset = new THREE.Vector3();
 
 // Sun objects and materials
 let washingtonSun, sunGroup, sunMesh, sunHalo, sunFlare;
+let playerSun, playerSunTarget; // Add new variables for player sun
 let textureLoader = new THREE.TextureLoader();
+
+// Add player sun configuration options
+const playerSunConfig = {
+    // Position the sun using lat/lon/height in global coordinates instead of relative height
+    position: {
+        lat: 46.8529,  // Mount Rainier latitude
+        lon: -121.7604, // Mount Rainier longitude
+        height: 500000  // Very high altitude for sun
+    },
+    intensity: 10,     
+    color: 0xffffff,
+    fixedPosition: true,  // Whether the sun stays in a fixed position or follows the player
+    targetOffset: {
+        x: 0,
+        y: 0,
+        z: 0
+    }
+};
+
+/**
+ * Configuration for the background sphere that appears in the Washington scene
+ * @type {Object}
+ * @property {number} radius - Radius of the background sphere
+ * @property {number} distance - Distance from the player at spawn
+ * @property {number} color - Color of the sphere in hex format
+ * @property {Object} rotation - Rotation of the sphere in radians
+ * @property {number} rotation.x - X-axis rotation
+ * @property {number} rotation.y - Y-axis rotation
+ * @property {number} rotation.z - Z-axis rotation
+ */
+const backgroundSphereConfig = {
+  radius: 50000,            // Default radius of the sphere
+  distance: 100000,        // Default distance from player
+  color: 0x000000,         // Default black color
+  rotation: {
+      x: 0,                // No rotation on X-axis
+      y: 0,                // No rotation on Y-axis
+      z: 0                 // No rotation on Z-axis
+  }
+};
 
 // Orientation widget variables
 let orientationScene, orientationCamera, orientationRenderer;
@@ -182,11 +222,293 @@ const cameraState = {
 };
 const smoothFactor = 0.1;
 
-// Death Star variables
-let deathStar;
-const DEATH_STAR_DISTANCE = 10000; // Distance in front of spacecraft
-const DEATH_STAR_SIZE = 5000; // Width in units
-let deathStarLoaded = false;
+// Add a variable to store the background sphere
+let backgroundSphere;
+
+
+
+/**
+ * Creates a large background sphere fixed in space behind the player spawn point
+ * @param {THREE.Scene} scene - The scene to add the sphere to
+ * @param {THREE.Vector3} spawnPosition - The spawn position of the player
+ * @param {THREE.Quaternion} spawnRotation - The spawn rotation of the player
+ * @param {Object} options - Optional parameters to override default config
+ * @returns {THREE.Mesh} - The created sphere
+ */
+function createBackgroundSphere(scene, spawnPosition, spawnRotation, options = {}) {
+    // Apply any custom options, falling back to defaults if not provided
+    const config = {
+        radius: options.radius || backgroundSphereConfig.radius,
+        distance: options.distance || backgroundSphereConfig.distance,
+        color: options.color || backgroundSphereConfig.color,
+        rotation: {
+            x: options.rotation?.x !== undefined ? options.rotation.x : backgroundSphereConfig.rotation.x,
+            y: options.rotation?.y !== undefined ? options.rotation.y : backgroundSphereConfig.rotation.y,
+            z: options.rotation?.z !== undefined ? options.rotation.z : backgroundSphereConfig.rotation.z
+        }
+    };
+    
+    // Create a sphere geometry with configured radius
+    const sphereGeometry = new THREE.SphereGeometry(config.radius, 32, 32);
+    
+    // Load the planet texture from the skybox directory
+    if (!textureLoader) {
+        textureLoader = new THREE.TextureLoader();
+    }
+    
+    // Create material with the texture - we'll apply it inside the texture load callback
+    // Use MeshBasicMaterial which ignores lighting but doesn't have its own color
+    let sphereMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffffff, // Start with white which won't affect the texture
+        side: THREE.BackSide, // Use BackSide so we can see the texture from inside the sphere
+        transparent: true, // Enable transparency
+        opacity: 1.0      // Start fully visible
+    });
+    
+    const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+    sphere.name = "backgroundSphere"; // Add a name for easier identification
+    
+    // Make the sphere ignore lighting
+    sphere.receiveShadow = false;
+    sphere.castShadow = false;
+    
+    // Calculate position at the configured distance behind the spawn position
+    // We use the spawn rotation to determine what "behind" means
+    const backwardVector = new THREE.Vector3(0, 0, 1); // Backward along z-axis
+    backwardVector.applyQuaternion(spawnRotation);
+    
+    // Set the sphere position to spawn position + configured distance in the backward direction
+    sphere.position.copy(spawnPosition.clone().add(backwardVector.multiplyScalar(config.distance)));
+    
+    // Apply rotation relative to the spacecraft orientation
+    const rotationEuler = new THREE.Euler(config.rotation.x, config.rotation.y, config.rotation.z, 'XYZ');
+    const rotationQuaternion = new THREE.Quaternion().setFromEuler(rotationEuler);
+    
+    // Apply spacecraft's base orientation, then apply the relative rotation
+    sphere.quaternion.copy(spawnRotation).multiply(rotationQuaternion);
+    
+    // Add the sphere to the scene
+    scene.add(sphere);
+    
+    // Load the texture after adding the sphere to the scene
+    textureLoader.load(
+        'skybox/2k_neptune.jpg', // Use relative path without leading slash
+        function(texture) {
+            // When the texture is loaded, apply it to the sphere material
+            // Create a new material to ensure clean settings for the texture
+            sphere.material = new THREE.MeshBasicMaterial({
+                map: texture,
+                side: THREE.BackSide,
+                transparent: true,
+                alphaTest: 0.1      // Only render fully opaque parts of texture
+            });
+            
+            // No color setting - let the texture define all colors exactly as is
+            sphere.material.needsUpdate = true;
+            console.log('planet texture applied to background sphere without background color');
+        },
+        undefined, // onProgress callback not needed
+        function(err) {
+            // Error callback
+            console.error('Error loading planet texture:', err);
+            // Try alternative path if the first one fails
+            textureLoader.load(
+                './skybox/planet1.webp',
+                function(texture) {
+                    // Create a new material to ensure clean settings for the texture
+                    sphere.material = new THREE.MeshBasicMaterial({
+                        map: texture,
+                        side: THREE.BackSide,
+                        transparent: true,
+                        alphaTest: 0.1      // Only render fully opaque parts of texture
+                    });
+                    
+                    // No color setting - let the texture define all colors exactly as is
+                    sphere.material.needsUpdate = true;
+                    console.log('planet texture applied using alternative path without background color');
+                },
+                undefined,
+                function(err2) {
+                    console.error('Error loading planet texture with alternative path:', err2);
+                }
+            );
+        }
+    );
+    
+    console.log(`Added backgroundSphere behind the player at position: (${
+        sphere.position.x.toFixed(2)}, ${
+        sphere.position.y.toFixed(2)}, ${
+        sphere.position.z.toFixed(2)}) with radius: ${config.radius} and rotation: (${
+        config.rotation.x.toFixed(2)}, ${
+        config.rotation.y.toFixed(2)}, ${
+        config.rotation.z.toFixed(2)})`
+    );
+    
+    return sphere;
+}
+
+/**
+ * Updates the size and properties of the background sphere
+ * @param {Object} options - Options to update (radius, distance, color, rotation)
+ */
+export function updateBackgroundSphere(options = {}) {
+    if (!backgroundSphere) {
+        console.warn("Cannot update backgroundSphere: sphere not created yet");
+        return;
+    }
+    
+    // Update radius if provided
+    if (options.radius !== undefined && options.radius > 0) {
+        // Create a new geometry with the updated radius
+        const newGeometry = new THREE.SphereGeometry(options.radius, 32, 32);
+        backgroundSphere.geometry.dispose(); // Clean up old geometry
+        backgroundSphere.geometry = newGeometry;
+        console.log(`Updated backgroundSphere radius to: ${options.radius}`);
+    }
+    
+    // Update color if provided
+    if (options.color !== undefined) {
+        if (backgroundSphere.material && backgroundSphere.material.map) {
+            // If we have a texture, we regenerate the material to avoid color tinting
+            const currentTexture = backgroundSphere.material.map;
+            backgroundSphere.material = new THREE.MeshBasicMaterial({
+                map: currentTexture,
+                side: THREE.BackSide,
+                transparent: true,
+                alphaTest: 0.1
+            });
+            backgroundSphere.material.needsUpdate = true;
+            console.log(`Updated backgroundSphere material to have no color tinting`);
+        } else if (backgroundSphere.material && backgroundSphere.material.color) {
+            // If no texture yet, just update the color
+            backgroundSphere.material.color.set(options.color);
+            console.log(`Updated backgroundSphere color to: 0x${options.color.toString(16)}`);
+        }
+    }
+    
+    // Extract current properties to preserve them if not being updated
+    const currentRotation = backgroundSphere.userData.rotation || backgroundSphereConfig.rotation;
+    
+    // Check if we need to update rotation
+    let rotationChanged = false;
+    let newRotation = { ...currentRotation };
+    
+    if (options.rotation) {
+        if (options.rotation.x !== undefined) {
+            newRotation.x = options.rotation.x;
+            rotationChanged = true;
+        }
+        if (options.rotation.y !== undefined) {
+            newRotation.y = options.rotation.y;
+            rotationChanged = true;
+        }
+        if (options.rotation.z !== undefined) {
+            newRotation.z = options.rotation.z;
+            rotationChanged = true;
+        }
+    }
+    
+    // Store the rotation in userData for later retrieval
+    backgroundSphere.userData.rotation = newRotation;
+    
+    // If distance or rotation is being updated, we need to recreate the sphere
+    if (options.distance !== undefined || rotationChanged) {
+        console.log(`Updating backgroundSphere distance or rotation`);
+        
+        // Save the current texture if it exists
+        const currentTexture = backgroundSphere.material && backgroundSphere.material.map ? 
+                             backgroundSphere.material.map : null;
+        
+        // Remove the current sphere
+        scene.remove(backgroundSphere);
+        
+        // Create a new sphere with updated distance
+        const spawnPosition = spacecraft.position.clone();
+        const spawnRotation = spacecraft.quaternion.clone();
+        
+        // Combine existing sphere properties with new options
+        const newOptions = {
+            radius: options.radius || (backgroundSphere.geometry.parameters ? 
+                     backgroundSphere.geometry.parameters.radius : backgroundSphereConfig.radius),
+            distance: options.distance !== undefined ? options.distance : 
+                      (backgroundSphere.userData.distance || backgroundSphereConfig.distance),
+            color: options.color || (backgroundSphere.material ? 
+                   backgroundSphere.material.color?.getHex() : backgroundSphereConfig.color),
+            rotation: newRotation
+        };
+        
+        // Store the distance for later reference
+        if (options.distance !== undefined) {
+            backgroundSphere.userData.distance = options.distance;
+        }
+        
+        // Create the new sphere
+        backgroundSphere = createBackgroundSphere(scene, spawnPosition, spawnRotation, newOptions);
+        
+        // Store the distance and rotation in userData for later retrieval
+        backgroundSphere.userData.distance = newOptions.distance;
+        backgroundSphere.userData.rotation = newOptions.rotation;
+        
+        // Apply the saved texture if it exists
+        if (currentTexture) {
+            // Create a new material with transparent settings
+            backgroundSphere.material = new THREE.MeshBasicMaterial({
+                map: currentTexture,
+                side: THREE.BackSide,
+                transparent: true,
+                alphaTest: 0.1 // Only render fully opaque parts of texture
+            });
+            backgroundSphere.material.needsUpdate = true;
+            console.log('Reapplied texture to recreated background sphere with transparent settings');
+        }
+    }
+}
+
+// Add this function to get current background sphere config
+export function getBackgroundSphereConfig() {
+    return {
+        radius: backgroundSphere && backgroundSphere.geometry.parameters ? 
+                backgroundSphere.geometry.parameters.radius : backgroundSphereConfig.radius,
+        distance: backgroundSphere && backgroundSphere.userData.distance ? 
+                backgroundSphere.userData.distance : backgroundSphereConfig.distance,
+        color: backgroundSphere && backgroundSphere.material ? 
+               backgroundSphere.material.color.getHex() : backgroundSphereConfig.color,
+        rotation: backgroundSphere && backgroundSphere.userData.rotation ?
+                backgroundSphere.userData.rotation : backgroundSphereConfig.rotation
+    };
+}
+
+/**
+ * Rotate the background sphere by the specified amounts (in radians)
+ * @param {number} x - Rotation amount around X axis
+ * @param {number} y - Rotation amount around Y axis
+ * @param {number} z - Rotation amount around Z axis
+ */
+export function rotateBackgroundSphere(x = 0, y = 0, z = 0) {
+    if (!backgroundSphere) {
+        console.warn("Cannot rotate backgroundSphere: sphere not created yet");
+        return;
+    }
+    
+    // Get current rotation
+    const currentRotation = backgroundSphere.userData.rotation || backgroundSphereConfig.rotation;
+    
+    // Calculate new rotation by adding the provided values
+    const newRotation = {
+        x: currentRotation.x + x,
+        y: currentRotation.y + y,
+        z: currentRotation.z + z
+    };
+    
+    // Update the sphere with the new rotation
+    updateBackgroundSphere({ rotation: newRotation });
+    
+    console.log(`Rotated backgroundSphere to: (${
+        newRotation.x.toFixed(2)}, ${
+        newRotation.y.toFixed(2)}, ${
+        newRotation.z.toFixed(2)})`
+    );
+}
 
 function initSpacecraft() {
  const spacecraftComponents = createSpacecraft(scene);
@@ -243,6 +565,14 @@ function initSpacecraft() {
  cameraTarget.position.set(0, 0, 0);
 
     updateEngineEffects = spacecraftComponents.updateEngineEffects;
+    
+    // Create the fixed background sphere behind the initial position
+    const spawnPosition = spacecraft.position.clone();
+    const spawnRotation = spacecraft.quaternion.clone();
+    
+    // Create the fixed background sphere
+    backgroundSphere = createBackgroundSphere(scene, spawnPosition, spawnRotation);
+    console.log("Created fixed backgroundSphere behind the player for Washington scene");
 }
 
 /**
@@ -271,10 +601,18 @@ export function resetWashingtonPosition() {
         'XYZ'
     ));
     
-    // Reset any velocity
-    if (spacecraft.userData && spacecraft.userData.velocity) {
-        spacecraft.userData.velocity.set(0, 0, 0);
+    // Remove previous background sphere if it exists
+    if (backgroundSphere && scene) {
+        scene.remove(backgroundSphere);
     }
+    
+    // Create a new fixed background sphere behind the reset position
+    const spawnPosition = spacecraft.position.clone();
+    const spawnRotation = spacecraft.quaternion.clone();
+    
+    // Create the fixed background sphere
+    backgroundSphere = createBackgroundSphere(scene, spawnPosition, spawnRotation);
+    console.log("Recreated fixed backgroundSphere behind the player after position reset");
 }
 
 /**
@@ -939,10 +1277,12 @@ function setupWashingtonLighting() {
         textureLoader = new THREE.TextureLoader();
     }
     
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
+    // Create a stronger ambient light for more even lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.2); // Increased for more even illumination
     scene.add(ambientLight);
  
-    washingtonSun = new THREE.DirectionalLight(0xffffff, 10);
+    // Create a more focused and less intense directional light for the sun
+    washingtonSun = new THREE.DirectionalLight(0xffffff, 3); // Reduced for better balance
  
     // Define the light source position using lat, lon, and height
     const sunLat = 46.8529; // Mount Rainier latitude
@@ -977,15 +1317,56 @@ function setupWashingtonLighting() {
  
     scene.add(washingtonSun);
  
-    const sideLight = new THREE.DirectionalLight(0xffffff, 0.5);
-    sideLight.position.set(-1, -1, 1).normalize(); // Keep as directional for now
+    // Reduce intensity of additional lights or remove them for space environment
+    const sideLight = new THREE.DirectionalLight(0xffffff, 0.2); // Reduced from 0.5 to 0.2
+    sideLight.position.set(-1, -1, 1).normalize();
     scene.add(sideLight);
     
-    const fillLight = new THREE.DirectionalLight(0xaaaaff, 0.2);
-    fillLight.position.set(0, -1, 0); // Keep as directional for now
+    // Use a very dim blue fill light for space ambience
+    const fillLight = new THREE.DirectionalLight(0xaaaaff, 0.1); // Reduced from 0.2 to 0.1
+    fillLight.position.set(0, -1, 0);
     scene.add(fillLight);
     
-    console.log("Lighting setup for Washington DC scene");
+    // Add a hemisphere light for more even illumination from above
+    const hemisphereLight = new THREE.HemisphereLight(
+        0xffffff,  // Sky color - white light from above
+        0x444444,  // Ground color - darker light from below
+        0.4        // Intensity
+    );
+    scene.add(hemisphereLight);
+    
+    // Add a main directional sun positioned using lat/lon coordinates
+    playerSun = new THREE.DirectionalLight(playerSunConfig.color, playerSunConfig.intensity);
+    playerSun.castShadow = true;
+    
+    // Configure shadows for better quality
+    playerSun.shadow.mapSize.width = 2048;
+    playerSun.shadow.mapSize.height = 2048;
+    playerSun.shadow.camera.near = 0.5;
+    playerSun.shadow.camera.far = 50000;
+    playerSun.shadow.camera.left = -3000;
+    playerSun.shadow.camera.right = 3000;
+    playerSun.shadow.camera.top = 3000;
+    playerSun.shadow.camera.bottom = -3000;
+    playerSun.shadow.bias = -0.0001;
+    
+    // Position the sun using global coordinates
+    const playerSunPosition = latLonHeightToEcef(
+        playerSunConfig.position.lat,
+        playerSunConfig.position.lon,
+        playerSunConfig.position.height
+    );
+    playerSun.position.copy(playerSunPosition);
+    
+    // Create a target object for the player sun
+    playerSunTarget = new THREE.Object3D();
+    scene.add(playerSunTarget);
+    playerSun.target = playerSunTarget;
+    
+    // Add the player sun to the scene
+    scene.add(playerSun);
+    
+    console.log(`Sun initialized at global coordinates: lat ${playerSunConfig.position.lat}, lon ${playerSunConfig.position.lon}, height ${playerSunConfig.position.height}`);
 }
 
 export function init() {
@@ -997,7 +1378,7 @@ export function init() {
     }
 
     scene = new THREE.Scene();
-    const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(255), 64, 64);
+    const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(0), 64, 64);
     env.mapping = THREE.EquirectangularReflectionMapping;
     env.needsUpdate = true;
     scene.environment = env;
@@ -1014,7 +1395,7 @@ export function init() {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.physicallyCorrectLights = true;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 0.8; // Reduced from 1.2 for darker space
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.gammaFactor = 2.2;
  
@@ -1130,8 +1511,41 @@ function updateWashingtonLighting() {
         washingtonSun.target.updateMatrixWorld();
     }
     
-    // Simple lighting for the Death Star
-    // No special handling needed
+    // Update the player sun based on config
+    if (playerSun && playerSunTarget) {
+        if (playerSunConfig.fixedPosition) {
+            // For fixed position, use the global lat/lon coordinates to position the sun
+            // Only update if we need to maintain the position in global space
+            const playerSunPosition = latLonHeightToEcef(
+                playerSunConfig.position.lat,
+                playerSunConfig.position.lon,
+                playerSunConfig.position.height
+            );
+            playerSun.position.copy(playerSunPosition);
+            
+            // Point the sun at the player's position
+            playerSunTarget.position.copy(spacecraftPosition);
+            playerSunTarget.position.add(new THREE.Vector3(
+                playerSunConfig.targetOffset.x,
+                playerSunConfig.targetOffset.y,
+                playerSunConfig.targetOffset.z
+            ));
+        } else {
+            // If following player, position the sun above the player's local up direction
+            const playerUp = new THREE.Vector3(0, 1, 0).applyQuaternion(spacecraft.quaternion);
+            playerUp.normalize().multiplyScalar(playerSunConfig.position.height);
+            
+            // Set the sun position relative to the player
+            playerSun.position.copy(spacecraftPosition).add(playerUp);
+            
+            // Set the target to the player's position
+            playerSunTarget.position.copy(spacecraftPosition);
+        }
+        
+        playerSunTarget.updateMatrixWorld();
+        playerSun.target = playerSunTarget;
+        playerSun.updateMatrixWorld(true);
+    }
 }
 
 function onWindowResize() {
@@ -1173,5 +1587,139 @@ function checkBasePlaneCollision() {
     }
 
     return false;
+}
+
+// Add these functions to export so they can be called from other files or the console
+
+/**
+ * Set the position of the player sun using lat/lon coordinates
+ * @param {number} lat - Latitude in degrees
+ * @param {number} lon - Longitude in degrees
+ * @param {number} height - Height above sea level in meters (optional)
+ */
+export function setPlayerSunPosition(lat, lon, height = null) {
+    playerSunConfig.position.lat = lat;
+    playerSunConfig.position.lon = lon;
+    
+    if (height !== null && height > 0) {
+        playerSunConfig.position.height = height;
+    }
+    
+    console.log(`Player sun position set to lat: ${lat}, lon: ${lon}, height: ${playerSunConfig.position.height}`);
+    
+    // Update the sun position immediately if it exists
+    if (playerSun) {
+        const playerSunPosition = latLonHeightToEcef(
+            playerSunConfig.position.lat,
+            playerSunConfig.position.lon,
+            playerSunConfig.position.height
+        );
+        playerSun.position.copy(playerSunPosition);
+        playerSun.updateMatrixWorld(true);
+    }
+}
+
+/**
+ * Set the height of the player sun above sea level
+ * @param {number} height - Height in meters above sea level
+ */
+export function setPlayerSunHeight(height) {
+    if (height > 0) {
+        playerSunConfig.position.height = height;
+        console.log(`Player sun height set to ${height} meters`);
+        
+        // Update the sun position immediately if it exists
+        if (playerSun) {
+            const playerSunPosition = latLonHeightToEcef(
+                playerSunConfig.position.lat,
+                playerSunConfig.position.lon,
+                playerSunConfig.position.height
+            );
+            playerSun.position.copy(playerSunPosition);
+            playerSun.updateMatrixWorld(true);
+        }
+    } else {
+        console.warn("Player sun height must be greater than 0");
+    }
+}
+
+/**
+ * Set the intensity of the player sun
+ * @param {number} intensity - Light intensity (recommended range: 0-20)
+ */
+export function setPlayerSunIntensity(intensity) {
+    if (intensity >= 0) {
+        playerSunConfig.intensity = intensity;
+        if (playerSun) {
+            playerSun.intensity = intensity;
+        }
+        console.log(`Player sun intensity set to ${intensity}`);
+    } else {
+        console.warn("Player sun intensity must be non-negative");
+    }
+}
+
+/**
+ * Set the color of the player sun
+ * @param {number} color - Color in hex format (e.g., 0xffffcc for warm sunlight)
+ */
+export function setPlayerSunColor(color) {
+    playerSunConfig.color = color;
+    if (playerSun) {
+        playerSun.color.set(color);
+    }
+    console.log(`Player sun color set to 0x${color.toString(16)}`);
+}
+
+/**
+ * Get the current player sun configuration
+ * @returns {Object} The current player sun configuration
+ */
+export function getPlayerSunConfig() {
+    return { ...playerSunConfig };
+}
+
+/**
+ * Set whether the sun should be fixed in world space or follow the player
+ * @param {boolean} fixed - Whether the sun stays in a fixed position (true) or follows the player (false)
+ */
+export function setPlayerSunFixed(fixed) {
+    playerSunConfig.fixedPosition = fixed;
+    
+    // Update the sun position immediately if it exists
+    if (playerSun && spacecraft) {
+        if (fixed) {
+            // When switching to fixed, update the global position
+            const playerSunPosition = latLonHeightToEcef(
+                playerSunConfig.position.lat,
+                playerSunConfig.position.lon,
+                playerSunConfig.position.height
+            );
+            playerSun.position.copy(playerSunPosition);
+        } else {
+            // When switching to player-relative, update the local position
+            const playerUp = new THREE.Vector3(0, 1, 0).applyQuaternion(spacecraft.quaternion);
+            playerUp.normalize().multiplyScalar(playerSunConfig.position.height);
+            playerSun.position.copy(spacecraft.position).add(playerUp);
+        }
+        playerSun.updateMatrixWorld(true);
+    }
+    
+    console.log(`Sun position set to ${fixed ? 'fixed in global coordinates' : 'follow player orientation'}`);
+}
+
+/**
+ * Set the target offset for the player sun
+ * This allows adjusting where the sun points relative to the player
+ * @param {number} x - X offset
+ * @param {number} y - Y offset
+ * @param {number} z - Z offset
+ */
+export function setPlayerSunTargetOffset(x = 0, y = 0, z = 0) {
+    playerSunConfig.targetOffset.x = x;
+    playerSunConfig.targetOffset.y = y;
+    playerSunConfig.targetOffset.z = z;
+    
+    console.log(`Player sun target offset set to (${x}, ${y}, ${z})`);
 }
 
