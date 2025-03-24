@@ -100,7 +100,26 @@ const collisionOffset = new THREE.Vector3();
 
 // Sun objects and materials
 let earthSun, sunGroup, sunMesh, sunHalo, sunFlare;
+let playerSun, playerSunTarget; // Add variables for player sun
 let textureLoader = new THREE.TextureLoader();
+
+// Add player sun configuration options
+const playerSunConfig = {
+    // Position the sun using lat/lon/height in global coordinates
+    position: {
+        lat: 37.7749,  // San Francisco latitude
+        lon: -122.4194, // San Francisco longitude
+        height: 500000  // Very high altitude for sun
+    },
+    intensity: 10,     
+    color: 0xffffff,
+    fixedPosition: true,  // Whether the sun stays in a fixed position or follows the player
+    targetOffset: {
+        x: 0,
+        y: 0,
+        z: 0
+    }
+};
 
 // Orientation widget variables
 let orientationScene, orientationCamera, orientationRenderer;
@@ -606,7 +625,7 @@ export function updateMovement() {
         
         // Log animation progress occasionally
         if (wingAnimation % 10 === 0) {
-            console.log(`SanFran wing animation: ${Math.round(progress * 100)}% complete, ${wingsOpen ? 'opening' : 'closing'}`);
+            // console.log(`SanFran wing animation: ${Math.round(progress * 100)}% complete, ${wingsOpen ? 'opening' : 'closing'}`);
         }
         
         // Define the angles for open and closed positions
@@ -924,53 +943,96 @@ function setupearthLighting() {
         textureLoader = new THREE.TextureLoader();
     }
     
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
- scene.add(ambientLight);
+    // Create a stronger ambient light for more even lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Increased for more even illumination
+    scene.add(ambientLight);
  
- earthSun = new THREE.DirectionalLight(0xffffff, 10);
+    // Create a more focused and less intense directional light for the sun
+    earthSun = new THREE.DirectionalLight(0xffffff, 3); // Reduced for better balance
  
- // Define the light source position using lat, lon, and height
- const sunLat = 37.7749; // Same latitude as San Francisco for simplicity
- const sunLon = -122.4194; // Same longitude as San Francisco
- const sunHeight = 100000; // High altitude to simulate sunlight from above
- const sunPosition = latLonHeightToEcef(sunLat, sunLon, sunHeight);
- earthSun.position.copy(sunPosition);
+    // Define the light source position using lat, lon, and height
+    const sunLat = 37.7749; // San Francisco latitude
+    const sunLon = -122.4194; // San Francisco longitude
+    const sunHeight = 100000; // High altitude to simulate sunlight from above
+    const sunPosition = latLonHeightToEcef(sunLat, sunLon, sunHeight);
+    earthSun.position.copy(sunPosition);
  
- earthSun.castShadow = true;
+    earthSun.castShadow = true;
  
- earthSun.shadow.mapSize.width = 4096;
- earthSun.shadow.mapSize.height = 4096;
- earthSun.shadow.camera.near = 1000;
- earthSun.shadow.camera.far = 200000;
+    earthSun.shadow.mapSize.width = 4096;
+    earthSun.shadow.mapSize.height = 4096;
+    earthSun.shadow.camera.near = 1000;
+    earthSun.shadow.camera.far = 200000;
     const shadowSize = 20000;
- earthSun.shadow.camera.left = -shadowSize;
- earthSun.shadow.camera.right = shadowSize;
- earthSun.shadow.camera.top = shadowSize;
- earthSun.shadow.camera.bottom = -shadowSize;
- earthSun.shadow.bias = -0.00002;
- earthSun.shadow.normalBias = 0.005;
+    earthSun.shadow.camera.left = -shadowSize;
+    earthSun.shadow.camera.right = shadowSize;
+    earthSun.shadow.camera.top = shadowSize;
+    earthSun.shadow.camera.bottom = -shadowSize;
+    earthSun.shadow.bias = -0.00002;
+    earthSun.shadow.normalBias = 0.005;
  
- // Set the target at San Francisco's ground level
- const targetLat = 37.7749;
- const targetLon = -122.4194;
- const targetHeight = 0; // Ground level
- const targetPosition = latLonHeightToEcef(targetLat, targetLon, targetHeight);
+    // Set the target at San Francisco's ground level
+    const targetLat = 37.7749;
+    const targetLon = -122.4194;
+    const targetHeight = 0; // Ground level
+    const targetPosition = latLonHeightToEcef(targetLat, targetLon, targetHeight);
     const target = new THREE.Object3D();
- target.position.copy(targetPosition);
- scene.add(target);
- earthSun.target = target;
+    target.position.copy(targetPosition);
+    scene.add(target);
+    earthSun.target = target;
  
- scene.add(earthSun);
+    scene.add(earthSun);
  
-    const sideLight = new THREE.DirectionalLight(0xffffff, 0.5);
- sideLight.position.set(-1, -1, 1).normalize(); // Keep as directional for now
- scene.add(sideLight);
+    // Reduce intensity of additional lights or remove them for space environment
+    const sideLight = new THREE.DirectionalLight(0xffffff, 0.2); // Reduced from 0.5 to 0.2
+    sideLight.position.set(-1, -1, 1).normalize();
+    scene.add(sideLight);
     
-    const fillLight = new THREE.DirectionalLight(0xaaaaff, 0.2);
- fillLight.position.set(0, -1, 0); // Keep as directional for now
- scene.add(fillLight);
+    // Use a very dim blue fill light for space ambience
+    const fillLight = new THREE.DirectionalLight(0xaaaaff, 0.1); // Reduced from 0.2 to 0.1
+    fillLight.position.set(0, -1, 0);
+    scene.add(fillLight);
     
- console.log("Lighting setup for San Francisco scene");
+    // Add a hemisphere light for more even illumination from above
+    const hemisphereLight = new THREE.HemisphereLight(
+        0xffffff,  // Sky color - white light from above
+        0x444444,  // Ground color - darker light from below
+        0.4        // Intensity
+    );
+    scene.add(hemisphereLight);
+    
+    // Add a main directional sun positioned using lat/lon coordinates
+    playerSun = new THREE.DirectionalLight(playerSunConfig.color, playerSunConfig.intensity);
+    playerSun.castShadow = true;
+    
+    // Configure shadows for better quality
+    playerSun.shadow.mapSize.width = 2048;
+    playerSun.shadow.mapSize.height = 2048;
+    playerSun.shadow.camera.near = 0.5;
+    playerSun.shadow.camera.far = 50000;
+    playerSun.shadow.camera.left = -3000;
+    playerSun.shadow.camera.right = 3000;
+    playerSun.shadow.camera.top = 3000;
+    playerSun.shadow.camera.bottom = -3000;
+    playerSun.shadow.bias = -0.0001;
+    
+    // Position the sun using global coordinates
+    const playerSunPosition = latLonHeightToEcef(
+        playerSunConfig.position.lat,
+        playerSunConfig.position.lon,
+        playerSunConfig.position.height
+    );
+    playerSun.position.copy(playerSunPosition);
+    
+    // Create a target object for the player sun
+    playerSunTarget = new THREE.Object3D();
+    scene.add(playerSunTarget);
+    playerSun.target = playerSunTarget;
+    
+    // Add the player sun to the scene
+    scene.add(playerSun);
+    
+    console.log(`Sun initialized at global coordinates: lat ${playerSunConfig.position.lat}, lon ${playerSunConfig.position.lon}, height ${playerSunConfig.position.height}`);
 }
 
 export function init() {
@@ -982,26 +1044,26 @@ export function init() {
  }
 
  scene = new THREE.Scene();
-    const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(255), 64, 64);
- env.mapping = THREE.EquirectangularReflectionMapping ;
+    const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(0), 64, 64);
+    env.mapping = THREE.EquirectangularReflectionMapping;
     env.needsUpdate = true;
- scene.environment = env;
+    scene.environment = env;
  
- renderer = new THREE.WebGLRenderer({ 
+    renderer = new THREE.WebGLRenderer({ 
         antialias: true,
         precision: 'highp',
         powerPreference: 'high-performance'
     });
- renderer.setClearColor(0x87ceeb); // Set background to blue
- renderer.setSize(window.innerWidth, window.innerHeight);
- renderer.setPixelRatio(window.devicePixelRatio);
- renderer.shadowMap.enabled = true;
- renderer.shadowMap.type = THREE.PCFSoftShadowMap;
- renderer.physicallyCorrectLights = true;
- renderer.toneMapping = THREE.ACESFilmicToneMapping;
- renderer.toneMappingExposure = 1.2;
- renderer.outputEncoding = THREE.sRGBEncoding;
- renderer.gammaFactor = 2.2;
+    renderer.setClearColor(0x87ceeb); // Set background to blue
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.physicallyCorrectLights = true;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.8; // Reduced from 1.2 for darker space
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.gammaFactor = 2.2;
  
  document.body.appendChild(renderer.domElement);
  renderer.domElement.tabIndex = 1;
@@ -1103,18 +1165,54 @@ export function update(deltaTime = 0.016) {
 }
 
 function updateearthLighting() {
- if (!earthSun || !spacecraft) return;
+    if (!earthSun || !spacecraft) return;
     
     const spacecraftPosition = spacecraft.position.clone();
- earthSun.position.set(
+    earthSun.position.set(
         spacecraftPosition.x,
- spacecraftPosition.y + 100000,
+        spacecraftPosition.y + 100000,
         spacecraftPosition.z
     );
     
- if (earthSun.target) {
- earthSun.target.position.copy(spacecraftPosition);
- earthSun.target.updateMatrixWorld();
+    if (earthSun.target) {
+        earthSun.target.position.copy(spacecraftPosition);
+        earthSun.target.updateMatrixWorld();
+    }
+    
+    // Update the player sun based on config
+    if (playerSun && playerSunTarget) {
+        if (playerSunConfig.fixedPosition) {
+            // For fixed position, use the global lat/lon coordinates to position the sun
+            // Only update if we need to maintain the position in global space
+            const playerSunPosition = latLonHeightToEcef(
+                playerSunConfig.position.lat,
+                playerSunConfig.position.lon,
+                playerSunConfig.position.height
+            );
+            playerSun.position.copy(playerSunPosition);
+            
+            // Point the sun at the player's position
+            playerSunTarget.position.copy(spacecraftPosition);
+            playerSunTarget.position.add(new THREE.Vector3(
+                playerSunConfig.targetOffset.x,
+                playerSunConfig.targetOffset.y,
+                playerSunConfig.targetOffset.z
+            ));
+        } else {
+            // If following player, position the sun above the player's local up direction
+            const playerUp = new THREE.Vector3(0, 1, 0).applyQuaternion(spacecraft.quaternion);
+            playerUp.normalize().multiplyScalar(playerSunConfig.position.height);
+            
+            // Set the sun position relative to the player
+            playerSun.position.copy(spacecraftPosition).add(playerUp);
+            
+            // Set the target to the player's position
+            playerSunTarget.position.copy(spacecraftPosition);
+        }
+        
+        playerSunTarget.updateMatrixWorld();
+        playerSun.target = playerSunTarget;
+        playerSun.updateMatrixWorld(true);
     }
 }
 
@@ -1158,4 +1256,138 @@ function checkBasePlaneCollision() {
   }
 
   return false;
+}
+
+// Add these functions to export so they can be called from other files or the console
+
+/**
+ * Set the position of the player sun using lat/lon coordinates
+ * @param {number} lat - Latitude in degrees
+ * @param {number} lon - Longitude in degrees
+ * @param {number} height - Height above sea level in meters (optional)
+ */
+export function setPlayerSunPosition(lat, lon, height = null) {
+    playerSunConfig.position.lat = lat;
+    playerSunConfig.position.lon = lon;
+    
+    if (height !== null && height > 0) {
+        playerSunConfig.position.height = height;
+    }
+    
+    console.log(`Player sun position set to lat: ${lat}, lon: ${lon}, height: ${playerSunConfig.position.height}`);
+    
+    // Update the sun position immediately if it exists
+    if (playerSun) {
+        const playerSunPosition = latLonHeightToEcef(
+            playerSunConfig.position.lat,
+            playerSunConfig.position.lon,
+            playerSunConfig.position.height
+        );
+        playerSun.position.copy(playerSunPosition);
+        playerSun.updateMatrixWorld(true);
+    }
+}
+
+/**
+ * Set the height of the player sun above sea level
+ * @param {number} height - Height in meters above sea level
+ */
+export function setPlayerSunHeight(height) {
+    if (height > 0) {
+        playerSunConfig.position.height = height;
+        console.log(`Player sun height set to ${height} meters`);
+        
+        // Update the sun position immediately if it exists
+        if (playerSun) {
+            const playerSunPosition = latLonHeightToEcef(
+                playerSunConfig.position.lat,
+                playerSunConfig.position.lon,
+                playerSunConfig.position.height
+            );
+            playerSun.position.copy(playerSunPosition);
+            playerSun.updateMatrixWorld(true);
+        }
+    } else {
+        console.warn("Player sun height must be greater than 0");
+    }
+}
+
+/**
+ * Set the intensity of the player sun
+ * @param {number} intensity - Light intensity (recommended range: 0-20)
+ */
+export function setPlayerSunIntensity(intensity) {
+    if (intensity >= 0) {
+        playerSunConfig.intensity = intensity;
+        if (playerSun) {
+            playerSun.intensity = intensity;
+        }
+        console.log(`Player sun intensity set to ${intensity}`);
+    } else {
+        console.warn("Player sun intensity must be non-negative");
+    }
+}
+
+/**
+ * Set the color of the player sun
+ * @param {number} color - Color in hex format (e.g., 0xffffcc for warm sunlight)
+ */
+export function setPlayerSunColor(color) {
+    playerSunConfig.color = color;
+    if (playerSun) {
+        playerSun.color.set(color);
+    }
+    console.log(`Player sun color set to 0x${color.toString(16)}`);
+}
+
+/**
+ * Get the current player sun configuration
+ * @returns {Object} The current player sun configuration
+ */
+export function getPlayerSunConfig() {
+    return { ...playerSunConfig };
+}
+
+/**
+ * Set whether the sun should be fixed in world space or follow the player
+ * @param {boolean} fixed - Whether the sun stays in a fixed position (true) or follows the player (false)
+ */
+export function setPlayerSunFixed(fixed) {
+    playerSunConfig.fixedPosition = fixed;
+    
+    // Update the sun position immediately if it exists
+    if (playerSun && spacecraft) {
+        if (fixed) {
+            // When switching to fixed, update the global position
+            const playerSunPosition = latLonHeightToEcef(
+                playerSunConfig.position.lat,
+                playerSunConfig.position.lon,
+                playerSunConfig.position.height
+            );
+            playerSun.position.copy(playerSunPosition);
+        } else {
+            // When switching to player-relative, update the local position
+            const playerUp = new THREE.Vector3(0, 1, 0).applyQuaternion(spacecraft.quaternion);
+            playerUp.normalize().multiplyScalar(playerSunConfig.position.height);
+            playerSun.position.copy(spacecraft.position).add(playerUp);
+        }
+        playerSun.updateMatrixWorld(true);
+    }
+    
+    console.log(`Sun position set to ${fixed ? 'fixed in global coordinates' : 'follow player orientation'}`);
+}
+
+/**
+ * Set the target offset for the player sun
+ * This allows adjusting where the sun points relative to the player
+ * @param {number} x - X offset
+ * @param {number} y - Y offset
+ * @param {number} z - Z offset
+ */
+export function setPlayerSunTargetOffset(x = 0, y = 0, z = 0) {
+    playerSunConfig.targetOffset.x = x;
+    playerSunConfig.targetOffset.y = y;
+    playerSunConfig.targetOffset.z = z;
+    
+    console.log(`Player sun target offset set to (${x}, ${y}, ${z})`);
 }

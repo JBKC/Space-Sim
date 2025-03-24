@@ -1,5 +1,6 @@
 // src/setup.js
 import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.module.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { updateMovement, keys } from './movement.js';
 import { createSpacecraft } from './spacecraft.js';
 import { fireLaser, updateLasers } from './laser.js';
@@ -82,6 +83,11 @@ const planetInfo = {
         composition: 'Icy, rocky core',
         atmosphere: 'Methane clouds',
         gravity: '114% of Earth'
+    },
+    'imperial star destroyer': {
+        composition: 'Durasteel, titanium alloys',
+        atmosphere: 'Artificial life support',
+        gravity: 'Artificial gravity generators'
     }
 };
 
@@ -958,6 +964,109 @@ function animateJupiterClouds() {
 }
 animateJupiterClouds();
 
+// --- Imperial Star Destroyer Setup ---
+const starDestroyerGroup = new THREE.Group();
+starDestroyerGroup.name = "imperialStarDestroyer"; // Add name for reference
+scene.add(starDestroyerGroup);
+
+// Load the Star Destroyer model using GLTFLoader
+const loader = new GLTFLoader();
+let starDestroyer; // Store reference to the first model
+let starDestroyer2; // Store reference to the second model
+
+// Load the first Star Destroyer
+loader.load(
+    './star_wars_imperial-class_star_destroyer/scene.gltf',
+    (gltf) => {
+        starDestroyer = gltf.scene;
+        
+        // Scale the model appropriately (reduced by factor of 100)
+        starDestroyer.scale.set(5, 5, 5);
+        
+        // Rotate to face forward in its orbit
+        starDestroyer.rotation.y = Math.PI;
+        
+        // Offset the first destroyer slightly to the left
+        starDestroyer.position.set(-4000, 2000, 0);
+        
+        // Add to the group
+        starDestroyerGroup.add(starDestroyer);
+        
+        console.log('First Imperial Star Destroyer loaded successfully');
+        
+        // Load the second Star Destroyer after the first one is loaded
+        loadSecondStarDestroyer();
+    },
+    (xhr) => {
+        console.log(`Loading Star Destroyer: ${(xhr.loaded / xhr.total) * 100}% loaded`);
+    },
+    (error) => {
+        console.error('Error loading Star Destroyer:', error);
+        
+        // Fallback: Create a placeholder if model fails to load
+        const placeholderGeometry = new THREE.BoxGeometry(2000, 500, 4000);
+        const placeholderMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x888888,
+            metalness: 0.8,
+            roughness: 0.2
+        });
+        const placeholderMesh = new THREE.Mesh(placeholderGeometry, placeholderMaterial);
+        placeholderMesh.position.set(-1000, 0, 0);
+        starDestroyerGroup.add(placeholderMesh);
+        starDestroyer = placeholderMesh;
+        console.log('Using placeholder for first Star Destroyer');
+        
+        // Still try to load the second Star Destroyer
+        loadSecondStarDestroyer();
+    }
+);
+
+// Function to load the second Star Destroyer
+function loadSecondStarDestroyer() {
+    loader.load(
+        './star_wars_imperial-class_star_destroyer/scene.gltf',
+        (gltf) => {
+            starDestroyer2 = gltf.scene;
+            
+            // Scale the model appropriately (same as the first)
+            starDestroyer2.scale.set(5, 5, 5);
+            
+            // Rotate to face forward in its orbit (same as the first)
+            starDestroyer2.rotation.y = Math.PI;
+            
+            // Offset the second destroyer slightly to the right
+            starDestroyer2.position.set(1000, 0, 0);
+            
+            // Add to the same group as the first destroyer
+            starDestroyerGroup.add(starDestroyer2);
+            
+            console.log('Second Imperial Star Destroyer loaded successfully');
+        },
+        (xhr) => {
+            console.log(`Loading Second Star Destroyer: ${(xhr.loaded / xhr.total) * 100}% loaded`);
+        },
+        (error) => {
+            console.error('Error loading Second Star Destroyer:', error);
+            
+            // Fallback: Create a placeholder if model fails to load
+            const placeholderGeometry = new THREE.BoxGeometry(2000, 500, 4000);
+            const placeholderMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x888888,
+                metalness: 0.8,
+                roughness: 0.2
+            });
+            const placeholderMesh = new THREE.Mesh(placeholderGeometry, placeholderMaterial);
+            placeholderMesh.position.set(1000, 0, 0);
+            starDestroyerGroup.add(placeholderMesh);
+            starDestroyer2 = placeholderMesh;
+            console.log('Using placeholder for second Star Destroyer');
+        }
+    );
+}
+
+// Add to planet groups with orbit radius of 70000
+planetGroups.push({ group: starDestroyerGroup, z: 70000 });
+
 // --- Saturn Setup ---
 const saturnGroup = new THREE.Group();
 scene.add(saturnGroup);
@@ -972,19 +1081,60 @@ const saturnMaterial = new THREE.MeshStandardMaterial({
 });
 const saturn = new THREE.Mesh(saturnGeometry, saturnMaterial);
 saturnGroup.add(saturn);
-const ringTexture = textureLoader.load('skybox/saturn_rings.png');
-const ringRadius = 5000;
-const ringThickness = 20;
-const ringGeometry = new THREE.RingGeometry(ringRadius, ringRadius + ringThickness, 64);
+
+// Load the ring texture
+const ringTexture = textureLoader.load('skybox/2k_saturn_ring_alpha.png');
+
+// Create the 3D rings using a torus geometry instead of a flat ring
+const ringOuterRadius = 8000;
+const ringInnerRadius = 6000;
+const tubeRadius = (ringOuterRadius - ringInnerRadius) / 2;
+const ringRadius = ringInnerRadius + tubeRadius;
+const ringGeometry = new THREE.TorusGeometry(
+    ringRadius,      // radius of the entire torus
+    tubeRadius,      // thickness of the tube
+    2,               // radial segments (lower for performance)
+    64               // tubular segments
+);
+
+// Create a material for the rings
 const ringMaterial = new THREE.MeshStandardMaterial({
     map: ringTexture,
     side: THREE.DoubleSide,
     transparent: true,
-    opacity: 0.8
+    opacity: 1,
+    flatShading: true
 });
+
+// Create the ring mesh and position it correctly
 const saturnRings = new THREE.Mesh(ringGeometry, ringMaterial);
-saturnRings.rotation.x = Math.PI / 2;
+saturnRings.rotation.x = Math.PI / 2;  // Align with Saturn's equator
 saturnGroup.add(saturnRings);
+
+// Add a second ring with slightly different parameters for visual depth
+const ringOuterRadius2 = 5200;
+const ringInnerRadius2 = 4400;
+const tubeRadius2 = (ringOuterRadius2 - ringInnerRadius2) / 2;
+const ringRadius2 = ringInnerRadius2 + tubeRadius2;
+const ringGeometry2 = new THREE.TorusGeometry(
+    ringRadius2,     // radius of the entire torus
+    tubeRadius2,     // thickness of the tube
+    2,               // radial segments
+    64               // tubular segments
+);
+
+const ringMaterial2 = new THREE.MeshStandardMaterial({
+    map: ringTexture,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.6,
+    flatShading: true
+});
+
+const saturnRings2 = new THREE.Mesh(ringGeometry2, ringMaterial2);
+saturnRings2.rotation.x = Math.PI / 2;  // Align with Saturn's equator
+saturnGroup.add(saturnRings2);
+
 planetGroups.push({ group: saturnGroup, z: 80000 });
 
 // --- Uranus Setup ---
@@ -1068,6 +1218,7 @@ const labelData = [
     { group: moonGroup, name: 'Moon', radius: 500 },
     { group: marsGroup, name: 'Mars', radius: 1500 },
     { group: jupiterGroup, name: 'Jupiter', radius: 5000 },
+    { group: starDestroyerGroup, name: 'Imperial Star Destroyer', radius: 2000 },
     { group: saturnGroup, name: 'Saturn', radius: 4000 },
     { group: uranusGroup, name: 'Uranus', radius: 3000 },
     { group: neptuneGroup, name: 'Neptune', radius: 3000 }
@@ -1209,8 +1360,8 @@ export function updatePlanetLabels() {
 
 // Stars
 const starGeometry = new THREE.BufferGeometry();
-const starCount = 50000;
-const starRange = 250000;
+const starCount = 100000;
+const starRange = 500000;
 const starPositions = new Float32Array(starCount * 3);
 for (let i = 0; i < starCount * 3; i += 3) {
     starPositions[i] = (Math.random() - 0.5) * starRange;
@@ -1298,6 +1449,14 @@ export function checkReticleHover() {
         { name: 'neptune', mesh: neptune }
     ];
     
+    // Add Star Destroyer to the list only if it's loaded
+    if (starDestroyer) {
+        planetDetectionList.push({ name: 'imperial star destroyer', mesh: starDestroyer });
+    }
+    if (starDestroyer2) {
+        planetDetectionList.push({ name: 'imperial star destroyer', mesh: starDestroyer2 });
+    }
+    
     // Flag to track if we're hovering over any planet
     let planetDetected = false;
     
@@ -1342,6 +1501,7 @@ export function checkReticleHover() {
                             case 'moon': planetGroup = moonGroup; break;
                             case 'mars': planetGroup = marsGroup; break;
                             case 'jupiter': planetGroup = jupiterGroup; break;
+                            case 'imperial star destroyer': planetGroup = starDestroyerGroup; break;
                             case 'saturn': planetGroup = saturnGroup; break;
                             case 'uranus': planetGroup = uranusGroup; break;
                             case 'neptune': planetGroup = neptuneGroup; break;

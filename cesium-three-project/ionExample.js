@@ -40,7 +40,7 @@ const wingTransitionFrames = 30;
 const baseSpeed = 2;
 const boostSpeed = baseSpeed * 5;
 let currentSpeed = baseSpeed;
-const turnSpeed = 0.03;
+const turnSpeed = 0.02;
 let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false };
 
 ////// RUN THE PROGRAM
