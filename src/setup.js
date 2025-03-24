@@ -1545,6 +1545,13 @@ labelData.forEach(planet => {
     const label = document.createElement('div');
     label.className = 'planet-label';
     label.textContent = planet.name;
+    
+    // Hide Star Destroyer and Lucrehulk labels visually while keeping them in the DOM
+    if (planet.name === 'Imperial Star Destroyer' || planet.name === 'Lucrehulk') {
+        label.style.opacity = '0'; // Make invisible but keep it in the DOM for positioning
+        label.style.pointerEvents = 'none'; // Ensure it doesn't interfere with interaction
+    }
+    
     document.body.appendChild(label); // Add to DOM
     labels.push({
         element: label,
@@ -2000,6 +2007,7 @@ export function checkReticleHover() {
                     `;
                     
                     // Find the corresponding label to position the info box
+                    let labelFound = false;
                     for (const label of labels) {
                         // Map planet name to its corresponding group
                         let planetGroup;
@@ -2020,6 +2028,9 @@ export function checkReticleHover() {
                         
                         // Check if this label corresponds to the detected planet
                         if (label.planetGroup === planetGroup) {
+                            labelFound = true;
+                            let positionFound = false;
+                            
                             // If the label is visible, position the info box next to it
                             if (label.element.style.display !== 'none') {
                                 const labelRect = label.element.getBoundingClientRect();
@@ -2027,14 +2038,100 @@ export function checkReticleHover() {
                                 const labelY = labelRect.top;
                                 
                                 // Position the info box to the right of the label
+                                planetInfoBox.style.position = 'absolute';
                                 planetInfoBox.style.right = '';
                                 planetInfoBox.style.left = `${labelX + 170}px`; // Adjusted for larger box
                                 planetInfoBox.style.top = `${labelY}px`;
                                 planetInfoBox.style.transform = 'translateY(-50%)';
-                                planetInfoBox.style.display = 'block';
+                                positionFound = true;
                             }
+                            
+                            // If label is not visible, use object's 3D position projected to screen
+                            if (!positionFound) {
+                                // Get the object's world position
+                                const vector = new THREE.Vector3();
+                                planetGroup.getWorldPosition(vector);
+                                
+                                // Project to screen coordinates
+                                vector.project(camera);
+                                
+                                // Convert to screen space
+                                const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+                                const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
+                                
+                                // Position the info box next to the projected position
+                                planetInfoBox.style.position = 'fixed';
+                                planetInfoBox.style.right = '';
+                                planetInfoBox.style.left = `${x + 170}px`; // Adjusted for larger box
+                                planetInfoBox.style.top = `${y}px`;
+                                planetInfoBox.style.transform = 'translateY(-50%)';
+                                positionFound = true;
+                            }
+                            
+                            // For backward compatibility or extreme cases when no position can be found
+                            if (!positionFound) {
+                                // Use a fixed position as fallback
+                                planetInfoBox.style.position = 'fixed';
+                                planetInfoBox.style.right = '50px';
+                                planetInfoBox.style.left = 'auto';
+                                planetInfoBox.style.top = '50%';
+                                planetInfoBox.style.transform = 'translateY(-50%)';
+                            }
+                            
+                            // Always show the info box
+                            planetInfoBox.style.display = 'block';
                             break;
                         }
+                    }
+                    
+                    // If no label was found for this planet, use a fallback positioning
+                    if (!labelFound) {
+                        // Determine which group we need
+                        let planetGroup;
+                        switch(planetObj.name) {
+                            case 'mercury': planetGroup = mercuryGroup; break;
+                            case 'venus': planetGroup = venusGroup; break;
+                            case 'earth': planetGroup = earthGroup; break;
+                            case 'moon': planetGroup = moonGroup; break;
+                            case 'mars': planetGroup = marsGroup; break;
+                            case 'asteroid belt': planetGroup = asteroidBeltGroup; break;
+                            case 'jupiter': planetGroup = jupiterGroup; break;
+                            case 'saturn': planetGroup = saturnGroup; break;
+                            case 'uranus': planetGroup = uranusGroup; break;
+                            case 'neptune': planetGroup = neptuneGroup; break;
+                            case 'imperial star destroyer': planetGroup = starDestroyerGroup; break;
+                            case 'lucrehulk': planetGroup = lucrehulkGroup; break;
+                        }
+                        
+                        if (planetGroup) {
+                            // Get the object's world position
+                            const vector = new THREE.Vector3();
+                            planetGroup.getWorldPosition(vector);
+                            
+                            // Project to screen coordinates
+                            vector.project(camera);
+                            
+                            // Convert to screen space
+                            const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+                            const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
+                            
+                            // Position the info box next to the projected position
+                            planetInfoBox.style.position = 'fixed';
+                            planetInfoBox.style.right = '';
+                            planetInfoBox.style.left = `${x + 170}px`; // Adjusted for larger box
+                            planetInfoBox.style.top = `${y}px`;
+                            planetInfoBox.style.transform = 'translateY(-50%)';
+                        } else {
+                            // If we can't find the group, use a default fixed position
+                            planetInfoBox.style.position = 'fixed';
+                            planetInfoBox.style.right = '50px';
+                            planetInfoBox.style.left = 'auto';
+                            planetInfoBox.style.top = '50%';
+                            planetInfoBox.style.transform = 'translateY(-50%)';
+                        }
+                        
+                        // Always show the info box
+                        planetInfoBox.style.display = 'block';
                     }
                 }
             }
