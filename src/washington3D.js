@@ -8,25 +8,14 @@ import { Water } from '/node_modules/three/examples/jsm/objects/Water.js'; // Co
 import { createSpacecraft } from './spacecraft.js';
 import { fireLaser, updateLasers } from './laser.js';
 import { 
+    washingtonCamera,
+    washingtonCockpitCamera,
+    createCameraState,
+    updateTargetOffsets,
+    updateCameraOffsets,
     createForwardRotation,
     cinematicEffects
 } from './camera.js';
-
-// Define Washington camera offsets locally
-const washingtonCamera = {
-    base: new THREE.Vector3(0, 2, -10),
-    boost: new THREE.Vector3(0, 3, -20),
-    slow: new THREE.Vector3(0, 1.5, -7),
-    collision: new THREE.Vector3(0, 5, -20),
-};
-
-// Washington cockpit camera offsets
-const washingtonCockpitCamera = {
-    base: new THREE.Vector3(0, 0, 13.35),
-    boost: new THREE.Vector3(0, 0, 40.1),
-    slow: new THREE.Vector3(0, 0, 6.7),
-    collision: new THREE.Vector3(0, 2, -1),
-};
 
 let camera, scene, renderer, tiles, cameraTarget;
 let washingtonInitialized = false;
@@ -72,8 +61,8 @@ let wingAnimation = 0;
 const wingTransitionFrames = 30;
 
 // Movement settings
-const baseSpeed = 1.5;
-const boostSpeed = baseSpeed * 3;
+const baseSpeed = 5;
+const boostSpeed = baseSpeed * 5;
 const slowSpeed = baseSpeed * 0.5; // Half of base speed
 let currentSpeed = baseSpeed;
 const turnSpeed = 0.03;
@@ -83,28 +72,7 @@ const rollSensitivity = 1;  // Lower value = less sensitive
 const yawSensitivity = 0.5;   // Lower value = less sensitive
 let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false, down: false, space: false };
 
-// Camera settings
-const baseCameraOffset = new THREE.Vector3(0, 2, -10);
-const boostCameraOffset = new THREE.Vector3(0, 3, -20);
-const slowCameraOffset = new THREE.Vector3(0, 1.5, -7); // Closer camera for slow mode
-const collisionCameraOffset = new THREE.Vector3(0, 5, -20);
-let currentCameraOffset = baseCameraOffset.clone();
-let targetCameraOffset = baseCameraOffset.clone();
-const cameraTransitionSpeed = 0.2;
-const MAX_PITCH_OFFSET = 0.1;
-const MAX_YAW_OFFSET = 0.15;
-const CAMERA_LAG_FACTOR = 0.1;
-let currentPitchOffset = 0;
-let currentYawOffset = 0;
-let targetPitchOffset = 0;
-let targetYawOffset = 0;
-const MAX_LOCAL_PITCH_ROTATION = 0.06;
-const MAX_LOCAL_YAW_ROTATION = 0.08;
-const LOCAL_ROTATION_SPEED = 0.08;
-let currentLocalPitchRotation = 0;
-let currentLocalYawRotation = 0;
-let targetLocalPitchRotation = 0;
-let targetLocalYawRotation = 0;
+// Camera settings are now imported from camera.js
 
 // Collision detection
 const spacecraftBoundingSphere = new THREE.Sphere();
@@ -201,7 +169,7 @@ const params = {
     reload: reinstantiateTiles,
 };
 
-const HOVER_HEIGHT = 40;
+const HOVER_HEIGHT = 60; // Increased from 40 to 60
 const MAX_SLOPE_ANGLE = 45;
 
 // Add the declaration at the top of the file, near other global variables
@@ -216,22 +184,8 @@ const basePlaneConfig = {
   rotation: { x: 0, y: 0, z: 30 }
 };
 
-// Define a local camera state instead of using createCameraState
-// since washingtonCamera is not exported from camera.js
-const cameraState = {
-  currentOffset: washingtonCamera.base.clone(),
-  targetOffset: washingtonCamera.base.clone(),
-  currentPitchOffset: 0,
-  currentYawOffset: 0,
-  targetPitchOffset: 0,
-  targetYawOffset: 0,
-  currentLocalPitchRotation: 0,
-  currentLocalYawRotation: 0,
-  targetLocalPitchRotation: 0,
-  targetLocalYawRotation: 0,
-  currentFOV: 75, // Default FOV
-  targetFOV: 75
-};
+// Create camera state for Washington scene
+const cameraState = createCameraState('washington');
 const smoothFactor = 0.1;
 
 /**
@@ -880,7 +834,7 @@ function checkCollisionInDirection(direction, terrainMeshes) {
     const rayDirection = direction.clone().normalize();
     raycaster.set(spacecraft.position, rayDirection);
     raycaster.near = 0;
-    raycaster.far = spacecraftBoundingSphere.radius * 2;
+    raycaster.far = spacecraftBoundingSphere.radius * 3; // Increased from 2 to 3 for better collision detection
     
     const intersects = raycaster.intersectObjects(terrainMeshes, false);
     if (intersects.length > 0) {
@@ -897,7 +851,7 @@ function checkTerrainCollision() {
     }
 
     spacecraftBoundingSphere.center.copy(spacecraft.position);
-    spacecraftBoundingSphere.radius = 2;
+    spacecraftBoundingSphere.radius = 3.5; // Increased from 2 to 3.5 for stronger collision detection
 
     const terrainMeshes = [];
     tiles.group.traverse((object) => {
@@ -926,11 +880,16 @@ function checkTerrainCollision() {
 
     try {
         const directions = [
-            new THREE.Vector3(0, -1, 0),
-            new THREE.Vector3(0, 0, 1),
-            new THREE.Vector3(1, 0, 0),
-            new THREE.Vector3(-1, 0, 0),
-            new THREE.Vector3(0, 0, -1)
+            new THREE.Vector3(0, -1, 0),    // Down
+            new THREE.Vector3(0, 0, 1),     // Forward
+            new THREE.Vector3(1, 0, 0),     // Right
+            new THREE.Vector3(-1, 0, 0),    // Left
+            new THREE.Vector3(0, 0, -1),    // Back
+            new THREE.Vector3(0, -1, 1).normalize(),  // Down-Forward
+            new THREE.Vector3(0, -1, -1).normalize(), // Down-Back
+            new THREE.Vector3(1, -1, 0).normalize(),  // Down-Right
+            new THREE.Vector3(-1, -1, 0).normalize(), // Down-Left
+            new THREE.Vector3(0, -0.5, 0).normalize() // Slight down
         ];
         
         directions.forEach(dir => dir.applyQuaternion(spacecraft.quaternion));
@@ -945,9 +904,13 @@ function checkTerrainCollision() {
                         (intersection.point ? new THREE.Vector3().subVectors(intersection.point, new THREE.Vector3(0, 0, 0)).normalize() : 
                         direction.clone().negate().normalize());
                     
-                    const pushFactor = 1.1;
+                    const pushFactor = 1.5; // Increased from 1.1 to 1.5 for stronger repulsion
                     collisionOffset.copy(normal).multiplyScalar((spacecraftBoundingSphere.radius - distanceToSurface) * pushFactor);
                     spacecraft.position.add(collisionOffset);
+                    
+                    // Reduce velocity on collision to prevent momentum carrying through surfaces
+                    currentSpeed *= 0.5; // Reduce speed by 50% on collision
+                    
                     return true;
                 }
             }
@@ -1047,9 +1010,9 @@ export function updateMovement() {
                     }
                     
                     if (groundDistance < HOVER_HEIGHT) {
-                        spacecraft.position.y += (HOVER_HEIGHT - groundDistance) * 0.1;
-                    } else if (groundDistance > HOVER_HEIGHT * 2) {
-                        spacecraft.position.y -= (groundDistance - HOVER_HEIGHT) * 0.01;
+                        spacecraft.position.y += (HOVER_HEIGHT - groundDistance) * 0.2; // Increased from 0.1 to 0.2 for faster response
+                    } else if (groundDistance > HOVER_HEIGHT * 1.5) { // Changed from HOVER_HEIGHT * 2 to HOVER_HEIGHT * 1.5
+                        spacecraft.position.y -= (groundDistance - HOVER_HEIGHT) * 0.015; // Adjusted from 0.01 to 0.015
                     }
                 }
             }
@@ -1070,19 +1033,22 @@ export function updateMovement() {
         if (tiles && tiles.group && tiles.group.children.length > 0) {
             if (checkTerrainCollision()) {
                 console.log("Collision detected and resolved");
-                targetCameraOffset = collisionCameraOffset.clone();
+                // Handle collision by using the appropriate camera offset
+                const isFirstPerson = spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? 
+                    spacecraft.isFirstPersonView() : false;
+                const viewMode = isFirstPerson ? 'washingtonCockpit' : 'washington';
+                
+                // Force the camera state to use collision offsets
+                cameraState.targetOffset = isFirstPerson ? 
+                    washingtonCockpitCamera.collision.clone() : 
+                    washingtonCamera.collision.clone();
                 
                 if (checkTerrainCollision()) {
                     console.log("Multiple collisions detected, reverting to original position");
                     spacecraft.position.copy(originalPosition);
                 }
-            } else {
-                if (keys.up) {
-                    targetCameraOffset = boostCameraOffset.clone();
-                } else {
-                    targetCameraOffset = baseCameraOffset.clone();
-                }
             }
+            // Camera offset updates are now handled by updateCamera() using camera.js
         }
     } catch (error) {
         console.error("Error during collision detection:", error);
@@ -1138,8 +1104,15 @@ export function updateCamera() {
     // Check if we're in first-person view
     const isFirstPerson = spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? spacecraft.isFirstPersonView() : false;
 
-    // For washington3D we'll use a simpler camera approach without the updateTargetOffsets
-    // since the washingtonCamera isn't exported from camera.js
+    // Update target offsets based on keys - use appropriate view mode
+    const viewMode = isFirstPerson ? 'washingtonCockpit' : 'washington';
+    updateTargetOffsets(cameraState, keys, viewMode);
+    
+    // Update current offsets by interpolating toward targets
+    updateCameraOffsets(cameraState, rotation);
+    
+    // For washington3D we'll use a simpler camera approach without all the cinematic effects
+    // This maintains compatibility with the existing code while using the new camera module
     let localOffset;
     
     if (keys.up) {
@@ -1683,7 +1656,7 @@ function checkBasePlaneCollision() {
     const planeNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(planeQuaternion);
 
     // Define collision thresholds
-    const planeCollisionThreshold = 2;
+    const planeCollisionThreshold = 4; // Increased from 2 to 4 for stronger base plane collision
 
     // --- Plane Collision (prevent passing through the base plane) ---
     const raycasterPlane = new THREE.Raycaster();
@@ -1694,6 +1667,10 @@ function checkBasePlaneCollision() {
         const pushDistance = planeCollisionThreshold - planeIntersects[0].distance;
         const pushDirection = planeNormal.clone(); // Push upward
         spacecraft.position.add(pushDirection.multiplyScalar(pushDistance));
+        
+        // Reduce velocity on collision to prevent momentum carrying through the base plane
+        currentSpeed *= 0.5; // Reduce speed by 50% on collision
+        
         console.log("Collision detected with base plane, pushing upward");
         return true;
     }

@@ -35,12 +35,22 @@ export const sanFranCockpitCamera = {
     collision: new THREE.Vector3(0, 2, -1),        // Pulled back during collision
 };
 
-// // Earth surface camera offsets
-// export const earthCamera = {
-//     base: new THREE.Vector3(0, 2, -10),
-//     boost: new THREE.Vector3(0, 3, -20),
-//     slow: new THREE.Vector3(0, 1.5, -7),
-// };
+// Washington mountains camera offsets
+export const washingtonCamera = {
+    base: new THREE.Vector3(0, 2, 30),
+    boost: new THREE.Vector3(0, 2, 200),
+    slow: new THREE.Vector3(0, 2, 12),
+    collision: new THREE.Vector3(0, 2, 100),
+};
+
+// Washington mountains cockpit camera offsets
+export const washingtonCockpitCamera = {
+    base: new THREE.Vector3(0, 0, 44.9),       // Inside cockpit, looking forward
+    boost: new THREE.Vector3(0, 0, 224.7),       // Slightly downward tilt when boosting
+    slow: new THREE.Vector3(0, 0, 22.5),         // Slightly upward tilt when slow
+    collision: new THREE.Vector3(0, 2, 200),      // Pulled back during collision
+};
+
 
 // // Moon surface camera offsets
 // export const moonCamera = {
@@ -48,15 +58,6 @@ export const sanFranCockpitCamera = {
 //     boost: new THREE.Vector3(0, 3, -20),
 //     slow: new THREE.Vector3(0, 1.5, -7),
 // };
-
-// // Washington DC camera offsets
-// export const washingtonCamera = {
-//     base: new THREE.Vector3(0, 2, -10),
-//     boost: new THREE.Vector3(0, 3, -20),
-//     slow: new THREE.Vector3(0, 1.5, -7),
-//     collision: new THREE.Vector3(0, 5, -20),
-// };
-
 
 
 // CINEMATIC CAMERA PARAMETERS
@@ -99,6 +100,8 @@ export function getCameraOffsets(scene) {
             return moonCamera;
         case 'washington':
             return washingtonCamera;
+        case 'washingtonCockpit':
+            return washingtonCockpitCamera;
         case 'sanFran':
             return sanFranCamera;
         case 'sanFranCockpit':
