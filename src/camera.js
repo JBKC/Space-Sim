@@ -8,7 +8,7 @@ export const spaceCamera = {
     base: new THREE.Vector3(0, 2, 30),         // Normal camera position (behind spacecraft)
     boost: new THREE.Vector3(0, 2, 200),        // Further back during boost
     slow: new THREE.Vector3(0, 2, 12),       // Closer camera during slow mode
-    hyperspace: new THREE.Vector3(0, 2, 2245),   // Extreme distance during hyperspace
+    hyperspace: new THREE.Vector3(0, 0, 2245),   // Extreme distance during hyperspace
 };
 
 // cockpit camera offsets
@@ -16,7 +16,7 @@ export const cockpitCamera = {
     base: new THREE.Vector3(0, 0, 44.9),         // Inside cockpit, looking forward (45 is the exact center of the cockpit with scale (1,1,1)
     boost: new THREE.Vector3(0, 0, 224.7),        // Slight downward tilt when boosting
     slow: new THREE.Vector3(0, 0, 22.5),         // Slight upward tilt when slow
-    hyperspace: new THREE.Vector3(0, 0, 2250.1),   // Closer to the front during hyperspace
+    hyperspace: new THREE.Vector3(0, 0, 2250),   // Closer to the front during hyperspace
 };
 
 // San Francisco camera offsets
