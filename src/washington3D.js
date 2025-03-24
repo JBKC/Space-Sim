@@ -256,13 +256,61 @@ function createBackgroundSphere(scene, spawnPosition, spawnRotation, options = {
         textureLoader = new THREE.TextureLoader();
     }
     
-    // Create material with the texture - we'll apply it inside the texture load callback
-    // Use MeshBasicMaterial which ignores lighting but doesn't have its own color
-    let sphereMaterial = new THREE.MeshBasicMaterial({
-        color: 0xffffff, // Start with white which won't affect the texture
-        side: THREE.BackSide, // Use BackSide so we can see the texture from inside the sphere
-        transparent: true, // Enable transparency
-        opacity: 1.0      // Start fully visible
+    // Create a custom shader material for the atmosphere effect
+    // This will create a blue haze effect at the bottom of the sphere
+    const sphereMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            planetTexture: { value: null },
+            hazeColor: { value: new THREE.Color(0x87CEEB) }, // Sky blue for the haze
+            hazeIntensity: { value: 0.7 },                    // Intensity of the haze
+            hazeStart: { value: 0.2 },                        // Where the haze begins (0.0 to 1.0, from top to bottom)
+            hazeEnd: { value: 0.8 }                           // Where the haze ends (fully hazed)
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            varying vec3 vPosition;
+            
+            void main() {
+                vUv = uv;
+                vPosition = position;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform sampler2D planetTexture;
+            uniform vec3 hazeColor;
+            uniform float hazeIntensity;
+            uniform float hazeStart;
+            uniform float hazeEnd;
+            
+            varying vec2 vUv;
+            varying vec3 vPosition;
+            
+            void main() {
+                vec4 texColor = texture2D(planetTexture, vUv);
+                
+                // Calculate the normalized height (y-coordinate) for the haze gradient
+                // Convert from [-1, 1] to [0, 1] range
+                float normalizedY = vPosition.y / length(vPosition);
+                normalizedY = (normalizedY + 1.0) / 2.0;
+                
+                // Calculate haze factor (0 = no haze, 1 = full haze)
+                float hazeFactor = 0.0;
+                if (normalizedY < hazeEnd) {
+                    if (normalizedY < hazeStart) {
+                        hazeFactor = hazeIntensity;
+                    } else {
+                        // Smooth transition from hazeStart to hazeEnd
+                        hazeFactor = hazeIntensity * (1.0 - (normalizedY - hazeStart) / (hazeEnd - hazeStart));
+                    }
+                }
+                
+                // Mix the texture color with the haze color based on the haze factor
+                gl_FragColor = mix(texColor, vec4(hazeColor, texColor.a), hazeFactor);
+            }
+        `,
+        side: THREE.BackSide,
+        transparent: true
     });
     
     const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
@@ -294,18 +342,10 @@ function createBackgroundSphere(scene, spawnPosition, spawnRotation, options = {
     textureLoader.load(
         'skybox/2k_neptune.jpg', // Use relative path without leading slash
         function(texture) {
-            // When the texture is loaded, apply it to the sphere material
-            // Create a new material to ensure clean settings for the texture
-            sphere.material = new THREE.MeshBasicMaterial({
-                map: texture,
-                side: THREE.BackSide,
-                transparent: true,
-                alphaTest: 0.1      // Only render fully opaque parts of texture
-            });
-            
-            // No color setting - let the texture define all colors exactly as is
+            // When the texture is loaded, set it to the shader material's uniform
+            sphere.material.uniforms.planetTexture.value = texture;
             sphere.material.needsUpdate = true;
-            console.log('planet texture applied to background sphere without background color');
+            console.log('Planet texture applied to background sphere with atmospheric haze effect');
         },
         undefined, // onProgress callback not needed
         function(err) {
@@ -315,17 +355,10 @@ function createBackgroundSphere(scene, spawnPosition, spawnRotation, options = {
             textureLoader.load(
                 './skybox/planet1.webp',
                 function(texture) {
-                    // Create a new material to ensure clean settings for the texture
-                    sphere.material = new THREE.MeshBasicMaterial({
-                        map: texture,
-                        side: THREE.BackSide,
-                        transparent: true,
-                        alphaTest: 0.1      // Only render fully opaque parts of texture
-                    });
-                    
-                    // No color setting - let the texture define all colors exactly as is
+                    // Set the texture to the shader material's uniform
+                    sphere.material.uniforms.planetTexture.value = texture;
                     sphere.material.needsUpdate = true;
-                    console.log('planet texture applied using alternative path without background color');
+                    console.log('Planet texture applied using alternative path with atmospheric haze effect');
                 },
                 undefined,
                 function(err2) {
@@ -366,24 +399,25 @@ export function updateBackgroundSphere(options = {}) {
         console.log(`Updated backgroundSphere radius to: ${options.radius}`);
     }
     
-    // Update color if provided
-    if (options.color !== undefined) {
-        if (backgroundSphere.material && backgroundSphere.material.map) {
-            // If we have a texture, we regenerate the material to avoid color tinting
-            const currentTexture = backgroundSphere.material.map;
-            backgroundSphere.material = new THREE.MeshBasicMaterial({
-                map: currentTexture,
-                side: THREE.BackSide,
-                transparent: true,
-                alphaTest: 0.1
-            });
-            backgroundSphere.material.needsUpdate = true;
-            console.log(`Updated backgroundSphere material to have no color tinting`);
-        } else if (backgroundSphere.material && backgroundSphere.material.color) {
-            // If no texture yet, just update the color
-            backgroundSphere.material.color.set(options.color);
-            console.log(`Updated backgroundSphere color to: 0x${options.color.toString(16)}`);
-        }
+    // Update haze properties if provided
+    if (options.hazeColor !== undefined && backgroundSphere.material.uniforms) {
+        backgroundSphere.material.uniforms.hazeColor.value.set(options.hazeColor);
+        console.log(`Updated backgroundSphere haze color to: 0x${options.hazeColor.toString(16)}`);
+    }
+    
+    if (options.hazeIntensity !== undefined && backgroundSphere.material.uniforms) {
+        backgroundSphere.material.uniforms.hazeIntensity.value = options.hazeIntensity;
+        console.log(`Updated backgroundSphere haze intensity to: ${options.hazeIntensity}`);
+    }
+    
+    if (options.hazeStart !== undefined && backgroundSphere.material.uniforms) {
+        backgroundSphere.material.uniforms.hazeStart.value = options.hazeStart;
+        console.log(`Updated backgroundSphere haze start to: ${options.hazeStart}`);
+    }
+    
+    if (options.hazeEnd !== undefined && backgroundSphere.material.uniforms) {
+        backgroundSphere.material.uniforms.hazeEnd.value = options.hazeEnd;
+        console.log(`Updated backgroundSphere haze end to: ${options.hazeEnd}`);
     }
     
     // Extract current properties to preserve them if not being updated
@@ -416,8 +450,15 @@ export function updateBackgroundSphere(options = {}) {
         console.log(`Updating backgroundSphere distance or rotation`);
         
         // Save the current texture if it exists
-        const currentTexture = backgroundSphere.material && backgroundSphere.material.map ? 
-                             backgroundSphere.material.map : null;
+        const currentTexture = backgroundSphere.material && backgroundSphere.material.uniforms && 
+                              backgroundSphere.material.uniforms.planetTexture ? 
+                              backgroundSphere.material.uniforms.planetTexture.value : null;
+        
+        // Save other current shader properties
+        const hazeColor = backgroundSphere.material.uniforms.hazeColor.value.clone();
+        const hazeIntensity = backgroundSphere.material.uniforms.hazeIntensity.value;
+        const hazeStart = backgroundSphere.material.uniforms.hazeStart.value;
+        const hazeEnd = backgroundSphere.material.uniforms.hazeEnd.value;
         
         // Remove the current sphere
         scene.remove(backgroundSphere);
@@ -432,8 +473,6 @@ export function updateBackgroundSphere(options = {}) {
                      backgroundSphere.geometry.parameters.radius : backgroundSphereConfig.radius),
             distance: options.distance !== undefined ? options.distance : 
                       (backgroundSphere.userData.distance || backgroundSphereConfig.distance),
-            color: options.color || (backgroundSphere.material ? 
-                   backgroundSphere.material.color?.getHex() : backgroundSphereConfig.color),
             rotation: newRotation
         };
         
@@ -449,17 +488,15 @@ export function updateBackgroundSphere(options = {}) {
         backgroundSphere.userData.distance = newOptions.distance;
         backgroundSphere.userData.rotation = newOptions.rotation;
         
-        // Apply the saved texture if it exists
-        if (currentTexture) {
-            // Create a new material with transparent settings
-            backgroundSphere.material = new THREE.MeshBasicMaterial({
-                map: currentTexture,
-                side: THREE.BackSide,
-                transparent: true,
-                alphaTest: 0.1 // Only render fully opaque parts of texture
-            });
+        // Apply the saved texture and shader properties if they exist
+        if (currentTexture && backgroundSphere.material.uniforms) {
+            backgroundSphere.material.uniforms.planetTexture.value = currentTexture;
+            backgroundSphere.material.uniforms.hazeColor.value.copy(hazeColor);
+            backgroundSphere.material.uniforms.hazeIntensity.value = hazeIntensity;
+            backgroundSphere.material.uniforms.hazeStart.value = hazeStart;
+            backgroundSphere.material.uniforms.hazeEnd.value = hazeEnd;
             backgroundSphere.material.needsUpdate = true;
-            console.log('Reapplied texture to recreated background sphere with transparent settings');
+            console.log('Reapplied texture and haze settings to recreated background sphere');
         }
     }
 }
@@ -471,10 +508,17 @@ export function getBackgroundSphereConfig() {
                 backgroundSphere.geometry.parameters.radius : backgroundSphereConfig.radius,
         distance: backgroundSphere && backgroundSphere.userData.distance ? 
                 backgroundSphere.userData.distance : backgroundSphereConfig.distance,
-        color: backgroundSphere && backgroundSphere.material ? 
-               backgroundSphere.material.color.getHex() : backgroundSphereConfig.color,
         rotation: backgroundSphere && backgroundSphere.userData.rotation ?
-                backgroundSphere.userData.rotation : backgroundSphereConfig.rotation
+                backgroundSphere.userData.rotation : backgroundSphereConfig.rotation,
+        // Add haze properties
+        hazeColor: backgroundSphere && backgroundSphere.material.uniforms ? 
+                backgroundSphere.material.uniforms.hazeColor.value.getHex() : 0x87CEEB,
+        hazeIntensity: backgroundSphere && backgroundSphere.material.uniforms ? 
+                backgroundSphere.material.uniforms.hazeIntensity.value : 0.7,
+        hazeStart: backgroundSphere && backgroundSphere.material.uniforms ? 
+                backgroundSphere.material.uniforms.hazeStart.value : 0.2,
+        hazeEnd: backgroundSphere && backgroundSphere.material.uniforms ? 
+                backgroundSphere.material.uniforms.hazeEnd.value : 0.8
     };
 }
 
@@ -1278,7 +1322,7 @@ function setupWashingtonLighting() {
     }
     
     // Create a stronger ambient light for more even lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.2); // Increased for more even illumination
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Increased for more even illumination
     scene.add(ambientLight);
  
     // Create a more focused and less intense directional light for the sun
@@ -1721,5 +1765,42 @@ export function setPlayerSunTargetOffset(x = 0, y = 0, z = 0) {
     playerSunConfig.targetOffset.z = z;
     
     console.log(`Player sun target offset set to (${x}, ${y}, ${z})`);
+}
+
+/**
+ * Update the haze effect on the background sphere
+ * @param {Object} options - Haze properties to update
+ * @param {number} options.hazeColor - Color of the haze in hex format (e.g., 0x87CEEB for sky blue)
+ * @param {number} options.hazeIntensity - Intensity of the haze effect (0.0 to 1.0)
+ * @param {number} options.hazeStart - Where the haze begins from top to bottom (0.0 to 1.0)
+ * @param {number} options.hazeEnd - Where the haze is fully opaque (0.0 to 1.0)
+ */
+export function updateBackgroundHaze(options = {}) {
+    if (!backgroundSphere || !backgroundSphere.material || !backgroundSphere.material.uniforms) {
+        console.warn("Cannot update background haze: sphere not created or doesn't have shader material");
+        return;
+    }
+    
+    if (options.hazeColor !== undefined) {
+        backgroundSphere.material.uniforms.hazeColor.value.set(options.hazeColor);
+        console.log(`Updated background haze color to: 0x${options.hazeColor.toString(16)}`);
+    }
+    
+    if (options.hazeIntensity !== undefined) {
+        backgroundSphere.material.uniforms.hazeIntensity.value = options.hazeIntensity;
+        console.log(`Updated background haze intensity to: ${options.hazeIntensity}`);
+    }
+    
+    if (options.hazeStart !== undefined) {
+        backgroundSphere.material.uniforms.hazeStart.value = options.hazeStart;
+        console.log(`Updated background haze start position to: ${options.hazeStart}`);
+    }
+    
+    if (options.hazeEnd !== undefined) {
+        backgroundSphere.material.uniforms.hazeEnd.value = options.hazeEnd;
+        console.log(`Updated background haze end position to: ${options.hazeEnd}`);
+    }
+    
+    backgroundSphere.material.needsUpdate = true;
 }
 
