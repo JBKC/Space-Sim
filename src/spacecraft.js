@@ -282,6 +282,66 @@ export function createSpacecraft(scene) {
                 });
                 console.log(meshNames);
                 
+                // Check specifically for the exhaust and turret elements
+                console.log("===== CHECKING FOR EXHAUST AND TURRET ELEMENTS =====");
+                const exhaustAndTurretElements = [
+                    'exhaust_LB',
+                    'exhaust_LT',
+                    'exhaust_RB',
+                    'exhaust_RT',
+                    'turret_LB',
+                    'turret_LT',
+                    'turret_RB',
+                    'turret_RT'
+                ];
+                
+                // Create an object to track these elements
+                const exhaustAndTurretObjects = {
+                    exhaust_LB: null,
+                    exhaust_LT: null,
+                    exhaust_RB: null,
+                    exhaust_RT: null,
+                    turret_LB: null,
+                    turret_LT: null,
+                    turret_RB: null,
+                    turret_RT: null
+                };
+                
+                // Search for the elements in the model
+                model.traverse((child) => {
+                    if (exhaustAndTurretElements.includes(child.name)) {
+                        console.log(`✓ Found element: ${child.name}`);
+                        exhaustAndTurretObjects[child.name] = child;
+                    }
+                });
+                
+                // Log which elements were found and which were not
+                console.log("Exhaust and Turret elements found:");
+                console.log("exhaust_LB:", exhaustAndTurretObjects.exhaust_LB ? "YES ✓" : "NO ✗");
+                console.log("exhaust_LT:", exhaustAndTurretObjects.exhaust_LT ? "YES ✓" : "NO ✗");
+                console.log("exhaust_RB:", exhaustAndTurretObjects.exhaust_RB ? "YES ✓" : "NO ✗");
+                console.log("exhaust_RT:", exhaustAndTurretObjects.exhaust_RT ? "YES ✓" : "NO ✗");
+                console.log("turret_LB:", exhaustAndTurretObjects.turret_LB ? "YES ✓" : "NO ✗");
+                console.log("turret_LT:", exhaustAndTurretObjects.turret_LT ? "YES ✓" : "NO ✗");
+                console.log("turret_RB:", exhaustAndTurretObjects.turret_RB ? "YES ✓" : "NO ✗");
+                console.log("turret_RT:", exhaustAndTurretObjects.turret_RT ? "YES ✓" : "NO ✗");
+                
+                // Summary log line
+                console.log("Found exhaust and turret elements:", 
+                    exhaustAndTurretObjects.exhaust_LB ? "exhaust_LB ✓" : "exhaust_LB ✗",
+                    exhaustAndTurretObjects.exhaust_LT ? "exhaust_LT ✓" : "exhaust_LT ✗",
+                    exhaustAndTurretObjects.exhaust_RB ? "exhaust_RB ✓" : "exhaust_RB ✗",
+                    exhaustAndTurretObjects.exhaust_RT ? "exhaust_RT ✓" : "exhaust_RT ✗",
+                    exhaustAndTurretObjects.turret_LB ? "turret_LB ✓" : "turret_LB ✗",
+                    exhaustAndTurretObjects.turret_LT ? "turret_LT ✓" : "turret_LT ✗",
+                    exhaustAndTurretObjects.turret_RB ? "turret_RB ✓" : "turret_RB ✗",
+                    exhaustAndTurretObjects.turret_RT ? "turret_RT ✓" : "turret_RT ✗"
+                );
+                
+                // Store these references for later use
+                xWingModel.userData.exhaustAndTurret = exhaustAndTurretObjects;
+                console.log("===================================");
+                
                 // Original log
                 console.log("Found X-wing wings:", 
                     wings.topLeft ? "Top Left ✓" : "Top Left ✗",
