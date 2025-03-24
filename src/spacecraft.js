@@ -9,7 +9,7 @@ export function createSpacecraft(scene) {
     // X-wing spacecraft
     const spacecraft = new THREE.Group();
     spacecraft.name = 'spacecraft';
-    
+
     // First person cockpit view
     const cockpit = new THREE.Group();
     cockpit.name = 'cockpit';
@@ -17,6 +17,14 @@ export function createSpacecraft(scene) {
     // Flag to track view mode (false = third-person, true = first-person)
     let isFirstPersonView = false;
     let cockpitLoaded = false;
+    
+    // Animation system
+    let mixer = null;
+    let animations = [];
+    let wingsOpenAction = null;
+    let wingsCloseAction = null;
+    let currentAnimation = null;
+    let animationState = 'open'; // 'open' or 'closed'
     
     // Materials for engine effects
     const engineGlowMaterial = new THREE.MeshStandardMaterial({ color: 0xff00ff, emissive: 0xff00ff, emissiveIntensity: 2.5, transparent: true, opacity: 0.9 });
@@ -74,6 +82,225 @@ export function createSpacecraft(scene) {
                 
                 // Add the model to our x-wing group
                 xWingModel.add(model);
+
+                // Set up animation system if animations exist
+                if (gltf.animations && gltf.animations.length > 0) {
+                    console.log("===== ANIMATIONS DEBUG INFO =====");
+                    console.log(`Found ${gltf.animations.length} animations in the X-Wing model`);
+                    
+                    // Create animation mixer
+                    mixer = new THREE.AnimationMixer(model);
+                    animations = gltf.animations;
+                    
+                    // List all animation names and details for debugging
+                    animations.forEach((clip, index) => {
+                        console.log(`Animation ${index}: "${clip.name}"`);
+                        console.log(`  - Duration: ${clip.duration.toFixed(2)} seconds`);
+                        console.log(`  - Tracks: ${clip.tracks.length}`);
+                        if (clip.tracks.length > 0) {
+                            console.log(`  - First track name: ${clip.tracks[0].name}`);
+                        }
+                    });
+                    
+                    // Try to find wing animations by common naming patterns
+                    const openClipNames = ['open', 'Open', 'OPEN', 'wings_open', 'WingsOpen', 'wings-open', 'wings', 'Wings', 'x'];
+                    const closeClipNames = ['close', 'Close', 'CLOSE', 'wings_close', 'WingsClose', 'wings-closed', 'fold', 'Fold'];
+                    
+                    let openClip = null;
+                    let closeClip = null;
+                    
+                    // Search for wing animations
+                    animations.forEach(clip => {
+                        const lowerName = clip.name.toLowerCase();
+                        console.log(`Checking if "${clip.name}" matches animation patterns...`);
+                        
+                        // Check for open animation
+                        if (openClipNames.some(name => lowerName.includes(name.toLowerCase()))) {
+                            console.log(`  ✓ Found potential OPEN animation: "${clip.name}"`);
+                            openClip = clip;
+                        }
+                        // Check for close animation
+                        else if (closeClipNames.some(name => lowerName.includes(name.toLowerCase()))) {
+                            console.log(`  ✓ Found potential CLOSE animation: "${clip.name}"`);
+                            closeClip = clip;
+                        }
+                    });
+                    
+                    // If no matches found, try another approach - use first animation as open
+                    if (!openClip && animations.length > 0) {
+                        console.log("No specific open animation found, using first animation as open");
+                        openClip = animations[0];
+                    }
+                    
+                    // If we have a second animation, use it as close
+                    if (!closeClip && animations.length > 1) {
+                        console.log("No specific close animation found, using second animation as close");
+                        closeClip = animations[1];
+                    }
+                    // If only one animation, use it for both by playing in reverse
+                    else if (!closeClip && openClip) {
+                        console.log("Only one animation found, will use it in reverse for close");
+                        closeClip = openClip;
+                    }
+                    
+                    // Create animation actions if clips were found
+                    if (openClip) {
+                        wingsOpenAction = mixer.clipAction(openClip);
+                        wingsOpenAction.setLoop(THREE.LoopOnce);
+                        wingsOpenAction.clampWhenFinished = true;
+                        console.log(`Wings open animation set up: "${openClip.name}"`);
+                    }
+                    
+                    if (closeClip && closeClip !== openClip) {
+                        wingsCloseAction = mixer.clipAction(closeClip);
+                        wingsCloseAction.setLoop(THREE.LoopOnce);
+                        wingsCloseAction.clampWhenFinished = true;
+                        console.log(`Wings close animation set up: "${closeClip.name}"`);
+                    }
+                    // If only one animation was found, use it for both by playing in reverse
+                    else if (closeClip === openClip) {
+                        wingsCloseAction = mixer.clipAction(openClip);
+                        wingsCloseAction.setLoop(THREE.LoopOnce);
+                        wingsCloseAction.clampWhenFinished = true;
+                        wingsCloseAction.timeScale = -1; // Play in reverse
+                        console.log(`Using "${openClip.name}" in reverse for close animation`);
+                    }
+                    
+                    // Start with wings open by default
+                    if (wingsOpenAction) {
+                        wingsOpenAction.reset();
+                        wingsOpenAction.play();
+                        currentAnimation = wingsOpenAction;
+                        console.log("Playing wings open animation at startup");
+                    }
+                    
+                    console.log("===== END ANIMATIONS DEBUG INFO =====");
+                } else {
+                    console.log("No animations found in the model");
+                }
+
+                // Initialize wings object to store wing references
+                const wings = {
+                    topLeft: null,
+                    topRight: null,
+                    bottomLeft: null,
+                    bottomRight: null
+                };
+                
+                // Find wing objects
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        if (child.name === 'LeftWingTop') wings.topLeft = child;
+                        if (child.name === 'RightWingTop') wings.topRight = child;
+                        if (child.name === 'LeftWingBottom') wings.bottomLeft = child;
+                        if (child.name === 'RightWingBottom') wings.bottomRight = child;
+                    }
+                });
+                
+                // If wings not found by exact names, try to find them by hierarchy path
+                if (!wings.topLeft && !wings.topRight && !wings.bottomLeft && !wings.bottomRight) {
+                    console.log("Wings not found by name, trying to find by hierarchy...");
+                    model.traverse((child) => {
+                        // Match the exact names from the hierarchy shown in the image
+                        if (child.name === 'LeftWingTop') wings.topLeft = child;
+                        if (child.name === 'LeftWingBottom') wings.bottomLeft = child;
+                        if (child.name === 'RightWingTop') wings.topRight = child; 
+                        if (child.name === 'RightWingBottom') wings.bottomRight = child;
+                    });
+                }
+                
+                // If wings still not found, try to match by parent-child relationship
+                if (!wings.topLeft && !wings.topRight && !wings.bottomLeft && !wings.bottomRight) {
+                    console.log("Wings still not found, trying to find by parent-child relationship...");
+                    model.traverse((child) => {
+                        // Look for the X-Wing parent object
+                        if (child.name === 'X-Wing' && child.children) {
+                            console.log("Found X-Wing parent object with", child.children.length, "children");
+                            
+                            // Debug - print all child names
+                            child.children.forEach((wingChild, index) => {
+                                console.log(`  Child ${index}: ${wingChild.name}`);
+                            });
+                            
+                            // Try to find wings by their index position if names aren't matching
+                            child.children.forEach((wingChild) => {
+                                if (wingChild.name === 'LeftWingTop') wings.topLeft = wingChild;
+                                if (wingChild.name === 'RightWingTop') wings.topRight = wingChild;
+                                if (wingChild.name === 'LeftWingBottom') wings.bottomLeft = wingChild;
+                                if (wingChild.name === 'RightWingBottom') wings.bottomRight = wingChild;
+                            });
+                        }
+                    });
+                }
+                
+                // If wings still not found, try a final fallback with exact names from the image
+                if (!wings.topLeft && !wings.topRight && !wings.bottomLeft && !wings.bottomRight) {
+                    console.log("Final attempt to find wings using exact names from image...");
+                    
+                    // Find the Root object
+                    model.traverse((child) => {
+                        if (child.name === 'Root') {
+                            console.log("Found Root object");
+                            
+                            // Look for X-Wing under Root
+                            child.children.forEach(xwingChild => {
+                                if (xwingChild.name === 'X-Wing') {
+                                    console.log("Found X-Wing under Root with", xwingChild.children.length, "children");
+                                    
+                                    // Try to match the wings directly
+                                    xwingChild.children.forEach(wingChild => {
+                                        console.log("Checking wing child:", wingChild.name);
+                                        // These are the exact names from the image
+                                        if (wingChild.name === 'LeftWingTop') wings.topLeft = wingChild;
+                                        if (wingChild.name === 'LeftWingBottom') wings.bottomLeft = wingChild; 
+                                        if (wingChild.name === 'RightWingTop') wings.topRight = wingChild;
+                                        if (wingChild.name === 'RightWingBottom') wings.bottomRight = wingChild;
+                                        if (wingChild.name === 'WingRotation') {
+                                            console.log("Found WingRotation object, checking its children");
+                                            wingChild.children.forEach(rotationChild => {
+                                                console.log("  Rotation child:", rotationChild.name);
+                                                if (rotationChild.name === 'LeftWingTop') wings.topLeft = rotationChild;
+                                                if (rotationChild.name === 'LeftWingBottom') wings.bottomLeft = rotationChild;
+                                                if (rotationChild.name === 'RightWingTop') wings.topRight = rotationChild;
+                                                if (rotationChild.name === 'RightWingBottom') wings.bottomRight = rotationChild;
+                                            });
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    });
+                }
+                
+                // Enhanced debug information about wing objects
+                console.log("===== X-WING WING OBJECT DEBUG =====");
+                console.log("Wing names being searched for: 'LeftWingTop', 'RightWingTop', 'LeftWingBottom', 'RightWingBottom'");
+                console.log("Top Left Wing found:", wings.topLeft ? "YES ✓" : "NO ✗");
+                console.log("Top Right Wing found:", wings.topRight ? "YES ✓" : "NO ✗");
+                console.log("Bottom Left Wing found:", wings.bottomLeft ? "YES ✓" : "NO ✗");
+                console.log("Bottom Right Wing found:", wings.bottomRight ? "YES ✓" : "NO ✗");
+                
+                // Let's also list all mesh names to help identify the correct wing object names
+                console.log("All mesh names in the model:");
+                const meshNames = [];
+                model.traverse((child) => {
+                    if (child.isMesh && child.name) {
+                        meshNames.push(child.name);
+                    }
+                });
+                console.log(meshNames);
+                console.log("===================================");
+                
+                // Original log
+                console.log("Found X-wing wings:", 
+                    wings.topLeft ? "Top Left ✓" : "Top Left ✗",
+                    wings.topRight ? "Top Right ✓" : "Top Right ✗",
+                    wings.bottomLeft ? "Bottom Left ✓" : "Bottom Left ✗",
+                    wings.bottomRight ? "Bottom Right ✓" : "Bottom Right ✗"
+                );
+                
+                // Store wings reference for later use in the export
+                xWingModel.userData.wings = wings;
                 
                 // Add engine glow effects
                 addEngineEffects(xWingModel);
@@ -172,9 +399,9 @@ export function createSpacecraft(scene) {
         spacecraft.lookAt(centerPoint);
         
         // Add a light to the spacecraft
-        const xwingLight = new THREE.PointLight(0xffffff, 0.5);
-        xwingLight.position.set(0, 2, 0);
-        spacecraft.add(xwingLight);
+    const xwingLight = new THREE.PointLight(0xffffff, 0.5);
+    xwingLight.position.set(0, 2, 0);
+    spacecraft.add(xwingLight);
     }).catch(error => {
         console.error("Failed to load X-Wing model:", error);
     });
@@ -403,6 +630,103 @@ export function createSpacecraft(scene) {
     //     });
     // }
 
+    // Function to update the animation mixer
+    function updateAnimations(deltaTime) {
+        // Skip if no mixer exists
+        if (!mixer) {
+            return;
+        }
+        
+        // Clamp deltaTime to avoid large jumps
+        const clampedDelta = Math.min(deltaTime, 0.1);
+        
+        // Update the animation mixer
+        mixer.update(clampedDelta);
+        
+        // Debug every 100 frames (~1-2 seconds) to avoid console spam
+        if (Math.random() < 0.01) {
+            console.log(`Animation update: mixer active = ${mixer.time > 0}, current state = ${animationState}`);
+            if (currentAnimation) {
+                console.log(`Current animation: ${currentAnimation.getClip().name}, time: ${currentAnimation.time.toFixed(2)}`);
+            }
+        }
+    }
+    
+    // Function to control wing animations
+    function setWingsOpen(open) {
+        // Get the target state name for logs
+        const targetState = open ? 'open' : 'closed';
+        
+        // Don't restart the same animation if already in the correct state
+        if (animationState === targetState) {
+            // Already in the target state
+            return;
+        }
+        
+        console.log(`Setting wings to ${targetState} (currently ${animationState})`);
+        
+        // Get wing references - use the stored wing references if available
+        const wings = xWingModel?.userData?.wings || {};
+        const topLeft = wings.topLeft;
+        const topRight = wings.topRight;
+        const bottomLeft = wings.bottomLeft;
+        const bottomRight = wings.bottomRight;
+        
+        // Check if we have the wing objects
+        if (!topLeft || !topRight || !bottomLeft || !bottomRight) {
+            console.log("Wing objects not available - cannot animate wings directly");
+            
+            // Fall back to using the animation system if available
+            if (mixer && wingsOpenAction && wingsCloseAction) {
+                console.log("Falling back to animation system");
+                // Reset all running animations to avoid conflicts
+                mixer.stopAllAction();
+                
+                // Play the appropriate animation
+                if (open) {
+                    wingsOpenAction.reset();
+                    wingsOpenAction.setLoop(THREE.LoopOnce);
+                    wingsOpenAction.clampWhenFinished = true;
+                    wingsOpenAction.timeScale = 2.0; // Double speed for faster animation
+                    wingsOpenAction.play();
+                    currentAnimation = wingsOpenAction;
+                } else {
+                    wingsCloseAction.reset();
+                    wingsCloseAction.setLoop(THREE.LoopOnce);
+                    wingsCloseAction.clampWhenFinished = true;
+                    wingsCloseAction.timeScale = 2.0; // Double speed for faster animation
+                    wingsCloseAction.play();
+                    currentAnimation = wingsCloseAction;
+                }
+            }
+        } else {
+            // Use direct rotation for immediate effect
+            console.log("Using direct wing rotation for immediate response");
+            
+            // Define the open and closed angles
+            const openAngle = Math.PI / 16;
+            const closedAngle = 0;
+            
+            // Set the rotations immediately
+            if (open) {
+                // Set to open position (X shape)
+                topRight.rotation.y = openAngle;
+                bottomRight.rotation.y = - openAngle;
+                topLeft.rotation.y = - openAngle;
+                bottomLeft.rotation.y = openAngle;
+            } else {
+                // Set to closed position (flat)
+                topRight.rotation.y = closedAngle;
+                bottomRight.rotation.y = closedAngle;
+                topLeft.rotation.y = closedAngle
+                bottomLeft.rotation.y = closedAngle;
+            }
+        }
+        
+        // Update animation state
+        animationState = targetState;
+    }
+
     // Return an object containing the spacecraft and all necessary methods and attributes
     return {
         spacecraft,
@@ -418,17 +742,83 @@ export function createSpacecraft(scene) {
         wingtipObjects,
         toggleView,
         
+        // Add animation functions
+        updateAnimations,
+        setWingsOpen,
+        
+        // Direct wing toggle function for debugging
+        toggleWings: function() {
+            console.log("Manually toggling wings from current state:", animationState);
+            setWingsOpen(animationState !== 'open');
+            return `Wings now ${animationState}`;
+        },
+        
+        // Direct wing position control for debugging (0 = closed, 1 = fully open)
+        setWingsPosition: function(position) {
+            console.log(`Setting wings to position: ${position} (0=closed, 1=open)`);
+            
+            // Get wing references
+            const wings = xWingModel?.userData?.wings || {};
+            const topLeft = wings.topLeft;
+            const topRight = wings.topRight;
+            const bottomLeft = wings.bottomLeft;
+            const bottomRight = wings.bottomRight;
+            
+            // Check if we have the wing objects
+            if (!topLeft || !topRight || !bottomLeft || !bottomRight) {
+                console.log("Wing objects not available - cannot set wing position directly");
+                return "Cannot set wing position - wings not available";
+            }
+            
+            // Clamp position between 0 and 1
+            const normalizedPosition = Math.max(0, Math.min(1, position));
+            
+            // Define the open and closed angles
+            const openAngle = Math.PI / 8;
+            const closedAngle = 0;
+            
+            // Calculate the target angles based on position
+            const rightTopAngle = -openAngle * normalizedPosition;
+            const rightBottomAngle = openAngle * normalizedPosition;
+            const leftTopAngle = Math.PI + (openAngle * normalizedPosition);
+            const leftBottomAngle = Math.PI - (openAngle * normalizedPosition);
+            
+            // Set the rotations immediately
+            topRight.rotation.z = rightTopAngle;
+            bottomRight.rotation.z = rightBottomAngle;
+            topLeft.rotation.z = leftTopAngle;
+            bottomLeft.rotation.z = leftBottomAngle;
+            
+            // Update animation state if at extremes
+            if (normalizedPosition >= 0.99) {
+                animationState = 'open';
+            } else if (normalizedPosition <= 0.01) {
+                animationState = 'closed';
+            }
+            
+            return `Wings set to position ${normalizedPosition.toFixed(2)}`;
+        },
+        
         // Export current state of isFirstPersonView
         get isFirstPersonView() {
             console.log("DEBUG - Accessing isFirstPersonView property, value:", isFirstPersonView);
             return isFirstPersonView;
         },
         
-        // Define dummy wing objects to maintain compatibility
-        topRightWing: wingtipObjects[0],
-        bottomRightWing: wingtipObjects[1],
-        topLeftWing: wingtipObjects[2],
-        bottomLeftWing: wingtipObjects[3],
+        // Define wing objects for animation and other uses
+        // Use actual wing objects if available, otherwise fall back to wingtip objects
+        get topRightWing() {
+            return xWingModel.userData.wings?.topRight || wingtipObjects[0];
+        },
+        get bottomRightWing() {
+            return xWingModel.userData.wings?.bottomRight || wingtipObjects[1];
+        },
+        get topLeftWing() {
+            return xWingModel.userData.wings?.topLeft || wingtipObjects[2];
+        },
+        get bottomLeftWing() {
+            return xWingModel.userData.wings?.bottomLeft || wingtipObjects[3];
+        },
         reticle: reticleComponent.reticle,
         updateReticle: reticleComponent.update,
         // updateCockpit

@@ -66,13 +66,13 @@ function updateCamera(camera, isHyperspace) {
     const isFirstPerson = spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? spacecraft.isFirstPersonView() : false;
     
     // Debug log - only log 1% of the time to avoid spam
-    if (Math.random() < 0.01) {
-        console.log(
-            "🎥 CAMERA DEBUG: isFirstPerson =", isFirstPerson, 
-            "| isFirstPersonView() =", spacecraft.isFirstPersonView(), 
-            "| isFirstPersonView exists:", typeof spacecraft.isFirstPersonView === 'function'
-        );
-    }
+    // if (Math.random() < 0.01) {
+    //     console.log(
+    //         "🎥 CAMERA DEBUG: isFirstPerson =", isFirstPerson, 
+    //         "| isFirstPersonView() =", spacecraft.isFirstPersonView(), 
+    //         "| isFirstPersonView exists:", typeof spacecraft.isFirstPersonView === 'function'
+    //     );
+    // }
 
     // Update target offsets based on keys, hyperspace state and view mode
     const viewMode = isFirstPerson ? 'cockpit' : 'space';
@@ -215,6 +215,12 @@ function initSpacecraft() {
         return this._spacecraftComponents ? this._spacecraftComponents.isFirstPersonView : false;
     };
     
+    // Expose animation functions
+    spacecraft.updateAnimations = spacecraftComponents.updateAnimations;
+    spacecraft.setWingsOpen = spacecraftComponents.setWingsOpen;
+    spacecraft.toggleWings = spacecraftComponents.toggleWings;
+    spacecraft.setWingsPosition = spacecraftComponents.setWingsPosition;
+    
     // Store a direct reference to the spacecraftComponents
     spacecraft._spacecraftComponents = spacecraftComponents;
 
@@ -326,6 +332,25 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         // Update spacecraft effects
         if (updateEngineEffects) {
             updateEngineEffects(isBoosting);
+        }
+        
+        // Update wing animations based on flight state (Only in space scene)
+        if (spacecraft.setWingsOpen) {
+            // Set wings open when in normal flight or slow mode, closed when boosting or in hyperspace
+            const shouldWingsBeOpen = !isBoosting && !isHyperspace;
+            
+            // Add more logging to track wing state changes
+            if (Math.random() < 0.01) { // Only log occasionally to avoid spam
+                console.log(`Wing state check: isBoosting=${isBoosting}, isHyperspace=${isHyperspace}`);
+                console.log(`Wings should be: ${shouldWingsBeOpen ? 'OPEN' : 'CLOSED'}`);
+            }
+            
+            spacecraft.setWingsOpen(shouldWingsBeOpen);
+        }
+        
+        // Update animation mixer (Only in space scene)
+        if (spacecraft.updateAnimations) {
+            spacecraft.updateAnimations(deltaTime);
         }
         
         // Update reticle position if available

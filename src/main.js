@@ -308,7 +308,10 @@ function startHyperspace() {
     if (isHyperspace || isEarthSurfaceActive) return;
     
     isHyperspace = true;
-    console.log('Entering hyperspace... Speed should increase dramatically!');
+    // Make sure to set the global isHyperspace flag immediately so other modules can detect it
+    window.isHyperspace = true;
+    console.log('🚀 ENTERING HYPERSPACE - Wings should CLOSE!');
+    console.log('Setting window.isHyperspace =', window.isHyperspace);
 
     // Create hyperspace streaks
     createStreaks();
@@ -355,7 +358,9 @@ function startHyperspace() {
 
     setTimeout(() => {
         isHyperspace = false;
-        console.log('Exiting hyperspace... Speed should return to normal');
+        window.isHyperspace = false;
+        console.log('🚀 EXITING HYPERSPACE - Wings should OPEN!');
+        console.log('Setting window.isHyperspace =', window.isHyperspace);
         resetMovementInputs();
         
         // Reset visual indication
@@ -381,6 +386,64 @@ window.resetEarthInitialized = function() {
 window.resetMoonInitialized = function() {
     moonInitialized = false;
     console.log('Reset Moon surface initialization state');
+};
+
+// Add a global function to directly toggle wings for debugging
+window.toggleWings = function() {
+    if (spacecraft && spacecraft.toggleWings) {
+        console.log("Manually toggling wings via global function");
+        const result = spacecraft.toggleWings();
+        console.log(result);
+        return result;
+    } else {
+        console.error("spacecraft.toggleWings function not available");
+        return "Error: Wings cannot be toggled";
+    }
+};
+
+// Add a global function to directly set wing position for debugging
+window.setWingsPosition = function(position) {
+    if (spacecraft && spacecraft.setWingsPosition) {
+        console.log(`Manually setting wing position to ${position} via global function`);
+        const result = spacecraft.setWingsPosition(position);
+        console.log(result);
+        return result;
+    } else {
+        console.error("spacecraft.setWingsPosition function not available");
+        return "Error: Wings position cannot be set";
+    }
+};
+
+// Add a global function to animate wings for testing (animates from closed to open or vice versa)
+window.animateWings = function(duration = 500) {
+    if (!spacecraft || !spacecraft.setWingsPosition) {
+        console.error("spacecraft.setWingsPosition function not available");
+        return "Error: Wings cannot be animated";
+    }
+    
+    const startTime = performance.now();
+    const startPos = spacecraft._spacecraftComponents?.animationState === 'open' ? 1 : 0;
+    const endPos = startPos > 0.5 ? 0 : 1;
+    
+    console.log(`Animating wings from ${startPos} to ${endPos} over ${duration}ms`);
+    
+    function animate(time) {
+        const elapsed = time - startTime;
+        const progress = Math.min(1, elapsed / duration);
+        
+        // Use an easing function for smoother animation
+        const easedProgress = 0.5 - 0.5 * Math.cos(progress * Math.PI);
+        const currentPos = startPos + (endPos - startPos) * easedProgress;
+        
+        spacecraft.setWingsPosition(currentPos);
+        
+        if (progress < 1) {
+            requestAnimationFrame(animate);
+        }
+    }
+    
+    requestAnimationFrame(animate);
+    return `Animating wings from ${startPos} to ${endPos}`;
 };
 
 // Main animation loop

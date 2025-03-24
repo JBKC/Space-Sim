@@ -488,11 +488,16 @@ export function updateMovement() {
         updateEngineEffects(keys.up, keys.down);
     }
 
-    // Handle wing animation for boost mode
-    if (keys.up && wingsOpen) {
+    // Handle wing animation for boost mode and potential hyperspace
+    // Check for isHyperspace in the global window object as a fallback
+    const isInHyperspace = window.isHyperspace || false;
+    
+    if ((keys.up || isInHyperspace) && wingsOpen) {
+        console.log(`SanFran: Closing wings due to ${isInHyperspace ? 'hyperspace' : 'boost'} mode`);
         wingsOpen = false;
         wingAnimation = wingTransitionFrames;
-    } else if (!keys.up && !wingsOpen) {
+    } else if (!keys.up && !isInHyperspace && !wingsOpen) {
+        console.log('SanFran: Opening wings for normal flight');
         wingsOpen = true;
         wingAnimation = wingTransitionFrames;
     }
@@ -593,18 +598,41 @@ export function updateMovement() {
     }
 
     if (wingAnimation > 0 && topRightWing && bottomRightWing && topLeftWing && bottomLeftWing) {
-        const angleStep = (Math.PI / 8) / wingTransitionFrames;
-        if (wingsOpen) {
-            topRightWing.rotation.z = Math.max(topRightWing.rotation.z - angleStep, -Math.PI / 8);
-            bottomRightWing.rotation.z = Math.min(bottomRightWing.rotation.z + angleStep, Math.PI / 8);
-            topLeftWing.rotation.z = Math.min(topLeftWing.rotation.z + angleStep, Math.PI + Math.PI / 8);
-            bottomLeftWing.rotation.z = Math.max(bottomLeftWing.rotation.z - angleStep, Math.PI - Math.PI / 8);
-        } else {
-            topRightWing.rotation.z = Math.min(topRightWing.rotation.z + angleStep, 0);
-            bottomRightWing.rotation.z = Math.max(bottomRightWing.rotation.z - angleStep, 0);
-            topLeftWing.rotation.z = Math.max(topLeftWing.rotation.z - angleStep, Math.PI);
-            bottomLeftWing.rotation.z = Math.min(bottomLeftWing.rotation.z + angleStep, Math.PI);
+        // Calculate progress percentage for animation smoothing (1.0 = start, 0.0 = end)
+        const progress = wingAnimation / wingTransitionFrames;
+        
+        // Use easing function for smoother animation (ease in/out)
+        const easedProgress = 0.5 - 0.5 * Math.cos(progress * Math.PI);
+        
+        // Log animation progress occasionally
+        if (wingAnimation % 10 === 0) {
+            console.log(`SanFran wing animation: ${Math.round(progress * 100)}% complete, ${wingsOpen ? 'opening' : 'closing'}`);
         }
+        
+        // Define the angles for open and closed positions
+        const openAngle = Math.PI / 8;
+        const closedAngle = 0;
+        
+        if (wingsOpen) {
+            // Animating to open position (X shape)
+            // Right wings
+            topRightWing.rotation.z = THREE.MathUtils.lerp(closedAngle, -openAngle, easedProgress);
+            bottomRightWing.rotation.z = THREE.MathUtils.lerp(closedAngle, openAngle, easedProgress);
+            
+            // Left wings
+            topLeftWing.rotation.z = THREE.MathUtils.lerp(Math.PI, Math.PI + openAngle, easedProgress);
+            bottomLeftWing.rotation.z = THREE.MathUtils.lerp(Math.PI, Math.PI - openAngle, easedProgress);
+        } else {
+            // Animating to closed position (flat)
+            // Right wings
+            topRightWing.rotation.z = THREE.MathUtils.lerp(-openAngle, closedAngle, easedProgress);
+            bottomRightWing.rotation.z = THREE.MathUtils.lerp(openAngle, closedAngle, easedProgress);
+            
+            // Left wings
+            topLeftWing.rotation.z = THREE.MathUtils.lerp(Math.PI + openAngle, Math.PI, easedProgress);
+            bottomLeftWing.rotation.z = THREE.MathUtils.lerp(Math.PI - openAngle, Math.PI, easedProgress);
+        }
+        
         wingAnimation--;
     }
 }
@@ -619,12 +647,12 @@ export function updateCamera() {
     const isFirstPerson = spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? spacecraft.isFirstPersonView() : false;
     
     // Debug log - only log 1% of the time to avoid spam
-    if (Math.random() < 0.01) {
-        console.log(
-            "🎥 SAN FRAN CAMERA DEBUG: isFirstPerson =", isFirstPerson, 
-            "| isFirstPersonView() =", spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? spacecraft.isFirstPersonView() : false
-        );
-    }
+    // if (Math.random() < 0.01) {
+    //     console.log(
+    //         "🎥 SAN FRAN CAMERA DEBUG: isFirstPerson =", isFirstPerson, 
+    //         "| isFirstPersonView() =", spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? spacecraft.isFirstPersonView() : false
+    //     );
+    // }
 
     // Update target offsets based on keys - use appropriate view mode
     const viewMode = isFirstPerson ? 'sanFranCockpit' : 'sanFran';

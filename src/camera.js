@@ -8,10 +8,10 @@ export const spaceCamera = {
     base: new THREE.Vector3(0, 2, 30),         // Normal camera position (behind spacecraft)
     boost: new THREE.Vector3(0, 2, 200),        // Further back during boost
     slow: new THREE.Vector3(0, 2, 12),       // Closer camera during slow mode
-    hyperspace: new THREE.Vector3(0, 0, 2245),   // Extreme distance during hyperspace
+    hyperspace: new THREE.Vector3(0, 2, 2245),   // Extreme distance during hyperspace
 };
 
-// cockpit camera offsets
+// cockpit camera offsetsa
 export const cockpitCamera = {
     base: new THREE.Vector3(0, 0, 44.9),         // Inside cockpit, looking forward (45 is the exact center of the cockpit with scale (1,1,1)
     boost: new THREE.Vector3(0, 0, 224.7),        // Slight downward tilt when boosting
@@ -91,7 +91,7 @@ export function getCameraOffsets(scene) {
         case 'space':
             return spaceCamera;
         case 'cockpit':
-            console.log(">>> RETRIEVING COCKPIT CAMERA OFFSETS <<<");
+            // console.log(">>> RETRIEVING COCKPIT CAMERA OFFSETS <<<");
             return cockpitCamera;
         case 'earth':
             return earthCamera;
@@ -102,10 +102,10 @@ export function getCameraOffsets(scene) {
         case 'sanFran':
             return sanFranCamera;
         case 'sanFranCockpit':
-            console.log(">>> RETRIEVING SAN FRANCISCO COCKPIT CAMERA OFFSETS <<<");
+            // console.log(">>> RETRIEVING SAN FRANCISCO COCKPIT CAMERA OFFSETS <<<");
             return sanFranCockpitCamera;
         default:
-            console.warn(`Unknown scene '${scene}', defaulting to space camera`);
+            // console.warn(`Unknown scene '${scene}', defaulting to space camera`);
             return spaceCamera;
     }
 }
@@ -131,7 +131,7 @@ export function createForwardRotation() {
 export function createCameraState(scene) {
     const offsets = getCameraOffsets(scene);
     
-    console.log("Creating new camera state for scene:", scene, "with initial offset:", offsets.base);
+    // console.log("Creating new camera state for scene:", scene, "with initial offset:", offsets.base);
     
     return {
         // Current camera offsets that will be interpolated

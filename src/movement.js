@@ -140,17 +140,9 @@ export function updateMovement(isBoosting, isHyperspace) {
         // console.log(`Engine effects updated - Boosting: ${isBoosting || keys.up}, Slowing: ${keys.down}`);
     }
 
-    // Trigger wing animation based on hyperspace and boost state
-    if (isHyperspace && wingsOpen) {
-        wingsOpen = false;
-        wingAnimation = wingTransitionFrames;
-    } else if (!isHyperspace && !isBoosting && !wingsOpen) {
-        wingsOpen = true;
-        wingAnimation = wingTransitionFrames;
-    } else if (isBoosting && wingsOpen) {
-        wingsOpen = false;
-        wingAnimation = wingTransitionFrames;
-    }
+    // NOTE: The wing animation logic has been moved to the spacecraft.js animation system
+    // and is controlled via the setWingsOpen function. It responds to the same conditions,
+    // but uses the built-in glTF animations instead of manual rotations.
 
     // Store current state
     lastValidPosition.copy(spacecraft.position);
@@ -208,22 +200,6 @@ export function updateMovement(isBoosting, isHyperspace) {
         spacecraft.position.copy(nextPosition);
     }
 
-    // Update wing animation if active
-    if (wingAnimation > 0) {
-        const targetAngle = wingsOpen ? Math.PI / 8 : 0;
-        const angleStep = (Math.PI / 8) / wingTransitionFrames;
-
-        if (wingsOpen) {
-            topRightWing.rotation.z = Math.max(topRightWing.rotation.z - angleStep, -Math.PI / 8);
-            bottomRightWing.rotation.z = Math.min(bottomRightWing.rotation.z + angleStep, Math.PI / 8);
-            topLeftWing.rotation.z = Math.min(topLeftWing.rotation.z + angleStep, Math.PI + Math.PI / 8);
-            bottomLeftWing.rotation.z = Math.max(bottomLeftWing.rotation.z - angleStep, Math.PI - Math.PI / 8);
-        } else {
-            topRightWing.rotation.z = Math.min(topRightWing.rotation.z + angleStep, 0);
-            bottomRightWing.rotation.z = Math.max(bottomRightWing.rotation.z - angleStep, 0);
-            topLeftWing.rotation.z = Math.max(topLeftWing.rotation.z - angleStep, Math.PI);
-            bottomLeftWing.rotation.z = Math.min(bottomLeftWing.rotation.z + angleStep, Math.PI);
-        }
-        wingAnimation--;
-    }
+    // The manual wing animation code has been removed as it's now handled
+    // by the Three.js animation system in spacecraft.js
 }
