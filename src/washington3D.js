@@ -65,7 +65,13 @@ const baseSpeed = 5;
 const boostSpeed = baseSpeed * 5;
 const slowSpeed = baseSpeed * 0.5; // Half of base speed
 let currentSpeed = baseSpeed;
-const turnSpeed = 0.03;
+
+// Turn speed variables for Washington DC environment
+const baseTurnSpeed = 0.03;     // Regular turn speed
+const slowTurnSpeed = 0.03;     // More sensitive turning when moving slowly (urban precision)
+const boostTurnSpeed = 0.025;   // Much less sensitive turning when boosting (stability at high speed)
+let currentTurnSpeed = baseTurnSpeed; // Current active turn speed
+
 // Add sensitivity multipliers for each rotation axis
 const pitchSensitivity = 0.6; // Lower value = less sensitive
 const rollSensitivity = 1;  // Lower value = less sensitive
@@ -932,10 +938,13 @@ export function updateMovement() {
     // Set speed based on movement mode
     if (keys.up) {
         currentSpeed = boostSpeed;
+        currentTurnSpeed = boostTurnSpeed; // Less sensitive turning at high speed for stability
     } else if (keys.down) {
         currentSpeed = slowSpeed;
+        currentTurnSpeed = slowTurnSpeed; // More sensitive turning at low speed for urban precision
     } else {
         currentSpeed = baseSpeed;
+        currentTurnSpeed = baseTurnSpeed; // Normal turn sensitivity
     }
     
     // Update engine effects based on movement mode
@@ -961,12 +970,14 @@ export function updateMovement() {
     rotation.yaw.identity();
     rotation.roll.identity();
 
-    if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, turnSpeed * pitchSensitivity);
-    if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -turnSpeed * pitchSensitivity);
-    if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -turnSpeed * rollSensitivity);
-    if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, turnSpeed * rollSensitivity);
-    if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, turnSpeed * yawSensitivity);
-    if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -turnSpeed * yawSensitivity);
+    // Use currentTurnSpeed for pitch and yaw, but always use slowTurnSpeed for roll
+    if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, currentTurnSpeed * pitchSensitivity);
+    if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -currentTurnSpeed * pitchSensitivity);
+    // Roll always uses slowTurnSpeed for more precise control regardless of movement mode
+    if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -slowTurnSpeed * rollSensitivity);
+    if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, slowTurnSpeed * rollSensitivity);
+    if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, currentTurnSpeed * yawSensitivity);
+    if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -currentTurnSpeed * yawSensitivity);
 
     const combinedRotation = new THREE.Quaternion()
         .copy(rotation.roll)

@@ -64,6 +64,11 @@ const planetInfo = {
         atmosphere: 'Thin CO₂',
         gravity: '38% of Earth'
     },
+    'asteroid belt': {
+        composition: 'Silicate rock, metals, carbon',
+        atmosphere: 'None (vacuum of space)',
+        gravity: 'Negligible'
+    },
     'jupiter': {
         composition: 'Hydrogen, helium',
         atmosphere: 'Dynamic storms',
@@ -85,9 +90,14 @@ const planetInfo = {
         gravity: '114% of Earth'
     },
     'imperial star destroyer': {
-        composition: 'Durasteel, titanium alloys',
-        atmosphere: 'Artificial life support',
-        gravity: 'Artificial gravity generators'
+        affiliation: 'Empire',
+        manufacturer: 'Kuat Drive Yards',
+        crew: '40,000'
+    },
+    'lucrehulk': {
+        affiliation: 'CIS',
+        manufacturer: 'Hoersch-Kessel Drive',
+        crew: '200,000'
     }
 };
 
@@ -106,7 +116,25 @@ planetInfoBox.style.width = '320px';
 planetInfoBox.style.pointerEvents = 'none';
 planetInfoBox.style.zIndex = '1000';
 planetInfoBox.style.display = 'none'; // Hidden by default
+// Ensure the box isn't positioned off-screen initially
+planetInfoBox.style.right = '';
+planetInfoBox.style.left = '';
+planetInfoBox.style.top = '';
 document.body.appendChild(planetInfoBox);
+
+// Add a debug click event to help troubleshoot
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'i') {
+        // Test the info box display on 'i' key press
+        console.log('Manual info box test triggered');
+        showStarDestroyerInfo();
+    }
+    if (event.key === 'l') {
+        // Test the Lucrehulk info box display on 'l' key press
+        console.log('Manual Lucrehulk info box test triggered');
+        showLucrehulkInfo();
+    }
+});
 
 // Variable to track if Earth surface is active
 export let isEarthSurfaceActive = false;
@@ -665,6 +693,9 @@ const skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
 skybox.position.set(0, 0, 0); // Ensure centered at origin
 scene.add(skybox);
 
+// Initialize loader for 3D models (moved here to be available for all model loading)
+const loader = new GLTFLoader();
+
 // --- Sun Setup ---
 const sunGroup = new THREE.Group();
 scene.add(sunGroup);
@@ -764,6 +795,13 @@ const mercuryMaterial = new THREE.MeshStandardMaterial({
 });
 const mercury = new THREE.Mesh(mercuryGeometry, mercuryMaterial);
 mercuryGroup.add(mercury);
+
+// Add collision sphere for Mercury (50% larger)
+const mercuryCollisionGeometry = new THREE.SphereGeometry(mercuryRadius * 1.5, 16, 16);
+const collisionMaterialInvisible = new THREE.MeshBasicMaterial({ visible: false });
+const mercuryCollisionSphere = new THREE.Mesh(mercuryCollisionGeometry, collisionMaterialInvisible);
+mercuryGroup.add(mercuryCollisionSphere);
+
 planetGroups.push({ group: mercuryGroup, z: 20000 });
 
 // --- Venus Setup ---
@@ -780,6 +818,12 @@ const venusMaterial = new THREE.MeshStandardMaterial({
 });
 const venus = new THREE.Mesh(venusGeometry, venusMaterial);
 venusGroup.add(venus);
+
+// Add collision sphere for Venus (50% larger)
+const venusCollisionGeometry = new THREE.SphereGeometry(venusRadius * 1.5, 16, 16);
+const venusCollisionSphere = new THREE.Mesh(venusCollisionGeometry, collisionMaterialInvisible);
+venusGroup.add(venusCollisionSphere);
+
 const venusAtmosphereThickness = 50;
 const venusAtmosphereRadius = venusRadius + venusAtmosphereThickness;
 const venusAtmosphereGeometry = new THREE.SphereGeometry(venusAtmosphereRadius, 64, 64);
@@ -824,6 +868,12 @@ const earthMaterial = new THREE.MeshStandardMaterial({
 });
 export const planet = new THREE.Mesh(earthGeometry, earthMaterial);
 earthGroup.add(planet);
+
+// Add collision sphere for Earth (50% larger)
+const earthCollisionGeometry = new THREE.SphereGeometry(earthRadius * 1.5, 16, 16);
+const earthCollisionSphere = new THREE.Mesh(earthCollisionGeometry, collisionMaterialInvisible);
+earthGroup.add(earthCollisionSphere);
+
 const atmosphereThickness = 50;
 const atmosphereRadius = earthRadius + atmosphereThickness;
 const atmosphereGeometry = new THREE.SphereGeometry(atmosphereRadius, 64, 64);
@@ -866,6 +916,11 @@ const moonMaterial = new THREE.MeshStandardMaterial({
 });
 export const moon = new THREE.Mesh(moonGeometry, moonMaterial);
 moonGroup.add(moon);
+
+// Add collision sphere for Moon (50% larger)
+const moonCollisionGeometry = new THREE.SphereGeometry(moonRadius * 1.5, 16, 16);
+const moonCollisionSphere = new THREE.Mesh(moonCollisionGeometry, collisionMaterialInvisible);
+moonGroup.add(moonCollisionSphere);
 
 // Position the Moon globally, but still relative to Earth's orbit
 const moonOrbitRadius = 5000;
@@ -924,6 +979,12 @@ const marsMaterial = new THREE.MeshStandardMaterial({
 });
 const mars = new THREE.Mesh(marsGeometry, marsMaterial);
 marsGroup.add(mars);
+
+// Add collision sphere for Mars (50% larger)
+const marsCollisionGeometry = new THREE.SphereGeometry(marsRadius * 1.5, 16, 16);
+const marsCollisionSphere = new THREE.Mesh(marsCollisionGeometry, collisionMaterialInvisible);
+marsGroup.add(marsCollisionSphere);
+
 const redCloudTexture = textureLoader.load('skybox/Earth-clouds.png');
 const marsCloudMaterial = new THREE.MeshStandardMaterial({
     map: redCloudTexture,
@@ -943,6 +1004,158 @@ function animateMarsClouds() {
 }
 animateMarsClouds();
 
+// --- Asteroid Belt Setup ---
+const asteroidBeltGroup = new THREE.Group();
+asteroidBeltGroup.name = "asteroidBelt";
+scene.add(asteroidBeltGroup);
+
+// Create a collision box for the asteroid belt center for hover detection
+const asteroidCollisionGeometry = new THREE.SphereGeometry(3000, 32, 32);
+const asteroidCollisionMaterial = new THREE.MeshBasicMaterial({ 
+    visible: false // Invisible collision box
+});
+
+const asteroidCollisionSphere = new THREE.Mesh(asteroidCollisionGeometry, asteroidCollisionMaterial);
+asteroidCollisionSphere.name = "asteroidBeltCollision";
+asteroidBeltGroup.add(asteroidCollisionSphere);
+
+// Position the asteroid belt group to orbit around the sun (0,0,0)
+// This ensures it's properly centered on the sun unlike other planets that use random angles
+asteroidBeltGroup.position.set(0, 0, 0);
+
+// The number of asteroids to create
+const asteroidCount = 100;
+let asteroidModels = [];
+
+// Load asteroid models
+loader.load(
+    './asteroids_pack_metallic_version/scene.gltf',
+    (gltf) => {
+        console.log('Asteroid pack loaded successfully');
+        
+        // Extract the individual asteroid models from the pack
+        gltf.scene.traverse((child) => {
+            // Find mesh objects that represent individual asteroids
+            if (child.isMesh) {
+                // Clone each asteroid to use for instancing
+                const asteroid = child.clone();
+                asteroidModels.push(asteroid);
+            }
+        });
+        
+        // Now create multiple asteroids distributed in a belt pattern
+        if (asteroidModels.length > 0) {
+            // Create a belt around the orbit radius with some variation
+            const orbitRadius = 55000;
+            const beltWidth = 10000;  // Width of the asteroid belt
+            const beltHeight = 3000;  // Height of the asteroid belt
+            
+            for (let i = 0; i < asteroidCount; i++) {
+                // Pick a random asteroid model from the loaded ones
+                const randomIndex = Math.floor(Math.random() * asteroidModels.length);
+                const asteroidModel = asteroidModels[randomIndex].clone();
+                
+                // Random position within the belt
+                const angle = Math.random() * Math.PI * 2;
+                const radiusVariation = (Math.random() - 0.5) * beltWidth;
+                const heightVariation = (Math.random() - 0.5) * beltHeight;
+                const asteroidRadius = orbitRadius + radiusVariation;
+                
+                // Position in a circular pattern with some variation
+                // Use x and z as the orbital plane with y as height variation
+                // This ensures asteroids orbit around the sun at (0,0,0)
+                const x = Math.cos(angle) * asteroidRadius;
+                const z = Math.sin(angle) * asteroidRadius;
+                const y = heightVariation;
+                
+                // Random scale between 200 and 600
+                const scale = 200 + Math.random() * 400;
+                asteroidModel.scale.set(scale, scale, scale);
+                
+                // Random rotation
+                asteroidModel.rotation.x = Math.random() * Math.PI * 2;
+                asteroidModel.rotation.y = Math.random() * Math.PI * 2;
+                asteroidModel.rotation.z = Math.random() * Math.PI * 2;
+                
+                // Set position
+                asteroidModel.position.set(x, y, z);
+                
+                // Add to the group
+                asteroidBeltGroup.add(asteroidModel);
+            }
+            
+            console.log(`Created ${asteroidCount} asteroids in the belt`);
+        } else {
+            console.warn('No asteroid models found in the loaded GLTF');
+            
+            // Create a fallback visualization of the asteroid belt
+            createFallbackAsteroidBelt();
+        }
+    },
+    (xhr) => {
+        console.log(`Loading asteroid pack: ${(xhr.loaded / xhr.total) * 100}% loaded`);
+    },
+    (error) => {
+        console.error('Error loading asteroid pack:', error);
+        
+        // Create a fallback visualization if the model fails to load
+        createFallbackAsteroidBelt();
+    }
+);
+
+// Fallback asteroid belt creation using simple geometry
+function createFallbackAsteroidBelt() {
+    console.log('Creating fallback asteroid belt visualization');
+    
+    const orbitRadius = 55000;
+    const beltWidth = 10000;
+    const beltHeight = 3000;
+    
+    for (let i = 0; i < asteroidCount; i++) {
+        // Create a simple asteroid with random geometry
+        const asteroidGeometry = new THREE.IcosahedronGeometry(1, 0); // Simple low-poly asteroid shape
+        const asteroidMaterial = new THREE.MeshStandardMaterial({
+            color: 0x888888, 
+            metalness: 0.7,
+            roughness: 0.6,
+            flatShading: true
+        });
+        
+        const asteroid = new THREE.Mesh(asteroidGeometry, asteroidMaterial);
+        
+        // Random position within the belt
+        const angle = Math.random() * Math.PI * 2;
+        const radiusVariation = (Math.random() - 0.5) * beltWidth;
+        const heightVariation = (Math.random() - 0.5) * beltHeight;
+        const asteroidRadius = orbitRadius + radiusVariation;
+        
+        // Position in a circular pattern with some variation
+        // Use x and z as the orbital plane with y as height variation
+        // This ensures asteroids orbit around the sun at (0,0,0)
+        const x = Math.cos(angle) * asteroidRadius;
+        const z = Math.sin(angle) * asteroidRadius;
+        const y = heightVariation;
+        
+        // Random scale between 200 and 600
+        const scale = 200 + Math.random() * 400;
+        asteroid.scale.set(scale, scale, scale);
+        
+        // Random rotation
+        asteroid.rotation.x = Math.random() * Math.PI * 2;
+        asteroid.rotation.y = Math.random() * Math.PI * 2;
+        asteroid.rotation.z = Math.random() * Math.PI * 2;
+        
+        // Set position
+        asteroid.position.set(x, y, z);
+        
+        // Add to the group
+        asteroidBeltGroup.add(asteroid);
+    }
+}
+
+// Add to planet groups with orbit radius of 55000 (between Mars at 50000 and Jupiter at 60000)
+planetGroups.push({ group: asteroidBeltGroup, z: 55000 });
+
 // --- Jupiter Setup ---
 const jupiterGroup = new THREE.Group();
 scene.add(jupiterGroup);
@@ -957,6 +1170,12 @@ const jupiterMaterial = new THREE.MeshStandardMaterial({
 });
 const jupiter = new THREE.Mesh(jupiterGeometry, jupiterMaterial);
 jupiterGroup.add(jupiter);
+
+// Add collision sphere for Jupiter (50% larger)
+const jupiterCollisionGeometry = new THREE.SphereGeometry(jupiterRadius * 1.5, 16, 16);
+const jupiterCollisionSphere = new THREE.Mesh(jupiterCollisionGeometry, collisionMaterialInvisible);
+jupiterGroup.add(jupiterCollisionSphere);
+
 planetGroups.push({ group: jupiterGroup, z: 60000 });
 
 function animateJupiterClouds() {
@@ -969,25 +1188,40 @@ const starDestroyerGroup = new THREE.Group();
 starDestroyerGroup.name = "imperialStarDestroyer"; // Add name for reference
 scene.add(starDestroyerGroup);
 
+// Create collision boxes for the Star Destroyers (for efficient raycast detection)
+const collisionGeometry = new THREE.BoxGeometry(3000, 1000, 5000);
+const collisionMaterial = new THREE.MeshBasicMaterial({ 
+    visible: false // Invisible collision box
+});
+
+const collisionBox1 = new THREE.Mesh(collisionGeometry, collisionMaterial);
+collisionBox1.position.set(-7000, 2000, 0);
+collisionBox1.name = "starDestroyer1Collision";
+starDestroyerGroup.add(collisionBox1);
+
+const collisionBox2 = new THREE.Mesh(collisionGeometry, collisionMaterial);
+collisionBox2.position.set(0, 0, 0);
+collisionBox2.name = "starDestroyer2Collision";
+starDestroyerGroup.add(collisionBox2);
+
 // Load the Star Destroyer model using GLTFLoader
-const loader = new GLTFLoader();
 let starDestroyer; // Store reference to the first model
 let starDestroyer2; // Store reference to the second model
 
 // Load the first Star Destroyer
 loader.load(
-    './star_wars_imperial-class_star_destroyer/scene.gltf',
+    './star_wars_imperial_ii_star_destroyer/scene.gltf',
     (gltf) => {
         starDestroyer = gltf.scene;
         
         // Scale the model appropriately (reduced by factor of 100)
-        starDestroyer.scale.set(5, 5, 5);
+        starDestroyer.scale.set(8, 8, 8);
         
         // Rotate to face forward in its orbit
         starDestroyer.rotation.y = Math.PI;
         
-        // Offset the first destroyer slightly to the left
-        starDestroyer.position.set(-4000, 2000, 0);
+        // Offset the first destroyer
+        starDestroyer.position.copy(collisionBox1.position);
         
         // Add to the group
         starDestroyerGroup.add(starDestroyer);
@@ -1011,7 +1245,7 @@ loader.load(
             roughness: 0.2
         });
         const placeholderMesh = new THREE.Mesh(placeholderGeometry, placeholderMaterial);
-        placeholderMesh.position.set(-1000, 0, 0);
+        placeholderMesh.position.copy(collisionBox1.position);
         starDestroyerGroup.add(placeholderMesh);
         starDestroyer = placeholderMesh;
         console.log('Using placeholder for first Star Destroyer');
@@ -1024,18 +1258,18 @@ loader.load(
 // Function to load the second Star Destroyer
 function loadSecondStarDestroyer() {
     loader.load(
-        './star_wars_imperial-class_star_destroyer/scene.gltf',
+        './star_wars_imperial_ii_star_destroyer/scene.gltf',
         (gltf) => {
             starDestroyer2 = gltf.scene;
             
             // Scale the model appropriately (same as the first)
-            starDestroyer2.scale.set(5, 5, 5);
+            starDestroyer2.scale.set(8, 8, 8);
             
             // Rotate to face forward in its orbit (same as the first)
             starDestroyer2.rotation.y = Math.PI;
             
             // Offset the second destroyer slightly to the right
-            starDestroyer2.position.set(1000, 0, 0);
+            starDestroyer2.position.copy(collisionBox2.position);
             
             // Add to the same group as the first destroyer
             starDestroyerGroup.add(starDestroyer2);
@@ -1056,7 +1290,7 @@ function loadSecondStarDestroyer() {
                 roughness: 0.2
             });
             const placeholderMesh = new THREE.Mesh(placeholderGeometry, placeholderMaterial);
-            placeholderMesh.position.set(1000, 0, 0);
+            placeholderMesh.position.copy(collisionBox2.position);
             starDestroyerGroup.add(placeholderMesh);
             starDestroyer2 = placeholderMesh;
             console.log('Using placeholder for second Star Destroyer');
@@ -1081,6 +1315,11 @@ const saturnMaterial = new THREE.MeshStandardMaterial({
 });
 const saturn = new THREE.Mesh(saturnGeometry, saturnMaterial);
 saturnGroup.add(saturn);
+
+// Add collision sphere for Saturn (50% larger)
+const saturnCollisionGeometry = new THREE.SphereGeometry(saturnRadius * 1.5, 16, 16);
+const saturnCollisionSphere = new THREE.Mesh(saturnCollisionGeometry, collisionMaterialInvisible);
+saturnGroup.add(saturnCollisionSphere);
 
 // Load the ring texture
 const ringTexture = textureLoader.load('skybox/2k_saturn_ring_alpha.png');
@@ -1151,6 +1390,12 @@ const uranusMaterial = new THREE.MeshStandardMaterial({
 });
 const uranus = new THREE.Mesh(uranusGeometry, uranusMaterial);
 uranusGroup.add(uranus);
+
+// Add collision sphere for Uranus (50% larger)
+const uranusCollisionGeometry = new THREE.SphereGeometry(uranusRadius * 1.5, 16, 16);
+const uranusCollisionSphere = new THREE.Mesh(uranusCollisionGeometry, collisionMaterialInvisible);
+uranusGroup.add(uranusCollisionSphere);
+
 planetGroups.push({ group: uranusGroup, z: 95000 });
 
 // --- Neptune Setup ---
@@ -1167,7 +1412,74 @@ const neptuneMaterial = new THREE.MeshStandardMaterial({
 });
 const neptune = new THREE.Mesh(neptuneGeometry, neptuneMaterial);
 neptuneGroup.add(neptune);
+
+// Add collision sphere for Neptune (50% larger)
+const neptuneCollisionGeometry = new THREE.SphereGeometry(neptuneRadius * 1.5, 16, 16);
+const neptuneCollisionSphere = new THREE.Mesh(neptuneCollisionGeometry, collisionMaterialInvisible);
+neptuneGroup.add(neptuneCollisionSphere);
+
 planetGroups.push({ group: neptuneGroup, z: 110000 });
+
+// --- Lucrehulk Setup ---
+const lucrehulkGroup = new THREE.Group();
+lucrehulkGroup.name = "lucrehulk"; // Add name for reference
+scene.add(lucrehulkGroup);
+
+// Create collision box for the Lucrehulk (for efficient raycast detection)
+// Making it large and circular to match the Lucrehulk's donut shape
+const lucrehulkCollisionGeometry = new THREE.CylinderGeometry(5000, 5000, 2000, 32);
+const lucrehulkCollisionMaterial = new THREE.MeshBasicMaterial({ 
+    visible: false // Invisible collision box
+});
+
+const lucrehulkCollisionBox = new THREE.Mesh(lucrehulkCollisionGeometry, lucrehulkCollisionMaterial);
+lucrehulkCollisionBox.rotation.x = Math.PI / 2; // Rotate to make the circular face forward
+lucrehulkCollisionBox.name = "lucrehulkCollision";
+lucrehulkGroup.add(lucrehulkCollisionBox);
+
+// Load the Lucrehulk model using GLTFLoader
+let lucrehulkModel; // Store reference to the model
+
+// Load the Lucrehulk
+loader.load(
+    './lucrehulk/scene.gltf',
+    (gltf) => {
+        lucrehulkModel = gltf.scene;
+        
+        // Scale the model appropriately - using a smaller scale than initially set
+        lucrehulkModel.scale.set(100, 100, 100);
+        
+        // Rotate to face forward in its orbit
+        lucrehulkModel.rotation.y = Math.PI;
+        
+        // Add to the group
+        lucrehulkGroup.add(lucrehulkModel);
+        
+        console.log('Lucrehulk battleship loaded successfully');
+    },
+    (xhr) => {
+        console.log(`Loading Lucrehulk: ${(xhr.loaded / xhr.total) * 100}% loaded`);
+    },
+    (error) => {
+        console.error('Error loading Lucrehulk:', error);
+        
+        // Fallback: Create a placeholder if model fails to load
+        const placeholderGeometry = new THREE.TorusGeometry(3000, 1000, 16, 32);
+        const placeholderMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0xbbbbbb,
+            metalness: 0.7,
+            roughness: 0.3
+        });
+        const placeholderMesh = new THREE.Mesh(placeholderGeometry, placeholderMaterial);
+        placeholderMesh.rotation.x = Math.PI / 2; // Make it face forward
+        lucrehulkGroup.add(placeholderMesh);
+        lucrehulkModel = placeholderMesh;
+        console.log('Using placeholder for Lucrehulk');
+    }
+);
+
+// Add to planet groups with orbit radius of 35000 (between Venus at 27000 and Earth at 40000)
+planetGroups.push({ group: lucrehulkGroup, z: 35000 });
 
 // Randomize planet positions
 planetGroups.forEach(planet => {
@@ -1217,11 +1529,14 @@ const labelData = [
     { group: earthGroup, name: 'Earth', radius: 2000 },
     { group: moonGroup, name: 'Moon', radius: 500 },
     { group: marsGroup, name: 'Mars', radius: 1500 },
+    // Asteroid Belt removed from labels
     { group: jupiterGroup, name: 'Jupiter', radius: 5000 },
-    { group: starDestroyerGroup, name: 'Imperial Star Destroyer', radius: 2000 },
+    // Star Destroyer removed from labels but will still be hoverable
     { group: saturnGroup, name: 'Saturn', radius: 4000 },
     { group: uranusGroup, name: 'Uranus', radius: 3000 },
-    { group: neptuneGroup, name: 'Neptune', radius: 3000 }
+    { group: neptuneGroup, name: 'Neptune', radius: 3000 },
+    { group: starDestroyerGroup, name: 'Imperial Star Destroyer', radius: 5000 },
+    { group: lucrehulkGroup, name: 'Lucrehulk', radius: 5000 }
 ];
 
 // Create and store label elements
@@ -1425,6 +1740,136 @@ function onWindowResize() {
     renderer.setPixelRatio(window.devicePixelRatio);
 }
 
+// Create a function to display the Star Destroyer info box
+let starDestroyerInfoTimer = null;
+function showStarDestroyerInfo() {
+    if (!planetInfo['imperial star destroyer']) return;
+    
+    // Clear any existing timer
+    if (starDestroyerInfoTimer) {
+        clearTimeout(starDestroyerInfoTimer);
+        starDestroyerInfoTimer = null;
+    }
+    
+    const info = planetInfo['imperial star destroyer'];
+    
+    // Update content
+    planetInfoBox.innerHTML = `
+        <div style="text-align: center; margin-bottom: 10px; font-size: 20px; color: #4fc3f7; text-transform: uppercase;">
+            Imperial-class Star Destroyer
+        </div>
+        <div style="margin-bottom: 8px;">
+            <span style="color: #4fc3f7;">Affiliation:</span> ${info.affiliation}
+        </div>
+        <div style="margin-bottom: 8px;">
+            <span style="color: #4fc3f7;">Manufacturer:</span> ${info.manufacturer}
+        </div>
+        <div>
+            <span style="color: #4fc3f7;">Crew:</span> ${info.crew}
+        </div>
+    `;
+    
+    // Apply fixed positioning to ensure it's visible
+    // This positions it at the center-right of the screen
+    planetInfoBox.style.position = 'fixed';
+    planetInfoBox.style.left = 'auto';
+    planetInfoBox.style.right = '50px';
+    planetInfoBox.style.top = '50%';
+    planetInfoBox.style.transform = 'translateY(-50%)';
+    planetInfoBox.style.zIndex = '9999'; // Very high z-index to ensure visibility
+    
+    // Make sure it's visible
+    planetInfoBox.style.display = 'block';
+    
+    // Apply very visible debug styling (can remove later)
+    planetInfoBox.style.boxShadow = '0 0 10px 5px #4fc3f7';
+    
+    console.log('Star Destroyer info box should be visible now');
+    
+    // Force a layout reflow
+    void planetInfoBox.offsetWidth;
+    
+    // Remove the timeout that keeps the info visible
+    /*
+    // Set a timer to keep the info visible for a few seconds even if hover is lost
+    starDestroyerInfoTimer = setTimeout(() => {
+        if (lastHoveredPlanet !== 'imperial star destroyer') {
+            planetInfoBox.style.display = 'none';
+        }
+        starDestroyerInfoTimer = null;
+    }, 5000); // Keep visible for 5 seconds
+    */
+}
+
+// Create a function to display the Lucrehulk info box
+let lucrehulkInfoTimer = null;
+function showLucrehulkInfo() {
+    if (!planetInfo['lucrehulk']) return;
+    
+    // Clear any existing timer
+    if (lucrehulkInfoTimer) {
+        clearTimeout(lucrehulkInfoTimer);
+        lucrehulkInfoTimer = null;
+    }
+    
+    const info = planetInfo['lucrehulk'];
+    
+    // Update content
+    planetInfoBox.innerHTML = `
+        <div style="text-align: center; margin-bottom: 10px; font-size: 20px; color: #4fc3f7; text-transform: uppercase;">
+            Lucrehulk-class Battleship
+        </div>
+        <div style="margin-bottom: 8px;">
+            <span style="color: #4fc3f7;">Affiliation:</span> ${info.affiliation}
+        </div>
+        <div style="margin-bottom: 8px;">
+            <span style="color: #4fc3f7;">Manufacturer:</span> ${info.manufacturer}
+        </div>
+        <div>
+            <span style="color: #4fc3f7;">Crew:</span> ${info.crew}
+        </div>
+    `;
+    
+    // Apply fixed positioning to ensure it's visible
+    // This positions it at the center-right of the screen
+    planetInfoBox.style.position = 'fixed';
+    planetInfoBox.style.left = 'auto';
+    planetInfoBox.style.right = '50px';
+    planetInfoBox.style.top = '50%';
+    planetInfoBox.style.transform = 'translateY(-50%)';
+    planetInfoBox.style.zIndex = '9999'; // Very high z-index to ensure visibility
+    
+    // Make sure it's visible
+    planetInfoBox.style.display = 'block';
+    
+    // Apply very visible debug styling (can remove later)
+    planetInfoBox.style.boxShadow = '0 0 10px 5px #4fc3f7';
+    
+    console.log('Lucrehulk info box should be visible now');
+    
+    // Force a layout reflow
+    void planetInfoBox.offsetWidth;
+    
+    // Remove the timeout that keeps the info visible
+    /*
+    // Set a timer to keep the info visible for a few seconds even if hover is lost
+    lucrehulkInfoTimer = setTimeout(() => {
+        if (lastHoveredPlanet !== 'lucrehulk') {
+            planetInfoBox.style.display = 'none';
+        }
+        lucrehulkInfoTimer = null;
+    }, 5000); // Keep visible for 5 seconds
+    */
+}
+
+// Add a variable to track the last time we detected a Star Destroyer
+let lastStarDestroyerDetectionTime = 0;
+let starDestroyerDebounceTime = 0; // Set to 0 to disable debounce effect
+
+// Add a variable to track the last time we detected a Lucrehulk
+let lastLucrehulkDetectionTime = 0;
+let lucrehulkDebounceTime = 0; // Set to 0 to disable debounce effect
+
 // Add a function to detect when the reticle intersects with planets
 export function checkReticleHover() {
     if (!spacecraft || !camera || isEarthSurfaceActive) {
@@ -1438,43 +1883,107 @@ export function checkReticleHover() {
     
     // Create a list of all planets and their meshes
     const planetDetectionList = [
-        { name: 'mercury', mesh: mercury },
-        { name: 'venus', mesh: venus },
-        { name: 'earth', mesh: planet },
-        { name: 'moon', mesh: moon },
-        { name: 'mars', mesh: mars },
-        { name: 'jupiter', mesh: jupiter },
-        { name: 'saturn', mesh: saturn },
-        { name: 'uranus', mesh: uranus },
-        { name: 'neptune', mesh: neptune }
+        { name: 'mercury', mesh: mercuryCollisionSphere },
+        { name: 'venus', mesh: venusCollisionSphere },
+        { name: 'earth', mesh: earthCollisionSphere },
+        { name: 'moon', mesh: moonCollisionSphere },
+        { name: 'mars', mesh: marsCollisionSphere },
+        { name: 'asteroid belt', mesh: asteroidCollisionSphere },
+        { name: 'jupiter', mesh: jupiterCollisionSphere },
+        { name: 'saturn', mesh: saturnCollisionSphere },
+        { name: 'uranus', mesh: uranusCollisionSphere },
+        { name: 'neptune', mesh: neptuneCollisionSphere },
+        { name: 'imperial star destroyer', mesh: collisionBox1 },
+        { name: 'imperial star destroyer', mesh: collisionBox2 },
+        { name: 'lucrehulk', mesh: lucrehulkCollisionBox }
     ];
     
+    // Remove the push statements since objects are now included in the array initialization
+    /* 
     // Add Star Destroyer to the list only if it's loaded
-    if (starDestroyer) {
-        planetDetectionList.push({ name: 'imperial star destroyer', mesh: starDestroyer });
-    }
-    if (starDestroyer2) {
-        planetDetectionList.push({ name: 'imperial star destroyer', mesh: starDestroyer2 });
-    }
+    // Use the collision boxes for detection instead of the complex models
+    planetDetectionList.push({ 
+        name: 'imperial star destroyer', 
+        mesh: collisionBox1
+    });
+    
+    planetDetectionList.push({ 
+        name: 'imperial star destroyer', 
+        mesh: collisionBox2
+    });
+    
+    // Add Lucrehulk to the detection list
+    planetDetectionList.push({ 
+        name: 'lucrehulk', 
+        mesh: lucrehulkCollisionBox
+    });
+    */
     
     // Flag to track if we're hovering over any planet
     let planetDetected = false;
+    let starDestroyerDetected = false;
+    let lucrehulkDetected = false;
     
     // Check intersections with all planets
     for (const planetObj of planetDetectionList) {
+        // Use simple detection for all objects now that we have collision boxes
         const intersects = raycaster.intersectObject(planetObj.mesh, false);
         
         if (intersects.length > 0) {
             // Planet was detected by the reticle
             planetDetected = true;
             
+            // Special handling for Star Destroyer
+            if (planetObj.name === 'imperial star destroyer') {
+                starDestroyerDetected = true;
+                lastStarDestroyerDetectionTime = Date.now();
+            }
+            
+            // Special handling for Lucrehulk
+            if (planetObj.name === 'lucrehulk') {
+                lucrehulkDetected = true;
+                lastLucrehulkDetectionTime = Date.now();
+            }
+            
             if (lastHoveredPlanet !== planetObj.name) {
                 console.log(`${planetObj.name} detected`);
                 lastHoveredPlanet = planetObj.name;
                 
+                // Handle Star Destroyer specially
+                if (planetObj.name === 'imperial star destroyer') {
+                    // Reset any previous info box state
+                    planetInfoBox.style.display = 'none';
+                    
+                    // Force a small delay to ensure DOM updates
+                    setTimeout(() => {
+                        showStarDestroyerInfo();
+                        console.log('Called showStarDestroyerInfo with delay');
+                    }, 10);
+                    
+                    // Skip the rest of the loop to avoid overriding
+                    break;
+                }
+                
+                // Handle Lucrehulk specially
+                if (planetObj.name === 'lucrehulk') {
+                    // Reset any previous info box state
+                    planetInfoBox.style.display = 'none';
+                    
+                    // Force a small delay to ensure DOM updates
+                    setTimeout(() => {
+                        showLucrehulkInfo();
+                        console.log('Called showLucrehulkInfo with delay');
+                    }, 10);
+                    
+                    // Skip the rest of the loop to avoid overriding
+                    break;
+                }
+                
                 // Update info box content if we have info for this planet
                 if (planetInfo[planetObj.name]) {
                     const info = planetInfo[planetObj.name];
+                    
+                    // For regular planets
                     planetInfoBox.innerHTML = `
                         <div style="text-align: center; margin-bottom: 10px; font-size: 20px; color: #4fc3f7;">
                             ${planetObj.name.toUpperCase()}
@@ -1500,11 +2009,13 @@ export function checkReticleHover() {
                             case 'earth': planetGroup = earthGroup; break;
                             case 'moon': planetGroup = moonGroup; break;
                             case 'mars': planetGroup = marsGroup; break;
+                            case 'asteroid belt': planetGroup = asteroidBeltGroup; break;
                             case 'jupiter': planetGroup = jupiterGroup; break;
-                            case 'imperial star destroyer': planetGroup = starDestroyerGroup; break;
                             case 'saturn': planetGroup = saturnGroup; break;
                             case 'uranus': planetGroup = uranusGroup; break;
                             case 'neptune': planetGroup = neptuneGroup; break;
+                            case 'imperial star destroyer': planetGroup = starDestroyerGroup; break;
+                            case 'lucrehulk': planetGroup = lucrehulkGroup; break;
                         }
                         
                         // Check if this label corresponds to the detected planet
@@ -1516,6 +2027,7 @@ export function checkReticleHover() {
                                 const labelY = labelRect.top;
                                 
                                 // Position the info box to the right of the label
+                                planetInfoBox.style.right = '';
                                 planetInfoBox.style.left = `${labelX + 170}px`; // Adjusted for larger box
                                 planetInfoBox.style.top = `${labelY}px`;
                                 planetInfoBox.style.transform = 'translateY(-50%)';
@@ -1532,10 +2044,41 @@ export function checkReticleHover() {
         }
     }
     
+    // Check for debounced Star Destroyer detection
+    if (!starDestroyerDetected && 
+        lastHoveredPlanet === 'imperial star destroyer' && 
+        Date.now() - lastStarDestroyerDetectionTime < starDestroyerDebounceTime) {
+        // We're within the debounce time, so we're still considered hovering
+        planetDetected = true;
+    }
+    
+    // Check for debounced Lucrehulk detection
+    if (!lucrehulkDetected && 
+        lastHoveredPlanet === 'lucrehulk' && 
+        Date.now() - lastLucrehulkDetectionTime < lucrehulkDebounceTime) {
+        // We're within the debounce time, so we're still considered hovering
+        planetDetected = true;
+    }
+    
     // If no planet was detected but we had one before, clear the hover state
     if (!planetDetected && lastHoveredPlanet) {
         console.log(`${lastHoveredPlanet} no longer detected`);
+        
+        // Clear the hovered planet state and hide the info box immediately for all objects
         lastHoveredPlanet = null;
         planetInfoBox.style.display = 'none'; // Hide the info box
+        
+        /* Removing special treatment for ships
+        // Don't immediately clear special ship info - they have their own timers
+        // Don't immediately clear special ship info - they have their own timers
+        if (lastHoveredPlanet !== 'imperial star destroyer' && lastHoveredPlanet !== 'lucrehulk') {
+            lastHoveredPlanet = null;
+            planetInfoBox.style.display = 'none'; // Hide the info box
+        } else if ((lastHoveredPlanet === 'imperial star destroyer' && !starDestroyerInfoTimer) ||
+                  (lastHoveredPlanet === 'lucrehulk' && !lucrehulkInfoTimer)) {
+            // If we don't have an active timer, clear it after the debounce period
+            lastHoveredPlanet = null;
+        }
+        */
     }
 }

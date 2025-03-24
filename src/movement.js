@@ -23,7 +23,13 @@ export const baseSpeed = 5;
 export const boostSpeed = baseSpeed * 5;
 export const slowSpeed = baseSpeed * 0.5; // Half of base speed for slow mode
 export let currentSpeed = baseSpeed;
-export const turnSpeed = 0.03;
+
+// Turn speed variables for space environment
+export const baseTurnSpeed = 0.02;     // Regular turn speed
+export const slowTurnSpeed = 0.025;     // More precise turning when moving slowly
+export const boostTurnSpeed = 0.015;   // Less sensitive turning when boosting
+export let currentTurnSpeed = baseTurnSpeed; // Current active turn speed
+
 // Add sensitivity multipliers for each rotation axis
 export const pitchSensitivity = 0.6; // Lower value = less sensitive
 export const rollSensitivity = 1;  // Lower value = less sensitive
@@ -125,12 +131,16 @@ export function updateMovement(isBoosting, isHyperspace) {
     // Original space movement behavior
     if (isHyperspace) {
         currentSpeed = baseSpeed * 50;
+        currentTurnSpeed = boostTurnSpeed; // Use boost turn speed during hyperspace
     } else if (isBoosting || keys.up) {
         currentSpeed = boostSpeed;
+        currentTurnSpeed = boostTurnSpeed; // Less sensitive turns at high speed
     } else if (keys.down) {
         currentSpeed = slowSpeed;
+        currentTurnSpeed = slowTurnSpeed; // More precise turns at low speed
     } else {
         currentSpeed = baseSpeed;
+        currentTurnSpeed = baseTurnSpeed; // Normal turn sensitivity
     }
 
     // Update engine effects
@@ -155,12 +165,14 @@ export function updateMovement(isBoosting, isHyperspace) {
 
     // Apply rotations with very low sensitivity, only if not in hyperspace
     if (!isHyperspace) {
-        if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, turnSpeed * pitchSensitivity);
-        if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -turnSpeed * pitchSensitivity);
-        if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -turnSpeed * rollSensitivity);
-        if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, turnSpeed * rollSensitivity);
-        if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, turnSpeed * yawSensitivity);
-        if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -turnSpeed * yawSensitivity);
+        // Use currentTurnSpeed for pitch and yaw, but always use slowTurnSpeed for roll
+        if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, currentTurnSpeed * pitchSensitivity);
+        if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -currentTurnSpeed * pitchSensitivity);
+        // Roll always uses slowTurnSpeed for more precise control regardless of movement mode
+        if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -slowTurnSpeed * rollSensitivity);
+        if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, slowTurnSpeed * rollSensitivity);
+        if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, currentTurnSpeed * yawSensitivity);
+        if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -currentTurnSpeed * yawSensitivity);
     }
 
     const combinedRotation = new THREE.Quaternion()

@@ -56,7 +56,13 @@ const baseSpeed = 2;
 const boostSpeed = baseSpeed * 3;
 const slowSpeed = baseSpeed * 0.5;
 let currentSpeed = baseSpeed;
-const turnSpeed = 0.03;
+
+// Turn speed variables for Earth environment
+const baseTurnSpeed = 0.03;     // Regular turn speed
+const slowTurnSpeed = 0.045;    // More sensitive turning when moving slowly (precise navigation)
+const boostTurnSpeed = 0.015;   // Less sensitive turning when boosting for stability
+let currentTurnSpeed = baseTurnSpeed; // Current active turn speed
+
 // Add sensitivity multipliers for each rotation axis
 const pitchSensitivity = 0.3; // Lower value = less sensitive
 const rollSensitivity = 0.4;  // Lower value = less sensitive
@@ -91,10 +97,13 @@ function initSpacecraft() {
 export function updateMovement() {
     if (keys.up) {
         currentSpeed = boostSpeed;
+        currentTurnSpeed = boostTurnSpeed; // Less sensitive turning at high speed
     } else if (keys.down) {
         currentSpeed = slowSpeed;
+        currentTurnSpeed = slowTurnSpeed; // More sensitive turning at low speed
     } else {
         currentSpeed = baseSpeed;
+        currentTurnSpeed = baseTurnSpeed; // Normal turn sensitivity
     }
     
     if (typeof updateEngineEffects === 'function') {
@@ -113,12 +122,14 @@ export function updateMovement() {
     rotation.yaw.identity();
     rotation.roll.identity();
 
-    if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, turnSpeed * pitchSensitivity);
-    if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -turnSpeed * pitchSensitivity);
-    if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -turnSpeed * rollSensitivity);
-    if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, turnSpeed * rollSensitivity);
-    if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, turnSpeed * yawSensitivity);
-    if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -turnSpeed * yawSensitivity);
+    // Use currentTurnSpeed for pitch and yaw, but always use slowTurnSpeed for roll
+    if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, currentTurnSpeed * pitchSensitivity);
+    if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -currentTurnSpeed * pitchSensitivity);
+    // Roll always uses slowTurnSpeed for more precise control regardless of movement mode
+    if (keys.a) rotation.roll.setFromAxisAngle(rotation.rollAxis, -slowTurnSpeed * rollSensitivity);
+    if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, slowTurnSpeed * rollSensitivity);
+    if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, currentTurnSpeed * yawSensitivity);
+    if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -currentTurnSpeed * yawSensitivity);
 
     const combinedRotation = new THREE.Quaternion()
         .copy(rotation.roll)
