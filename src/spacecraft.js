@@ -46,7 +46,7 @@ export function createSpacecraft(scene) {
     // Promise to load the glTF model
     const loadModel = new Promise((resolve, reject) => {
         loader.load(
-            '/star_wars_x-wing/scene.gltf',
+            '/xwing_axespoints.glb',
             (gltf) => {
                 const model = gltf.scene;
                 
