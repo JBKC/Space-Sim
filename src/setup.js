@@ -1684,33 +1684,106 @@ export function updatePlanetLabels() {
 
 // Stars
 const starGeometry = new THREE.BufferGeometry();
-const starCount = 100000;
+const starCount = 1000000; // Keep the doubled number of stars
 const starRange = 500000;
 const starPositions = new Float32Array(starCount * 3);
-for (let i = 0; i < starCount * 3; i += 3) {
-    starPositions[i] = (Math.random() - 0.5) * starRange;
-    starPositions[i + 1] = (Math.random() - 0.5) * starRange;
-    starPositions[i + 2] = (Math.random() - 0.5) * starRange;
+const starColors = new Float32Array(starCount * 3);
+const starSizes = new Float32Array(starCount);
+
+// Create stars with varying distances and initial brightness
+for (let i = 0; i < starCount; i++) {
+    const i3 = i * 3;
+    
+    // Random position in a large sphere around the origin
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(2 * Math.random() - 1);
+    const radius = starRange * Math.pow(Math.random(), 1/3); // Cube root for even volumetric distribution
+    
+    starPositions[i3] = radius * Math.sin(phi) * Math.cos(theta);
+    starPositions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+    starPositions[i3 + 2] = radius * Math.cos(phi);
+    
+    // Store initial bright white color (will be attenuated based on distance)
+    starColors[i3] = 1.0;     // R
+    starColors[i3 + 1] = 1.0; // G
+    starColors[i3 + 2] = 1.0; // B
+    
+    // Vary star sizes slightly (between 1 and 3)
+    starSizes[i] = 1 + Math.random() * 2;
 }
+
 starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 2 });
+starGeometry.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
+starGeometry.setAttribute('size', new THREE.BufferAttribute(starSizes, 1));
+
+const starMaterial = new THREE.PointsMaterial({ 
+    color: 0xffffff,
+    size: 25,
+    vertexColors: true, // Use the color attribute
+    sizeAttenuation: true, // Make distant stars smaller
+    transparent: true,
+    opacity: 1.0 // Full opacity
+});
+
 export const stars = new THREE.Points(starGeometry, starMaterial);
 scene.add(stars);
 
+// Modified updateStars function with more extreme brightness interpolation and even distribution
 export function updateStars() {
-    const spacecraftZ = spacecraft.position.z;
+    const spacecraftPosition = spacecraft.position.clone();
     const positions = stars.geometry.attributes.position.array;
-    const halfRange = starRange / 2;
+    const colors = stars.geometry.attributes.color.array;
+    
+    // First update star positions
     for (let i = 0; i < starCount * 3; i += 3) {
-        const starZ = positions[i + 2];
-        positions[i + 2] -= 0.1;
-        if (starZ < spacecraftZ - halfRange) {
-            positions[i] = (Math.random() - 0.5) * starRange;
-            positions[i + 1] = (Math.random() - 0.5) * starRange;
-            positions[i + 2] = spacecraftZ + halfRange + (Math.random() * starRange);
+        // Calculate distance from spacecraft to this star
+        const dx = positions[i] - spacecraftPosition.x;
+        const dy = positions[i + 1] - spacecraftPosition.y;
+        const dz = positions[i + 2] - spacecraftPosition.z;
+        const distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+        
+        // Check if star is too far from the spacecraft (beyond view range)
+        if (distance > starRange * 0.8) {
+            // Respawn the star in a new random position in a full sphere around the spacecraft
+            // This maintains even distribution everywhere
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            // Use cube root for even volumetric distribution, and ensure some stars are closer
+            const radius = starRange * 0.4 * Math.pow(Math.random(), 1/3);
+            
+            // Position relative to spacecraft
+            positions[i] = spacecraftPosition.x + radius * Math.sin(phi) * Math.cos(theta);
+            positions[i + 1] = spacecraftPosition.y + radius * Math.sin(phi) * Math.sin(theta);
+            positions[i + 2] = spacecraftPosition.z + radius * Math.cos(phi);
         }
+        
+        // Recalculate distance after possible respawn
+        const newDx = positions[i] - spacecraftPosition.x;
+        const newDy = positions[i + 1] - spacecraftPosition.y;
+        const newDz = positions[i + 2] - spacecraftPosition.z;
+        const newDistance = Math.sqrt(newDx*newDx + newDy*newDy + newDz*newDz);
+        
+        // More extreme interpolation based on distance
+        // Stars closer than 8% of range are at full brightness
+        // Stars further than 25% of range are at minimum brightness (much less visible)
+        const minDistance = starRange * 0.08;
+        const maxDistance = starRange * 0.25;
+        let brightness = 1.0;
+        
+        if (newDistance > minDistance) {
+            // More dramatic falloff - distant stars are barely visible (only 5% brightness)
+            brightness = 1.0 - Math.min(1.0, (newDistance - minDistance) / (maxDistance - minDistance)) * 0.95;
+        }
+        
+        // Apply brightness to RGB values
+        colors[i] = brightness; // R
+        colors[i + 1] = brightness; // G
+        colors[i + 2] = brightness; // B
     }
+    
+    // Update the geometry attributes
     stars.geometry.attributes.position.needsUpdate = true;
+    stars.geometry.attributes.color.needsUpdate = true;
 }
 
 export const PLANET_RADIUS = earthRadius;
