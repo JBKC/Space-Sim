@@ -531,7 +531,8 @@ function animate(currentTime = 0) {
             if (!(sceneType === 'space' && isHyperspace)) {
                 // Get the key states
                 const slowMode = document.querySelector('[data-key="ArrowDown"]')?.classList.contains('active') || false;
-                fireLaser(activeSpacecraft, activeScene, sceneType, isBoosting, keys.down);
+                // LASER FIRING DISABLED
+                // fireLaser(activeSpacecraft, activeScene, sceneType, isBoosting, keys.down);
             }
         }
         

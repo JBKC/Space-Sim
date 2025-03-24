@@ -576,7 +576,8 @@ export function update(deltaTime = 0.016) {
         
         // Handle laser firing with spacebar
         if (keys.space && spacecraft) {
-            fireLaser(spacecraft, scene, 'moon', keys.up, keys.down);
+            // LASER FIRING DISABLED
+            // fireLaser(spacecraft, scene, 'moon', keys.up, keys.down);
         }
         
         // Update all active lasers

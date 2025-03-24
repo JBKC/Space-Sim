@@ -4,7 +4,7 @@ import * as THREE from 'three';
 const LASER_CONFIG = {
     // Space scene configuration
     space: {
-        color: 0xe42747,       // Bright red in space
+        color: 0xFF5349,       // Bright red in space
         speed: 5000,           // Fast in vacuum
         boostSpeed: 5000,      // 5x faster when boosting
         slowSpeed: 1000,        // Half speed in slow mode
@@ -12,14 +12,14 @@ const LASER_CONFIG = {
         thickness: 0.2,        // Standard thickness
         duration: 3000,        // Longer visible time in space
         cooldown: 50,          // Fast firing rate in space
-        offset: 423,           // Forward offset in space - creates lasers ahead of wingtips
-        boostOffset: 450,      // Forward offset when boosting in space - even further ahead
-        slowOffset: 486        // Closer offset when in slow mode
+        offset: 0,             // No offset - lasers start directly at turrets
+        boostOffset: 0,        // No offset when boosting
+        slowOffset: 0          // No offset when in slow mode
     },
     
     // Earth/San Francisco scene configuration
     sanFran: {
-        color: 0xe42747,       // Orange-red tint for atmosphere
+        color: 0xFF5349,       // Orange-red tint for atmosphere
         speed: 1000,            // Slower in atmosphere
         boostSpeed: 3000,      // Boost speed in atmosphere
         slowSpeed: 1000,        // Half speed in slow mode
@@ -27,14 +27,14 @@ const LASER_CONFIG = {
         thickness: 0.2,        // Thicker for better visibility in atmosphere
         duration: 1500,        // Shorter duration due to atmospheric interference
         cooldown: 80,          // Slower firing rate due to atmospheric resistance
-        offset: 485,             // No offset - lasers start right at wingtips
-        boostOffset: 455,      // Forward offset when boosting in atmosphere
-        slowOffset: 487        // Slightly forward offset when in slow mode
+        offset: 0,             // No offset - lasers start directly at turrets
+        boostOffset: 0,        // No offset when boosting
+        slowOffset: 0          // No offset when in slow mode
     },
     
     // Moon scene configuration
     moon: {
-        color: 0xe42747,       // Orange-red tint for atmosphere
+        color: 0xFF5349,       // Orange-red tint for atmosphere
         speed: 1000,            // Slower in atmosphere
         boostSpeed: 3000,      // Boost speed in atmosphere
         slowSpeed: 500,        // Half speed in slow mode
@@ -42,9 +42,9 @@ const LASER_CONFIG = {
         thickness: 0.2,        // Thicker for better visibility in atmosphere
         duration: 1500,        // Shorter duration due to atmospheric interference
         cooldown: 80,          // Slower firing rate due to atmospheric resistance
-        offset: 492,             // No offset - lasers start right at wingtips (matching sanFran)
-        boostOffset: 480,      // Forward offset when boosting in atmosphere
-        slowOffset: 500        // Slightly forward offset when in slow mode
+        offset: 0,             // No offset - lasers start directly at turrets
+        boostOffset: 0,        // No offset when boosting
+        slowOffset: 0          // No offset when in slow mode
     },
 };
 
@@ -56,8 +56,8 @@ let lastFireTime = 0;
 const WING_TIP_RELATIVE_POSITION = new THREE.Vector3(2.5, 0, 0);
 
 /**
- * Creates a new laser beam from one of the spacecraft's wingtips or turrets
- * @param {THREE.Object3D} wing - The wing or turret object from which to fire the laser
+ * Creates a new laser beam from one of the spacecraft's wingtips
+ * @param {THREE.Object3D} wing - The wing object from which to fire the laser
  * @param {THREE.Scene} scene - The scene to add the laser to
  * @param {Object} config - The laser configuration
  * @param {number} laserSpeed - The speed of the laser
@@ -90,34 +90,12 @@ function createWingtipLaser(wing, scene, config, laserSpeed, isBoosting, isSlowi
     // Create mesh
     const laserMesh = new THREE.Mesh(geometry, material);
     
-    // Find the wingtip or turret position in world space
+    // Find the wingtip position in world space
     wing.updateMatrixWorld(true); // Ensure matrix is updated
     
-    // Determine if this is a turret object by checking its name
-    const isTurret = wing.name && (
-        wing.name === 'turret_LT' || 
-        wing.name === 'turret_LB' || 
-        wing.name === 'turret_RT' || 
-        wing.name === 'turret_RB'
-    );
-    
-    // If this is a turret, use its position directly
-    // If it's a wing, use the WING_TIP_RELATIVE_POSITION offset
-    let position;
-    if (isTurret) {
-        // For turrets, use their position directly 
-        position = new THREE.Vector3();
-        wing.getWorldPosition(position);
-    } else {
-        // For wings, create a position at the wing tip using the relative offset
-        const tipPosition = WING_TIP_RELATIVE_POSITION.clone();
-        position = tipPosition.clone();
-        position.applyMatrix4(wing.matrixWorld);
-    }
-    
-    // Get spacecraft's forward direction for the laser direction
-    const spacecraft = wing.parent;
-    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(spacecraft.quaternion);
+    // Create a position at the wing tip (which is at 2.5, 0, 0 relative to the wing)
+    // Then add an offset forward in the wing's local z-direction based on config
+    const tipPosition = WING_TIP_RELATIVE_POSITION.clone();
     
     // Determine which offset to use based on movement state
     let offsetToUse;
@@ -128,6 +106,14 @@ function createWingtipLaser(wing, scene, config, laserSpeed, isBoosting, isSlowi
     } else {
         offsetToUse = config.offset;
     }
+    
+    // Get spacecraft's forward direction for the laser direction
+    const spacecraft = wing.parent;
+    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(spacecraft.quaternion);
+    
+    // Apply the wing's world matrix to get the world position of the wingtip
+    const position = tipPosition.clone();
+    position.applyMatrix4(wing.matrixWorld);
     
     // Add the offset in the direction the spacecraft is facing
     position.add(forward.clone().multiplyScalar(offsetToUse));
@@ -159,7 +145,92 @@ function createWingtipLaser(wing, scene, config, laserSpeed, isBoosting, isSlowi
 }
 
 /**
- * Creates new laser beams from all four wingtips of the spacecraft
+ * Creates a new laser beam from one of the spacecraft's turrets
+ * @param {THREE.Object3D} turret - The turret object from which to fire the laser
+ * @param {THREE.Scene} scene - The scene to add the laser to
+ * @param {Object} config - The laser configuration
+ * @param {number} laserSpeed - The speed of the laser
+ * @param {boolean} isBoosting - Whether the spacecraft is boosting
+ * @param {boolean} isSlowing - Whether the spacecraft is in slow mode
+ * @param {number} now - Current timestamp 
+ * @returns {Object} The created laser object
+ */
+function createTurretLaser(turret, scene, config, laserSpeed, isBoosting, isSlowing, now) {
+    // DEBUGGING: Log turret information
+    console.log(`Creating laser from turret: ${turret.name}`);
+    
+    // Create laser geometry and material
+    const geometry = new THREE.CylinderGeometry(
+        config.thickness, 
+        config.thickness, 
+        config.length, 
+        8
+    );
+    
+    // Rotate cylinder to point forward (along z-axis)
+    geometry.rotateX(Math.PI / 2);
+    
+    // Create glowing material for the laser
+    const material = new THREE.MeshBasicMaterial({
+        color: config.color,
+        transparent: true,
+        opacity: 0.8,
+        emissive: config.color,
+        emissiveIntensity: 1.5
+    });
+    
+    // Create mesh
+    const laserMesh = new THREE.Mesh(geometry, material);
+    
+    // Find the turret position in world space
+    turret.updateMatrixWorld(true); // Ensure matrix is updated
+    
+    // Get spacecraft's forward direction for the laser direction
+    let spacecraft = turret.parent;
+    while (spacecraft && spacecraft.name !== 'spacecraft') {
+        spacecraft = spacecraft.parent;
+    }
+    
+    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(spacecraft.quaternion);
+    
+    // Get the world position of the turret
+    const position = new THREE.Vector3();
+    turret.getWorldPosition(position);
+    
+    // DEBUGGING: Log turret position
+    console.log(`Turret position: x=${position.x.toFixed(2)}, y=${position.y.toFixed(2)}, z=${position.z.toFixed(2)}`);
+    
+    // No offset - lasers start directly at the turret positions
+    // position.add(forward.clone().multiplyScalar(offsetToUse * 0.1)); // Removed offset
+    
+    // Set the laser mesh position
+    laserMesh.position.copy(position);
+    
+    // Orient the laser in the same direction the spacecraft is facing
+    laserMesh.quaternion.copy(spacecraft.quaternion);
+    
+    // Store velocity based on spacecraft's forward direction
+    const velocity = forward.multiplyScalar(laserSpeed);
+    
+    // Add to scene
+    scene.add(laserMesh);
+    
+    // Create laser object with metadata
+    const laser = {
+        mesh: laserMesh,
+        velocity: velocity,
+        createdAt: now,
+        duration: config.duration
+    };
+    
+    // Add to active lasers
+    activeLasers.push(laser);
+    
+    return laser;
+}
+
+/**
+ * Creates new laser beams from all four turrets of the spacecraft
  * @param {THREE.Object3D} spacecraft - The spacecraft from which to fire the lasers
  * @param {THREE.Scene} scene - The scene to add the lasers to
  * @param {string} sceneType - The current scene type ('space', 'sanFran', or 'moon')
@@ -179,6 +250,10 @@ export function fireLaser(spacecraft, scene, sceneType = 'space', isBoosting = f
         }
         lastFireTime = now;
         
+        // DEBUGGING: Log firing attempt
+        console.log(`==== FIRING LASER in ${sceneType} scene ====`);
+        console.log(`Spacecraft:`, spacecraft?.name);
+        
         // Determine speed based on movement state
         let laserSpeed;
         if (isBoosting) {
@@ -191,134 +266,73 @@ export function fireLaser(spacecraft, scene, sceneType = 'space', isBoosting = f
         
         const lasers = [];
         
-        // Find the X-wing model, which contains the turrets
+        // Find the turrets in the model
+        // First, look in the model's userData where they should be stored
+        let turrets = [];
         let xWingModel = null;
+        
+        // Find the xWingModel
         spacecraft.traverse(child => {
-            if (child.name === "xWingModel") xWingModel = child;
+            if (child.name === 'xWingModel') {
+                xWingModel = child;
+                console.log('FOUND xWingModel:', child.name);
+            }
         });
         
-        // If we have the X-wing model and it has turret objects stored in userData
+        // DEBUGGING: Log xWingModel search result
+        console.log('xWingModel found:', xWingModel ? 'YES' : 'NO');
+        
+        // If we found the xWingModel, try to get the turrets from userData
         if (xWingModel && xWingModel.userData && xWingModel.userData.exhaustAndTurret) {
-            const turrets = xWingModel.userData.exhaustAndTurret;
+            // Get all turrets
+            const turretObjects = xWingModel.userData.exhaustAndTurret;
             
-            // Get the turret objects
-            const turret_LT = turrets.turret_LT;
-            const turret_LB = turrets.turret_LB;
-            const turret_RT = turrets.turret_RT;
-            const turret_RB = turrets.turret_RB;
+            // DEBUGGING: Log turret object search
+            console.log('exhaustAndTurret data:', 
+                Object.keys(turretObjects).filter(k => k.startsWith('turret_')).map(k => 
+                    `${k}: ${turretObjects[k] ? 'FOUND ✓' : 'MISSING ✗'}`
+                ).join(', ')
+            );
             
-            // Log the turrets we found (only once to avoid spamming)
-            if (!window.turretsLogged) {
-                console.log("Using turrets for laser firing points:");
-                console.log("- Left Top:", turret_LT ? "Found ✓" : "Not found ✗");
-                console.log("- Left Bottom:", turret_LB ? "Found ✓" : "Not found ✗");
-                console.log("- Right Top:", turret_RT ? "Found ✓" : "Not found ✗");
-                console.log("- Right Bottom:", turret_RB ? "Found ✓" : "Not found ✗");
-                window.turretsLogged = true;
+            if (turretObjects.turret_LB) turrets.push(turretObjects.turret_LB);
+            if (turretObjects.turret_LT) turrets.push(turretObjects.turret_LT);
+            if (turretObjects.turret_RB) turrets.push(turretObjects.turret_RB);
+            if (turretObjects.turret_RT) turrets.push(turretObjects.turret_RT);
+            
+            // DEBUGGING: Log turrets found
+            console.log(`Found ${turrets.length} turrets to fire from`);
+        } else {
+            // DEBUGGING: Log why turrets weren't found
+            if (!xWingModel) {
+                console.warn('xWingModel not found in spacecraft hierarchy');
+            } else if (!xWingModel.userData) {
+                console.warn('xWingModel does not have userData property');
+            } else if (!xWingModel.userData.exhaustAndTurret) {
+                console.warn('xWingModel userData missing exhaustAndTurret data');
+                console.log('Available userData keys:', Object.keys(xWingModel.userData).join(', '));
             }
-            
-            // Fire from each turret that was found
-            if (turret_LT) {
+        }
+        
+        // If we found at least one turret, fire from them
+        if (turrets.length > 0) {
+            // Fire from each turret
+            for (const turret of turrets) {
                 try {
-                    lasers.push(createWingtipLaser(turret_LT, scene, config, laserSpeed, isBoosting, isSlowing, now));
+                    lasers.push(createTurretLaser(turret, scene, config, laserSpeed, isBoosting, isSlowing, now));
                 } catch (e) {
-                    console.warn("Error creating laser from Left Top turret:", e);
+                    console.error("Error creating turret laser:", e);
                 }
             }
             
-            if (turret_LB) {
-                try {
-                    lasers.push(createWingtipLaser(turret_LB, scene, config, laserSpeed, isBoosting, isSlowing, now));
-                } catch (e) {
-                    console.warn("Error creating laser from Left Bottom turret:", e);
-                }
-            }
-            
-            if (turret_RT) {
-                try {
-                    lasers.push(createWingtipLaser(turret_RT, scene, config, laserSpeed, isBoosting, isSlowing, now));
-                } catch (e) {
-                    console.warn("Error creating laser from Right Top turret:", e);
-                }
-            }
-            
-            if (turret_RB) {
-                try {
-                    lasers.push(createWingtipLaser(turret_RB, scene, config, laserSpeed, isBoosting, isSlowing, now));
-                } catch (e) {
-                    console.warn("Error creating laser from Right Bottom turret:", e);
-                }
-            }
-            
-            // If we found any turrets and created lasers, play the sound and return
+            // Play sound only once for all lasers
             if (lasers.length > 0) {
                 playLaserSound();
                 return lasers;
             }
         }
         
-        // Fallback to the original wing-based approach if turrets weren't found
-        // Find all wing objects
-        let topRightWing = null;
-        let bottomRightWing = null;
-        let topLeftWing = null;
-        let bottomLeftWing = null;
-        
-        // First, try to find wings by their names
-        spacecraft.traverse(child => {
-            if (child.name === "topRightWing") topRightWing = child;
-            if (child.name === "bottomRightWing") bottomRightWing = child;
-            if (child.name === "topLeftWing") topLeftWing = child;
-            if (child.name === "bottomLeftWing") bottomLeftWing = child;
-        });
-        
-        // For the moon scene, sometimes the wings aren't findable by name
-        // Fall back to a single laser if not all wings are found
-        if (!topRightWing || !bottomRightWing || !topLeftWing || !bottomLeftWing) {
-            return createSingleLaser(spacecraft, scene, config, laserSpeed, isBoosting, isSlowing, now);
-        }
-        
-        // If wings are found, create lasers from each wingtip
-        if (topRightWing) {
-            try {
-                lasers.push(createWingtipLaser(topRightWing, scene, config, laserSpeed, isBoosting, isSlowing, now));
-            } catch (e) {
-                // Silent fail for individual wing laser creation
-            }
-        }
-        
-        if (bottomRightWing) {
-            try {
-                lasers.push(createWingtipLaser(bottomRightWing, scene, config, laserSpeed, isBoosting, isSlowing, now));
-            } catch (e) {
-                // Silent fail for individual wing laser creation
-            }
-        }
-        
-        if (topLeftWing) {
-            try {
-                lasers.push(createWingtipLaser(topLeftWing, scene, config, laserSpeed, isBoosting, isSlowing, now));
-            } catch (e) {
-                // Silent fail for individual wing laser creation
-            }
-        }
-        
-        if (bottomLeftWing) {
-            try {
-                lasers.push(createWingtipLaser(bottomLeftWing, scene, config, laserSpeed, isBoosting, isSlowing, now));
-            } catch (e) {
-                // Silent fail for individual wing laser creation
-            }
-        }
-        
-        // Optional: Play sound only once for all four lasers
-        if (lasers.length > 0) {
-            playLaserSound();
-            return lasers;
-        } else {
-            // Fallback to original laser if wings aren't found or lasers couldn't be created
-            return createSingleLaser(spacecraft, scene, config, laserSpeed, isBoosting, isSlowing, now);
-        }
+        // If no turrets were found or lasers couldn't be created, fall back to the original method
+        return createSingleLaser(spacecraft, scene, config, laserSpeed, isBoosting, isSlowing, now);
     } catch (error) {
         // If anything goes wrong, just return without firing
         console.error("Error firing laser:", error);
@@ -356,18 +370,8 @@ function createSingleLaser(spacecraft, scene, config, laserSpeed, isBoosting, is
     // Position the laser in front of the spacecraft
     spacecraft.updateMatrixWorld(true); // Ensure matrix is updated
     
-    // Determine which offset to use based on movement state
-    let offsetToUse;
-    if (isBoosting && config.boostOffset !== undefined) {
-        offsetToUse = config.boostOffset;
-    } else if (isSlowing && config.slowOffset !== undefined) {
-        offsetToUse = config.slowOffset;
-    } else {
-        offsetToUse = config.offset;
-    }
-    
-    // Calculate position in front of the spacecraft (along its local z-axis)
-    const position = new THREE.Vector3(0, 0, offsetToUse);
+    // Calculate position at the front center of the spacecraft (without offset)
+    const position = new THREE.Vector3(0, 0, 0); // Start at spacecraft's origin
     position.applyMatrix4(spacecraft.matrixWorld);
     laserMesh.position.copy(position);
     

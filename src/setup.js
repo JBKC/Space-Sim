@@ -527,7 +527,8 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
 
         // Handle laser firing if spacebar is pressed
         if (keys.space && spacecraft) {
-            fireLaser(spacecraft, scene, 'space', isBoosting);
+            // LASER FIRING DISABLED
+            // fireLaser(spacecraft, scene, 'space', isBoosting);
         }
 
         // Use the passed isBoosting and isHyperspace parameters

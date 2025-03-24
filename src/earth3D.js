@@ -331,7 +331,8 @@ export function update(deltaTime) {
 
     // Handle laser firing with spacebar
     if (keys.space && spacecraft) {
-        fireLaser(spacecraft, earthScene, 'earth', keys.up, keys.down);
+        // LASER FIRING DISABLED
+        // fireLaser(spacecraft, earthScene, 'earth', keys.up, keys.down);
     }
     
     // Update reticle with both boost and slow states
