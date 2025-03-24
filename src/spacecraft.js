@@ -342,6 +342,65 @@ export function createSpacecraft(scene) {
                 xWingModel.userData.exhaustAndTurret = exhaustAndTurretObjects;
                 console.log("===================================");
                 
+                // Create solid contrail effects for exhausts (initially invisible)
+                console.log("Creating solid contrail effects for exhausts...");
+                const contrails = {};
+                
+                // Define contrail materials
+                const normalContrailMaterial = new THREE.MeshBasicMaterial({
+                    color: 0x88aaff,
+                    transparent: true, 
+                    opacity: 0.0, // Start invisible
+                    side: THREE.DoubleSide,
+                    blending: THREE.AdditiveBlending
+                });
+                
+                const boostContrailMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xff6a00, // Orange-red for boost
+                    transparent: true, 
+                    opacity: 0.0, // Start invisible
+                    side: THREE.DoubleSide,
+                    blending: THREE.AdditiveBlending
+                });
+                
+                // Create contrail meshes for each exhaust
+                Object.keys(exhaustAndTurretObjects).forEach(key => {
+                    if (key.startsWith('exhaust_') && exhaustAndTurretObjects[key]) {
+                        const exhaust = exhaustAndTurretObjects[key];
+                        console.log(`Creating contrail for ${key}`);
+                        
+                        // Create a tapered cylindrical geometry for the contrail
+                        // radiusTop, radiusBottom, height, radialSegments
+                        const contrailGeometry = new THREE.CylinderGeometry(0.05, 0.15, 2.0, 8, 1, true);
+                        
+                        // Create two materials for normal and boost states
+                        const normalMaterial = normalContrailMaterial.clone();
+                        const boostMaterial = boostContrailMaterial.clone();
+                        
+                        // Create the contrail mesh with the normal material initially
+                        const contrailMesh = new THREE.Mesh(contrailGeometry, normalMaterial);
+                        
+                        // Position the contrail behind the exhaust
+                        contrailMesh.position.set(0, 0, -1.0); // Z axis is backward
+                        
+                        // Rotate the cylinder to point backward
+                        contrailMesh.rotation.x = Math.PI / 2;
+                        
+                        // Add contrail to the exhaust
+                        exhaust.add(contrailMesh);
+                        
+                        // Store references to the contrail and its materials
+                        contrails[key] = {
+                            mesh: contrailMesh,
+                            normalMaterial: normalMaterial,
+                            boostMaterial: boostMaterial
+                        };
+                    }
+                });
+                
+                // Store contrails for later updates
+                xWingModel.userData.contrails = contrails;
+                
                 // Original log
                 console.log("Found X-wing wings:", 
                     wings.topLeft ? "Top Left ✓" : "Top Left ✗",
@@ -797,6 +856,104 @@ export function createSpacecraft(scene) {
         // Add animation functions
         updateAnimations,
         setWingsOpen,
+        
+        // Add contrails system
+        createContrails: function() {
+            console.log("Creating solid contrail system");
+            return xWingModel?.userData?.contrails || {};
+        },
+        
+        updateContrails: function(isBoosting, deltaTime) {
+            // Skip if model or contrails aren't loaded
+            const contrails = xWingModel?.userData?.contrails || {};
+            if (!contrails || Object.keys(contrails).length === 0) {
+                return;
+            }
+            
+            // Update each contrail separately
+            Object.keys(contrails).forEach(key => {
+                const contrail = contrails[key];
+                if (!contrail || !contrail.mesh) return;
+                
+                if (isBoosting) {
+                    // When boosting, make contrails fully visible with orange-red color
+                    if (contrail.mesh.material !== contrail.boostMaterial) {
+                        contrail.mesh.material = contrail.boostMaterial;
+                    }
+                    contrail.mesh.material.opacity = Math.min(0.8, contrail.mesh.material.opacity + 0.1);
+                    
+                    // Create a subtle pulsing effect 
+                    const time = performance.now() / 1000;
+                    const pulseFactor = 0.2 * Math.sin(time * 5) + 0.9;
+                    contrail.mesh.scale.set(pulseFactor, pulseFactor, 1.5 + pulseFactor * 0.5);
+                } else {
+                    // When not boosting, fade out
+                    if (contrail.mesh.material.opacity > 0) {
+                        contrail.mesh.material.opacity = Math.max(0, contrail.mesh.material.opacity - 0.1);
+                        
+                        // Reset scale when fading out
+                        if (contrail.mesh.material.opacity <= 0) {
+                            contrail.mesh.scale.set(1, 1, 1);
+                        }
+                    }
+                }
+            });
+        },
+        
+        // Add engine effects function for compatibility with existing code
+        updateEngineEffects: function(isBoosting, deltaTime) {
+            // No need to call updateContrails here since we're handling it directly below
+            // This was causing a reference error
+            
+            // Update solid contrail effects based on boost state
+            const contrails = xWingModel?.userData?.contrails || {};
+            
+            // Iterate through each contrail
+            Object.keys(contrails).forEach(key => {
+                const contrail = contrails[key];
+                
+                if (isBoosting) {
+                    // When boosting:
+                    // 1. Switch to boost material if not already using it
+                    if (contrail.mesh.material !== contrail.boostMaterial) {
+                        contrail.mesh.material = contrail.boostMaterial;
+                    }
+                    
+                    // 2. Make contrail visible with full opacity
+                    contrail.mesh.material.opacity = 0.8;
+                    
+                    // 3. Stretch the contrail for more dramatic effect
+                    if (contrail.mesh.scale.z < 1.5) {
+                        contrail.mesh.scale.z = 1.5;
+                    }
+                    
+                    // 4. Light pulsing effect
+                    const pulseFactor = 0.1 * Math.sin(performance.now() / 100) + 0.9;
+                    contrail.mesh.scale.x = pulseFactor;
+                    contrail.mesh.scale.y = pulseFactor;
+                } else {
+                    // When not boosting, fade out the contrail
+                    if (contrail.mesh.material.opacity > 0) {
+                        // Gradually fade out
+                        contrail.mesh.material.opacity -= 0.1;
+                        
+                        // If opacity reaches zero, switch back to normal material
+                        if (contrail.mesh.material.opacity <= 0) {
+                            contrail.mesh.material = contrail.normalMaterial;
+                            contrail.mesh.material.opacity = 0;
+                            
+                            // Reset scale
+                            contrail.mesh.scale.set(1, 1, 1);
+                        }
+                    }
+                }
+            });
+            
+            // For debugging
+            if (Math.random() < 0.01) { // Limit logging to avoid console spam
+                console.log(`Engine effects updated: boosting=${isBoosting}`);
+            }
+        },
         
         // Direct wing toggle function for debugging
         toggleWings: function() {
