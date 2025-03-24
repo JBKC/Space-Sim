@@ -56,8 +56,8 @@ let lastFireTime = 0;
 const WING_TIP_RELATIVE_POSITION = new THREE.Vector3(2.5, 0, 0);
 
 /**
- * Creates a new laser beam from one of the spacecraft's wingtips
- * @param {THREE.Object3D} wing - The wing object from which to fire the laser
+ * Creates a new laser beam from one of the spacecraft's wingtips or turrets
+ * @param {THREE.Object3D} wing - The wing or turret object from which to fire the laser
  * @param {THREE.Scene} scene - The scene to add the laser to
  * @param {Object} config - The laser configuration
  * @param {number} laserSpeed - The speed of the laser
@@ -90,12 +90,34 @@ function createWingtipLaser(wing, scene, config, laserSpeed, isBoosting, isSlowi
     // Create mesh
     const laserMesh = new THREE.Mesh(geometry, material);
     
-    // Find the wingtip position in world space
+    // Find the wingtip or turret position in world space
     wing.updateMatrixWorld(true); // Ensure matrix is updated
     
-    // Create a position at the wing tip (which is at 2.5, 0, 0 relative to the wing)
-    // Then add an offset forward in the wing's local z-direction based on config
-    const tipPosition = WING_TIP_RELATIVE_POSITION.clone();
+    // Determine if this is a turret object by checking its name
+    const isTurret = wing.name && (
+        wing.name === 'turret_LT' || 
+        wing.name === 'turret_LB' || 
+        wing.name === 'turret_RT' || 
+        wing.name === 'turret_RB'
+    );
+    
+    // If this is a turret, use its position directly
+    // If it's a wing, use the WING_TIP_RELATIVE_POSITION offset
+    let position;
+    if (isTurret) {
+        // For turrets, use their position directly 
+        position = new THREE.Vector3();
+        wing.getWorldPosition(position);
+    } else {
+        // For wings, create a position at the wing tip using the relative offset
+        const tipPosition = WING_TIP_RELATIVE_POSITION.clone();
+        position = tipPosition.clone();
+        position.applyMatrix4(wing.matrixWorld);
+    }
+    
+    // Get spacecraft's forward direction for the laser direction
+    const spacecraft = wing.parent;
+    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(spacecraft.quaternion);
     
     // Determine which offset to use based on movement state
     let offsetToUse;
@@ -106,14 +128,6 @@ function createWingtipLaser(wing, scene, config, laserSpeed, isBoosting, isSlowi
     } else {
         offsetToUse = config.offset;
     }
-    
-    // Get spacecraft's forward direction for the laser direction
-    const spacecraft = wing.parent;
-    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(spacecraft.quaternion);
-    
-    // Apply the wing's world matrix to get the world position of the wingtip
-    const position = tipPosition.clone();
-    position.applyMatrix4(wing.matrixWorld);
     
     // Add the offset in the direction the spacecraft is facing
     position.add(forward.clone().multiplyScalar(offsetToUse));
@@ -177,6 +191,73 @@ export function fireLaser(spacecraft, scene, sceneType = 'space', isBoosting = f
         
         const lasers = [];
         
+        // Find the X-wing model, which contains the turrets
+        let xWingModel = null;
+        spacecraft.traverse(child => {
+            if (child.name === "xWingModel") xWingModel = child;
+        });
+        
+        // If we have the X-wing model and it has turret objects stored in userData
+        if (xWingModel && xWingModel.userData && xWingModel.userData.exhaustAndTurret) {
+            const turrets = xWingModel.userData.exhaustAndTurret;
+            
+            // Get the turret objects
+            const turret_LT = turrets.turret_LT;
+            const turret_LB = turrets.turret_LB;
+            const turret_RT = turrets.turret_RT;
+            const turret_RB = turrets.turret_RB;
+            
+            // Log the turrets we found (only once to avoid spamming)
+            if (!window.turretsLogged) {
+                console.log("Using turrets for laser firing points:");
+                console.log("- Left Top:", turret_LT ? "Found ✓" : "Not found ✗");
+                console.log("- Left Bottom:", turret_LB ? "Found ✓" : "Not found ✗");
+                console.log("- Right Top:", turret_RT ? "Found ✓" : "Not found ✗");
+                console.log("- Right Bottom:", turret_RB ? "Found ✓" : "Not found ✗");
+                window.turretsLogged = true;
+            }
+            
+            // Fire from each turret that was found
+            if (turret_LT) {
+                try {
+                    lasers.push(createWingtipLaser(turret_LT, scene, config, laserSpeed, isBoosting, isSlowing, now));
+                } catch (e) {
+                    console.warn("Error creating laser from Left Top turret:", e);
+                }
+            }
+            
+            if (turret_LB) {
+                try {
+                    lasers.push(createWingtipLaser(turret_LB, scene, config, laserSpeed, isBoosting, isSlowing, now));
+                } catch (e) {
+                    console.warn("Error creating laser from Left Bottom turret:", e);
+                }
+            }
+            
+            if (turret_RT) {
+                try {
+                    lasers.push(createWingtipLaser(turret_RT, scene, config, laserSpeed, isBoosting, isSlowing, now));
+                } catch (e) {
+                    console.warn("Error creating laser from Right Top turret:", e);
+                }
+            }
+            
+            if (turret_RB) {
+                try {
+                    lasers.push(createWingtipLaser(turret_RB, scene, config, laserSpeed, isBoosting, isSlowing, now));
+                } catch (e) {
+                    console.warn("Error creating laser from Right Bottom turret:", e);
+                }
+            }
+            
+            // If we found any turrets and created lasers, play the sound and return
+            if (lasers.length > 0) {
+                playLaserSound();
+                return lasers;
+            }
+        }
+        
+        // Fallback to the original wing-based approach if turrets weren't found
         // Find all wing objects
         let topRightWing = null;
         let bottomRightWing = null;

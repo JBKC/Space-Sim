@@ -1562,8 +1562,8 @@ loader.load(
         const placeholderGeometry = new THREE.TorusGeometry(3000, 1000, 16, 32);
         const placeholderMaterial = new THREE.MeshStandardMaterial({ 
             color: 0xbbbbbb,
-            metalness: 0.7,
-            roughness: 0.3
+            metalness: 0.9,
+            roughness: 0.2
         });
         const placeholderMesh = new THREE.Mesh(placeholderGeometry, placeholderMaterial);
         placeholderMesh.rotation.x = Math.PI / 2; // Make it face forward
