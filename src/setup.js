@@ -342,17 +342,17 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
             updateEngineEffects(isBoosting);
         }
         
-        // Update wing animations based on flight state (Only in space scene)
-        if (spacecraft.setWingsOpen) {
-            // Set wings open when in normal flight or slow mode, closed when boosting or in hyperspace
+        // Wing position control - check if conditions changed
+        if (spacecraft && spacecraft.setWingsOpen) {
             const shouldWingsBeOpen = !isBoosting && !isHyperspace;
             
-            // Add more logging to track wing state changes
-            if (Math.random() < 0.01) { // Only log occasionally to avoid spam
-                console.log(`Wing state check: isBoosting=${isBoosting}, isHyperspace=${isHyperspace}`);
-                console.log(`Wings should be: ${shouldWingsBeOpen ? 'OPEN' : 'CLOSED'}`);
+            // Log wing state changes at a low frequency to avoid console spam
+            if (Math.random() < 0.01) {
+                console.log(`Wing state check: boosting=${isBoosting}, hyperspace=${isHyperspace}, shouldBeOpen=${shouldWingsBeOpen}`);
             }
             
+            // The setWingsOpen function now has smooth animations and handles state management internally
+            // It will only trigger an animation if the target state is different from the current state
             spacecraft.setWingsOpen(shouldWingsBeOpen);
         }
         

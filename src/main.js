@@ -444,34 +444,49 @@ window.setWingsPosition = function(position) {
 
 // Add a global function to animate wings for testing (animates from closed to open or vice versa)
 window.animateWings = function(duration = 500) {
-    if (!spacecraft || !spacecraft.setWingsPosition) {
-        console.error("spacecraft.setWingsPosition function not available");
+    if (!spacecraft) {
+        console.error("spacecraft not available");
         return "Error: Wings cannot be animated";
     }
     
-    const startTime = performance.now();
-    const startPos = spacecraft._spacecraftComponents?.animationState === 'open' ? 1 : 0;
-    const endPos = startPos > 0.5 ? 0 : 1;
-    
-    console.log(`Animating wings from ${startPos} to ${endPos} over ${duration}ms`);
-    
-    function animate(time) {
-        const elapsed = time - startTime;
-        const progress = Math.min(1, elapsed / duration);
+    if (spacecraft.setWingsOpen) {
+        // Get current state
+        const isCurrentlyOpen = spacecraft._spacecraftComponents?.animationState === 'open';
         
-        // Use an easing function for smoother animation
-        const easedProgress = 0.5 - 0.5 * Math.cos(progress * Math.PI);
-        const currentPos = startPos + (endPos - startPos) * easedProgress;
+        // Toggle to opposite state - setWingsOpen now has smooth animations built-in
+        console.log(`Animating wings from ${isCurrentlyOpen ? 'open' : 'closed'} to ${isCurrentlyOpen ? 'closed' : 'open'}`);
+        spacecraft.setWingsOpen(!isCurrentlyOpen);
         
-        spacecraft.setWingsPosition(currentPos);
+        return `Wings animating to ${isCurrentlyOpen ? 'closed' : 'open'} position`;
+    } else if (spacecraft.setWingsPosition) {
+        // Fall back to the original implementation if setWingsOpen is not available
+        const startTime = performance.now();
+        const startPos = spacecraft._spacecraftComponents?.animationState === 'open' ? 1 : 0;
+        const endPos = startPos > 0.5 ? 0 : 1;
         
-        if (progress < 1) {
-            requestAnimationFrame(animate);
+        console.log(`Animating wings from ${startPos} to ${endPos} over ${duration}ms`);
+        
+        function animate(time) {
+            const elapsed = time - startTime;
+            const progress = Math.min(1, elapsed / duration);
+            
+            // Use an easing function for smoother animation
+            const easedProgress = 0.5 - 0.5 * Math.cos(progress * Math.PI);
+            const currentPos = startPos + (endPos - startPos) * easedProgress;
+            
+            spacecraft.setWingsPosition(currentPos);
+            
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
         }
+        
+        requestAnimationFrame(animate);
+        return `Animating wings from ${startPos} to ${endPos}`;
+    } else {
+        console.error("No wing animation methods available");
+        return "Error: Wings cannot be animated";
     }
-    
-    requestAnimationFrame(animate);
-    return `Animating wings from ${startPos} to ${endPos}`;
 };
 
 // Main animation loop

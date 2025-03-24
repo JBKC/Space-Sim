@@ -65,6 +65,15 @@ export function createSpacecraft(scene) {
     });
     const lightMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.0, transparent: true, opacity: 0.7 });
 
+    // Create a purple/pink material for the engine greebles
+    const purplePinkMaterial = new THREE.MeshStandardMaterial({
+        color: 0xff00ff,         // Bright purple/pink
+        emissive: 0xaa00aa,      // Slightly darker purple/pink for emissive
+        emissiveIntensity: 0.5,  // Medium intensity glow
+        metalness: 0.7,          // A bit metallic
+        roughness: 0.3           // Fairly smooth
+    });
+    
     // Load the X-Wing glTF model
     const loader = new GLTFLoader();
     const xWingModel = new THREE.Group(); // This will hold the loaded model
@@ -82,6 +91,25 @@ export function createSpacecraft(scene) {
                 
                 // Add the model to our x-wing group
                 xWingModel.add(model);
+
+                // Change colors of specific engine and greebles elements
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        // ONLY color these exact elements - nothing else
+                        const exactWingElements = [
+                            'RightWingBottomEngineAndGreebles_3',
+                            'RightWingTopEngineAndGreebles_3',
+                            'LeftWingBottomEngineAndGreebles_3',
+                            'LeftWingTopEngineAndGreebles_3'
+                        ];
+                        
+                        // Only color if exact name match
+                        if (exactWingElements.includes(child.name)) {
+                            console.log(`Found exact wing element: ${child.name} - changing to purple/pink`);
+                            child.material = purplePinkMaterial.clone();
+                        }
+                    }
+                });
 
                 // Set up animation system if animations exist
                 if (gltf.animations && gltf.animations.length > 0) {
@@ -289,6 +317,33 @@ export function createSpacecraft(scene) {
                     }
                 });
                 console.log(meshNames);
+                
+                // Check specifically for the wing engine and greeble elements
+                console.log("===== CHECKING FOR ENGINE AND GREEBLE ELEMENTS =====");
+                const exactWingElements = [
+                    'RightWingBottomEngineAndGreebles_3',
+                    'RightWingTopEngineAndGreebles_3',
+                    'LeftWingBottomEngineAndGreebles_3',
+                    'LeftWingTopEngineAndGreebles_3'
+                ];
+                
+                let foundExactElements = false;
+                // Check for exact matches only
+                exactWingElements.forEach(name => {
+                    if (meshNames.includes(name)) {
+                        console.log(`✓ Found exact element: ${name}`);
+                        foundExactElements = true;
+                    } else {
+                        console.log(`✗ Missing exact element: ${name}`);
+                    }
+                });
+                
+                if (!foundExactElements) {
+                    console.log("Note: None of the specific elements were found by exact name.");
+                    console.log("They might be named differently in this model or be part of other objects.");
+                    console.log("All available mesh names in the model:");
+                    console.log(meshNames);
+                }
                 console.log("===================================");
                 
                 // Original log
@@ -716,31 +771,80 @@ export function createSpacecraft(scene) {
                 }
             }
         } else {
-            // Use direct rotation for immediate effect
-            console.log("Using direct wing rotation for immediate response");
+            // Use smooth animation instead of immediate rotation
+            console.log("Using smooth wing animation for transition");
             
-            // Define the open and closed angles
-            const openAngle = Math.PI / 16;
-            const closedAngle = 0;
+            // Calculate start and end positions
+            const startPos = animationState === 'open' ? 1 : 0;
+            const endPos = open ? 1 : 0;
             
-            // Set the rotations immediately
-            if (open) {
-                // Set to open position (X shape)
-                topRight.rotation.y = openAngle;
-                bottomRight.rotation.y = - openAngle;
-                topLeft.rotation.y = - openAngle;
-                bottomLeft.rotation.y = openAngle;
-            } else {
-                // Set to closed position (flat)
-                topRight.rotation.y = closedAngle;
-                bottomRight.rotation.y = closedAngle;
-                topLeft.rotation.y = closedAngle
-                bottomLeft.rotation.y = closedAngle;
-            }
+            // Set animation duration (in milliseconds)
+            const duration = 350; // 350ms for wing transition
+            
+            // Start the animation
+            animateWingTransition(startPos, endPos, duration);
         }
         
         // Update animation state
         animationState = targetState;
+    }
+    
+    // Internal function to animate wing transitions
+    function animateWingTransition(startPos, endPos, duration) {
+        const startTime = performance.now();
+        
+        function animate(time) {
+            const elapsed = time - startTime;
+            const progress = Math.min(1, elapsed / duration);
+            
+            // Use an easing function for smoother animation
+            const easedProgress = 0.5 - 0.5 * Math.cos(progress * Math.PI);
+            const currentPos = startPos + (endPos - startPos) * easedProgress;
+            
+            // Use the existing setWingsPosition function to update wing positions
+            updateWingPosition(currentPos);
+            
+            // Continue animation if not complete
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        }
+        
+        // Start the animation
+        requestAnimationFrame(animate);
+    }
+    
+    // Internal function to update wing positions without changing the animation state
+    function updateWingPosition(position) {
+        // Get wing references
+        const wings = xWingModel?.userData?.wings || {};
+        const topLeft = wings.topLeft;
+        const topRight = wings.topRight;
+        const bottomLeft = wings.bottomLeft;
+        const bottomRight = wings.bottomRight;
+        
+        // Skip if wing objects aren't available
+        if (!topLeft || !topRight || !bottomLeft || !bottomRight) {
+            return;
+        }
+        
+        // Clamp position between 0 and 1
+        const normalizedPosition = Math.max(0, Math.min(1, position));
+        
+        // Define the open and closed angles
+        const openAngle = Math.PI / 16;
+        
+        // Calculate the target angles based on position
+        const topRightAngle = openAngle * normalizedPosition;
+        const bottomRightAngle = -openAngle * normalizedPosition;
+        const topLeftAngle = -openAngle * normalizedPosition;
+        const bottomLeftAngle = openAngle * normalizedPosition;
+        
+        // Set the rotations 
+        topRight.rotation.y = topRightAngle;
+        bottomRight.rotation.y = bottomRightAngle;
+        topLeft.rotation.y = topLeftAngle;
+        bottomLeft.rotation.y = bottomLeftAngle;
     }
 
     // Return an object containing the spacecraft and all necessary methods and attributes
@@ -789,21 +893,8 @@ export function createSpacecraft(scene) {
             // Clamp position between 0 and 1
             const normalizedPosition = Math.max(0, Math.min(1, position));
             
-            // Define the open and closed angles
-            const openAngle = Math.PI / 16;
-            const closedAngle = 0;
-            
-            // Calculate the target angles based on position
-            const topRightAngle = openAngle * normalizedPosition;
-            const bottomRightAngle = -openAngle * normalizedPosition;
-            const topLeftAngle = -openAngle * normalizedPosition;
-            const bottomLeftAngle = openAngle * normalizedPosition;
-            
-            // Set the rotations immediately (using Y-axis rotation to match setWingsOpen)
-            topRight.rotation.y = topRightAngle;
-            bottomRight.rotation.y = bottomRightAngle;
-            topLeft.rotation.y = topLeftAngle;
-            bottomLeft.rotation.y = bottomLeftAngle;
+            // Use the internal function to update wing positions
+            updateWingPosition(normalizedPosition);
             
             // Update animation state if at extremes
             if (normalizedPosition >= 0.99) {
