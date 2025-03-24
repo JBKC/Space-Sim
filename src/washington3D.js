@@ -139,20 +139,32 @@ const playerSunConfig = {
  * @type {Object}
  * @property {number} radius - Radius of the background sphere
  * @property {number} distance - Distance from the player at spawn
- * @property {number} color - Color of the sphere in hex format
  * @property {Object} rotation - Rotation of the sphere in radians
  * @property {number} rotation.x - X-axis rotation
  * @property {number} rotation.y - Y-axis rotation
  * @property {number} rotation.z - Z-axis rotation
+ * @property {number} elevationAngle - Angle above/below horizon in degrees (90 = directly above, -90 = directly below)
+ * @property {number} azimuthAngle - Angle around horizon in degrees (0 = behind player, 180 = in front of player)
+ * @property {Object} offset - Additional position offset in local coordinates
+ * @property {number} offset.x - X offset (left/right)
+ * @property {number} offset.y - Y offset (up/down)
+ * @property {number} offset.z - Z offset (forward/backward)
  */
 const backgroundSphereConfig = {
   radius: 50000,            // Default radius of the sphere
-  distance: 100000,        // Default distance from player
-  color: 0x000000,         // Default black color
+  distance: 100000,         // Default distance from player
+  color: 0x000000,          // Default black color
   rotation: {
-      x: 0,                // No rotation on X-axis
-      y: 0,                // No rotation on Y-axis
-      z: 0                 // No rotation on Z-axis
+      x: 0,                 // No rotation on X-axis
+      y: 0,                 // No rotation on Y-axis
+      z: 0                  // No rotation on Z-axis
+  },
+  elevationAngle: 30,       // Default elevation - 30 degrees above horizon
+  azimuthAngle: 0,          // Default azimuth - directly behind player
+  offset: {
+      x: 0,                 // No horizontal offset
+      y: 0,                 // No vertical offset
+      z: 0                  // No depth offset
   }
 };
 
@@ -222,10 +234,34 @@ const cameraState = {
 };
 const smoothFactor = 0.1;
 
-// Add a variable to store the background sphere
-let backgroundSphere;
+/**
+ * Simple configuration for the planet that appears in the scene
+ */
+const planetConfig = {
+    // Basic parameters
+    radius: 50000,            // Size of the planet
+    distance: 100000,         // Distance from player's starting point
+    
+    // Position in space (polar coordinates)
+    elevation: 30,            // Degrees above horizon (90 = directly above, -90 = directly below)
+    azimuth: 0,               // Degrees around horizon (0 = behind, 90 = right, 180 = in front, 270 = left)
+    
+    // Planet's self-rotation (in radians)
+    rotation: {
+        x: 0,                 // Rotation around x-axis
+        y: 0,                 // Rotation around y-axis
+        z: 0                  // Rotation around z-axis
+    },
+    
+    // Visual effect - blue haze at bottom of planet
+    hazeColor: 0xa7d5e7,      // Color of the blue haze
+    hazeIntensity: 2,         // Strength of the haze effect (higher = more intense)
+    hazeStart: 0.2,           // Where the haze begins (0.0 to 1.0, from top to bottom)
+    hazeEnd: 1.0              // Where the haze is fully opaque
+};
 
-
+// Add a variable to store the planet
+let planet;
 
 /**
  * Creates a large background sphere fixed in space behind the player spawn point
@@ -245,7 +281,10 @@ function createBackgroundSphere(scene, spawnPosition, spawnRotation, options = {
             x: options.rotation?.x !== undefined ? options.rotation.x : backgroundSphereConfig.rotation.x,
             y: options.rotation?.y !== undefined ? options.rotation.y : backgroundSphereConfig.rotation.y,
             z: options.rotation?.z !== undefined ? options.rotation.z : backgroundSphereConfig.rotation.z
-        }
+        },
+        elevationAngle: options.elevationAngle || backgroundSphereConfig.elevationAngle,
+        azimuthAngle: options.azimuthAngle || backgroundSphereConfig.azimuthAngle,
+        offset: options.offset || backgroundSphereConfig.offset
     };
     
     // Create a sphere geometry with configured radius
@@ -261,10 +300,10 @@ function createBackgroundSphere(scene, spawnPosition, spawnRotation, options = {
     const sphereMaterial = new THREE.ShaderMaterial({
         uniforms: {
             planetTexture: { value: null },
-            hazeColor: { value: new THREE.Color(0x87CEEB) }, // Sky blue for the haze
-            hazeIntensity: { value: 0.7 },                    // Intensity of the haze
+            hazeColor: { value: new THREE.Color(0xa7d5e7) }, // Sky blue for the haze
+            hazeIntensity: { value: 2 },                    // Intensity of the haze
             hazeStart: { value: 0.2 },                        // Where the haze begins (0.0 to 1.0, from top to bottom)
-            hazeEnd: { value: 0.8 }                           // Where the haze ends (fully hazed)
+            hazeEnd: { value: 1 }                           // Where the haze ends (fully hazed)
         },
         vertexShader: `
             varying vec2 vUv;
@@ -320,13 +359,34 @@ function createBackgroundSphere(scene, spawnPosition, spawnRotation, options = {
     sphere.receiveShadow = false;
     sphere.castShadow = false;
     
-    // Calculate position at the configured distance behind the spawn position
-    // We use the spawn rotation to determine what "behind" means
-    const backwardVector = new THREE.Vector3(0, 0, 1); // Backward along z-axis
-    backwardVector.applyQuaternion(spawnRotation);
+    // Calculate position using polar coordinates
+    // Convert elevation and azimuth angles from degrees to radians
+    const elevationRad = THREE.MathUtils.degToRad(config.elevationAngle);
+    const azimuthRad = THREE.MathUtils.degToRad(config.azimuthAngle);
     
-    // Set the sphere position to spawn position + configured distance in the backward direction
-    sphere.position.copy(spawnPosition.clone().add(backwardVector.multiplyScalar(config.distance)));
+    // Calculate direction vector from polar coordinates
+    // Using spherical coordinates: x = r * cos(elevation) * sin(azimuth)
+    //                             y = r * sin(elevation)
+    //                             z = r * cos(elevation) * cos(azimuth)
+    // Note: In our coordinate system, z is forward, y is up, x is right
+    const directionVector = new THREE.Vector3(
+        config.distance * Math.cos(elevationRad) * Math.sin(azimuthRad),
+        config.distance * Math.sin(elevationRad),
+        config.distance * Math.cos(elevationRad) * Math.cos(azimuthRad)
+    );
+    
+    // Apply the player's rotation to the direction vector
+    directionVector.applyQuaternion(spawnRotation);
+    
+    // Set the sphere position relative to spawn position plus direction vector
+    sphere.position.copy(spawnPosition).add(directionVector);
+    
+    // Apply additional offset in local space
+    if (config.offset.x !== 0 || config.offset.y !== 0 || config.offset.z !== 0) {
+        const offsetVector = new THREE.Vector3(config.offset.x, config.offset.y, config.offset.z);
+        offsetVector.applyQuaternion(spawnRotation);
+        sphere.position.add(offsetVector);
+    }
     
     // Apply rotation relative to the spacecraft orientation
     const rotationEuler = new THREE.Euler(config.rotation.x, config.rotation.y, config.rotation.z, 'XYZ');
@@ -335,8 +395,12 @@ function createBackgroundSphere(scene, spawnPosition, spawnRotation, options = {
     // Apply spacecraft's base orientation, then apply the relative rotation
     sphere.quaternion.copy(spawnRotation).multiply(rotationQuaternion);
     
-    // Add the sphere to the scene
-    scene.add(sphere);
+    // Store the polar coordinate settings in userData for later retrieval
+    sphere.userData.distance = config.distance;
+    sphere.userData.rotation = { ...config.rotation };
+    sphere.userData.elevationAngle = config.elevationAngle;
+    sphere.userData.azimuthAngle = config.azimuthAngle;
+    sphere.userData.offset = { ...config.offset };
     
     // Load the texture after adding the sphere to the scene
     textureLoader.load(
@@ -376,6 +440,9 @@ function createBackgroundSphere(scene, spawnPosition, spawnRotation, options = {
         config.rotation.y.toFixed(2)}, ${
         config.rotation.z.toFixed(2)})`
     );
+    
+    // Add the sphere to the scene
+    scene.add(sphere);
     
     return sphere;
 }
@@ -473,7 +540,10 @@ export function updateBackgroundSphere(options = {}) {
                      backgroundSphere.geometry.parameters.radius : backgroundSphereConfig.radius),
             distance: options.distance !== undefined ? options.distance : 
                       (backgroundSphere.userData.distance || backgroundSphereConfig.distance),
-            rotation: newRotation
+            rotation: newRotation,
+            elevationAngle: config.elevationAngle,
+            azimuthAngle: config.azimuthAngle,
+            offset: config.offset
         };
         
         // Store the distance for later reference
@@ -510,6 +580,12 @@ export function getBackgroundSphereConfig() {
                 backgroundSphere.userData.distance : backgroundSphereConfig.distance,
         rotation: backgroundSphere && backgroundSphere.userData.rotation ?
                 backgroundSphere.userData.rotation : backgroundSphereConfig.rotation,
+        elevationAngle: backgroundSphere && backgroundSphere.userData.elevationAngle ?
+                backgroundSphere.userData.elevationAngle : backgroundSphereConfig.elevationAngle,
+        azimuthAngle: backgroundSphere && backgroundSphere.userData.azimuthAngle ?
+                backgroundSphere.userData.azimuthAngle : backgroundSphereConfig.azimuthAngle,
+        offset: backgroundSphere && backgroundSphere.userData.offset ?
+                backgroundSphere.userData.offset : backgroundSphereConfig.offset,
         // Add haze properties
         hazeColor: backgroundSphere && backgroundSphere.material.uniforms ? 
                 backgroundSphere.material.uniforms.hazeColor.value.getHex() : 0x87CEEB,
@@ -593,7 +669,7 @@ function initSpacecraft() {
  // Set initial position of craft above Mount Rainier
  const mtRainierLat = 46.8529;
  const mtRainierLon = -121.7604;
- const initialHeight = 10000;
+ const initialHeight = 5000;
  const position = latLonHeightToEcef(mtRainierLat, mtRainierLon, initialHeight);
     spacecraft.position.copy(position);
 
@@ -610,13 +686,9 @@ function initSpacecraft() {
 
     updateEngineEffects = spacecraftComponents.updateEngineEffects;
     
-    // Create the fixed background sphere behind the initial position
-    const spawnPosition = spacecraft.position.clone();
-    const spawnRotation = spacecraft.quaternion.clone();
-    
-    // Create the fixed background sphere
-    backgroundSphere = createBackgroundSphere(scene, spawnPosition, spawnRotation);
-    console.log("Created fixed backgroundSphere behind the player for Washington scene");
+    // Create the planet at the initial spacecraft position
+    planet = createPlanet(scene, spacecraft.position.clone(), spacecraft.quaternion.clone());
+    console.log("Created planet for Washington scene");
 }
 
 /**
@@ -633,7 +705,7 @@ export function resetWashingtonPosition() {
     // Set initial position of craft above Mount Rainier
     const mtRainierLat = 46.8529;
     const mtRainierLon = -121.7604;
-    const initialHeight = 10000;
+    const initialHeight = 5000;
     const position = latLonHeightToEcef(mtRainierLat, mtRainierLon, initialHeight);
     spacecraft.position.copy(position);
 
@@ -645,18 +717,14 @@ export function resetWashingtonPosition() {
         'XYZ'
     ));
     
-    // Remove previous background sphere if it exists
-    if (backgroundSphere && scene) {
-        scene.remove(backgroundSphere);
+    // Remove previous planet if it exists
+    if (planet && scene) {
+        scene.remove(planet);
     }
     
-    // Create a new fixed background sphere behind the reset position
-    const spawnPosition = spacecraft.position.clone();
-    const spawnRotation = spacecraft.quaternion.clone();
-    
-    // Create the fixed background sphere
-    backgroundSphere = createBackgroundSphere(scene, spawnPosition, spawnRotation);
-    console.log("Recreated fixed backgroundSphere behind the player after position reset");
+    // Create a new planet at the reset position
+    planet = createPlanet(scene, spacecraft.position.clone(), spacecraft.quaternion.clone());
+    console.log("Recreated planet after position reset");
 }
 
 /**
@@ -1802,5 +1870,305 @@ export function updateBackgroundHaze(options = {}) {
     }
     
     backgroundSphere.material.needsUpdate = true;
+}
+
+/**
+ * Update the position of the background sphere using polar coordinates
+ * @param {Object} options - Position options to update
+ * @param {number} options.elevationAngle - Elevation angle above/below horizon in degrees
+ * @param {number} options.azimuthAngle - Azimuth angle around horizon in degrees
+ * @param {number} options.distance - Distance from player's starting point
+ */
+export function updateBackgroundPosition(options = {}) {
+    if (!backgroundSphere) {
+        console.warn("Cannot update background position: sphere not created yet");
+        return;
+    }
+    
+    let needsUpdate = false;
+    
+    // Store current values to check if they need updating
+    const currentValues = {
+        elevationAngle: backgroundSphere.userData.elevationAngle,
+        azimuthAngle: backgroundSphere.userData.azimuthAngle,
+        distance: backgroundSphere.userData.distance
+    };
+    
+    // Check if any values have changed
+    if (options.elevationAngle !== undefined && options.elevationAngle !== currentValues.elevationAngle) {
+        currentValues.elevationAngle = options.elevationAngle;
+        backgroundSphere.userData.elevationAngle = options.elevationAngle;
+        needsUpdate = true;
+    }
+    
+    if (options.azimuthAngle !== undefined && options.azimuthAngle !== currentValues.azimuthAngle) {
+        currentValues.azimuthAngle = options.azimuthAngle;
+        backgroundSphere.userData.azimuthAngle = options.azimuthAngle;
+        needsUpdate = true;
+    }
+    
+    if (options.distance !== undefined && options.distance !== currentValues.distance) {
+        currentValues.distance = options.distance;
+        backgroundSphere.userData.distance = options.distance;
+        needsUpdate = true;
+    }
+    
+    // If any values have changed, recreate the sphere with the new position
+    if (needsUpdate) {
+        console.log(`Updating background sphere position: elevation=${currentValues.elevationAngle}°, azimuth=${currentValues.azimuthAngle}°, distance=${currentValues.distance}`);
+        
+        // Use the updateBackgroundSphere function to update the position
+        updateBackgroundSphere({
+            elevationAngle: currentValues.elevationAngle,
+            azimuthAngle: currentValues.azimuthAngle,
+            distance: currentValues.distance
+        });
+    }
+}
+
+/**
+ * Set the background sphere's offset from its calculated position
+ * @param {number} x - X offset (left/right)
+ * @param {number} y - Y offset (up/down)
+ * @param {number} z - Z offset (forward/backward)
+ */
+export function setBackgroundOffset(x = 0, y = 0, z = 0) {
+    if (!backgroundSphere) {
+        console.warn("Cannot update background offset: sphere not created yet");
+        return;
+    }
+    
+    const currentOffset = backgroundSphere.userData.offset || { x: 0, y: 0, z: 0 };
+    const newOffset = {
+        x: x !== undefined ? x : currentOffset.x,
+        y: y !== undefined ? y : currentOffset.y,
+        z: z !== undefined ? z : currentOffset.z
+    };
+    
+    // Check if offset has changed
+    if (newOffset.x !== currentOffset.x || newOffset.y !== currentOffset.y || newOffset.z !== currentOffset.z) {
+        backgroundSphere.userData.offset = newOffset;
+        console.log(`Updated background sphere offset to (${newOffset.x}, ${newOffset.y}, ${newOffset.z})`);
+        
+        // Recreate the sphere with the new offset
+        updateBackgroundSphere({ offset: newOffset });
+    }
+}
+
+/**
+ * Creates a planet in the scene using the planetConfig settings
+ * @param {THREE.Scene} scene - The scene to add the planet to
+ * @param {THREE.Vector3} playerPosition - The position of the player
+ * @param {THREE.Quaternion} playerRotation - The rotation of the player
+ * @returns {THREE.Mesh} The created planet mesh
+ */
+function createPlanet(scene, playerPosition, playerRotation) {
+    // Create the sphere geometry
+    const geometry = new THREE.SphereGeometry(planetConfig.radius, 32, 32);
+    
+    // Create shader material for haze effect at bottom of planet
+    const material = new THREE.ShaderMaterial({
+        uniforms: {
+            planetTexture: { value: null },
+            hazeColor: { value: new THREE.Color(planetConfig.hazeColor) },
+            hazeIntensity: { value: planetConfig.hazeIntensity },
+            hazeStart: { value: planetConfig.hazeStart },
+            hazeEnd: { value: planetConfig.hazeEnd }
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            varying vec3 vPosition;
+            
+            void main() {
+                vUv = uv;
+                vPosition = position;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform sampler2D planetTexture;
+            uniform vec3 hazeColor;
+            uniform float hazeIntensity;
+            uniform float hazeStart;
+            uniform float hazeEnd;
+            
+            varying vec2 vUv;
+            varying vec3 vPosition;
+            
+            void main() {
+                vec4 texColor = texture2D(planetTexture, vUv);
+                
+                // Calculate normalized height for haze gradient
+                float normalizedY = vPosition.y / length(vPosition);
+                normalizedY = (normalizedY + 1.0) / 2.0;
+                
+                // Calculate haze factor
+                float hazeFactor = 0.0;
+                if (normalizedY < hazeEnd) {
+                    if (normalizedY < hazeStart) {
+                        hazeFactor = hazeIntensity;
+                    } else {
+                        hazeFactor = hazeIntensity * (1.0 - (normalizedY - hazeStart) / (hazeEnd - hazeStart));
+                    }
+                }
+                
+                // Mix texture with haze
+                gl_FragColor = mix(texColor, vec4(hazeColor, texColor.a), hazeFactor);
+            }
+        `,
+        side: THREE.BackSide,
+        transparent: true
+    });
+    
+    // Create the planet mesh
+    const planetMesh = new THREE.Mesh(geometry, material);
+    planetMesh.name = "planet";
+    planetMesh.receiveShadow = false;
+    planetMesh.castShadow = false;
+    
+    // Calculate position using polar coordinates
+    const elevationRad = THREE.MathUtils.degToRad(planetConfig.elevation);
+    const azimuthRad = THREE.MathUtils.degToRad(planetConfig.azimuth);
+    
+    // Convert polar to cartesian
+    const directionVector = new THREE.Vector3(
+        planetConfig.distance * Math.cos(elevationRad) * Math.sin(azimuthRad),
+        planetConfig.distance * Math.sin(elevationRad),
+        planetConfig.distance * Math.cos(elevationRad) * Math.cos(azimuthRad)
+    );
+    
+    // Apply player rotation to direction vector
+    directionVector.applyQuaternion(playerRotation);
+    
+    // Set position relative to player
+    planetMesh.position.copy(playerPosition).add(directionVector);
+    
+    // Apply planet's self-rotation
+    const rotationEuler = new THREE.Euler(
+        planetConfig.rotation.x,
+        planetConfig.rotation.y,
+        planetConfig.rotation.z,
+        'XYZ'
+    );
+    planetMesh.setRotationFromEuler(rotationEuler);
+    
+    // Add to scene
+    scene.add(planetMesh);
+    
+    // Load texture
+    if (!textureLoader) {
+        textureLoader = new THREE.TextureLoader();
+    }
+    
+    textureLoader.load(
+        'skybox/2k_neptune.jpg',
+        function(texture) {
+            // Apply texture when loaded
+            planetMesh.material.uniforms.planetTexture.value = texture;
+            planetMesh.material.needsUpdate = true;
+            console.log('Planet texture applied with blue haze effect');
+        },
+        undefined,
+        function(err) {
+            console.error('Error loading planet texture:', err);
+            // Fallback to alternative texture
+            textureLoader.load(
+                './skybox/planet1.webp',
+                function(texture) {
+                    planetMesh.material.uniforms.planetTexture.value = texture;
+                    planetMesh.material.needsUpdate = true;
+                    console.log('Alternative planet texture applied with blue haze effect');
+                },
+                undefined,
+                function(err2) {
+                    console.error('Error loading alternative planet texture:', err2);
+                }
+            );
+        }
+    );
+    
+    console.log(`Created planet with radius=${planetConfig.radius}, distance=${planetConfig.distance}, elevation=${planetConfig.elevation}°, azimuth=${planetConfig.azimuth}°`);
+    
+    return planetMesh;
+}
+
+/**
+ * Updates the planet with new configuration and recreates it if necessary
+ * @param {Object} newConfig - New planet configuration options
+ */
+export function updatePlanet(newConfig = {}) {
+    // Update configuration parameters
+    if (newConfig.radius !== undefined) planetConfig.radius = newConfig.radius;
+    if (newConfig.distance !== undefined) planetConfig.distance = newConfig.distance;
+    if (newConfig.elevation !== undefined) planetConfig.elevation = newConfig.elevation;
+    if (newConfig.azimuth !== undefined) planetConfig.azimuth = newConfig.azimuth;
+    
+    // Update rotation
+    if (newConfig.rotation) {
+        if (newConfig.rotation.x !== undefined) planetConfig.rotation.x = newConfig.rotation.x;
+        if (newConfig.rotation.y !== undefined) planetConfig.rotation.y = newConfig.rotation.y;
+        if (newConfig.rotation.z !== undefined) planetConfig.rotation.z = newConfig.rotation.z;
+    }
+    
+    // Update haze effect
+    if (newConfig.hazeColor !== undefined) planetConfig.hazeColor = newConfig.hazeColor;
+    if (newConfig.hazeIntensity !== undefined) planetConfig.hazeIntensity = newConfig.hazeIntensity;
+    if (newConfig.hazeStart !== undefined) planetConfig.hazeStart = newConfig.hazeStart;
+    if (newConfig.hazeEnd !== undefined) planetConfig.hazeEnd = newConfig.hazeEnd;
+    
+    // If planet exists, remove it and create a new one
+    if (planet && scene) {
+        // Save current texture if it exists
+        const currentTexture = planet.material && planet.material.uniforms && 
+                              planet.material.uniforms.planetTexture ? 
+                              planet.material.uniforms.planetTexture.value : null;
+        
+        // Remove current planet
+        scene.remove(planet);
+        
+        // Create new planet at current spacecraft position
+        planet = createPlanet(scene, spacecraft.position.clone(), spacecraft.quaternion.clone());
+        
+        // Reapply texture if available
+        if (currentTexture && planet.material && planet.material.uniforms) {
+            planet.material.uniforms.planetTexture.value = currentTexture;
+            planet.material.needsUpdate = true;
+        }
+        
+        console.log("Planet updated with new configuration");
+    } else {
+        console.warn("Cannot update planet: not created yet");
+    }
+}
+
+/**
+ * Rotate the planet around its own axes
+ * @param {number} x - Rotation amount (radians) around X axis
+ * @param {number} y - Rotation amount (radians) around Y axis
+ * @param {number} z - Rotation amount (radians) around Z axis
+ */
+export function rotatePlanet(x = 0, y = 0, z = 0) {
+    // Update rotation in config
+    planetConfig.rotation.x += x;
+    planetConfig.rotation.y += y;
+    planetConfig.rotation.z += z;
+    
+    // Apply rotation to planet if it exists
+    if (planet) {
+        planet.rotation.x = planetConfig.rotation.x;
+        planet.rotation.y = planetConfig.rotation.y;
+        planet.rotation.z = planetConfig.rotation.z;
+        console.log(`Planet rotated to (${planetConfig.rotation.x.toFixed(2)}, ${planetConfig.rotation.y.toFixed(2)}, ${planetConfig.rotation.z.toFixed(2)})`);
+    } else {
+        console.warn("Cannot rotate planet: not created yet");
+    }
+}
+
+/**
+ * Returns a copy of the current planet configuration
+ * @returns {Object} The current planet configuration
+ */
+export function getPlanetConfig() {
+    return { ...planetConfig };
 }
 

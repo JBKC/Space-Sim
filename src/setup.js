@@ -51,7 +51,7 @@ const planetInfo = {
     'earth': {
         composition: 'Iron core, silicate mantle',
         atmosphere: 'Nitrogen, oxygen',
-        gravity: '1.98 m/s² (100%)'
+        gravity: '1.98 m/s²'
     },
     'moon': {
         composition: 'Rocky, silicate crust',
