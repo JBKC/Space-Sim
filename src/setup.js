@@ -95,7 +95,7 @@ const planetInfo = {
         crew: '40,000'
     },
     'lucrehulk': {
-        affiliation: 'CIS',
+        affiliation: 'Confederacy of Independent Systems',
         manufacturer: 'Hoersch-Kessel Drive',
         crew: '200,000'
     }
@@ -121,6 +121,93 @@ planetInfoBox.style.right = '';
 planetInfoBox.style.left = '';
 planetInfoBox.style.top = '';
 document.body.appendChild(planetInfoBox);
+
+// Add after planetInfoBox declaration (around line 134)
+// Create exploration counter
+const explorationCounter = document.createElement('div');
+explorationCounter.className = 'exploration-counter';
+explorationCounter.style.position = 'fixed';
+explorationCounter.style.top = '20px';
+explorationCounter.style.right = '20px';
+explorationCounter.style.padding = '10px 15px';
+explorationCounter.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+explorationCounter.style.color = '#4fc3f7';
+explorationCounter.style.fontFamily = 'Orbitron, sans-serif';
+explorationCounter.style.fontSize = '16px';
+explorationCounter.style.borderRadius = '5px';
+explorationCounter.style.border = '1px solid #4fc3f7';
+explorationCounter.style.zIndex = '1000';
+explorationCounter.style.display = 'none'; // Initially hidden until game starts
+document.body.appendChild(explorationCounter);
+
+// Array of all celestial objects that can be explored (11 total as requested)
+const celestialObjects = [
+    'mercury',
+    'venus',
+    'earth',
+    'moon',
+    'mars',
+    // 'asteroid belt', // Removed as requested
+    'jupiter',
+    'saturn',
+    'uranus',
+    'neptune',
+    'imperial star destroyer', // Counts as one object total
+    'lucrehulk'
+];
+
+// Initialize explored objects - reset every time
+let exploredObjects = {};
+
+// Initialize with all objects unexplored
+function resetExploredObjects() {
+    celestialObjects.forEach(object => {
+        exploredObjects[object] = false;
+    });
+    updateExplorationCounter();
+}
+
+// Update the counter display
+function updateExplorationCounter() {
+    const count = Object.values(exploredObjects).filter(Boolean).length;
+    const total = Object.keys(exploredObjects).length;
+    explorationCounter.innerHTML = `Celestial Objects Discovered: <span style="color: white; font-weight: bold;">${count}/${total}</span>`;
+    
+    // Check if all objects have been explored
+    if (count === total) {
+        // All objects explored - permanent blue glow effect
+        explorationCounter.style.boxShadow = '0 0 15px 5px #4fc3f7';
+        explorationCounter.style.border = '2px solid #4fc3f7';
+        explorationCounter.style.backgroundColor = 'rgba(0, 20, 40, 0.8)';
+        // Add a congratulatory message
+        explorationCounter.innerHTML = `<span style="color: #4fc3f7; font-weight: bold;">ALL CELESTIAL OBJECTS DISCOVERED</span>`;
+    } 
+    // Otherwise, add temporary visual flourish when a new object is discovered
+    else if (count > 0) {
+        explorationCounter.style.boxShadow = '0 0 10px #4fc3f7';
+        setTimeout(() => {
+            // Only remove the glow if we haven't completed everything
+            if (Object.values(exploredObjects).filter(Boolean).length !== total) {
+                explorationCounter.style.boxShadow = 'none';
+            }
+        }, 2000);
+    }
+}
+
+// Function to mark an object as explored
+function markAsExplored(objectName) {
+    if (objectName && !exploredObjects[objectName]) {
+        exploredObjects[objectName] = true;
+        updateExplorationCounter();
+        // Discovery notification popup removed as requested
+    }
+}
+
+// Reset explored objects on startup - no persistence
+resetExploredObjects();
+
+// Load explored objects on startup
+// loadExploredObjects(); // Removing this line as the function no longer exists
 
 // Add a debug click event to help troubleshoot
 document.addEventListener('keydown', (event) => {
@@ -407,6 +494,12 @@ export function init() {
     window.addEventListener('resize', onWindowResize, false);
 
     initControls();
+
+    // Show exploration counter when game starts
+    explorationCounter.style.display = 'block';
+    
+    // Reset the counter each time the game starts
+    resetExploredObjects();
 
     spaceInitialized = true;
     console.log("Space initialization complete");
@@ -1970,6 +2063,7 @@ export function checkReticleHover() {
         { name: 'earth', mesh: earthCollisionSphere },
         { name: 'moon', mesh: moonCollisionSphere },
         { name: 'mars', mesh: marsCollisionSphere },
+        // Include asteroid belt in detection but not counting toward explored objects
         { name: 'asteroid belt', mesh: asteroidCollisionSphere },
         { name: 'jupiter', mesh: jupiterCollisionSphere },
         { name: 'saturn', mesh: saturnCollisionSphere },
@@ -1979,27 +2073,6 @@ export function checkReticleHover() {
         { name: 'imperial star destroyer', mesh: collisionBox2 },
         { name: 'lucrehulk', mesh: lucrehulkCollisionBox }
     ];
-    
-    // Remove the push statements since objects are now included in the array initialization
-    /* 
-    // Add Star Destroyer to the list only if it's loaded
-    // Use the collision boxes for detection instead of the complex models
-    planetDetectionList.push({ 
-        name: 'imperial star destroyer', 
-        mesh: collisionBox1
-    });
-    
-    planetDetectionList.push({ 
-        name: 'imperial star destroyer', 
-        mesh: collisionBox2
-    });
-    
-    // Add Lucrehulk to the detection list
-    planetDetectionList.push({ 
-        name: 'lucrehulk', 
-        mesh: lucrehulkCollisionBox
-    });
-    */
     
     // Flag to track if we're hovering over any planet
     let planetDetected = false;
@@ -2030,6 +2103,9 @@ export function checkReticleHover() {
             if (lastHoveredPlanet !== planetObj.name) {
                 console.log(`${planetObj.name} detected`);
                 lastHoveredPlanet = planetObj.name;
+                
+                // Mark the object as explored when info box is shown
+                markAsExplored(planetObj.name);
                 
                 // Handle Star Destroyer specially
                 if (planetObj.name === 'imperial star destroyer') {
