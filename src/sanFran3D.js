@@ -716,148 +716,98 @@ function setupTiles() {
 
 // Add a new function to create fixed coordinate system - values found empirically / trial and error
 function createBasePlane() {
-  console.log("Creating fixed coordinate system");
-
-  if (window.gridCoordinateSystem) {
-    scene.remove(window.gridCoordinateSystem);
+    console.log("Creating fixed coordinate system");
+  
+    if (window.gridCoordinateSystem) {
+      scene.remove(window.gridCoordinateSystem);
+    }
+  
+    const gridPlaneSystem = new THREE.Group();
+    window.gridCoordinateSystem = gridPlaneSystem;
+  
+    const fixedPosition = new THREE.Vector3(-2704597.993, -4260866.335, 3886911.844);
+    gridPlaneSystem.position.copy(fixedPosition);
+    const fixedQuaternion = new THREE.Quaternion(0.6390, 0.6326, 0.4253, -0.1034);
+    gridPlaneSystem.quaternion.copy(fixedQuaternion);
+  
+    // Axes setup (unchanged, remains invisible)
+    const axesSize = 500;
+    const axesHelper = new THREE.Group();
+    axesHelper.visible = false;
+    const xGeometry = new THREE.CylinderGeometry(20, 20, axesSize, 8);
+    const xMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, visible: false });
+    const xAxis = new THREE.Mesh(xGeometry, xMaterial);
+    xAxis.rotation.z = -Math.PI / 2;
+    xAxis.position.x = axesSize / 2;
+    const xConeGeometry = new THREE.ConeGeometry(40, 100, 8);
+    const xCone = new THREE.Mesh(xConeGeometry, xMaterial);
+    xCone.rotation.z = -Math.PI / 2;
+    xCone.position.x = axesSize + 50;
+    const yGeometry = new THREE.CylinderGeometry(20, 20, axesSize, 8);
+    const yMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, visible: false });
+    const yAxis = new THREE.Mesh(yGeometry, yMaterial);
+    yAxis.position.y = axesSize / 2;
+    const yConeGeometry = new THREE.ConeGeometry(40, 100, 8);
+    const yCone = new THREE.Mesh(yConeGeometry, yMaterial);
+    yCone.position.y = axesSize + 50;
+    const zGeometry = new THREE.CylinderGeometry(20, 20, axesSize, 8);
+    const zMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff, visible: false });
+    const zAxis = new THREE.Mesh(zGeometry, zMaterial);
+    zAxis.rotation.x = Math.PI / 2;
+    zAxis.position.z = axesSize / 2;
+    const zConeGeometry = new THREE.ConeGeometry(40, 100, 8);
+    const zCone = new THREE.Mesh(zConeGeometry, zMaterial);
+    zCone.rotation.x = Math.PI / 2;
+    zCone.position.z = axesSize + 50;
+    const labelSize = 100;
+    const xLabel = createTextSprite('X', '#ff0000', labelSize / 500);
+    xLabel.position.set(axesSize + 150, 0, 0);
+    xLabel.visible = false;
+    const yLabel = createTextSprite('Y', '#00ff00', labelSize / 500);
+    yLabel.position.set(0, axesSize + 150, 0);
+    yLabel.visible = false;
+    const zLabel = createTextSprite('Z', '#0000ff', labelSize / 500);
+    zLabel.position.set(0, 0, axesSize + 150);
+    zLabel.visible = false;
+    const originGeometry = new THREE.SphereGeometry(40, 16, 16);
+    const originMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, visible: false });
+    const origin = new THREE.Mesh(originGeometry, originMaterial);
+    axesHelper.add(xAxis, xCone, yAxis, yCone, zAxis, zCone, xLabel, yLabel, zLabel, origin);
+    gridPlaneSystem.add(axesHelper);
+  
+    // BASE PLANE SETUP
+    const planeWidth = 8000;
+    const planeHeight = 8000;
+    const planeGeometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
+    const planeMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0x507062, 
+      side: THREE.DoubleSide,
+      transparent: false,
+      opacity: 1.0
+    });
+    basePlane = new THREE.Mesh(planeGeometry, planeMaterial);
+    basePlane.position.set(
+      basePlaneConfig.position.x,
+      basePlaneConfig.position.y,
+      basePlaneConfig.position.z
+    );
+    basePlane.rotation.set(
+      THREE.MathUtils.degToRad(basePlaneConfig.rotation.x),
+      THREE.MathUtils.degToRad(basePlaneConfig.rotation.y),
+      THREE.MathUtils.degToRad(basePlaneConfig.rotation.z)
+    );
+    basePlane.name = "basePlane";
+    gridPlaneSystem.add(basePlane);
+  
+    // Apply LinearFog to the scene
+    scene.fog = new THREE.Fog(0x87ceeb, 2000, 4000);
+  
+    scene.add(gridPlaneSystem);
+  
+    console.log("Fixed coordinate system created with plane and fog at position:", basePlaneConfig.position, "and rotation:", basePlaneConfig.rotation);
   }
-
-  const gridPlaneSystem = new THREE.Group();
-  window.gridCoordinateSystem = gridPlaneSystem;
-
-  const fixedPosition = new THREE.Vector3(-2704597.993, -4260866.335, 3886911.844);
-  gridPlaneSystem.position.copy(fixedPosition);
-  const fixedQuaternion = new THREE.Quaternion(0.6390, 0.6326, 0.4253, -0.1034);
-  gridPlaneSystem.quaternion.copy(fixedQuaternion);
-
-  // Axes setup (unchanged, remains invisible)
-  const axesSize = 500;
-  const axesHelper = new THREE.Group();
-  axesHelper.visible = false;
-  const xGeometry = new THREE.CylinderGeometry(20, 20, axesSize, 8);
-  const xMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, visible: false });
-  const xAxis = new THREE.Mesh(xGeometry, xMaterial);
-  xAxis.rotation.z = -Math.PI / 2;
-  xAxis.position.x = axesSize / 2;
-  const xConeGeometry = new THREE.ConeGeometry(40, 100, 8);
-  const xCone = new THREE.Mesh(xConeGeometry, xMaterial);
-  xCone.rotation.z = -Math.PI / 2;
-  xCone.position.x = axesSize + 50;
-  const yGeometry = new THREE.CylinderGeometry(20, 20, axesSize, 8);
-  const yMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, visible: false });
-  const yAxis = new THREE.Mesh(yGeometry, yMaterial);
-  yAxis.position.y = axesSize / 2;
-  const yConeGeometry = new THREE.ConeGeometry(40, 100, 8);
-  const yCone = new THREE.Mesh(yConeGeometry, yMaterial);
-  yCone.position.y = axesSize + 50;
-  const zGeometry = new THREE.CylinderGeometry(20, 20, axesSize, 8);
-  const zMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff, visible: false });
-  const zAxis = new THREE.Mesh(zGeometry, zMaterial);
-  zAxis.rotation.x = Math.PI / 2;
-  zAxis.position.z = axesSize / 2;
-  const zConeGeometry = new THREE.ConeGeometry(40, 100, 8);
-  const zCone = new THREE.Mesh(zConeGeometry, zMaterial);
-  zCone.rotation.x = Math.PI / 2;
-  zCone.position.z = axesSize + 50;
-  const labelSize = 100;
-  const xLabel = createTextSprite('X', '#ff0000', labelSize / 500);
-  xLabel.position.set(axesSize + 150, 0, 0);
-  xLabel.visible = false;
-  const yLabel = createTextSprite('Y', '#00ff00', labelSize / 500);
-  yLabel.position.set(0, axesSize + 150, 0);
-  yLabel.visible = false;
-  const zLabel = createTextSprite('Z', '#0000ff', labelSize / 500);
-  zLabel.position.set(0, 0, axesSize + 150);
-  zLabel.visible = false;
-  const originGeometry = new THREE.SphereGeometry(40, 16, 16);
-  const originMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, visible: false });
-  const origin = new THREE.Mesh(originGeometry, originMaterial);
-  axesHelper.add(xAxis, xCone, yAxis, yCone, zAxis, zCone, xLabel, yLabel, zLabel, origin);
-  gridPlaneSystem.add(axesHelper);
-
-  // Base plane (unchanged)
-  const planeGeometry = new THREE.PlaneGeometry(7000, 6000);
-  const planeMaterial = new THREE.MeshBasicMaterial({ 
-    color: 0x507062, 
-    side: THREE.DoubleSide,
-    transparent: false,
-    opacity: 1.0
-  });
-  basePlane = new THREE.Mesh(planeGeometry, planeMaterial);
-  basePlane.position.set(
-    basePlaneConfig.position.x,
-    basePlaneConfig.position.y,
-    basePlaneConfig.position.z
-  );
-  basePlane.rotation.set(
-    THREE.MathUtils.degToRad(basePlaneConfig.rotation.x),
-    THREE.MathUtils.degToRad(basePlaneConfig.rotation.y),
-    THREE.MathUtils.degToRad(basePlaneConfig.rotation.z)
-  );
-  basePlane.name = "basePlane";
-  gridPlaneSystem.add(basePlane);
-
-  // Opaque fog wall material
-  const fogWallMaterial = new THREE.MeshBasicMaterial({
-    color: 0x87ceeb, // Sky color
-    side: THREE.DoubleSide,
-    transparent: false,
-    opacity: 1.0
-  });
-
-  // Wall dimensions
-  const wallHeight = 5000;
-  const planeWidth = 7000;
-  const planeDepth = 6000;
-  const halfWidth = planeWidth / 2;
-  const halfDepth = planeDepth / 2;
-
-  // Create the four fog walls
-  const northWallGeometry = new THREE.PlaneGeometry(planeWidth, wallHeight);
-  const northWall = new THREE.Mesh(northWallGeometry, fogWallMaterial);
-  northWall.position.set(0, halfDepth, -wallHeight / 2);
-  northWall.rotation.set(Math.PI / 2, 0, 0);
-  northWall.name = "northWall";
-
-  const southWallGeometry = new THREE.PlaneGeometry(planeWidth, wallHeight);
-  const southWall = new THREE.Mesh(southWallGeometry, fogWallMaterial);
-  southWall.position.set(0, -halfDepth, -wallHeight / 2);
-  southWall.rotation.set(Math.PI / 2, Math.PI, 0);
-  southWall.name = "southWall";
-
-  const eastWallGeometry = new THREE.PlaneGeometry(planeDepth, wallHeight);
-  const eastWall = new THREE.Mesh(eastWallGeometry, fogWallMaterial);
-  eastWall.position.set(halfWidth, 0, -wallHeight / 2);
-  eastWall.rotation.set(Math.PI / 2, Math.PI / 2, 0);
-  eastWall.name = "eastWall";
-
-  const westWallGeometry = new THREE.PlaneGeometry(planeDepth, wallHeight);
-  const westWall = new THREE.Mesh(westWallGeometry, fogWallMaterial);
-  westWall.position.set(-halfWidth, 0, -wallHeight / 2);
-  westWall.rotation.set(Math.PI / 2, -Math.PI / 2, 0);
-  westWall.name = "westWall";
-
-  // Walls container
-  const wallsContainer = new THREE.Group();
-  wallsContainer.add(northWall, southWall, eastWall, westWall);
-  wallsContainer.position.copy(basePlane.position);
-  wallsContainer.rotation.copy(basePlane.rotation);
-  gridPlaneSystem.add(wallsContainer);
-
-  // Store wall references
-  basePlane.userData.walls = {
-    north: northWall,
-    south: southWall,
-    east: eastWall,
-    west: westWall
-  };
-  basePlane.userData.wallsContainer = wallsContainer;
-
-  scene.add(gridPlaneSystem);
-
-  console.log("Fixed coordinate system created with opaque fog walls at position:", basePlaneConfig.position, "and rotation:", basePlaneConfig.rotation);
-}
-
+  
+  // Assuming createTextSprite and basePlaneConfig are defined elsewhere
 
 // Add a function to update the base plane position and rotation
 export function updateBasePlane(position, rotation) {
@@ -1036,8 +986,6 @@ export function init() {
  env.mapping = THREE.EquirectangularReflectionMapping ;
     env.needsUpdate = true;
  scene.environment = env;
-
- // Remove fog from the scene
  
  renderer = new THREE.WebGLRenderer({ 
         antialias: true,
@@ -1067,7 +1015,6 @@ export function init() {
 setupearthLighting();
 initSpacecraft();
     
-const water = addRealisticOcean();
     
     reinstantiateTiles();
 
@@ -1084,71 +1031,6 @@ const water = addRealisticOcean();
  renderer: renderer, 
         tiles: tiles 
     };
-}
-
-// Add this function to update grid alignment based on spacecraft position
-function updateGridAlignment() {
-  // Function disabled - grid is now hidden
-  return;
-  
-  /* Original code kept for reference
-  if (!spacecraft || !tiles || !tiles.group || !gridHelper) {
-    return;
-  }
-  
-  // Only update the grid position every few seconds for performance
-  if (!updateGridAlignment.lastUpdate || Date.now() - updateGridAlignment.lastUpdate > 5000) {
-    updateGridAlignment.lastUpdate = Date.now();
-    
-    // Find terrain meshes near the spacecraft
-    const terrainMeshes = [];
-    tiles.group.traverse((object) => {
-      if (object.isMesh && object.geometry) {
-        // Check if this mesh is within a reasonable distance of the spacecraft
-        const distance = object.position.distanceTo(spacecraft.position);
-        if (distance < 5000) { // Adjust this threshold as needed
-          terrainMeshes.push(object);
-        }
-      }
-    });
-    
-    if (terrainMeshes.length === 0) {
-      return; // No nearby terrain
-    }
-    
-    // Cast a ray downward from the spacecraft
-    const raycaster = new THREE.Raycaster();
-    const downDirection = new THREE.Vector3(0, -1, 0);
-    raycaster.set(spacecraft.position, downDirection);
-    raycaster.near = 0;
-    raycaster.far = 10000;
-    
-    const intersects = raycaster.intersectObjects(terrainMeshes, false);
-    if (intersects.length > 0) {
-      const hit = intersects[0];
-      
-      // Position the grid at the intersection point
-      gridHelper.position.copy(hit.point);
-      
-      // Align the grid to the terrain normal at this point
-      if (hit.face && hit.face.normal) {
-        const normal = hit.face.normal.clone();
-        normal.transformDirection(hit.object.matrixWorld);
-        
-        // Get the current grid up vector
-        const gridUpVector = new THREE.Vector3(0, 0, 1); // After initial rotation, Z is up
-        
-        // Calculate quaternion to align grid with terrain normal
-        const quaternion = new THREE.Quaternion().setFromUnitVectors(gridUpVector, normal);
-        gridHelper.quaternion.copy(quaternion);
-        
-        // Move the grid slightly above the terrain
-        const offsetDistance = 10;
-        gridHelper.position.add(normal.multiplyScalar(offsetDistance));
-      }
-    }
-  }
-  */
 }
 
 // Remove the call to updateGridAlignment in the update function
@@ -1275,94 +1157,6 @@ function checkBasePlaneCollision() {
     return true;
   }
 
-  // --- Wall Collision (keep spacecraft inside the box) ---
-  if (basePlane.userData.walls) {
-    const { north, south, east, west } = basePlane.userData.walls;
-    const walls = [north, south, east, west];
-    const wallNames = ["north", "south", "east", "west"];
-
-    // Get the plane's local dimensions
-    const planeWidth = 7000;
-    const planeDepth = 6000;
-    const halfWidth = planeWidth / 2;
-    const halfDepth = planeDepth / 2;
-
-    // Convert spacecraft position to local coordinates relative to the plane
-    const localSpacecraftPos = spacecraftWorldPosition.clone().sub(planeWorldPosition).applyQuaternion(planeQuaternion.clone().invert());
-
-    for (let i = 0; i < walls.length; i++) {
-      const wall = walls[i];
-
-      // Get wall's normal in world space (Z-axis of wall's local space)
-      const wallNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(wall.quaternion);
-
-      // Check intersection with the wall
-      const raycasterWall = new THREE.Raycaster();
-      raycasterWall.set(spacecraftWorldPosition, wallNormal.clone().negate()); // Ray toward wall
-      const intersectsToward = raycasterWall.intersectObject(wall);
-
-      raycasterWall.set(spacecraftWorldPosition, wallNormal.clone()); // Ray away from wall
-      const intersectsAway = raycasterWall.intersectObject(wall);
-
-      // Determine push direction based on wall and spacecraft position
-      let pushDirection;
-      let collisionDetected = false;
-
-      if (intersectsToward.length > 0 && intersectsToward[0].distance < wallCollisionThreshold) {
-        // Approaching from the "outside" (e.g., trying to enter)
-        collisionDetected = true;
-        switch (wallNames[i]) {
-          case "north": pushDirection = new THREE.Vector3(0, -1, 0); break;
-          case "south": pushDirection = new THREE.Vector3(0, 1, 0); break;
-          case "east": pushDirection = new THREE.Vector3(-1, 0, 0); break;
-          case "west": pushDirection = new THREE.Vector3(1, 0, 0); break;
-        }
-      } else if (intersectsAway.length > 0 && intersectsAway[0].distance < wallCollisionThreshold) {
-        // Approaching from the "inside" (e.g., trying to exit)
-        collisionDetected = true;
-        switch (wallNames[i]) {
-          case "north": pushDirection = new THREE.Vector3(0, 1, 0); break;  // Push south (inward)
-          case "south": pushDirection = new THREE.Vector3(0, -1, 0); break; // Push north (inward)
-          case "east": pushDirection = new THREE.Vector3(1, 0, 0); break;   // Push west (inward)
-          case "west": pushDirection = new THREE.Vector3(-1, 0, 0); break;  // Push east (inward)
-        }
-      }
-
-      if (collisionDetected) {
-        // Convert push direction to world space
-        pushDirection.applyQuaternion(planeQuaternion);
-        const pushDistance = wallCollisionThreshold - (intersectsToward.length > 0 ? intersectsToward[0].distance : intersectsAway[0].distance);
-        spacecraft.position.add(pushDirection.multiplyScalar(pushDistance));
-        console.log(`Collision detected with ${wallNames[i]} wall, pushing inward`);
-        return true;
-      }
-    }
-  }
-
   return false;
 }
 
-function addRealisticOcean() {
-    const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
-  
-    const water = new Water(waterGeometry, {
-      textureWidth: 512,
-      textureHeight: 512,
-      waterNormals: new THREE.TextureLoader().load(
-        'https://threejs.org/examples/textures/waternormals.jpg',
-        (texture) => {
-          texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-        }
-      ),
-      alpha: 1.0,
-      sunDirection: new THREE.Vector3(0, 1, 0), // Adjusted to match lighting
-      sunColor: 0xffffff,
-      waterColor: 0x001e0f,
-      distortionScale: 3.7,
-      fog: true
-    });
-  
-    water.rotation.x = -Math.PI / 2; // Rotate to lie flat
-  
-    return water;
-}
