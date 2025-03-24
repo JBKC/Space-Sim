@@ -23,7 +23,7 @@ import * as THREE from 'three';
  */
 const config = {
     size: 0.3,             // Increased size for better visibility
-    color: 0x4fc3f7,       // Sci-fi blue color that matches UI
+    color: 0xFF5349,       // Sci-fi blue color that matches UI
     opacity: 1.0,          // Fully opaque
     distance: -500,        // Distance from spacecraft in local Z direction
     yOffset: 0,            // No vertical offset
