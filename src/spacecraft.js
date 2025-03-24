@@ -305,6 +305,22 @@ export function createSpacecraft(scene) {
                 // Add engine glow effects
                 addEngineEffects(xWingModel);
                 
+                // Explicitly set wings to open position after model is loaded
+                if (wings.topLeft && wings.topRight && wings.bottomLeft && wings.bottomRight) {
+                    console.log("Setting initial wing position to OPEN");
+                    // Define the open angle
+                    const openAngle = Math.PI / 16;
+                    
+                    // Set to open position (X shape)
+                    wings.topRight.rotation.y = openAngle;
+                    wings.bottomRight.rotation.y = -openAngle;
+                    wings.topLeft.rotation.y = -openAngle;
+                    wings.bottomLeft.rotation.y = openAngle;
+                    
+                    // Set the animation state to open
+                    animationState = 'open';
+                }
+                
                 resolve(xWingModel);
             },
             (xhr) => {
@@ -774,20 +790,20 @@ export function createSpacecraft(scene) {
             const normalizedPosition = Math.max(0, Math.min(1, position));
             
             // Define the open and closed angles
-            const openAngle = Math.PI / 8;
+            const openAngle = Math.PI / 16;
             const closedAngle = 0;
             
             // Calculate the target angles based on position
-            const rightTopAngle = -openAngle * normalizedPosition;
-            const rightBottomAngle = openAngle * normalizedPosition;
-            const leftTopAngle = Math.PI + (openAngle * normalizedPosition);
-            const leftBottomAngle = Math.PI - (openAngle * normalizedPosition);
+            const topRightAngle = openAngle * normalizedPosition;
+            const bottomRightAngle = -openAngle * normalizedPosition;
+            const topLeftAngle = -openAngle * normalizedPosition;
+            const bottomLeftAngle = openAngle * normalizedPosition;
             
-            // Set the rotations immediately
-            topRight.rotation.z = rightTopAngle;
-            bottomRight.rotation.z = rightBottomAngle;
-            topLeft.rotation.z = leftTopAngle;
-            bottomLeft.rotation.z = leftBottomAngle;
+            // Set the rotations immediately (using Y-axis rotation to match setWingsOpen)
+            topRight.rotation.y = topRightAngle;
+            bottomRight.rotation.y = bottomRightAngle;
+            topLeft.rotation.y = topLeftAngle;
+            bottomLeft.rotation.y = bottomLeftAngle;
             
             // Update animation state if at extremes
             if (normalizedPosition >= 0.99) {

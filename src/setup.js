@@ -224,6 +224,14 @@ function initSpacecraft() {
     // Store a direct reference to the spacecraftComponents
     spacecraft._spacecraftComponents = spacecraftComponents;
 
+    // Make sure wings are open by default (set timeout to ensure model is loaded)
+    setTimeout(() => {
+        if (spacecraft && spacecraft.setWingsOpen) {
+            console.log("Setting wings to OPEN position in setup.js");
+            spacecraft.setWingsOpen(true);
+        }
+    }, 1000); // 1 second delay to ensure model is fully loaded and processed
+
     // Verify reticle creation
     if (spacecraftComponents.reticle) {
         console.log("Reticle was successfully created with spacecraft in setup.js");

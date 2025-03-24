@@ -95,6 +95,31 @@ let prevEarthSurfaceActive = false;
 setupUIElements();
 setupDirectionalIndicator();
 
+// Function to ensure wings are open at startup
+function initializeWingsOpen() {
+    // Check every 500ms for 5 seconds to ensure spacecraft is fully loaded
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    const checkAndSetWings = function() {
+        if (spacecraft && spacecraft.setWingsOpen) {
+            console.log("🔄 STARTUP: Setting wings to OPEN position in main.js");
+            spacecraft.setWingsOpen(true);
+            return true;
+        } else {
+            console.log(`Waiting for spacecraft to initialize (attempt ${attempts+1}/${maxAttempts})`);
+            attempts++;
+            if (attempts < maxAttempts) {
+                setTimeout(checkAndSetWings, 500);
+            }
+            return false;
+        }
+    };
+    
+    // Start the check process
+    setTimeout(checkAndSetWings, 500);
+}
+
 // Keydown event listeners for controls
 document.addEventListener('keydown', (event) => {
     if (event.code === 'Space') {
@@ -227,6 +252,9 @@ function startGame(mode) {
     // Show the controls prompt and initialize dropdown state
     showControlsPrompt();
     updateControlsDropdown(isEarthSurfaceActive);
+
+    // Ensure wings are open at startup
+    initializeWingsOpen();
 
     if (!isAnimating) {
         isAnimating = true;
