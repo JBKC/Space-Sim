@@ -348,7 +348,7 @@ export function createSpacecraft(scene) {
                 
                 // Define contrail materials
                 const normalContrailMaterial = new THREE.MeshBasicMaterial({
-                    color: 0x88aaff,
+                    color: 0xff00ff,
                     transparent: true, 
                     opacity: 0.0, // Start invisible
                     side: THREE.DoubleSide,
@@ -356,7 +356,7 @@ export function createSpacecraft(scene) {
                 });
                 
                 const boostContrailMaterial = new THREE.MeshBasicMaterial({
-                    color: 0xff6a00, // Orange-red for boost
+                    color: 0xFF5349, // Orange-red for boost
                     transparent: true, 
                     opacity: 0.0, // Start invisible
                     side: THREE.DoubleSide,
@@ -545,9 +545,7 @@ export function createSpacecraft(scene) {
     const laserLength = 100;
     const laserThickness = 0.15;
     const laserMaterial = new THREE.MeshBasicMaterial({ color: 0xff4400, transparent: true, opacity: 0.9 });
-    const turretLaserMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.9 }); // Cyan for turret lasers
     const laserGeometry = new THREE.BoxGeometry(laserThickness, laserThickness, laserLength);
-    const turretLaserGeometry = new THREE.BoxGeometry(laserThickness * 0.8, laserThickness * 0.8, laserLength * 1.2); // Thinner, longer turret lasers
 
     let activeLasers = [];
     let isFiring = false;
@@ -579,73 +577,26 @@ export function createSpacecraft(scene) {
         });
     });
 
-    function createLaser(startPosition, direction, isTurretLaser = false) {
-        // Use different geometry and material based on laser type
-        const geometry = isTurretLaser ? turretLaserGeometry : laserGeometry;
-        const material = isTurretLaser ? turretLaserMaterial : laserMaterial;
-        
-        const laser = new THREE.Mesh(geometry, material);
+    function createLaser(startPosition, direction) {
+        const laser = new THREE.Mesh(laserGeometry, laserMaterial);
         laser.position.copy(startPosition);
         laser.lookAt(startPosition.clone().add(direction));
         laser.position.add(direction.clone().multiplyScalar(laserLength / 2));
-        
-        // Add some special properties for turret lasers
-        if (isTurretLaser) {
-            laser.userData = { 
-                direction: direction.clone(), 
-                speed: 2.5, // Slightly faster speed for turret lasers
-                lifetime: 1200, // Longer lifetime
-                startTime: performance.now(),
-                isTurretLaser: true
-            };
-        } else {
-            laser.userData = { 
-                direction: direction.clone(), 
-                speed: 2, 
-                lifetime: 1000, 
-                startTime: performance.now(),
-                isTurretLaser: false
-            };
-        }
-        
+        laser.userData = { direction: direction.clone(), speed: 2, lifetime: 1000, startTime: performance.now() };
         return laser;
     }
 
     function fireLasers() {
         const forward = new THREE.Vector3(0, 0, 1);
         forward.applyQuaternion(spacecraft.quaternion);
-        
-        // Get references to the turrets from the model
-        const turrets = xWingModel?.userData?.exhaustAndTurret || {};
-        const turretKeys = ['turret_LB', 'turret_LT', 'turret_RB', 'turret_RT'];
-        
-        // Only fire from turrets if they're available
-        if (Object.keys(turrets).filter(key => turretKeys.includes(key) && turrets[key]).length >= 4) {
-            // Fire from each turret
-            turretKeys.forEach(key => {
-                if (turrets[key]) {
-                    const turret = turrets[key];
-                    const worldPosition = new THREE.Vector3();
-                    turret.getWorldPosition(worldPosition);
-                    
-                    // Create laser with turret laser flag set to true
-                    const laser = createLaser(worldPosition, forward, true);
-                    scene.add(laser);
-                    activeLasers.push(laser);
-                }
-            });
-        } else {
-            // Fall back to the old wingtip firing if turrets aren't found
-            console.log("Turrets not found, falling back to wingtip firing");
-            wingtipObjects.forEach(obj => {
-                const worldPosition = new THREE.Vector3();
-                obj.getWorldPosition(worldPosition);
-                
-                const laser = createLaser(worldPosition, forward, false);
-                scene.add(laser);
-                activeLasers.push(laser);
-            });
-        }
+        wingtipObjects.forEach(obj => {
+            const worldPosition = new THREE.Vector3();
+            obj.getWorldPosition(worldPosition);
+            
+            const laser = createLaser(worldPosition, forward);
+            scene.add(laser);
+            activeLasers.push(laser);
+        });
     }
 
     function startFiring() {
@@ -663,40 +614,10 @@ export function createSpacecraft(scene) {
         const currentTime = performance.now();
         for (let i = activeLasers.length - 1; i >= 0; i--) {
             const laser = activeLasers[i];
-            
-            // Move the laser forward
             laser.position.add(laser.userData.direction.clone().multiplyScalar(laser.userData.speed));
-            
-            // Check if the laser has exceeded its lifetime
             if (currentTime - laser.userData.startTime > laser.userData.lifetime) {
                 scene.remove(laser);
                 activeLasers.splice(i, 1);
-                continue;
-            }
-            
-            // Special effects for turret lasers
-            if (laser.userData.isTurretLaser) {
-                // Pulse effect for turret lasers
-                const age = currentTime - laser.userData.startTime;
-                const normalizedAge = age / laser.userData.lifetime; // 0 to 1
-                
-                // Pulsing opacity
-                const opacityPulse = 0.1 * Math.sin(age / 50) + 0.9;
-                laser.material.opacity = 0.9 * opacityPulse;
-                
-                // Slight scale pulsing
-                const scalePulse = 0.05 * Math.sin(age / 40) + 1;
-                laser.scale.x = scalePulse;
-                laser.scale.y = scalePulse;
-                
-                // Color shift as it ages (from cyan toward white)
-                if (normalizedAge > 0.7) {
-                    const t = (normalizedAge - 0.7) / 0.3; // 0 to 1 in last 30% of lifetime
-                    const r = 0 + t * 1;  // 0 -> 1
-                    const g = 1; // stays at 1
-                    const b = 1; // stays at 1
-                    laser.material.color.setRGB(r, g, b);
-                }
             }
         }
     }
@@ -944,36 +865,47 @@ export function createSpacecraft(scene) {
         
         updateContrails: function(isBoosting, deltaTime) {
             // Skip if model or contrails aren't loaded
-            const contrails = xWingModel?.userData?.contrails || {};
-            if (!contrails || Object.keys(contrails).length === 0) {
-                return;
+    Object.keys(contrails).forEach(key => {
+        const contrail = contrails[key];
+        const exhaust = exhaustAndTurretObjects[key];
+        
+        // Update position history
+        const currentPosition = new THREE.Vector3();
+        exhaust.getWorldPosition(currentPosition);
+        contrail.positionHistory.push(currentPosition);
+        if (contrail.positionHistory.length > 10) {
+            contrail.positionHistory.shift();
+        }
+        
+        // Set path points from history
+        const points = contrail.positionHistory.slice().reverse(); // Most recent first
+        contrail.path.points = points;
+        
+        // Update geometry with tapering radius
+        const radii = points.map((_, i) => 0.1 - i * 0.01); // Taper from 0.1 to 0
+        const newGeometry = new THREE.TubeGeometry(
+            contrail.path,
+            points.length - 1,
+            radii,
+            8,
+            false
+        );
+        
+        // Update mesh
+        contrail.mesh.geometry.dispose();
+        contrail.mesh.geometry = newGeometry;
+        
+        // Handle material and opacity
+        if (isBoosting) {
+            contrail.mesh.material = contrail.boostMaterial;
+            contrail.mesh.material.opacity = Math.min(0.8, contrail.mesh.material.opacity + 0.1);
+        } else {
+            if (contrail.mesh.material.opacity > 0) {
+                contrail.mesh.material.opacity = Math.max(0, contrail.mesh.material.opacity - 0.1);
             }
-            
-            // Update each contrail separately
-            Object.keys(contrails).forEach(key => {
-                const contrail = contrails[key];
-                if (!contrail || !contrail.mesh) return;
-                
-                if (isBoosting) {
-                    // When boosting, make contrails fully visible with orange-red color
-                    if (contrail.mesh.material !== contrail.boostMaterial) {
-                        contrail.mesh.material = contrail.boostMaterial;
-                    }
-                    contrail.mesh.material.opacity = Math.min(0.8, contrail.mesh.material.opacity + 0.1);
-                    
-                    // Create a subtle pulsing effect 
-                    const time = performance.now() / 1000;
-                    const pulseFactor = 0.2 * Math.sin(time * 5) + 0.9;
-                    contrail.mesh.scale.set(pulseFactor, pulseFactor, 1.5 + pulseFactor * 0.5);
-                } else {
-                    // When not boosting, fade out
-                    if (contrail.mesh.material.opacity > 0) {
-                        contrail.mesh.material.opacity = Math.max(0, contrail.mesh.material.opacity - 0.1);
-                        
-                        // Reset scale when fading out
-                        if (contrail.mesh.material.opacity <= 0) {
-                            contrail.mesh.scale.set(1, 1, 1);
-                        }
+            if (contrail.mesh.material.opacity <= 0) {
+                contrail.mesh.material = contrail.normalMaterial;
+                contrail.mesh.material.opacity = 0;
                     }
                 }
             });

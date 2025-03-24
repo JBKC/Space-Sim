@@ -591,7 +591,7 @@ export function rotateBackgroundSphere(x = 0, y = 0, z = 0) {
 }
 
 function initSpacecraft() {
- const spacecraftComponents = createSpacecraft(scene);
+    const spacecraftComponents = createSpacecraft(scene);
     spacecraft = spacecraftComponents.spacecraft;
     engineGlowMaterial = spacecraftComponents.engineGlowMaterial;
     lightMaterial = spacecraftComponents.lightMaterial;
@@ -602,6 +602,9 @@ function initSpacecraft() {
     
     // Expose the toggleView function for cockpit view
     spacecraft.toggleView = spacecraftComponents.toggleView;
+    
+    // Add the setWingsOpen function for boost wing animation
+    spacecraft.setWingsOpen = spacecraftComponents.setWingsOpen;
     
     // Store the isFirstPersonView state for camera logic
     spacecraft.isFirstPersonView = function() {
@@ -956,7 +959,15 @@ export function updateMovement() {
     // Check for isHyperspace in the global window object as a fallback
     const isInHyperspace = window.isHyperspace || false;
     
-    if ((keys.up || isInHyperspace) && wingsOpen) {
+    // Use the proper setWingsOpen method instead of manual animation
+    if (spacecraft && spacecraft.setWingsOpen) {
+        const shouldWingsBeOpen = !keys.up && !isInHyperspace;
+        
+        // The setWingsOpen function has smooth animations built-in
+        spacecraft.setWingsOpen(shouldWingsBeOpen);
+    } 
+    // Fallback to manual animation if setWingsOpen is not available
+    else if ((keys.up || isInHyperspace) && wingsOpen) {
         console.log(`Washington: Closing wings due to ${isInHyperspace ? 'hyperspace' : 'boost'} mode`);
         wingsOpen = false;
         wingAnimation = wingTransitionFrames;
