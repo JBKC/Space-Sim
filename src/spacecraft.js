@@ -545,7 +545,9 @@ export function createSpacecraft(scene) {
     const laserLength = 100;
     const laserThickness = 0.15;
     const laserMaterial = new THREE.MeshBasicMaterial({ color: 0xff4400, transparent: true, opacity: 0.9 });
+    const turretLaserMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.9 }); // Cyan for turret lasers
     const laserGeometry = new THREE.BoxGeometry(laserThickness, laserThickness, laserLength);
+    const turretLaserGeometry = new THREE.BoxGeometry(laserThickness * 0.8, laserThickness * 0.8, laserLength * 1.2); // Thinner, longer turret lasers
 
     let activeLasers = [];
     let isFiring = false;
@@ -577,26 +579,73 @@ export function createSpacecraft(scene) {
         });
     });
 
-    function createLaser(startPosition, direction) {
-        const laser = new THREE.Mesh(laserGeometry, laserMaterial);
+    function createLaser(startPosition, direction, isTurretLaser = false) {
+        // Use different geometry and material based on laser type
+        const geometry = isTurretLaser ? turretLaserGeometry : laserGeometry;
+        const material = isTurretLaser ? turretLaserMaterial : laserMaterial;
+        
+        const laser = new THREE.Mesh(geometry, material);
         laser.position.copy(startPosition);
         laser.lookAt(startPosition.clone().add(direction));
         laser.position.add(direction.clone().multiplyScalar(laserLength / 2));
-        laser.userData = { direction: direction.clone(), speed: 2, lifetime: 1000, startTime: performance.now() };
+        
+        // Add some special properties for turret lasers
+        if (isTurretLaser) {
+            laser.userData = { 
+                direction: direction.clone(), 
+                speed: 2.5, // Slightly faster speed for turret lasers
+                lifetime: 1200, // Longer lifetime
+                startTime: performance.now(),
+                isTurretLaser: true
+            };
+        } else {
+            laser.userData = { 
+                direction: direction.clone(), 
+                speed: 2, 
+                lifetime: 1000, 
+                startTime: performance.now(),
+                isTurretLaser: false
+            };
+        }
+        
         return laser;
     }
 
     function fireLasers() {
         const forward = new THREE.Vector3(0, 0, 1);
         forward.applyQuaternion(spacecraft.quaternion);
-        wingtipObjects.forEach(obj => {
-            const worldPosition = new THREE.Vector3();
-            obj.getWorldPosition(worldPosition);
-            
-            const laser = createLaser(worldPosition, forward);
-            scene.add(laser);
-            activeLasers.push(laser);
-        });
+        
+        // Get references to the turrets from the model
+        const turrets = xWingModel?.userData?.exhaustAndTurret || {};
+        const turretKeys = ['turret_LB', 'turret_LT', 'turret_RB', 'turret_RT'];
+        
+        // Only fire from turrets if they're available
+        if (Object.keys(turrets).filter(key => turretKeys.includes(key) && turrets[key]).length >= 4) {
+            // Fire from each turret
+            turretKeys.forEach(key => {
+                if (turrets[key]) {
+                    const turret = turrets[key];
+                    const worldPosition = new THREE.Vector3();
+                    turret.getWorldPosition(worldPosition);
+                    
+                    // Create laser with turret laser flag set to true
+                    const laser = createLaser(worldPosition, forward, true);
+                    scene.add(laser);
+                    activeLasers.push(laser);
+                }
+            });
+        } else {
+            // Fall back to the old wingtip firing if turrets aren't found
+            console.log("Turrets not found, falling back to wingtip firing");
+            wingtipObjects.forEach(obj => {
+                const worldPosition = new THREE.Vector3();
+                obj.getWorldPosition(worldPosition);
+                
+                const laser = createLaser(worldPosition, forward, false);
+                scene.add(laser);
+                activeLasers.push(laser);
+            });
+        }
     }
 
     function startFiring() {
@@ -614,10 +663,40 @@ export function createSpacecraft(scene) {
         const currentTime = performance.now();
         for (let i = activeLasers.length - 1; i >= 0; i--) {
             const laser = activeLasers[i];
+            
+            // Move the laser forward
             laser.position.add(laser.userData.direction.clone().multiplyScalar(laser.userData.speed));
+            
+            // Check if the laser has exceeded its lifetime
             if (currentTime - laser.userData.startTime > laser.userData.lifetime) {
                 scene.remove(laser);
                 activeLasers.splice(i, 1);
+                continue;
+            }
+            
+            // Special effects for turret lasers
+            if (laser.userData.isTurretLaser) {
+                // Pulse effect for turret lasers
+                const age = currentTime - laser.userData.startTime;
+                const normalizedAge = age / laser.userData.lifetime; // 0 to 1
+                
+                // Pulsing opacity
+                const opacityPulse = 0.1 * Math.sin(age / 50) + 0.9;
+                laser.material.opacity = 0.9 * opacityPulse;
+                
+                // Slight scale pulsing
+                const scalePulse = 0.05 * Math.sin(age / 40) + 1;
+                laser.scale.x = scalePulse;
+                laser.scale.y = scalePulse;
+                
+                // Color shift as it ages (from cyan toward white)
+                if (normalizedAge > 0.7) {
+                    const t = (normalizedAge - 0.7) / 0.3; // 0 to 1 in last 30% of lifetime
+                    const r = 0 + t * 1;  // 0 -> 1
+                    const g = 1; // stays at 1
+                    const b = 1; // stays at 1
+                    laser.material.color.setRGB(r, g, b);
+                }
             }
         }
     }
