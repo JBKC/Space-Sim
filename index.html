@@ -17,19 +17,6 @@
     <style>
         body { margin: 0; overflow: hidden; }
         #space-container { width: 100vw; height: 100vh; }
-        #earth-transition {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #87ceeb;
-            z-index: 9990;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.5s ease-in-out;
-            display: none;
-        }
         #welcome-screen {
             position: absolute;
             top: 0;
@@ -253,6 +240,32 @@
             font-size: 14px;
             margin: 6px 0;
             letter-spacing: 1px;
+        }
+        #earth-transition {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #87ceeb;
+            z-index: 9990;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            display: none;
+        }
+        #moon-transition {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000000;
+            z-index: 9990;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            display: none;
         }
     </style>
 </head>
