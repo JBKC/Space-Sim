@@ -1,6 +1,6 @@
 // coordinateUtils.js - Utilities for mapping between geographic coordinates and 3D plane coordinates
 
-import * as THREE from 'three';
+import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.module.js';
 
 // New York center coordinates
 export const LONDON_CENTER = { lat: 40.7128, lng: -74.0060 };
