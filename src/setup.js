@@ -355,17 +355,19 @@ scene.add(sideLight);
 scene.background = new THREE.Color(0x000000);
 
 // Flag to track which scene is active
-// export let isMoonSurfaceActive = false; // Moon surface access disabled
+export let isMoonSurfaceActive = false;
 
-// Render function that delegates to earth3D.js when in Earth surface mode
+// Render function that delegates to each surface scene
 // Update the renderScene function to avoid initializing earth3D multiple times
 export function renderScene() {
-    /* Moon surface access disabled
     if (isMoonSurfaceActive) {
         // nothing to do here
         console.log("Moon surface active, deferring rendering");
-    } else 
-    */
+    } else {
+        // Render space scene
+        renderer.render(scene, camera);
+    }
+    
     if (isEarthSurfaceActive) {
         // nothing to do here
         console.log("Earth surface active, deferring rendering");
@@ -607,7 +609,6 @@ export function checkPlanetProximity() {
     // Define entry threshold directly in this function
     const moonEntryThreshold = 500; // Distance threshold for Moon entry
     
-    /* Moon surface access disabled
     if (distanceToMoon < moonRadius + moonEntryThreshold && !isMoonSurfaceActive) {
         // If close enough - activate moon surface
         isMoonSurfaceActive = true;
@@ -621,7 +622,6 @@ export function checkPlanetProximity() {
         isMoonSurfaceActive = false;
         console.log("Exiting Moon surface - distance:", distanceToMoon.toFixed(2));
     }
-    */
     
     // Check Earth proximity (separate check)
     const earthPosition = earthGroup.position.clone();
@@ -727,7 +727,6 @@ export function exitEarthSurface() {
     }
 }
 
-/* Moon surface access disabled
 export function exitMoonSurface() {
     console.log("Exiting Moon's surface!");
     isMoonSurfaceActive = false;
@@ -783,7 +782,7 @@ export function exitMoonSurface() {
         console.warn('animate function not found on window object');
     }
 }
-*/
+
 
 ///////////////////// Solar System Setup /////////////////////
 

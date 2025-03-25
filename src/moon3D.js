@@ -127,7 +127,7 @@ const playerSunConfig = {
         lon: 23.4733,
         height: 50000  // Very high altitude for sun
     },
-    intensity: 20,     
+    intensity: 10,     
     color: 0xffffff,
     fixedPosition: true,  // Whether the sun stays in a fixed position or follows the player
     targetOffset: {
@@ -1224,12 +1224,12 @@ function createReferenceSphere() {
   // Load Earth texture from skybox folder
   const earthTexture = textureLoader.load('./skybox/2k_earth_daymap.jpg', (texture) => {
     // Apply a simple blur effect to the texture to simulate atmosphere
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
+    // texture.minFilter = THREE.LinearFilter;
+    // texture.magFilter = THREE.LinearFilter;
     
-    // This line is the key for the blurring effect - reducing anisotropy 
-    // creates a softening/blurring effect on the texture
-    texture.anisotropy = 1; // Minimum anisotropy for a blurred look
+    // // This line is the key for the blurring effect - reducing anisotropy 
+    // // creates a softening/blurring effect on the texture
+    // texture.anisotropy = 1; // Minimum anisotropy for a blurred look
     
     if (referenceSphere && referenceSphere.material) {
       referenceSphere.material.needsUpdate = true;
