@@ -14,6 +14,8 @@ import {
     updateCameraOffsets, 
     createForwardRotation, 
 } from './camera.js';
+// Import Cesium rate limiting utilities
+import { configureCesiumRequestScheduler, optimizeTerrainLoading } from './cesiumRateLimit.js';
 
 let camera, scene, renderer, tiles, cameraTarget;
 let earthInitialized = false;
@@ -146,7 +148,7 @@ if (typeof process !== 'undefined' && process.versions && process.versions.node)
     dotenv.config();
 }
 
-// Pull API key from environment variables or localStorage
+// Pull CESIUM API key from environment variables or localStorage
 let apiKey = localStorage.getItem('ionApiKey') || process.env.CESIUM_ACCESS_TOKEN || 'YOUR_CESIUM_TOKEN_HERE';
 
 // Fallback for local development if no .env variable is found
@@ -745,6 +747,24 @@ function setupTiles() {
         dracoLoader: new DRACOLoader().setDecoderPath('./draco/')
     }));
     
+    // Configure Cesium's request scheduler for optimal tile loading performance
+    const requestController = configureCesiumRequestScheduler({
+        maximumRequestsPerServer: 8,  // Limit concurrent requests to prevent server overload
+        throttleRequestsByServer: true,
+        perServerRequestLimit: 12,     // Additional limit for newer Cesium versions
+        requestQueueSize: 100          // Size of the request queue
+    });
+    
+    // Store the controller for potential later use
+    tiles.userData = tiles.userData || {};
+    tiles.userData.requestController = requestController;
+    
+    // Log the current status of the request scheduler
+    console.log('Cesium RequestScheduler configured:', requestController.getStatus());
+    
+    // Temporarily boost tile request limits during initial load
+    requestController.temporaryBoost(8000); // 8-second boost for initial loading
+    
     tiles.onLoadModel = (model) => {
         model.traverse((node) => {
             if (node.isMesh) {
@@ -762,10 +782,10 @@ function setupTiles() {
                 }
             }
         });
- console.log("Loaded San Francisco model with shadow settings");
- };
- 
- scene.add(tiles.group);
+        console.log("Loaded San Francisco model with shadow settings");
+    };
+    
+    scene.add(tiles.group);
 }
 
 // Add a new function to create fixed coordinate system - values found empirically / trial and error

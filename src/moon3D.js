@@ -15,6 +15,7 @@ import {
     createForwardRotation, 
     rotationBetweenDirections 
 } from './camera.js';
+import { configureCesiumRequestScheduler, optimizeTerrainLoading } from './cesiumRateLimit.js';
 
 let camera, scene, renderer, tiles, cameraTarget;
 let moonInitialized = false;
@@ -410,6 +411,24 @@ function setupTiles() {
         dracoLoader: new DRACOLoader().setDecoderPath('./draco/')
     }));
     
+    // Configure Cesium's request scheduler for optimal tile loading performance
+    const requestController = configureCesiumRequestScheduler({
+        maximumRequestsPerServer: 5,  // Lower limit for moon surface to prioritize quality over speed
+        throttleRequestsByServer: true,
+        perServerRequestLimit: 8,     // Additional limit for newer Cesium versions
+        requestQueueSize: 80          // Smaller queue for moon surface to manage memory better
+    });
+    
+    // Store the controller for potential later use
+    tiles.userData = tiles.userData || {};
+    tiles.userData.requestController = requestController;
+    
+    // Log the current status of the request scheduler
+    console.log('Cesium RequestScheduler configured for Moon surface:', requestController.getStatus());
+    
+    // Temporarily boost tile request limits during initial load
+    requestController.temporaryBoost(6000); // 6-second boost for initial loading
+    
     // Make tiles receive shadows with improved configuration
     tiles.onLoadModel = (model) => {
         model.traverse((node) => {
@@ -606,48 +625,37 @@ export function update(deltaTime = 0.016) {
         // Update all active lasers
         updateLasers(deltaTime);
         
-        // Update reticle with both boost and slow states
-        if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
-            spacecraft.userData.updateReticle(keys.up, keys.down);
-        } else {
-            // Only log this warning once to avoid console spam
-            if (!window.reticleWarningLogged && DEBUG) {
-                console.warn("Reticle update function not found on spacecraft userData", spacecraft);
-                window.reticleWarningLogged = true;
-            }
+        // Update moon lighting system
+        updateMoonLighting();
+        
+        // Check for good camera state
+        if (!camera) {
+            console.warn("Camera not initialized");
+            return false;
         }
+        
+        // Apply terrain optimization if needed based on performance
+        if (camera.userData && camera.userData.performanceMetrics && 
+           camera.userData.performanceMetrics.fps < 30 && 
+           tiles.userData && tiles.userData.terrainController) {
+            // If framerate drops below threshold, reduce terrain detail temporarily
+            tiles.userData.terrainController.decreaseDetail();
+        }
+        
+        // Update tiles with camera information
+        tiles.setCamera(camera);
+        tiles.setResolutionFromRenderer(camera, renderer);
+        camera.updateMatrixWorld();
+        tiles.update();
         
         // Update cockpit elements if in first-person view
         if (spacecraft && spacecraft.updateCockpit) {
             spacecraft.updateCockpit(deltaTime);
         }
         
-        // Ensure tiles receive shadows
-        if (tiles.group) {
-            tiles.group.traverse((node) => {
-                if (node.isMesh && node.receiveShadow === undefined) {
-                    node.receiveShadow = true;
-                }
-            });
-        }
-        
-        // Update lighting relative to spacecraft
-        updateMoonLighting();
-
-        if (!camera) {
-            if (DEBUG) console.warn("Moon camera not initialized");
-            return false;
-        }
-
-        tiles.setCamera(camera);
-        tiles.setResolutionFromRenderer(camera, renderer);
-
-        camera.updateMatrixWorld();
-        tiles.update();
-        
         return true;
     } catch (error) {
-        console.error("Error in moon3D update:", error);
+        console.error("Error in Moon3D update:", error);
         return false;
     }
 }

@@ -16,6 +16,8 @@ import {
     createForwardRotation,
     cinematicEffects
 } from './camera.js';
+// Import Cesium rate limiting utilities
+import { configureCesiumRequestScheduler, optimizeTerrainLoading } from './cesiumRateLimit.js';
 
 let camera, scene, renderer, tiles, cameraTarget;
 let washingtonInitialized = false;
@@ -1173,6 +1175,24 @@ function setupTiles() {
         dracoLoader: new DRACOLoader().setDecoderPath('./draco/')
     }));
     
+    // Configure Cesium's request scheduler for optimal tile loading performance
+    const requestController = configureCesiumRequestScheduler({
+        maximumRequestsPerServer: 6,  // Slightly lower limit for Washington DC's more detailed tileset
+        throttleRequestsByServer: true,
+        perServerRequestLimit: 10,     // Additional limit for newer Cesium versions
+        requestQueueSize: 120          // Increased queue size for Washington DC's complex tileset
+    });
+    
+    // Store the controller for potential later use
+    tiles.userData = tiles.userData || {};
+    tiles.userData.requestController = requestController;
+    
+    // Log the current status of the request scheduler
+    console.log('Cesium RequestScheduler configured for Washington DC:', requestController.getStatus());
+    
+    // Temporarily boost tile request limits during initial load
+    requestController.temporaryBoost(10000); // 10-second boost for initial loading of DC's complex tileset
+    
     tiles.onLoadModel = (model) => {
         model.traverse((node) => {
             if (node.isMesh) {
@@ -1529,7 +1549,6 @@ export function init() {
     
     reinstantiateTiles();
 
-
     onWindowResize();
     window.addEventListener('resize', onWindowResize, false);
     initControls();
@@ -1595,6 +1614,14 @@ export function update(deltaTime = 0.016) {
         if (!camera) {
             console.warn("Camera not initialized");
             return false;
+        }
+
+        // Apply terrain optimization if needed based on performance
+        if (camera.userData && camera.userData.performanceMetrics && 
+           camera.userData.performanceMetrics.fps < 25 && 
+           tiles.userData && tiles.userData.terrainController) {
+            // If framerate drops below threshold, reduce terrain detail temporarily
+            tiles.userData.terrainController.decreaseDetail();
         }
 
         tiles.setCamera(camera);
