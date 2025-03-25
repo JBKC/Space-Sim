@@ -47,25 +47,25 @@ export const washingtonCamera = {
 export const washingtonCockpitCamera = {
     base: new THREE.Vector3(0, 0, 44.9),       // Inside cockpit, looking forward
     boost: new THREE.Vector3(0, 0, 224.7),       // Slightly downward tilt when boosting
-    slow: new THREE.Vector3(0, 0, 22.5),         // Slightly upward tilt when slow
+    slow: new THREE.Vector3(0, 0, 22.5),         // Slightly upward tilt when slows
     collision: new THREE.Vector3(0, 2, 200),      // Pulled back during collision
 };
 
 
-// Space view camera offsets
+// moon camera offsets
 export const moonCamera = {
-    base: new THREE.Vector3(0, 2, 30),         // Normal camera position (behind spacecraft)
-    boost: new THREE.Vector3(0, 2, 200),        // Further back during boost
-    slow: new THREE.Vector3(0, 2, 12),       // Closer camera during slow mode
-    hyperspace: new THREE.Vector3(0, 2, 2245),   // Extreme distance during hyperspace
+    base: new THREE.Vector3(0, 2, 165),
+    boost: new THREE.Vector3(0, 2, 875),
+    slow: new THREE.Vector3(0, 2, 80),
+    collision: new THREE.Vector3(0, 2, 100),
 };
 
-// cockpit moon offsets
+// moon cockpit camera offsets
 export const moonCockpitCamera = {
-    base: new THREE.Vector3(0, 0, 40),         // Inside cockpit, looking forward (45 is the exact center of the cockpit with scale (1,1,1)
-    boost: new THREE.Vector3(0, 0, 250),        // Slight downward tilt when boosting
-    slow: new THREE.Vector3(0, 0, 20),         // Slight upward tilt when slow
-    hyperspace: new THREE.Vector3(0, 0, 2250),   // Closer to the front during hyperspace
+    base: new THREE.Vector3(0, 0, 200),       // Inside cockpit, looking forward
+    boost: new THREE.Vector3(0, 0, 1000),       // Slightly downward tilt when boosting
+    slow: new THREE.Vector3(0, 0, 100),         // Slightly upward tilt when slow
+    collision: new THREE.Vector3(0, 2, 200),      // Pulled back during collision
 };
 
 

@@ -64,7 +64,7 @@ let wingAnimation = 0;
 const wingTransitionFrames = 30;
 
 // Movement settings
-export const baseSpeed = 5;
+export const baseSpeed = 20;
 export const boostSpeed = baseSpeed * 5;
 export const slowSpeed = baseSpeed * 0.5; // Half of base speed for slow mode
 let currentSpeed = baseSpeed;
@@ -397,18 +397,25 @@ function latLonToCartesian(lat, lon, height) {
     return new THREE.Vector3(x, y, z);
 }
 
-// Convert lat/lon/height to ECEF coordinates for Earth
+// Convert lat/lon/height to ECEF coordinates for Moon's surface instead of Earth
+// THIS CONVERTS THE EARTH'S CAMERA MOVEMENT TO THE MOON'S SURFACE
 function latLonHeightToEcef(lat, lon, height) {
-    const a = 6378137.0; // WGS84 semi-major axis in meters
-    const f = 1 / 298.257223563; // WGS84 flattening
-    const e2 = f * (2 - f);
+    // Moon-specific parameters - Moon has a more spherical shape than Earth
+    const moonRadius = 1737400.0; // Moon radius in meters (vs Earth's 6378137.0)
+    // Moon has negligible flattening compared to Earth, so we use a more spherical model
+    const moonFlattening = 0.0012; // Much less flattened than Earth's 1/298.257223563
+    
+    const e2 = moonFlattening * (2 - moonFlattening);
     const latRad = THREE.MathUtils.degToRad(lat);
     const lonRad = THREE.MathUtils.degToRad(lon);
-    const N = a / Math.sqrt(1 - e2 * Math.sin(latRad) ** 2);
+    
+    // For Moon, use simpler spherical model with slight adjustments for its small ellipticity
+    const N = moonRadius / Math.sqrt(1 - e2 * Math.sin(latRad) ** 2);
     const x = (N + height) * Math.cos(latRad) * Math.cos(lonRad);
     const y = (N + height) * Math.cos(latRad) * Math.sin(lonRad);
     const z = (N * (1 - e2) + height) * Math.sin(latRad);
-        return new THREE.Vector3(x, y, z);
+    
+    return new THREE.Vector3(x, y, z);
 }
 
 function checkCollisionInDirection(direction, terrainMeshes) {
@@ -693,6 +700,18 @@ export function updateCamera() {
         return;
     }
 
+    // IMPORTANT: Ensure matrix is updated before using it for camera calculations
+    spacecraft.updateMatrixWorld(true);
+
+    // Add debug logging to help diagnose camera issues
+    if (window.debugCamera) {
+        console.log("Moon Camera Debug:", {
+            spacecraftPosition: spacecraft.position.clone(),
+            spacecraftQuaternion: spacecraft.quaternion.clone(),
+            spacecraftMatrix: spacecraft.matrixWorld.clone()
+        });
+    }
+
     // Check if we're in first-person view
     const isFirstPerson = spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? spacecraft.isFirstPersonView() : false;
 
@@ -716,6 +735,16 @@ export function updateCamera() {
     }
     
     const cameraPosition = localOffset.applyMatrix4(spacecraft.matrixWorld);
+    
+    // Debug the calculated camera position if enabled
+    if (window.debugCamera) {
+        console.log("Moon Camera Position Calculation:", {
+            localOffset: localOffset.clone(),
+            calculatedCameraPosition: cameraPosition.clone(),
+            currentCameraPosition: camera.position.clone(),
+            smoothFactor: smoothFactor
+        });
+    }
 
     camera.position.lerp(cameraPosition, smoothFactor);
     camera.quaternion.copy(spacecraft.quaternion);
@@ -1000,7 +1029,15 @@ export function update(deltaTime = 0.016) {
             return false;
         }
 
+        // Update spacecraft movement first
         updateMovement();
+        
+        // CRITICAL: Update spacecraft matrix world before camera calculations
+        if (spacecraft) {
+            spacecraft.updateMatrixWorld(true);
+        }
+        
+        // Now update camera with updated spacecraft matrix
         updateCamera();
         
         // Handle laser firing with spacebar
@@ -1049,9 +1086,11 @@ export function update(deltaTime = 0.016) {
             tiles.userData.terrainController.decreaseDetail();
         }
 
+        // Ensure camera matrices are updated before tile updates
+        camera.updateMatrixWorld(true);
+        
         tiles.setCamera(camera);
         tiles.setResolutionFromRenderer(camera, renderer);
-        camera.updateMatrixWorld();
         tiles.update();
         
         // Update cockpit elements if in first-person view
