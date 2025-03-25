@@ -31,6 +31,6 @@
   },
   "description": "The Metaverse of the Universe. In your Browser.",
   "devDependencies": {
-    "vite": "^6.2.2"
+    "vite": "^6.2.3"
   }
 }
