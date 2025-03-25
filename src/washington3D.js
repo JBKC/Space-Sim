@@ -65,7 +65,7 @@ const boostSpeed = baseSpeed * 5;
 const slowSpeed = baseSpeed * 0.5; // Half of base speed
 let currentSpeed = baseSpeed;
 
-// Turn speed variables for Washington DC environment
+// Turn speed variables for Washington mountains environment
 const baseTurnSpeed = 0.03;     // Regular turn speed
 const slowTurnSpeed = 0.03;     // More sensitive turning when moving slowly (urban precision)
 const boostTurnSpeed = 0.025;   // Much less sensitive turning when boosting (stability at high speed)
@@ -177,9 +177,9 @@ if (!apiKey) {
   }
 }
 
-// Parameters for Washington DC 3D tileset
+// Parameters for Washington mountains 3D tileset
 const params = {
-    ionAssetId: '57590', // Washington DC tileset ID
+    ionAssetId: '57590', // Washington mountains tileset ID
     ionAccessToken: apiKey,
     reload: reinstantiateTiles,
 };
@@ -664,7 +664,7 @@ function initSpacecraft() {
 }
 
 /**
- * Resets the spacecraft to its initial position over Washington DC
+ * Resets the spacecraft to its initial position over Washington mountains
  */
 export function resetPosition() {
     if (!spacecraft) {
@@ -1166,10 +1166,10 @@ function setupTiles() {
     
     // Configure Cesium's request scheduler for optimal tile loading performance
     const requestController = configureCesiumRequestScheduler({
-        maximumRequestsPerServer: 6,  // Slightly lower limit for Washington DC's more detailed tileset
+        maximumRequestsPerServer: 6,  // Slightly lower limit for Washington mountains's more detailed tileset
         throttleRequestsByServer: true,
         perServerRequestLimit: 10,     // Additional limit for newer Cesium versions
-        requestQueueSize: 120          // Increased queue size for Washington DC's complex tileset
+        requestQueueSize: 120          // Increased queue size for Washington mountains's complex tileset
     });
     
     // Store the controller for potential later use
@@ -1177,7 +1177,7 @@ function setupTiles() {
     tiles.userData.requestController = requestController;
     
     // Log the current status of the request scheduler
-    console.log('Cesium RequestScheduler configured for Washington DC:', requestController.getStatus());
+    console.log('Cesium RequestScheduler configured for Washington mountains:', requestController.getStatus());
     
     // Temporarily boost tile request limits during initial load
     requestController.temporaryBoost(10000); // 10-second boost for initial loading of DC's complex tileset
@@ -1199,7 +1199,7 @@ function setupTiles() {
                 }
             }
         });
-        console.log("Loaded Washington DC model with shadow settings");
+        console.log("Loaded Washington mountains model with shadow settings");
     };
     
     scene.add(tiles.group);
@@ -1216,7 +1216,7 @@ function createBasePlane() {
     const gridPlaneSystem = new THREE.Group();
     window.gridCoordinateSystem = gridPlaneSystem;
   
-    // Adjusted for Washington DC
+    // Adjusted for Washington mountains
     const fixedPosition = new THREE.Vector3(-1282726.44, -4870561.48, 3855700.32);
     gridPlaneSystem.position.copy(fixedPosition);
     const fixedQuaternion = new THREE.Quaternion(0.6390, 0.6326, 0.4253, -0.1034);
@@ -1354,9 +1354,9 @@ function reinstantiateTiles() {
     tiles.addEventListener('load-tile-set', () => {
         const sphere = new THREE.Sphere();
         tiles.getBoundingSphere(sphere);
-        console.log('Washington DC bounding sphere center:', sphere.center);
-        console.log('Washington DC bounding sphere radius:', sphere.radius);
-        console.log('Washington DC tileset loaded successfully');
+        console.log('Washington mountains bounding sphere center:', sphere.center);
+        console.log('Washington mountains bounding sphere radius:', sphere.radius);
+        console.log('Washington mountains tileset loaded successfully');
         
         // Call alignGridToTerrain immediately without timeout
         alignGridToTerrain();
@@ -1496,7 +1496,7 @@ function setupWashingtonLighting() {
 }
 
 export function init() {
-    console.log("Washington DC 3D initialization started");
+    console.log("Washington mountains 3D initialization started");
  
     if (washingtonInitialized) {
         console.log("Already initialized, skipping");
@@ -1543,7 +1543,7 @@ export function init() {
     initControls();
 
     washingtonInitialized = true;
-    console.log("Washington DC 3D initialization complete");
+    console.log("Washington mountains 3D initialization complete");
     
     return { 
         scene: scene, 
