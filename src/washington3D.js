@@ -3,8 +3,6 @@ import { TilesRenderer } from '/node_modules/3d-tiles-renderer/src/three/TilesRe
 import { CesiumIonAuthPlugin } from '/node_modules/3d-tiles-renderer/src/plugins/three/CesiumIonAuthPlugin.js';
 import { GLTFExtensionsPlugin } from '/node_modules/3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js';
 import { DRACOLoader } from '/node_modules/three/examples/jsm/loaders/DRACOLoader.js';
-import { GLTFLoader } from '/node_modules/three/examples/jsm/loaders/GLTFLoader.js';
-import { Water } from '/node_modules/three/examples/jsm/objects/Water.js'; // Correct import for ocean
 import { createSpacecraft } from './spacecraft.js';
 import { fireLaser, updateLasers } from './laser.js';
 import { 
@@ -14,7 +12,6 @@ import {
     updateTargetOffsets,
     updateCameraOffsets,
     createForwardRotation,
-    cinematicEffects
 } from './camera.js';
 // Import Cesium rate limiting utilities
 import { configureCesiumRequestScheduler, optimizeTerrainLoading } from './cesiumRateLimit.js';
@@ -669,7 +666,7 @@ function initSpacecraft() {
 /**
  * Resets the spacecraft to its initial position over Washington DC
  */
-export function resetWashingtonPosition() {
+export function resetPosition() {
     if (!spacecraft) {
         console.warn("Cannot reset position: spacecraft not initialized");
         return;
@@ -700,14 +697,6 @@ export function resetWashingtonPosition() {
     // Create a new planet at the reset position
     planet = createPlanet(scene, spacecraft.position.clone(), spacecraft.quaternion.clone());
     console.log("Recreated planet after position reset");
-}
-
-/**
- * Generic reset position function - calls the Washington-specific function
- * This allows for consistent naming across different scene files
- */
-export function resetPosition() {
-    resetWashingtonPosition();
 }
 
 // Helper function to create text sprites
