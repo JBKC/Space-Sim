@@ -73,7 +73,30 @@ const rotation = {
     rollAxis: new THREE.Vector3(0, 0, 1)
 };
 
-const apiKey = localStorage.getItem('ionApiKey') ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5NmY0YmQ5ZC01YjAzLTRlMjgtODNjNi03ODk0YzMzMzIwMjUiLCJpZCI6Mjg0MDk5LCJpYXQiOjE3NDE5MDA4MTV9.UBJTgisQzO6DOlzjlDbP2LC7QX4oclluTwzqhDUSWF0';
+
+// Load environment variables
+if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+    const dotenv = await import('dotenv');
+    dotenv.config();
+}
+
+// Pull CESIUM API key from environment variables or localStorage
+let apiKey = localStorage.getItem('ionApiKey') || process.env.CESIUM_ACCESS_TOKEN || 'YOUR_CESIUM_TOKEN_HERE';
+
+// Fallback for local development if no .env variable is found
+if (!apiKey) {
+    if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+        const fs = await import('fs/promises');
+        try {
+            const configData = await fs.readFile('./config.json', 'utf8');
+            const config = JSON.parse(configData);
+            apiKey = config.cesiumAccessToken || apiKey;
+        } catch (error) {
+            console.warn('Failed to load config.json, using localStorage or default token:', error);
+        }
+    }
+}
+
 
 const params = {
     ionAssetId: '2684829',

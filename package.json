@@ -24,7 +24,9 @@
   "dependencies": {
     "@cesium/engine": "^15.0.0",
     "3d-tiles-renderer": "^0.4.7",
+    "bottleneck": "^2.19.5",
     "cesium": "^1.127.0",
+    "dotenv": "^16.4.7",
     "three": "^0.170.0"
   },
   "description": "The Metaverse of the Universe. In your Browser.",

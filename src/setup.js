@@ -3,6 +3,7 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/thr
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { updateMovement, keys } from './movement.js';
 import { createSpacecraft } from './spacecraft.js';
+import { createReticle } from './reticle.js';
 import { fireLaser, updateLasers } from './laser.js';
 import { updateControlsDropdown } from './ui.js';
 import { 
@@ -676,6 +677,17 @@ export function exitEarthSurface() {
     
     // Reset spacecraft rotation to look toward the center of the solar system
     spacecraft.lookAt(new THREE.Vector3(0, 0, 0));
+
+    const reticleComponent = createReticle(scene, spacecraft);
+    spacecraft.userData.reticle = reticleComponent.reticle;
+    spacecraft.userData.updateReticle = reticleComponent.update;
+
+        // Verify reticle creation
+    if (spacecraftComponents.reticle) {
+        console.log("Reticle was successfully created with spacecraft in sanFran3D.js");
+    } else {
+        console.warn("Reticle not found in spacecraft components");
+    }
     
     // Show the space container again
     const spaceContainer = document.getElementById('space-container');
@@ -689,6 +701,9 @@ export function exitEarthSurface() {
     if (coordsDiv) {
         coordsDiv.style.display = 'block';
     }
+    
+    // Make exploration counter visible again when returning to space
+    explorationCounter.style.display = 'block';
     
     // Make sure keys object is properly reset
     if (keys) {
@@ -2049,6 +2064,10 @@ let lucrehulkDebounceTime = 0; // Set to 0 to disable debounce effect
 // Add a function to detect when the reticle intersects with planets
 export function checkReticleHover() {
     if (!spacecraft || !camera || isEarthSurfaceActive) {
+        // If on a planetary surface, ensure exploration counter is hidden
+        if (isEarthSurfaceActive) {
+            explorationCounter.style.display = 'none';
+        }
         return;
     }
 

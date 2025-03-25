@@ -578,6 +578,12 @@ function animate(currentTime = 0) {
                     coordsDiv.style.display = 'block';
                 }
                 
+                // Ensure exploration counter is visible in space view
+                const explorationCounter = document.querySelector('.exploration-counter');
+                if (explorationCounter) {
+                    explorationCounter.style.display = 'block';
+                }
+                
                 // Render the scene
                 renderScene();
             } catch (e) {
@@ -626,6 +632,12 @@ function animate(currentTime = 0) {
                             const coordsDiv = document.getElementById('coordinates');
                             if (coordsDiv) {
                                 coordsDiv.style.display = 'none';
+                            }
+                            
+                            // Hide exploration counter on Earth's surface
+                            const explorationCounter = document.querySelector('.exploration-counter');
+                            if (explorationCounter) {
+                                explorationCounter.style.display = 'none';
                             }
                             
                             // Hide hyperspace progress container on Earth's surface
