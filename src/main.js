@@ -19,6 +19,9 @@ import {
     renderScene
 } from './setup.js';
 
+// Import the rate limiter for initial game loading only
+import { createRateLimitedGameLoader } from './gameLoader.js';
+
 // import earth surface functions
 import { 
     init as initEarthSurface, 
@@ -230,8 +233,9 @@ document.addEventListener('keyup', (event) => {
 document.addEventListener('DOMContentLoaded', () => {
     const exploreButton = document.querySelector('#explore-button');
     if (exploreButton) {
-        exploreButton.addEventListener('click', () => startGame('free'));
-        console.log('Explore button initialized');
+        // Use rate-limited version for initial game loading
+        exploreButton.addEventListener('click', () => rateLimitedStartGame('free'));
+        console.log('Explore button initialized with rate limiting');
     } else {
         console.error('Explore button not found!');
     }
@@ -265,6 +269,9 @@ function startGame(mode) {
         animate();
     }
 }
+
+// Create rate-limited version of startGame - ONLY for initial game loading
+const rateLimitedStartGame = createRateLimitedGameLoader(startGame);
 
 // Handle window resize
 window.addEventListener('resize', () => {

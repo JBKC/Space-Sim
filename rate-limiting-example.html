@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bottleneck Rate Limiting Example</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .output {
+            height: 300px;
+            overflow-y: auto;
+            background-color: #f9f9f9;
+            padding: 10px;
+            margin-top: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .output p {
+            margin: 2px 0;
+        }
+        .normal-text {
+            color: #333;
+        }
+        .rate-limited-text {
+            color: #2196F3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bottleneck Rate Limiting Example</h1>
+    <p>This example demonstrates how to use Bottleneck for rate limiting in your space simulation without changing existing code.</p>
+    
+    <div class="container">
+        <h2>Simple Rate Limiting Test</h2>
+        <button id="normalButton">Without Rate Limiting</button>
+        <button id="limitedButton">With Rate Limiting</button>
+        <div class="output" id="outputBox"></div>
+    </div>
+
+    <script type="module">
+        import { rateLimit, defaultLimiter, createThrottledEventListener } from './src/rateLimit.js';
+        
+        const output = document.getElementById('outputBox');
+        
+        function appendOutput(message, isRateLimited = false) {
+            const p = document.createElement('p');
+            p.textContent = `${new Date().toISOString().substr(11, 12)} - ${message}`;
+            p.className = isRateLimited ? 'rate-limited-text' : 'normal-text';
+            output.appendChild(p);
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        // Normal function without rate limiting
+        function processWithoutLimit(i) {
+            appendOutput(`Task ${i} executed without rate limiting`);
+        }
+        
+        // Create a rate-limited version of the function
+        const processWithLimit = rateLimit((i) => {
+            appendOutput(`Task ${i} executed with rate limiting`, true);
+        });
+        
+        // Add click event listeners
+        document.getElementById('normalButton').addEventListener('click', () => {
+            output.innerHTML = ''; // Clear output
+            appendOutput('Starting 20 tasks WITHOUT rate limiting');
+            
+            for (let i = 0; i < 20; i++) {
+                processWithoutLimit(i);
+            }
+        });
+        
+        document.getElementById('limitedButton').addEventListener('click', () => {
+            output.innerHTML = ''; // Clear output
+            appendOutput('Starting 20 tasks WITH rate limiting');
+            
+            for (let i = 0; i < 20; i++) {
+                processWithLimit(i);
+            }
+        });
+
+        // Setup a throttled event listener for mouse movement
+        // (This demonstrates how to throttle frequent events)
+        const removeMouseListener = createThrottledEventListener('mousemove', document, (event) => {
+            const dot = document.createElement('div');
+            dot.style.position = 'absolute';
+            dot.style.left = event.clientX + 'px';
+            dot.style.top = event.clientY + 'px';
+            dot.style.width = '5px';
+            dot.style.height = '5px';
+            dot.style.borderRadius = '50%';
+            dot.style.backgroundColor = 'rgba(33, 150, 243, 0.5)';
+            dot.style.pointerEvents = 'none';
+            document.body.appendChild(dot);
+            
+            setTimeout(() => dot.remove(), 1000);
+        });
+
+        // Add a info section to explain how to use the module
+        const infoSection = document.createElement('div');
+        infoSection.className = 'container';
+        infoSection.innerHTML = `
+            <h2>How to Use Rate Limiting in Your Project</h2>
+            <p>To use rate limiting in your space simulation:</p>
+            <ol>
+                <li>Import the necessary functions from <code>./src/rateLimit.js</code></li>
+                <li>Wrap functions that need rate limiting using the <code>rateLimit()</code> function</li>
+                <li>For event listeners, use <code>createThrottledEventListener()</code></li>
+                <li>For API calls, use <code>rateLimitedFetch()</code></li>
+            </ol>
+            
+            <h3>Example Code Snippets:</h3>
+            <pre>// Import the functionality
+import { rateLimit, rateLimitedFetch } from './src/rateLimit.js';
+
+// Wrap an existing function with rate limiting
+const originalFunction = (param) => { /* your logic */ };
+const rateLimitedFunction = rateLimit(originalFunction, 'api');
+
+// Use it the same way as the original function
+rateLimitedFunction('some parameter');
+
+// For fetch calls
+rateLimitedFetch('https://api.example.com/data')
+  .then(response => response.json())
+  .then(data => console.log(data));</pre>
+        `;
+        document.body.appendChild(infoSection);
+    </script>
+</body>
+</html> 
