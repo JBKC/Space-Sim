@@ -62,9 +62,9 @@ export const moonCamera = {
 
 // moon cockpit camera offsets
 export const moonCockpitCamera = {
-    base: new THREE.Vector3(0, 0, 200),       // Inside cockpit, looking forward
-    boost: new THREE.Vector3(0, 0, 1000),       // Slightly downward tilt when boosting
-    slow: new THREE.Vector3(0, 0, 100),         // Slightly upward tilt when slow
+    base: new THREE.Vector3(0, 0, 179.8),       // Inside cockpit, looking forward
+    boost: new THREE.Vector3(0, 0, 899.6),       // Slightly downward tilt when boosting
+    slow: new THREE.Vector3(0, 0, 90),         // Slightly upward tilt when slow
     collision: new THREE.Vector3(0, 2, 200),      // Pulled back during collision
 };
 
