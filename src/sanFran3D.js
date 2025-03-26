@@ -84,7 +84,7 @@ let keys = { w: false, s: false, a: false, d: false, left: false, right: false, 
 const baseCameraOffset = new THREE.Vector3(0, 2, -10);
 const boostCameraOffset = new THREE.Vector3(0, 3, -20);
 const slowCameraOffset = new THREE.Vector3(0, 1.5, -7); // Closer camera for slow mode
-const collisionCameraOffset = new THREE.Vector3(0, 5, -20);
+const collisionCameraOffset = new THREE.Vector3(0, 2, -10);
 let currentCameraOffset = baseCameraOffset.clone();
 let targetCameraOffset = baseCameraOffset.clone();
 const cameraTransitionSpeed = 0.2;
@@ -436,7 +436,7 @@ function checkCollisionInDirection(direction, terrainMeshes) {
     const rayDirection = direction.clone().normalize();
     raycaster.set(spacecraft.position, rayDirection);
     raycaster.near = 0;
-    raycaster.far = spacecraftBoundingSphere.radius * 2;
+    raycaster.far = 0.5; // Increased from 0.1 to 0.5 to better detect building collisions
     
     const intersects = raycaster.intersectObjects(terrainMeshes, false);
     if (intersects.length > 0) {
@@ -453,7 +453,7 @@ function checkTerrainCollision() {
     }
 
     spacecraftBoundingSphere.center.copy(spacecraft.position);
- spacecraftBoundingSphere.radius = 2;
+    spacecraftBoundingSphere.radius = 0.5; // Slightly larger radius to detect buildings better
 
     const terrainMeshes = [];
     tiles.group.traverse((object) => {
@@ -480,40 +480,63 @@ function checkTerrainCollision() {
         return false;
     }
 
+    // Create a helper function to check if we're colliding with the base plane
+    // to avoid confusing building collisions with base plane collisions
+    const isBasePlaneCollision = (object) => {
+        return object === basePlane || (object.name && object.name === "basePlane");
+    };
+
     try {
+        // Check multiple directions to better detect collisions
         const directions = [
-            new THREE.Vector3(0, -1, 0),
-            new THREE.Vector3(0, 0, 1),
-            new THREE.Vector3(1, 0, 0),
-            new THREE.Vector3(-1, 0, 0),
-            new THREE.Vector3(0, 0, -1)
+            new THREE.Vector3(0, 0, 1),   // Forward
+            new THREE.Vector3(0, 0, -1),  // Backward
+            new THREE.Vector3(1, 0, 0),   // Right
+            new THREE.Vector3(-1, 0, 0),  // Left
+            new THREE.Vector3(0, -1, 0),  // Down
         ];
         
         directions.forEach(dir => dir.applyQuaternion(spacecraft.quaternion));
+        
+        let collisionDetected = false;
         
         for (const direction of directions) {
             const intersection = checkCollisionInDirection(direction, terrainMeshes);
             if (intersection && intersection.distance) {
                 const distanceToSurface = intersection.distance;
                 
-                if (distanceToSurface < spacecraftBoundingSphere.radius) {
+                // Make sure we're not colliding with the base plane
+                if (intersection.object && isBasePlaneCollision(intersection.object)) {
+                    continue; // Skip base plane collisions
+                }
+                
+                // Debug output
+                console.log(`Terrain collision check: distance=${distanceToSurface.toFixed(3)}, direction=${direction.toArray().map(v => v.toFixed(2))}, object=${intersection.object.uuid.substring(0,8)}`);
+                
+                if (distanceToSurface < 0.1) { // Slightly larger threshold for building detection
                     let normal = intersection.normal || 
                         (intersection.point ? new THREE.Vector3().subVectors(intersection.point, new THREE.Vector3(0, 0, 0)).normalize() : 
                         direction.clone().negate().normalize());
                     
-                    const pushFactor = 1.1;
-                    collisionOffset.copy(normal).multiplyScalar((spacecraftBoundingSphere.radius - distanceToSurface) * pushFactor);
+                    const pushFactor = 1; 
+                    collisionOffset.copy(normal).multiplyScalar(0.2 * pushFactor);
                     spacecraft.position.add(collisionOffset);
-                    return true;
+                    
+                    // Show collision warning message but don't reset position
+                    showCollisionWarning("BUILDING COLLISION");
+                    
+                    console.log("Building collision detected, showing warning but not resetting position");
+                    collisionDetected = true;
+                    break; // Exit after first collision is handled
                 }
             }
         }
+        
+        return collisionDetected;
     } catch (error) {
         console.error("Error in terrain collision detection:", error);
         return false;
     }
-
-    return false;
 }
 
 export function updateMovement() {
@@ -1201,6 +1224,9 @@ export function update(deltaTime = 0.016) {
             });
         }
         
+        // Check for collision with base plane
+        checkBasePlaneCollision();
+        
  updateearthLighting();
 
  if (!camera) {
@@ -1290,6 +1316,15 @@ function checkBasePlaneCollision() {
 
   // Get the world position of the spacecraft
   const spacecraftWorldPosition = spacecraft.getWorldPosition(new THREE.Vector3());
+  
+  // Get the spacecraft's forward vector and velocity
+  const forwardVector = new THREE.Vector3(0, 0, 1).applyQuaternion(spacecraft.quaternion);
+  const velocity = forwardVector.clone().multiplyScalar(currentSpeed);
+  
+  // Create an expanded detection zone in front of the spacecraft for high-speed collisions
+  // Use a much smaller look-ahead to ensure only direct collisions are detected
+  const lookAheadDistance = currentSpeed * 0.5; // Reduced from 3 to 0.5 for much tighter collision detection
+  const futurePosition = spacecraftWorldPosition.clone().add(velocity.clone().normalize().multiplyScalar(lookAheadDistance));
 
   // Get the plane's world position and quaternion
   const planeWorldPosition = new THREE.Vector3();
@@ -1299,24 +1334,124 @@ function checkBasePlaneCollision() {
   // Get the plane's normal (Z-axis of the grid system, pointing "up" in local space)
   const planeNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(planeQuaternion);
 
-  // Define collision thresholds
-  const planeCollisionThreshold = 2;
-  const wallCollisionThreshold = 60;    // side walls that represent limits of the map
+  // Define collision thresholds - minimal values for direct contact
+  const planeCollisionThreshold = 0.5; // Drastically reduced from 10 to 0.5
+  const highSpeedThreshold = 4; // Keep this the same for high-speed detection
+
+  // --- Check for z-coordinate violation (going below the plane's z-level) ---
+  // Convert spacecraft world position to local coordinate system
+  const gridWorldMatrix = window.gridCoordinateSystem.matrixWorld;
+  const gridWorldMatrixInverse = new THREE.Matrix4().copy(gridWorldMatrix).invert();
+  const spacecraftLocalPosition = spacecraftWorldPosition.clone().applyMatrix4(gridWorldMatrixInverse);
+  
+  // Check if the spacecraft is below the plane's z-coordinate (basePlaneConfig.position.z)
+  const belowPlaneZLevel = spacecraftLocalPosition.z > basePlaneConfig.position.z;
+  
+  if (belowPlaneZLevel) {
+    console.log("Spacecraft went below the plane's z-level:", spacecraftLocalPosition.z, "plane z:", basePlaneConfig.position.z);
+    
+    // Trigger position reset (simulating 'R' key press)
+    resetPosition();
+    
+    // Show collision warning message
+    showCollisionWarning("WASTED");
+    
+    return true;
+  }
 
   // --- Plane Collision (prevent passing through the base plane) ---
+  // Create a raycaster from the current position
   const raycasterPlane = new THREE.Raycaster();
   raycasterPlane.set(spacecraftWorldPosition, planeNormal.clone().negate()); // Ray downward
   const planeIntersects = raycasterPlane.intersectObject(basePlane);
+  
+  // Create a second raycaster from the predicted future position
+  const raycasterFuture = new THREE.Raycaster();
+  raycasterFuture.set(futurePosition, planeNormal.clone().negate());
+  const futureIntersects = raycasterFuture.intersectObject(basePlane);
 
-  if (planeIntersects.length > 0 && planeIntersects[0].distance < planeCollisionThreshold) {
-    const pushDistance = planeCollisionThreshold - planeIntersects[0].distance;
+  // Check for either immediate collision or predicted collision
+  if ((planeIntersects.length > 0 && planeIntersects[0].distance < planeCollisionThreshold) ||
+      (futureIntersects.length > 0 && futureIntersects[0].distance < planeCollisionThreshold && currentSpeed > highSpeedThreshold)) {
+    
+    // If collision detected, push the spacecraft upward (minimal push)
+    const pushDistance = 0; // Reduced from planeCollisionThreshold * 1.5 to a smaller fixed value
     const pushDirection = planeNormal.clone(); // Push upward
     spacecraft.position.add(pushDirection.multiplyScalar(pushDistance));
-    console.log("Collision detected with base plane, pushing upward");
+    console.log("Collision detected with base plane, pushing upward. Speed:", currentSpeed);
+
+    // Trigger position reset (simulating 'R' key press) for base plane only
+    resetPosition();
+    
+    // Show collision warning message with specific plane text
+    showCollisionWarning("WASTED");
+    
     return true;
   }
 
   return false;
+}
+
+// Function to display a temporary collision warning message
+function showCollisionWarning(message = "COLLISION") {
+  // Check if a warning message already exists and remove it
+  const existingWarning = document.getElementById('collision-warning');
+  if (existingWarning) {
+    document.body.removeChild(existingWarning);
+  }
+  
+  // Create warning element
+  const warningElement = document.createElement('div');
+  warningElement.id = 'collision-warning';
+  warningElement.textContent = message;
+  
+  // Style the warning
+  warningElement.style.position = 'fixed';
+  warningElement.style.top = '40%'; // Moved up from 50% to 40% to appear higher on screen
+  warningElement.style.left = '50%';
+  warningElement.style.transform = 'translate(-50%, -50%)';
+  warningElement.style.color = '#ff0000';
+  warningElement.style.fontFamily = 'Orbitron, sans-serif';
+  warningElement.style.fontSize = '32px';
+  warningElement.style.fontWeight = 'bold';
+  warningElement.style.zIndex = '10000';
+  warningElement.style.textShadow = '0 0 10px rgba(255, 0, 0, 0.7)';
+  warningElement.style.padding = '20px';
+  warningElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+  warningElement.style.borderRadius = '5px';
+  warningElement.style.opacity = '1';
+  warningElement.style.transition = 'opacity 0.5s ease-out';
+  
+  // Add to DOM
+  document.body.appendChild(warningElement);
+  
+  // Flash the warning by changing opacity
+  let flashCount = 0;
+  const maxFlashes = 3;
+  
+  const flashWarning = () => {
+    if (flashCount >= maxFlashes) {
+      // Remove warning after flashing
+      setTimeout(() => {
+        if (warningElement.parentNode) {
+          warningElement.style.opacity = '0';
+          setTimeout(() => {
+            if (warningElement.parentNode) {
+              document.body.removeChild(warningElement);
+            }
+          }, 500);
+        }
+      }, 200);
+      return;
+    }
+    
+    warningElement.style.opacity = warningElement.style.opacity === '1' ? '0.3' : '1';
+    flashCount++;
+    setTimeout(flashWarning, 200);
+  };
+  
+  // Start flashing
+  flashWarning();
 }
 
 // Add these functions to export so they can be called from other files or the console
