@@ -45,6 +45,8 @@ export default defineConfig({
   optimizeDeps: {
     include: ['three', '3d-tiles-renderer'],
   },
+  // Set up asset handling explicitly
+  assetsInclude: ['**/*.gltf', '**/*.glb', '**/*.jpg', '**/*.png', '**/*.jpeg'],
   // Public directory for static assets that don't need processing
   publicDir: 'public',
 });

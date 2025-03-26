@@ -5,6 +5,8 @@ node_modules/
 # Build files
 dist/
 build/
+dist-dev/
+dist-prod/
 
 # Environment files
 .env

@@ -925,7 +925,7 @@ export function init() {
     renderer.physicallyCorrectLights = true;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.8; // Reduced from 1.2 for darker space
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.gammaFactor = 2.2;
  
     document.body.appendChild(renderer.domElement);

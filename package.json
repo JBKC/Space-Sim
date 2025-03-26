@@ -4,11 +4,14 @@
   "main": "main.js",
   "type": "module",
   "scripts": {
-    "start": "node main.js",
     "dev": "vite",
     "build": "vite build",
+    "build:dev": "vite build --mode development --config vite.config.js --outDir dist-dev",
+    "build:prod": "vite build --mode production --config vite.config.prod.js",
     "preview": "vite preview",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "preview:dev": "vite preview --outDir dist-dev",
+    "preview:prod": "vite preview --outDir dist",
+    "clean": "rm -rf dist dist-dev"
   },
   "repository": {
     "type": "git",
