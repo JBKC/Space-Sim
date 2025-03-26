@@ -1217,15 +1217,30 @@ function setupWashingtonLighting() {
     console.log(`Sun initialized at global coordinates: lat ${playerSunConfig.position.lat}, lon ${playerSunConfig.position.lon}, height ${playerSunConfig.position.height}`);
 }
 
+// Initialize scene
+function initScene() {
+    scene = new THREE.Scene();
+    scene.name = 'washingtonScene';
+    scene.userData.forceRender = function() {
+        if (renderer && camera) {
+            renderer.render(scene, camera);
+            console.log('Washington scene forced render complete');
+        }
+    };
+    return scene;
+}
+
 export function init() {
-    console.log("Washington mountains 3D initialization started");
- 
+    console.log("Washington 3D initialization started");
+
     if (washingtonInitialized) {
         console.log("Already initialized, skipping");
         return { scene: scene, camera: camera, renderer: renderer, tiles: tiles };
     }
 
-    scene = new THREE.Scene();
+    // Create scene with force render capability
+    scene = initScene();
+    
     const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(0), 64, 64);
     env.mapping = THREE.EquirectangularReflectionMapping;
     env.needsUpdate = true;
@@ -1268,7 +1283,7 @@ export function init() {
     initControls();
 
     washingtonInitialized = true;
-    console.log("Washington mountains 3D initialization complete");
+    console.log("Washington 3D initialization complete");
     
     return { 
         scene: scene, 

@@ -22,6 +22,16 @@ import { loadingManager, textureLoadingManager } from './loaders.js';
 // General initialization - scene, camera, renderer
 // do outside of init function as scene is required by multiple other files
 const scene = new THREE.Scene();
+// Add scene name for debugging
+scene.name = 'spaceScene';
+// Add a forced render function to scene userData
+scene.userData.forceRender = function() {
+    if (typeof renderScene === 'function') {
+        renderScene();
+        console.log('Space scene forced render complete');
+    }
+};
+
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
 camera.position.set(100, 100, -100);
 camera.lookAt(0, 0, 0);

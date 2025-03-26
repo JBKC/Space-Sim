@@ -1048,15 +1048,30 @@ function setupmoonLighting() {
     // Initial update of light positions will happen in the first updatemoonLighting call
 }
 
+// Initialize scene
+function initScene() {
+    scene = new THREE.Scene();
+    scene.name = 'moonScene';
+    scene.userData.forceRender = function() {
+        if (renderer && camera) {
+            renderer.render(scene, camera);
+            console.log('Moon scene forced render complete');
+        }
+    };
+    return scene;
+}
+
 export function init() {
-    console.log("moon 3D initialization started");
- 
+    console.log("Moon 3D initialization started");
+
     if (moonInitialized) {
         console.log("Already initialized, skipping");
         return { scene: scene, camera: camera, renderer: renderer, tiles: tiles };
     }
 
-    scene = new THREE.Scene();
+    // Create scene with force render capability
+    scene = initScene();
+    
     const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(0), 64, 64);
     env.mapping = THREE.EquirectangularReflectionMapping;
     env.needsUpdate = true;

@@ -29,7 +29,7 @@ import * as THREE from 'three';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
 // Import loading managers from the new loaders.js file
-import { loadingManager, textureLoadingManager, updateAssetDisplay } from './loaders.js';
+import { loadingManager, textureLoadingManager, updateAssetDisplay, verifyTextureLoading } from './loaders.js';
 
 // import earth surface functions
 import { 
@@ -149,6 +149,9 @@ stats.dom.addEventListener('click', function() {
 // Initialize UI elements and directional indicator
 setupUIElements();
 setupDirectionalIndicator();
+
+// Add a flag to track if texture verification has been run
+let textureVerificationRun = false;
 
 // Function to ensure wings are open at startup
 function initializeWingsOpen() {
@@ -352,6 +355,22 @@ function startGame(mode) {
         isAnimating = true;
         animate();
     }
+    
+    // Schedule texture verification after a delay to ensure everything is loaded
+    setTimeout(() => {
+        if (!textureVerificationRun) {
+            console.log('Running delayed texture verification check...');
+            textureVerificationRun = true;
+            
+            // First verify space scene textures
+            verifyTextureLoading(spaceScene);
+            
+            // Re-render the scene to apply texture updates
+            renderScene();
+            
+            console.log('Texture verification complete - scenes have been re-rendered');
+        }
+    }, 2000); // 2 second delay
 }
 
 // Create rate-limited version of startGame - ONLY for initial game loading
@@ -687,10 +706,37 @@ function animate(currentTime = 0) {
                     assetDisplay.style.display = 'none';
                 }, 1000);
             }, 5000);
+            
+            // Check if we should run a texture verification
+            if (!textureVerificationRun) {
+                console.log('Assets completed - running texture verification');
+                textureVerificationRun = true;
+                
+                // First verify space scene textures
+                const result = verifyTextureLoading(spaceScene);
+                console.log(`Verified ${result.updated} textures in space scene`);
+                
+                // Re-render to show updated textures
+                renderScene();
+            }
         }
     }
 
     try {
+        // Detect scene transitions for texture verification
+        if (prevEarthSurfaceActive !== isEarthSurfaceActive || prevMoonSurfaceActive !== isMoonSurfaceActive) {
+            // If we transitioned to a new scene, verify textures
+            console.log('Scene transition detected - verifying textures');
+            
+            if (isEarthSurfaceActive && earthScene) {
+                verifyTextureLoading(earthScene);
+            } else if (isMoonSurfaceActive && moonScene) {
+                verifyTextureLoading(moonScene);
+            } else {
+                verifyTextureLoading(spaceScene);
+            }
+        }
+
         // Handle laser firing when spacebar is pressed
         if (isSpacePressed) {
             // Get the current active scene and spacecraft

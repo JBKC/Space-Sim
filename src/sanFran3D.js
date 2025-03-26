@@ -1152,34 +1152,36 @@ function setupearthLighting() {
 }
 
 export function init() {
- console.log("San Francisco 3D initialization started");
- 
- if (sanFranInitialized) {
- console.log("Already initialized, skipping");
- return { scene: scene, camera: camera, renderer: renderer, tiles: tiles };
- }
+    console.log("San Francisco 3D initialization started");
 
- // Set initialization time to current time to prevent collision warnings during startup
- initializationTime = Date.now();
- isInitialEarthEntry = true; // Mark as initial entry
- console.log("Setting initialization safety period for collision detection");
- 
- // Set a timeout to mark the end of initial entry after the safety period
- setTimeout(() => {
-   isInitialEarthEntry = false;
-   console.log("Initial Earth entry period ended, normal collision detection enabled");
- }, COLLISION_SAFETY_PERIOD);
-
- scene = new THREE.Scene();
+    if (sanFranInitialized) {
+    console.log("Already initialized, skipping");
+    return { scene: scene, camera: camera, renderer: renderer, tiles: tiles };
+    }
+   
+    // Set initialization time to current time to prevent collision warnings during startup
+    initializationTime = Date.now();
+    isInitialEarthEntry = true; // Mark as initial entry
+    console.log("Setting initialization safety period for collision detection");
+    
+    // Set a timeout to mark the end of initial entry after the safety period
+    setTimeout(() => {
+      isInitialEarthEntry = false;
+      console.log("Initial Earth entry period ended, normal collision detection enabled");
+    }, COLLISION_SAFETY_PERIOD);
+   
+    // Create scene with force render capability
+    scene = initScene();
+       
     const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(0), 64, 64);
     env.mapping = THREE.EquirectangularReflectionMapping;
     env.needsUpdate = true;
     scene.environment = env;
- 
+    
     renderer = new THREE.WebGLRenderer({ 
-        antialias: true,
-        precision: 'highp',
-        powerPreference: 'high-performance'
+       antialias: true,
+       precision: 'highp',
+       powerPreference: 'high-performance'
     });
     renderer.setClearColor(0x87ceeb); // Set background to blue
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -1191,33 +1193,33 @@ export function init() {
     renderer.toneMappingExposure = 1.2;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.gammaFactor = 2.2;
- 
- document.body.appendChild(renderer.domElement);
- renderer.domElement.tabIndex = 1;
-
-//  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 100000);
- camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
- camera.position.set(100, 100, -100);
- camera.lookAt(0, 0, 0);
- 
+    
+    document.body.appendChild(renderer.domElement);
+    renderer.domElement.tabIndex = 1;
+   
+   //  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 100000);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
+    camera.position.set(100, 100, -100);
+    camera.lookAt(0, 0, 0);
+    
     textureLoader = new THREE.TextureLoader(textureLoadingManager);
-setupearthLighting();
-initSpacecraft();
-    
-    
+    setupearthLighting();
+    initSpacecraft();
+       
+       
     reinstantiateTiles();
-
+   
     onWindowResize();
     window.addEventListener('resize', onWindowResize, false);
     initControls();
-
- sanFranInitialized = true;
- console.log("San Francisco 3D initialization complete");
-    
+   
+    sanFranInitialized = true;
+    console.log("San Francisco 3D initialization complete");
+       
     return { 
- scene: scene, 
- camera: camera, 
- renderer: renderer, 
+    scene: scene, 
+    camera: camera, 
+    renderer: renderer, 
         tiles: tiles 
     };
 }
@@ -1648,4 +1650,17 @@ function updateearthLighting() {
         playerSun.target = playerSunTarget;
         playerSun.updateMatrixWorld(true);
     }
+}
+
+// Initialize scene
+function initScene() {
+    scene = new THREE.Scene();
+    scene.name = 'sanFranScene';
+    scene.userData.forceRender = function() {
+        if (renderer && camera) {
+            renderer.render(scene, camera);
+            console.log('SanFran scene forced render complete');
+        }
+    };
+    return scene;
 }
