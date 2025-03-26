@@ -1,6 +1,6 @@
 // src/setup.js
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as THREE from './assets/lib/three.module.js';
+import { GLTFLoader } from './assets/lib/jsm/loaders/GLTFLoader.js';
 import { updateMovement, keys } from './movement.js';
 import { createSpacecraft } from './spacecraft.js';
 import { createReticle } from './reticle.js';

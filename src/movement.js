@@ -2,7 +2,7 @@
 
 // Called by various setup files
 
-import * as THREE from 'three';
+import * as THREE from './assets/lib/three.module.js';
 import { 
     spacecraft, 
     engineGlowMaterial, 

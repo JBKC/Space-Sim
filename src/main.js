@@ -23,7 +23,7 @@ import {
 import { createRateLimitedGameLoader } from './gameLoader.js';
 
 // Import THREE.js from node_modules instead of CDN
-import * as THREE from 'three';
+import * as THREE from './assets/lib/three.module.js';
 
 // import earth surface functions
 import { 

@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from './assets/lib/three.module.js';
 
 // Scene-specific laser configurations
 const LASER_CONFIG = {
