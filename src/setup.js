@@ -343,7 +343,7 @@ renderer.sortObjects = false;
 renderer.physicallyCorrectLights = false;
 
 // Lighting
-const ambientLight = new THREE.AmbientLight(0xfffacc, 0.05); // Very subtle blue-tinted ambient light
+const ambientLight = new THREE.AmbientLight(0xfffacc, 0.1); //  subtle ambient light
 scene.add(ambientLight);
 
 
