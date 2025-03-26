@@ -227,7 +227,9 @@ document.addEventListener('keydown', (event) => {
 });
 
 // Variable to track if Earth surface is active
-export let isEarthSurfaceActive = false;
+export let isSanFranSurfaceActive = false;
+export let isWashingtonSurfaceActive = false;
+
 
 export { 
     renderer, 
@@ -370,9 +372,18 @@ export function renderScene() {
         renderer.render(scene, camera);
     }
     
-    if (isEarthSurfaceActive) {
+    if (isSanFranSurfaceActive) {
         // nothing to do here
-        console.log("Earth surface active, deferring rendering");
+        console.log("San Fran surface active, deferring rendering");
+    } else {
+        // Render space scene
+        // console.log("Rendering space scene");
+        renderer.render(scene, camera);
+    }
+
+    if (isWashingtonSurfaceActive) {
+        // nothing to do here
+        console.log("Washington surface active, deferring rendering");
     } else {
         // Render space scene
         // console.log("Rendering space scene");
@@ -602,7 +613,7 @@ export function checkPlanetProximity() {
     const position = spacecraft.position.clone();
     
     // Skip proximity check when on a surface
-    if (isEarthSurfaceActive || isMoonSurfaceActive) {
+    if (isSanFranSurfaceActive || isWashingtonSurfaceActive || isMoonSurfaceActive) {
         // Make sure distance indicators are hidden when on surface
         if (earthDistanceIndicator) earthDistanceIndicator.style.display = 'none';
         if (moonDistanceIndicator) moonDistanceIndicator.style.display = 'none';
@@ -642,17 +653,15 @@ export function checkPlanetProximity() {
     // Define Earth entry threshold
     const earthEntryThreshold = 500; // Distance threshold for Earth entry
     
-    if (distanceToEarth < earthRadius + earthEntryThreshold && !isEarthSurfaceActive) {
+    if (distanceToEarth < earthRadius + earthEntryThreshold && !isSanFranSurfaceActive && !isWashingtonSurfaceActive) {
         // If close enough - activate Earth surface
-        isEarthSurfaceActive = true;
+        isSanFranSurfaceActive = true;
         console.log("Earth surface active - distance:", distanceToEarth.toFixed(2));
         
-        // Initialize the Earth surface (if needed)
-        // initEarthSurface();
-    } else if (distanceToEarth >= earthRadius + earthEntryThreshold * 1.2 && isEarthSurfaceActive) {
+    } else if (distanceToEarth >= earthRadius + earthEntryThreshold * 1.2 && isSanFranSurfaceActive) {
         // Add a small buffer (20% larger) to avoid oscillation at the boundary
         // If moving away from Earth, exit Earth surface
-        isEarthSurfaceActive = false;
+        isSanFranSurfaceActive = false;
         console.log("Exiting Earth surface - distance:", distanceToEarth.toFixed(2));
     }
     
@@ -662,8 +671,8 @@ export function checkPlanetProximity() {
 
 export function exitEarthSurface() {
     console.log("Exiting Earth's surface!");
-    isEarthSurfaceActive = false;
-    
+    isSanFranSurfaceActive = false;
+    isWashingtonSurfaceActive = false;
     // Update the controls dropdown to show hyperspace option again
     updateControlsDropdown(false, false);
     
@@ -1807,7 +1816,7 @@ document.body.appendChild(moonDistanceIndicator);
 // Function to update label positions
 export function updatePlanetLabels() {
     // If on surface, hide all planet labels
-    if (isEarthSurfaceActive || isMoonSurfaceActive) {
+    if (isSanFranSurfaceActive || isWashingtonSurfaceActive || isMoonSurfaceActive) {
         labels.forEach(label => {
             label.element.style.display = 'none';
         });
@@ -2097,7 +2106,7 @@ export const PLANET_POSITION = earthGroup.position;
 let isHyperspaceActive = false;
 function activateHyperspace() {
     // Don't activate hyperspace if on Earth's surface
-    if (!isHyperspaceActive && !isEarthSurfaceActive) {
+    if (!isHyperspaceActive && !isSanFranSurfaceActive && !isWashingtonSurfaceActive) {
         isHyperspaceActive = true;
         console.log("Hyperspace activated!");
         setTimeout(deactivateHyperspace, 2000);
@@ -2113,7 +2122,7 @@ function deactivateHyperspace() {
 
 window.addEventListener('keydown', (event) => {
     // Only activate hyperspace if not on Earth's surface
-    if (event.key === 'Shift' && !isEarthSurfaceActive) activateHyperspace();
+    if (event.key === 'Shift' && !isSanFranSurfaceActive && !isWashingtonSurfaceActive) activateHyperspace();
 });
 window.addEventListener('keyup', (event) => {
     if (event.key === 'Shift') deactivateHyperspace();
@@ -2258,9 +2267,9 @@ let lucrehulkDebounceTime = 0; // Set to 0 to disable debounce effect
 
 // Add a function to detect when the reticle intersects with planets
 export function checkReticleHover() {
-    if (!spacecraft || !camera || isEarthSurfaceActive) {
+    if (!spacecraft || !camera || isSanFranSurfaceActive || isWashingtonSurfaceActive) {
         // If on a planetary surface, ensure exploration counter is hidden
-        if (isEarthSurfaceActive) {
+        if (isSanFranSurfaceActive || isWashingtonSurfaceActive) {
             explorationCounter.style.display = 'none';
         }
         return;

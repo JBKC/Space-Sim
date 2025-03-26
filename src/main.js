@@ -5,7 +5,8 @@ import {
     updateStars, 
     updatePlanetLabels, 
     checkPlanetProximity, 
-    isEarthSurfaceActive,
+    isSanFranSurfaceActive,
+    isWashingtonSurfaceActive,
     isMoonSurfaceActive, // Uncommented Moon surface access
     exitEarthSurface,
     exitMoonSurface, // Uncommented Moon surface access
@@ -27,14 +28,27 @@ import * as THREE from 'three';
 
 // import earth surface functions
 import { 
-    init as initEarthSurface, 
-    update as updateEarthSurface,
-    scene as earthScene,
-    camera as earthCamera,
+    init as initSanFranSurface, 
+    update as updateSanFranSurface,
+    scene as sanFranScene,
+    camera as sanFranCamera,
     // tiles as earthTiles,
-    renderer as earthRenderer,
-    spacecraft as earthSpacecraft,  // Import the spacecraft from the 3D scene
-    resetPosition as resetEarthPosition,  // Import the generic reset position function
+    renderer as sanFranRenderer,
+    spacecraft as sanFranSpacecraft,  // Import the spacecraft from the 3D scene
+    resetPosition as resetSanFranPosition,  // Import the generic reset position function
+    resetSanFranInitialized  // Import the new function to reset the Washington initialization flag
+// } from './washington3D.js';
+} from './sanFran3D.js';
+
+import { 
+    init as initWashingtonSurface, 
+    update as updateWashingtonSurface,
+    scene as washingtonScene,
+    camera as washingtonCamera,
+    // tiles as earthTiles,
+    renderer as washingtonRenderer,
+    spacecraft as washingtonSpacecraft,  // Import the spacecraft from the 3D scene
+    resetPosition as resetWashingtonPosition,  // Import the generic reset position function
     resetWashingtonInitialized  // Import the new function to reset the Washington initialization flag
 } from './washington3D.js';
 // } from './sanFran3D.js';
@@ -76,11 +90,13 @@ let isBoosting = false;
 let isHyperspace = false;
 let isSpacePressed = false;
 let spaceInitialized = false;
-let earthInitialized = false;  // Move to top-level scope for exports
+let sanFranInitialized = false;  // Move to top-level scope for exports
+let washingtonInitialized = false;  // Move to top-level scope for exports
 let moonInitialized = false;  // Move to top-level scope for exports
 // Remove the local isMoonSurfaceActive variable to use the imported one
 // Add a flag to track first Earth entry in a session
-let isFirstEarthEntry = true;
+let isFirstSanFranEntry = true;
+let isFirstWashingtonEntry = true;
 // Add a flag to track first Moon entry in a session
 let isFirstMoonEntry = true;
 
@@ -98,7 +114,8 @@ const streakSpeed = 500; // Speed of streaks moving past the camera
 let lastFrameTime = 0;
 
 // Track previous state to detect changes for transitions
-let prevEarthSurfaceActive = false;
+let prevSanFranSurfaceActive = false;
+let prevWashingtonSurfaceActive = false;
 let prevMoonSurfaceActive = false;
 // Initialize UI elements and directional indicator
 setupUIElements();
@@ -150,38 +167,55 @@ document.addEventListener('keydown', (event) => {
         }
     }
     // Only allow hyperspace if not on Earth's surface
-    if ((event.code === 'ShiftLeft' || event.code === 'ShiftRight') && !isEarthSurfaceActive) {
+    if ((event.code === 'ShiftLeft' || event.code === 'ShiftRight') && !isSanFranSurfaceActive && !isWashingtonSurfaceActive) {
         startHyperspace();
     }
     // Reset position in Earth surface mode
-    if (event.code === 'KeyR' && isEarthSurfaceActive) {
+    if (event.code === 'KeyR' && isSanFranSurfaceActive) {
         console.log('R pressed - resetting position in San Francisco');
-        resetEarthPosition();
+        resetSanFranPosition();
     }
     // Reset position in Moon surface mode
     if (event.code === 'KeyR' && isMoonSurfaceActive) {
         console.log('R pressed - resetting position on the Moon');
         resetMoonPosition();
     }
+    if (event.code === 'KeyR' && isWashingtonSurfaceActive) {
+        console.log('R pressed - resetting position in Washington');
+        resetWashingtonPosition();
+    }
     // Toggle first-person/third-person view with 'C' key
     if (event.code === 'KeyC') {
         console.log('===== C KEY PRESSED - TOGGLE COCKPIT VIEW =====');
-        console.log('Is on Earth surface:', isEarthSurfaceActive);
+        console.log('Is on San Fran surface:', isSanFranSurfaceActive);
         console.log('Has spacecraft:', !!spacecraft);
-        console.log('Has earth spacecraft:', !!earthSpacecraft);
+        console.log('Has San Fran spacecraft:', !!sanFranSpacecraft);
         
-        if (isEarthSurfaceActive && earthSpacecraft) {
-            console.log('C pressed - toggling cockpit view in Earth scene');
-            if (typeof earthSpacecraft.toggleView === 'function') {
-                const result = earthSpacecraft.toggleView(earthCamera, (isFirstPerson) => {
+        if (isSanFranSurfaceActive && sanFranSpacecraft) {
+            console.log('C pressed - toggling cockpit view in San Fran scene');
+            if (typeof sanFranSpacecraft.toggleView === 'function') {
+                const result = sanFranSpacecraft.toggleView(sanFranCamera, (isFirstPerson) => {
                     // Reset camera state based on new view mode
-                    console.log(`Resetting Earth camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
-                    console.log('Earth camera reset callback executed');
-                    // If you have access to Earth's camera state, reset it here
+                    console.log(`Resetting San Fran camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
+                    console.log('San Fran camera reset callback executed');
+                    // If you have access to San Fran's camera state, reset it here
                 });
                 console.log('Earth toggle view result:', result);
             } else {
                 console.warn('Toggle view function not available on Earth spacecraft');
+            }
+        } else if (isWashingtonSurfaceActive && washingtonSpacecraft) {
+            console.log('C pressed - toggling cockpit view in Washington scene');
+            if (typeof washingtonSpacecraft.toggleView === 'function') {
+                const result = washingtonSpacecraft.toggleView(washingtonCamera, (isFirstPerson) => {
+                    // Reset camera state based on new view mode
+                    console.log(`Resetting Washington camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
+                    console.log('Washington camera reset callback executed');
+                    // If you have access to Washington's camera state, reset it here
+                }); 
+                console.log('Washington toggle view result:', result);
+            } else {
+                console.warn('Toggle view function not available on Washington spacecraft');
             }
         } else if (isMoonSurfaceActive && moonSpacecraft) {
             console.log('C pressed - toggling cockpit view in Moon scene');
@@ -222,11 +256,16 @@ document.addEventListener('keydown', (event) => {
             exitMoonSurface();
             // Reset the first entry flag so next time we enter Moon, it's treated as a first entry
             isFirstMoonEntry = true;
-        } else if (isEarthSurfaceActive) {
-            console.log('ESC pressed - exiting Earth surface');
+        } else if (isSanFranSurfaceActive) {
+            console.log('ESC pressed - exiting San Fran surface');
             exitEarthSurface();
-            // Reset the first entry flag so next time we enter Earth, it's treated as a first entry
-            isFirstEarthEntry = true;
+            // Reset the first entry flag so next time we enter San Fran, it's treated as a first entry
+            isFirstSanFranEntry = true;
+        } else if (isWashingtonSurfaceActive) {
+            console.log('ESC pressed - exiting Washington surface');
+            exitEarthSurface();
+            // Reset the first entry flag so next time we enter Washington, it's treated as a first entry
+            isFirstWashingtonEntry = true;
         }
     }
 });
@@ -283,7 +322,7 @@ function startGame(mode) {
     
     // Show the controls prompt and initialize dropdown state
     showControlsPrompt();
-    updateControlsDropdown(isEarthSurfaceActive, isMoonSurfaceActive);
+    updateControlsDropdown(isSanFranSurfaceActive, isWashingtonSurfaceActive, isMoonSurfaceActive);
 
     // Ensure wings are open at startup
     initializeWingsOpen();
@@ -368,7 +407,7 @@ function updateStreaks() {
 // Function to start hyperspace with progress bar and streaks
 function startHyperspace() {
     // Don't activate hyperspace if already in hyperspace or on Earth's surface
-    if (isHyperspace || isEarthSurfaceActive) return;
+    if (isHyperspace || isSanFranSurfaceActive || isWashingtonSurfaceActive) return;
     
     isHyperspace = true;
     // Make sure to set the global isHyperspace flag immediately so other modules can detect it
@@ -476,11 +515,19 @@ function startHyperspace() {
 let debugMode = true;
 
 // Make the reset functions available globally to avoid circular imports
-window.resetEarthInitialized = function() {
-    earthInitialized = false;
-    console.log('Reset Earth surface initialization state');
+window.resetSanFranInitialized = function() {
+    sanFranInitialized = false;
+    console.log('Reset San Fran surface initialization state');
     
     // Also reset the Washington initialization flag
+    resetSanFranInitialized();
+};
+
+window.resetWashingtonInitialized = function() {
+    washingtonInitialized = false;
+    console.log('Reset Washington surface initialization state');
+    
+    // Also reset the San Fran initialization flag
     resetWashingtonInitialized();
 };
 
@@ -593,10 +640,15 @@ function animate(currentTime = 0) {
                 sceneType = 'moon';
             }
             */
-            if (isEarthSurfaceActive) {
-                activeScene = earthScene;
-                activeSpacecraft = earthSpacecraft || spacecraft;
+            if (isSanFranSurfaceActive) {
+                activeScene = sanFranScene;
+                activeSpacecraft = sanFranSpacecraft || spacecraft;
                 sceneType = 'sanFran';
+            }
+            if (isWashingtonSurfaceActive) {
+                activeScene = washingtonScene;
+                activeSpacecraft = washingtonSpacecraft || spacecraft;
+                sceneType = 'washington';
             }
             
             // Don't fire lasers if in space scene and hyperspace is active
@@ -612,7 +664,7 @@ function animate(currentTime = 0) {
         updateLasers(deltaTime);
 
         // CASE 0 = normal space view
-        if (!isEarthSurfaceActive && !isMoonSurfaceActive) {
+        if (!isSanFranSurfaceActive && !isWashingtonSurfaceActive && !isMoonSurfaceActive) {
             // If we just exited a planet surface, make sure space container is visible
             const spaceContainer = document.getElementById('space-container');
             if (spaceContainer && spaceContainer.style.display === 'none') {
@@ -685,19 +737,19 @@ function animate(currentTime = 0) {
             }
         }
 
-        // CASE 1 = earth surface view
-        if (isEarthSurfaceActive && !isMoonSurfaceActive) {
+        // CASE 1 = San Fran surface view
+        if (isSanFranSurfaceActive && !isWashingtonSurfaceActive && !isMoonSurfaceActive) {
             try {
-                // Detect if we just entered Earth's surface
-                if (!prevEarthSurfaceActive) {
-                    // Show transition before initializing Earth surface
-                    showEarthTransition(() => {
-                        // Initialize Earth once the transition is complete
-                        if (!earthInitialized) {
-                            console.log('Initializing Earth surface');
-                            const earthObjects = initEarthSurface();
-                            earthInitialized = true;
-                            console.log('Earth surface initialized successfully', earthObjects);
+                // Detect if we just entered San Fran's surface
+                if (!prevSanFranSurfaceActive) {
+                    // Show transition before initializing San Fran surface
+                    showSanFranTransition(() => {
+                        // Initialize San Fran once the transition is complete
+                        if (!sanFranInitialized) {
+                            console.log('Initializing San Fran surface');
+                            const sanFranObjects = initSanFranSurface();
+                            sanFranInitialized = true;
+                            console.log('San Fran surface initialized successfully', sanFranObjects);
     
                             // Hide space container to see surface scene
                             const spaceContainer = document.getElementById('space-container');
@@ -706,21 +758,21 @@ function animate(currentTime = 0) {
                                 console.log('Hid space-container');
                             }
                             
-                            // Show Earth surface message
-                            const earthMsg = document.createElement('div');
-                            earthMsg.id = 'earth-surface-message';
-                            earthMsg.style.position = 'fixed';
-                            earthMsg.style.top = '20px';
-                            earthMsg.style.right = '20px';
-                            earthMsg.style.color = 'white';
-                            earthMsg.style.fontFamily = 'Orbitron, sans-serif';
-                            earthMsg.style.fontSize = '16px';
-                            earthMsg.style.padding = '10px';
-                            earthMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-                            earthMsg.style.borderRadius = '5px';
-                            earthMsg.style.zIndex = '9999';
-                            earthMsg.innerHTML = 'EARTH SURFACE<br>Press ESC to return to space<br>Press R to reset position';
-                            document.body.appendChild(earthMsg);
+                            // Show San Fran surface message
+                            const sanFranMsg = document.createElement('div');
+                            sanFranMsg.id = 'sanFran-surface-message';
+                            sanFranMsg.style.position = 'fixed';
+                            sanFranMsg.style.top = '20px';
+                            sanFranMsg.style.right = '20px';
+                            sanFranMsg.style.color = 'white';
+                            sanFranMsg.style.fontFamily = 'Orbitron, sans-serif';
+                            sanFranMsg.style.fontSize = '16px';
+                            sanFranMsg.style.padding = '10px';
+                            sanFranMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                            sanFranMsg.style.borderRadius = '5px';
+                            sanFranMsg.style.zIndex = '9999';
+                            sanFranMsg.innerHTML = 'SAN FRAN SURFACE<br>Press ESC to return to space<br>Press R to reset position';
+                            document.body.appendChild(sanFranMsg);
                             
                             // Hide coordinates display in earth surface mode
                             const coordsDiv = document.getElementById('coordinates');
@@ -788,43 +840,191 @@ function animate(currentTime = 0) {
                         console.log('Scheduling automatic position reset with 200ms delay');
                         setTimeout(() => {
                             console.log('Automatically resetting position to starting point');
-                            resetEarthPosition();
+                            resetSanFranPosition();
                             
                             // Set first entry flag to false AFTER the initial position reset
-                            if (isFirstEarthEntry) {
-                                console.log('First Earth entry completed');
-                                isFirstEarthEntry = false;
+                            if (isFirstSanFranEntry) {
+                                console.log('First San Fran entry completed');
+                                isFirstSanFranEntry = false;
                             }
                         }, 200);
                     });
                 }
                 
-                // If Earth is already initialized, update and render
-                if (earthInitialized) {
-                    // If this is the first time entering Earth in this session, reset position to ensure proper loading
-                    if (isFirstEarthEntry) {
-                        console.log('First Earth entry this session - ensuring proper position reset with 200ms delay');
+                // If San Fran is already initialized, update and render
+                if (sanFranInitialized) {
+                    // If this is the first time entering San Fran in this session, reset position to ensure proper loading
+                    if (isFirstSanFranEntry) {
+                        console.log('First San Fran entry this session - ensuring proper position reset with 200ms delay');
                         setTimeout(() => {
                             console.log('Executing first-entry position reset');
-                            resetEarthPosition();
-                            isFirstEarthEntry = false;
+                            resetSanFranPosition();
+                            isFirstSanFranEntry = false;
                         }, 200);
                     }
                     
                     // Main update function that updates spacecraft, camera, tiles, world matrices
-                    const earthUpdated = updateEarthSurface(deltaTime);              
+                    const sanFranUpdated = updateSanFranSurface(deltaTime);              
     
-                    // Render the earth scene with the earth camera using our renderer
-                    earthRenderer.render(earthScene, earthCamera);
+                    // Render the San Fran scene with the San Fran camera using our renderer
+                    sanFranRenderer.render(sanFranScene, sanFranCamera);
                 }
             } catch (e) {
-                console.error('Earth surface animation error:', e);
+                console.error('San Fran surface animation error:', e);
             }
         }
         
         // Update the hyperspace option in the controls dropdown when scene changes
-        if (prevEarthSurfaceActive !== isEarthSurfaceActive) {
-            updateControlsDropdown(isEarthSurfaceActive, isMoonSurfaceActive);
+        if (prevSanFranSurfaceActive !== isSanFranSurfaceActive) {
+            updateControlsDropdown(isSanFranSurfaceActive, isMoonSurfaceActive);
+            
+            // Hide hyperspace progress bar when on Earth's surface
+            const progressContainer = document.getElementById('hyperspace-progress-container');
+            if (progressContainer) {
+                progressContainer.style.display = 'none'; // Always hide when scene changes
+            }
+        }
+
+        // CASE 1.5 = Washington surface view
+        if (!isSanFranSurfaceActive && isWashingtonSurfaceActive && !isMoonSurfaceActive) {
+            try {
+                // Detect if we just entered Washington's surface
+                if (!prevWashingtonSurfaceActive) {
+                    // Show transition before initializing Washington surface
+                    showWashingtonTransition(() => {
+                        // Initialize Washington once the transition is complete
+                        if (!washingtonInitialized) {
+                            console.log('Initializing Washington surface');
+                            const washingtonObjects = initWashingtonSurface();
+                            washingtonInitialized = true;
+                            console.log('Washington surface initialized successfully', washingtonObjects);
+    
+                            // Hide space container to see surface scene
+                            const spaceContainer = document.getElementById('space-container');
+                            if (spaceContainer) {
+                                spaceContainer.style.display = 'none';
+                                console.log('Hid space-container');
+                            }
+                            
+                            // Show Washington surface message
+                            const washingtonMsg = document.createElement('div');
+                            washingtonMsg.id = 'washington-surface-message';
+                            washingtonMsg.style.position = 'fixed';
+                            washingtonMsg.style.top = '20px';
+                            washingtonMsg.style.right = '20px';
+                            washingtonMsg.style.color = 'white';
+                            washingtonMsg.style.fontFamily = 'Orbitron, sans-serif';
+                            washingtonMsg.style.fontSize = '16px';
+                            washingtonMsg.style.padding = '10px';
+                            washingtonMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                            washingtonMsg.style.borderRadius = '5px';
+                            washingtonMsg.style.zIndex = '9999';
+                            washingtonMsg.innerHTML = 'WASHINGTON SURFACE<br>Press ESC to return to space<br>Press R to reset position';
+                            document.body.appendChild(washingtonMsg);
+                            
+                            // Hide coordinates display in earth surface mode
+                            const coordsDiv = document.getElementById('coordinates');
+                            if (coordsDiv) {
+                                coordsDiv.style.display = 'none';
+                            }
+                            
+                            // Hide exploration counter on Earth's surface
+                            const explorationCounter = document.querySelector('.exploration-counter');
+                            if (explorationCounter) {
+                                explorationCounter.style.display = 'none';
+                            }
+                            
+                            // Hide hyperspace progress container on Earth's surface
+                            const progressContainer = document.getElementById('hyperspace-progress-container');
+                            if (progressContainer) {
+                                progressContainer.style.display = 'none';
+                            }
+                            
+                            // Clean up any existing hyperspace streaks
+                            if (streakLines && streakLines.length > 0) {
+                                streakLines.forEach(streak => spaceScene.remove(streak.line));
+                                streakLines = [];
+                                isHyperspace = false;
+                            }
+                            
+                            // Hide any planet info boxes that might be visible
+                            const planetInfoBox = document.querySelector('.planet-info-box');
+                            if (planetInfoBox) {
+                                planetInfoBox.style.display = 'none';
+                            }
+                            
+                            // Hide any distance indicators
+                            const distanceIndicators = document.querySelectorAll('.distance-indicator');
+                            distanceIndicators.forEach(indicator => {
+                                indicator.style.display = 'none';
+                            });
+                            
+                            // Hide any reticle display
+                            if (spacecraft && spacecraft.userData && spacecraft.userData.reticle) {
+                                spacecraft.userData.reticle.visible = false;
+                            }
+                            
+                            // Clear any active lasers
+                            if (typeof clearAllLasers === 'function') {
+                                clearAllLasers();
+                            }
+                            
+                            // Hide any other UI elements that should not be visible on moon surface
+                            // Look for elements by class that might contain 'popup', 'tooltip', or 'notification'
+                            const otherUIElements = document.querySelectorAll('[class*="popup"], [class*="tooltip"], [class*="notification"]');
+                            otherUIElements.forEach(element => {
+                                element.style.display = 'none';
+                            });
+                            
+                            // Ensure keyboard focus is on the page after scene change
+                            setTimeout(() => {
+                                window.focus();
+                                document.body.focus();
+                                console.log('Set keyboard focus after Earth initialization');
+                            }, 300);
+                        }
+                        
+                        // Reset position to starting point over San Francisco every time we enter Earth surface
+                        console.log('Scheduling automatic position reset with 200ms delay');
+                        setTimeout(() => {
+                            console.log('Automatically resetting position to starting point');
+                            resetWashingtonPosition();
+                            
+                            // Set first entry flag to false AFTER the initial position reset
+                            if (isFirstWashingtonEntry) {
+                                console.log('First Washington entry completed');
+                                isFirstWashingtonEntry = false;
+                            }
+                        }, 200);
+                    });
+                }
+                
+                // If Washington is already initialized, update and render
+                if (washingtonInitialized) {
+                    // If this is the first time entering Washington in this session, reset position to ensure proper loading
+                    if (isFirstWashingtonEntry) {
+                        console.log('First Washington entry this session - ensuring proper position reset with 200ms delay');
+                        setTimeout(() => {
+                            console.log('Executing first-entry position reset');
+                            resetWashingtonPosition();
+                            isFirstWashingtonEntry = false;
+                        }, 200);
+                    }
+                    
+                    // Main update function that updates spacecraft, camera, tiles, world matrices
+                    const washingtonUpdated = updateWashingtonSurface(deltaTime);              
+    
+                    // Render the Washington scene with the Washington camera using our renderer
+                    washingtonRenderer.render(washingtonScene, washingtonCamera);
+                }
+            } catch (e) {
+                console.error('Washington surface animation error:', e);
+            }
+        }
+        
+        // Update the hyperspace option in the controls dropdown when scene changes
+        if (prevWashingtonSurfaceActive !== isWashingtonSurfaceActive) {
+            updateControlsDropdown(isWashingtonSurfaceActive, isMoonSurfaceActive);
             
             // Hide hyperspace progress bar when on Earth's surface
             const progressContainer = document.getElementById('hyperspace-progress-container');
@@ -834,7 +1034,7 @@ function animate(currentTime = 0) {
         }
         
         // CASE 2 = moon surface view
-        if (!isEarthSurfaceActive && isMoonSurfaceActive) {
+        if (!isSanFranSurfaceActive && !isWashingtonSurfaceActive && isMoonSurfaceActive) {
             try {
                 // Detect if we just entered moon's surface
                 if (!prevMoonSurfaceActive) {
@@ -980,7 +1180,7 @@ function animate(currentTime = 0) {
         
         // Update the hyperspace option in the controls dropdown when scene changes
         if (prevMoonSurfaceActive !== isMoonSurfaceActive) {
-            updateControlsDropdown(isEarthSurfaceActive, isMoonSurfaceActive);
+            updateControlsDropdown(isSanFranSurfaceActive, isWashingtonSurfaceActive, isMoonSurfaceActive);
             
             // Hide hyperspace progress bar when on Moon's surface
             const progressContainer = document.getElementById('hyperspace-progress-container');
@@ -1040,13 +1240,48 @@ function animate(currentTime = 0) {
     }
 
     // Update previous state for next frame
-    prevEarthSurfaceActive = isEarthSurfaceActive;
+    prevSanFranSurfaceActive = isSanFranSurfaceActive;
+    prevWashingtonSurfaceActive = isWashingtonSurfaceActive;
     prevMoonSurfaceActive = isMoonSurfaceActive;
 }
 
 // Function to show the blue transition effect when entering Earth's atmosphere
-function showEarthTransition(callback) {
-    const transitionElement = document.getElementById('earth-transition');
+function showSanFranTransition(callback) {
+    const transitionElement = document.getElementById('sanFran-transition');
+    
+    if (!transitionElement) {
+        console.error('Earth transition element not found');
+        if (callback) callback();
+        return;
+    }
+    
+    // Make the transition element visible but with opacity 0
+    transitionElement.style.display = 'block';
+    
+    // Force a reflow to ensure the display change is applied before changing opacity
+    transitionElement.offsetHeight;
+    
+    // Set opacity to 1 to start the fade-in transition
+    transitionElement.style.opacity = '1';
+    
+    // Wait for the transition to complete (0.5 second)
+    setTimeout(() => {
+        // After transition completes, reset the element and call the callback
+        transitionElement.style.opacity = '0';
+        
+        // Wait for fade-out to complete before hiding
+        setTimeout(() => {
+            transitionElement.style.display = 'none';
+        }, 500);
+        
+        // Execute the callback if provided
+        if (callback) callback();
+    }, 500);
+}
+
+// Function to show the blue transition effect when entering Washington's atmosphere
+function showWashingtonTransition(callback) {
+    const transitionElement = document.getElementById('washington-transition');
     
     if (!transitionElement) {
         console.error('Earth transition element not found');
