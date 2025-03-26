@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { TilesRenderer } from '/node_modules/3d-tiles-renderer/src/three/TilesRenderer.js';
-import { CesiumIonAuthPlugin } from '/node_modules/3d-tiles-renderer/src/plugins/three/CesiumIonAuthPlugin.js';
-import { GLTFExtensionsPlugin } from '/node_modules/3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js';
-import { DRACOLoader } from '/node_modules/three/examples/jsm/loaders/DRACOLoader.js';
+import { TilesRenderer } from '3d-tiles-renderer/src/three/TilesRenderer.js';
+import { CesiumIonAuthPlugin } from '3d-tiles-renderer/src/plugins/three/CesiumIonAuthPlugin.js';
+import { GLTFExtensionsPlugin } from '3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { createSpacecraft } from './spacecraft.js';
 import { fireLaser, updateLasers } from './laser.js';
 import { 
