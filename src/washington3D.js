@@ -166,17 +166,20 @@ if (typeof process !== 'undefined' && process.versions && process.versions.node)
 let apiKey = localStorage.getItem('ionApiKey') || import.meta.env.VITE_CESIUM_ACCESS_TOKEN || 'YOUR_CESIUM_TOKEN_HERE';
 
 // Fallback for local development if no .env variable is found
-if (!apiKey) {
-  if (typeof process !== 'undefined' && process.versions && process.versions.node) {
-      const fs = await import('fs/promises');
-      try {
-          const configData = await fs.readFile('./config.json', 'utf8');
-          const config = JSON.parse(configData);
-          apiKey = config.cesiumAccessToken || apiKey;
-      } catch (error) {
-          console.warn('Failed to load config.json, using localStorage or default token:', error);
-      }
-  }
+if (!apiKey && typeof process !== 'undefined' && process.versions && process.versions.node) {
+    try {
+        // Only attempt to import fs in a Node.js environment
+        const fs = await import('fs/promises').catch(() => {
+            console.warn('fs/promises module not available');
+            return { readFile: () => Promise.reject(new Error('fs not available')) };
+        });
+        
+        const configData = await fs.readFile('./config.json', 'utf8');
+        const config = JSON.parse(configData);
+        apiKey = config.cesiumAccessToken || apiKey;
+    } catch (error) {
+        console.warn('Failed to load config.json, using localStorage or default token:', error);
+    }
 }
 
 // Parameters for Washington mountains 3D tileset
@@ -1523,8 +1526,8 @@ export function init() {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.physicallyCorrectLights = true;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.8; // Reduced from 1.2 for darker space
-    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMappingExposure = 1.2;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.gammaFactor = 2.2;
  
     document.body.appendChild(renderer.domElement);

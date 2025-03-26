@@ -11,7 +11,7 @@ export default defineConfig({
     target: 'esnext', // Use modern JavaScript for smaller bundle sizes
     outDir: 'dist', // Output directory for production build
     emptyOutDir: true, // Clean directory before build
-    assetsDir: 'assets', // Directory for static assets
+    assetsDir: 'src/assets', // Directory for static assets
     sourcemap: false, // Disable source maps for smaller builds
     minify: 'terser', // Terser for optimal minification
     terserOptions: {

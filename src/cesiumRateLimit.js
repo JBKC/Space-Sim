@@ -24,7 +24,7 @@ export function configureCesiumRequestScheduler(options = {}) {
     Cesium.RequestScheduler.throttleRequestsByServer = config.throttleRequestsByServer;
     
     // Configure tile request throttling
-    if (Cesium.TileRequestThrottleParameters) {
+    if (Cesium && typeof Cesium.TileRequestThrottleParameters !== 'undefined') {
         // Configure high priority request parameters
         Cesium.TileRequestThrottleParameters.priorityHeightLimit = config.priorityHeightLimit;
         
@@ -43,6 +43,8 @@ export function configureCesiumRequestScheduler(options = {}) {
             Cesium.TileRequestThrottleParameters.lowPriorityLimit = 
                 Math.min(config.maximumRequestsPerServer - 4, 2);
         }
+    } else {
+        console.warn('Cesium.TileRequestThrottleParameters not available in this version of Cesium');
     }
     
     // Configure per-server request limits if available
