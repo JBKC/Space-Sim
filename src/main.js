@@ -28,8 +28,8 @@ import * as THREE from 'three';
 // Import Stats for FPS counter
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
-// Import loading managers from the new loaders.js file
-import { loadingManager, textureLoadingManager, updateAssetDisplay, verifyTextureLoading } from './loaders.js';
+// Import loading managers from the new loaders.js file - remove the asset display related functions
+import { loadingManager, textureLoadingManager, verifyTextureLoading, forceLoadTextures } from './loaders.js';
 
 // import earth surface functions
 import { 
@@ -122,12 +122,7 @@ fpsDisplay.style.cssText = 'position:absolute;bottom:10px;left:10px;background:r
 fpsDisplay.textContent = 'FPS: 0';
 document.body.appendChild(fpsDisplay);
 
-// Create an asset loader display
-const assetDisplay = document.createElement('div');
-assetDisplay.id = 'asset-display';
-assetDisplay.style.cssText = 'position:absolute;bottom:45px;left:10px;background:rgba(0,0,0,0.6);color:#0fa;font-family:monospace;font-size:14px;font-weight:bold;padding:5px 10px;border-radius:5px;z-index:10000;display:none;'; // Start hidden
-assetDisplay.innerHTML = 'Assets: 0/0<br>Textures: 0/0';
-document.body.appendChild(assetDisplay);
+// Remove asset display creation code
 
 // Initialize variables for FPS calculation
 let frameCount = 0;
@@ -152,6 +147,9 @@ setupDirectionalIndicator();
 
 // Add a flag to track if texture verification has been run
 let textureVerificationRun = false;
+
+// Add a flag to track if texture force loading has been run
+let textureForceLoadingRun = false;
 
 // Function to ensure wings are open at startup
 function initializeWingsOpen() {
@@ -342,7 +340,6 @@ function startGame(mode) {
     // Show the stats displays now that we're in the game
     stats.dom.style.display = 'block';
     fpsDisplay.style.display = 'block';
-    assetDisplay.style.display = 'block';
     
     // Show the controls prompt and initialize dropdown state
     showControlsPrompt();
@@ -356,21 +353,95 @@ function startGame(mode) {
         animate();
     }
     
-    // Schedule texture verification after a delay to ensure everything is loaded
+    // Schedule texture force loading after a delay to ensure everything is loaded
+    scheduleTextureLoading();
+}
+
+/**
+ * Schedule multiple texture force loading operations at staggered intervals
+ * This helps ensure textures are properly loaded even in challenging conditions
+ */
+function scheduleTextureLoading() {
+    // First attempt after 2 seconds - basic verification
     setTimeout(() => {
         if (!textureVerificationRun) {
-            console.log('Running delayed texture verification check...');
+            console.log('Running initial texture verification check...');
             textureVerificationRun = true;
             
-            // First verify space scene textures
             verifyTextureLoading(spaceScene);
-            
-            // Re-render the scene to apply texture updates
             renderScene();
-            
-            console.log('Texture verification complete - scenes have been re-rendered');
         }
-    }, 2000); // 2 second delay
+    }, 2000);
+    
+    // Second attempt after 3 seconds - force load textures (normal mode)
+    setTimeout(() => {
+        console.log('Running first texture force loading pass...');
+        
+        forceLoadTextures(spaceScene, () => {
+            renderScene();
+            console.log('First forced texture load pass complete');
+        }, false);
+    }, 3000);
+    
+    // Third attempt after 5 seconds - aggressive force load
+    setTimeout(() => {
+        console.log('Running aggressive texture force loading pass...');
+        textureForceLoadingRun = true;
+        
+        forceLoadTextures(spaceScene, () => {
+            renderScene();
+            console.log('Aggressive forced texture load pass complete');
+            
+            // One more render after a short delay
+            setTimeout(() => {
+                renderScene();
+            }, 500);
+        }, true);
+    }, 5000);
+}
+
+/**
+ * Force load textures for a specific scene
+ * @param {THREE.Scene} scene - The scene to load textures for
+ * @param {boolean} aggressive - Whether to use aggressive loading techniques
+ */
+function forceLoadTexturesForScene(scene, aggressive = false) {
+    if (!scene) return;
+    
+    console.log(`Force loading textures for ${scene.name || 'unnamed scene'}`);
+    
+    // Get the appropriate renderer for this scene
+    let renderer;
+    let camera;
+    
+    if (scene === spaceScene) {
+        renderer = spaceRenderer;
+        camera = spaceCamera;
+    } else if (scene === earthScene) {
+        renderer = earthRenderer;
+        camera = earthCamera;
+    } else if (scene === moonScene) {
+        renderer = moonRenderer;
+        camera = moonCamera;
+    }
+    
+    // Create a render callback that uses the appropriate renderer
+    const renderCallback = () => {
+        if (renderer && camera) {
+            renderer.render(scene, camera);
+            console.log(`Rendered ${scene.name || 'unnamed scene'} after texture force loading`);
+        } else if (scene.userData && typeof scene.userData.forceRender === 'function') {
+            scene.userData.forceRender();
+        } else {
+            console.warn('No renderer available for force-loaded scene');
+        }
+    };
+    
+    // Force load textures
+    forceLoadTextures(scene, renderCallback, aggressive);
+    
+    // Schedule a follow-up render after a short delay to catch late-loading textures
+    setTimeout(renderCallback, 1000);
 }
 
 // Create rate-limited version of startGame - ONLY for initial game loading
@@ -684,56 +755,30 @@ function animate(currentTime = 0) {
         // Reset counters
         lastFpsUpdateTime = currentTime;
         frameCount = 0;
-        
-        // Check if assets are fully loaded and hide asset display after a delay
-        const assetsComplete = 
-            loadingStats.assets.loaded === loadingStats.assets.total && 
-            loadingStats.assets.loaded > 0 &&
-            loadingStats.textures.loaded === loadingStats.textures.total && 
-            loadingStats.textures.loaded > 0;
-            
-        if (assetsComplete && !assetDisplay.dataset.hidePending) {
-            // Mark that we're planning to hide it
-            assetDisplay.dataset.hidePending = 'true';
-            
-            // After 5 seconds, fade out the asset display
-            setTimeout(() => {
-                assetDisplay.style.transition = 'opacity 1s ease-out';
-                assetDisplay.style.opacity = '0';
-                
-                // After fade out, hide it completely
-                setTimeout(() => {
-                    assetDisplay.style.display = 'none';
-                }, 1000);
-            }, 5000);
-            
-            // Check if we should run a texture verification
-            if (!textureVerificationRun) {
-                console.log('Assets completed - running texture verification');
-                textureVerificationRun = true;
-                
-                // First verify space scene textures
-                const result = verifyTextureLoading(spaceScene);
-                console.log(`Verified ${result.updated} textures in space scene`);
-                
-                // Re-render to show updated textures
-                renderScene();
-            }
-        }
     }
 
     try {
         // Detect scene transitions for texture verification
         if (prevEarthSurfaceActive !== isEarthSurfaceActive || prevMoonSurfaceActive !== isMoonSurfaceActive) {
-            // If we transitioned to a new scene, verify textures
-            console.log('Scene transition detected - verifying textures');
+            // If we transitioned to a new scene, force load textures
+            console.log('Scene transition detected - forcing texture loading');
             
-            if (isEarthSurfaceActive && earthScene) {
-                verifyTextureLoading(earthScene);
-            } else if (isMoonSurfaceActive && moonScene) {
-                verifyTextureLoading(moonScene);
+            // Verify textures for the appropriate scene
+            if (isEarthSurfaceActive) {
+                // Wait a moment for the scene to initialize properly
+                setTimeout(() => {
+                    forceLoadTexturesForScene(earthScene, true);
+                }, 500);
+            } else if (isMoonSurfaceActive) {
+                // Wait a moment for the scene to initialize properly
+                setTimeout(() => {
+                    forceLoadTexturesForScene(moonScene, true);
+                }, 500);
             } else {
-                verifyTextureLoading(spaceScene);
+                // Going back to space
+                setTimeout(() => {
+                    forceLoadTexturesForScene(spaceScene, true);
+                }, 500);
             }
         }
 
@@ -776,6 +821,8 @@ function animate(currentTime = 0) {
             if (spaceContainer && spaceContainer.style.display === 'none') {
                 spaceContainer.style.display = 'block';
                 console.log('Restored space-container visibility');
+                
+                // Remove reference to setting active environment
             }
             
             // Fix for controls dropdown visibility - check if controls should be visible
@@ -856,6 +903,8 @@ function animate(currentTime = 0) {
                     
                     // Show transition before initializing Earth surface
                     showEarthTransition(() => {
+                        // Remove reference to setting active environment
+                        
                         // Reset movement inputs again after transition to ensure clean state
                         resetMovementInputs();
                         
@@ -1020,6 +1069,8 @@ function animate(currentTime = 0) {
                     
                     // Show transition before initializing Moon surface
                     showMoonTransition(() => {
+                        // Remove reference to setting active environment
+                        
                         // Reset movement inputs again after transition to ensure clean state
                         resetMovementInputs();
                         
