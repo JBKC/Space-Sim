@@ -449,7 +449,8 @@ function checkTerrainCollision() {
     }
 
     spacecraftBoundingSphere.center.copy(spacecraft.position);
-    spacecraftBoundingSphere.radius = 3.5; // Increased from 2 to 3.5 for stronger collision detection
+    // Increase collision radius when boosting for better detection at high speeds
+    spacecraftBoundingSphere.radius = keys.up ? 5.0 : 3.5; // Larger radius when boosting
 
     const terrainMeshes = [];
     tiles.group.traverse((object) => {
@@ -490,7 +491,20 @@ function checkTerrainCollision() {
             new THREE.Vector3(0, -0.5, 0).normalize() // Slight down
         ];
         
+        // Add more direction checks when boosting for better detection
+        if (keys.up) {
+            directions.push(
+                new THREE.Vector3(1, 0, 1).normalize(),   // Forward-Right
+                new THREE.Vector3(-1, 0, 1).normalize(),  // Forward-Left
+                new THREE.Vector3(0.5, -0.5, 1).normalize() // Down-Forward-Slight Right
+            );
+        }
+        
         directions.forEach(dir => dir.applyQuaternion(spacecraft.quaternion));
+        
+        let collisionDetected = false;
+        let collisionPoint = null;
+        let collisionNormal = null;
         
         for (const direction of directions) {
             const intersection = checkCollisionInDirection(direction, terrainMeshes);
@@ -502,12 +516,23 @@ function checkTerrainCollision() {
                         (intersection.point ? new THREE.Vector3().subVectors(intersection.point, new THREE.Vector3(0, 0, 0)).normalize() : 
                         direction.clone().negate().normalize());
                     
-                    const pushFactor = 1.5; // Increased from 1.1 to 1.5 for stronger repulsion
+                    const pushFactor = keys.up ? 2.0 : 1.5; // Stronger push when boosting
                     collisionOffset.copy(normal).multiplyScalar((spacecraftBoundingSphere.radius - distanceToSurface) * pushFactor);
                     spacecraft.position.add(collisionOffset);
                     
+                    // Store collision information for respawn
+                    collisionDetected = true;
+                    collisionPoint = intersection.point ? intersection.point.clone() : spacecraft.position.clone();
+                    collisionNormal = normal.clone();
+                    
                     // Reduce velocity on collision to prevent momentum carrying through surfaces
                     currentSpeed *= 0.5; // Reduce speed by 50% on collision
+                    
+                    // Show WASTED message
+                    showCollisionWarning("WASTED");
+                    
+                    // Reset position to 2000m above the crash point with original orientation
+                    resetToCollisionPoint(collisionPoint, collisionNormal);
                     
                     return true;
                 }
@@ -519,6 +544,98 @@ function checkTerrainCollision() {
     }
 
     return false;
+}
+
+/**
+ * Resets the spacecraft position to 2000m above the point of collision
+ * @param {THREE.Vector3} collisionPoint - The point where collision occurred
+ * @param {THREE.Vector3} collisionNormal - The normal vector at collision point
+ */
+function resetToCollisionPoint(collisionPoint, collisionNormal) {
+    if (!spacecraft || !collisionPoint) {
+        console.warn("Cannot reset position: spacecraft or collision point not available");
+        return;
+    }
+
+    console.log("Resetting spacecraft 2000m above crash point with original orientation");
+    
+    // Default up vector if normal not available
+    const upVector = collisionNormal || new THREE.Vector3(0, 1, 0);
+    
+    // Set position 2000m above the collision point
+    const resetPosition = collisionPoint.clone().add(upVector.normalize().multiplyScalar(2000));
+    spacecraft.position.copy(resetPosition);
+
+    // Reset to the original orientation (same as at initialization)
+    spacecraft.quaternion.setFromEuler(new THREE.Euler(
+        THREE.MathUtils.degToRad(-20),
+        THREE.MathUtils.degToRad(75),
+        THREE.MathUtils.degToRad(150),
+        'XYZ'
+    ));
+    
+    // Reset speed to avoid continuing at high speed
+    currentSpeed = baseSpeed;
+}
+
+// Function to display a temporary collision warning message
+function showCollisionWarning(message = "COLLISION") {
+  // Check if a warning message already exists and remove it
+  const existingWarning = document.getElementById('collision-warning');
+  if (existingWarning) {
+    document.body.removeChild(existingWarning);
+  }
+  
+  // Create warning element
+  const warningElement = document.createElement('div');
+  warningElement.id = 'collision-warning';
+  warningElement.textContent = message;
+  
+  // Style the warning
+  warningElement.style.position = 'fixed';
+  warningElement.style.top = '40%'; // Moved up from 50% to 40% to appear higher on screen
+  warningElement.style.left = '50%';
+  warningElement.style.transform = 'translate(-50%, -50%)';
+  warningElement.style.color = '#ff0000';
+  warningElement.style.fontFamily = 'Orbitron, sans-serif';
+  warningElement.style.fontSize = '32px';
+  warningElement.style.fontWeight = 'bold';
+  warningElement.style.zIndex = '10000';
+  warningElement.style.textShadow = '0 0 10px rgba(255, 0, 0, 0.7)';
+  warningElement.style.padding = '20px';
+  warningElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+  warningElement.style.borderRadius = '5px';
+  warningElement.style.opacity = '1';
+  warningElement.style.transition = 'opacity 0.5s ease-out';
+  
+  // Add to DOM
+  document.body.appendChild(warningElement);
+  
+  // Flash the warning by changing opacity
+  let flashCount = 0;
+  const maxFlashes = 3;
+  
+  const flashWarning = () => {
+    if (flashCount >= maxFlashes) {
+      // After flashing, fade out and remove
+      warningElement.style.opacity = '0';
+      // Remove element after fade out completes
+      setTimeout(() => {
+        if (warningElement.parentNode) {
+          warningElement.parentNode.removeChild(warningElement);
+        }
+      }, 500);
+      return;
+    }
+    
+    // Toggle opacity
+    warningElement.style.opacity = warningElement.style.opacity === '1' ? '0.3' : '1';
+    flashCount++;
+    setTimeout(flashWarning, 200);
+  };
+  
+  // Start flashing
+  flashWarning();
 }
 
 export function updateMovement() {

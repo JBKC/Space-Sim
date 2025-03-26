@@ -350,7 +350,7 @@ const directionalLight = new THREE.DirectionalLight(0xffffff, 10);
 directionalLight.position.set(-1, -1, -1,);
 scene.add(directionalLight);
 
-const ambientLight = new THREE.AmbientLight(0xffffff, 1);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 
 scene.background = new THREE.Color(0x000000);
@@ -1215,14 +1215,29 @@ loadModelWithFallback(
         beltCollisionBox.name = "asteroidBeltCollision";
         asteroidBelt.add(beltCollisionBox);
         
+        // Generate random tilt angles for the belt's orbital plane
+        const tiltX = (Math.random() * Math.PI * 2) - Math.PI; // Random tilt in X from -π to π radians
+        const tiltZ = (Math.random() * Math.PI * 2) - Math.PI; // Random tilt in X from -π to π radians
+        
         for (let i = 0; i < count; i++) {
             const angle = (i / count) * Math.PI * 2; // Position around the circle
             const randomRadius = radius * (0.9 + Math.random() * 0.2); // Vary the radius slightly
             
-            // Calculate position on the circle
-            const x = Math.cos(angle) * randomRadius;
-            const z = Math.sin(angle) * randomRadius;
-            const y = (Math.random() - 0.5) * 5000; // Random height in belt
+            // Calculate position on a flat circle first
+            const xFlat = Math.cos(angle) * randomRadius;
+            const zFlat = Math.sin(angle) * randomRadius;
+            const yFlat = (Math.random() - 0.5) * 5000; // Random height variation in belt
+            
+            // Apply tilt rotation to the position coordinates
+            // This rotates the point around the center (0,0,0)
+            // X-axis tilt (affects y and z)
+            const yTiltedX = yFlat * Math.cos(tiltX) - zFlat * Math.sin(tiltX);
+            const zTiltedX = yFlat * Math.sin(tiltX) + zFlat * Math.cos(tiltX);
+            
+            // Z-axis tilt (affects x and y)
+            const xTilted = xFlat * Math.cos(tiltZ) - yTiltedX * Math.sin(tiltZ);
+            const yTilted = xFlat * Math.sin(tiltZ) + yTiltedX * Math.cos(tiltZ);
+            const zTilted = zTiltedX;
             
             // Clone the asteroid model
             const asteroidClone = baseAsteroid.clone();
@@ -1236,8 +1251,8 @@ loadModelWithFallback(
             asteroidClone.rotation.y = Math.random() * Math.PI * 2;
             asteroidClone.rotation.z = Math.random() * Math.PI * 2;
             
-            // Set position
-            asteroidClone.position.set(x, y, z);
+            // Set position with tilted coordinates
+            asteroidClone.position.set(xTilted, yTilted, zTilted);
             
             // Add to the belt
             asteroidBelt.add(asteroidClone);
@@ -1266,6 +1281,12 @@ function createFallbackAsteroidBelt() {
     const beltWidth = 10000;
     const beltHeight = 3000;
     
+    // Generate random tilt angles for the belt's orbital plane
+    const tiltX = (Math.random() * 0.3) - 0.15; // Random tilt in X from -0.15 to 0.15 radians (about ±8.6 degrees)
+    const tiltZ = (Math.random() * 0.3) - 0.15; // Random tilt in Z from -0.15 to 0.15 radians (about ±8.6 degrees)
+    
+    console.log(`Asteroid belt tilted by ${(tiltX * 180 / Math.PI).toFixed(2)}° in X and ${(tiltZ * 180 / Math.PI).toFixed(2)}° in Z`);
+    
     for (let i = 0; i < asteroidCount; i++) {
         // Create a simple asteroid with random geometry
         const asteroidGeometry = new THREE.IcosahedronGeometry(1, 0); // Simple low-poly asteroid shape
@@ -1284,12 +1305,20 @@ function createFallbackAsteroidBelt() {
         const heightVariation = (Math.random() - 0.5) * beltHeight;
         const asteroidRadius = orbitRadius + radiusVariation;
         
-        // Position in a circular pattern with some variation
-        // Use x and z as the orbital plane with y as height variation
-        // This ensures asteroids orbit around the sun at (0,0,0)
-        const x = Math.cos(angle) * asteroidRadius;
-        const z = Math.sin(angle) * asteroidRadius;
-        const y = heightVariation;
+        // Position in a flat circular pattern first
+        const xFlat = Math.cos(angle) * asteroidRadius;
+        const zFlat = Math.sin(angle) * asteroidRadius;
+        const yFlat = heightVariation;
+        
+        // Apply tilt rotation to the position coordinates
+        // X-axis tilt (affects y and z)
+        const yTiltedX = yFlat * Math.cos(tiltX) - zFlat * Math.sin(tiltX);
+        const zTiltedX = yFlat * Math.sin(tiltX) + zFlat * Math.cos(tiltX);
+        
+        // Z-axis tilt (affects x and y)
+        const xTilted = xFlat * Math.cos(tiltZ) - yTiltedX * Math.sin(tiltZ);
+        const yTilted = xFlat * Math.sin(tiltZ) + yTiltedX * Math.cos(tiltZ);
+        const zTilted = zTiltedX;
         
         // Random scale between 200 and 600
         const scale = 200 + Math.random() * 400;
@@ -1300,8 +1329,8 @@ function createFallbackAsteroidBelt() {
         asteroid.rotation.y = Math.random() * Math.PI * 2;
         asteroid.rotation.z = Math.random() * Math.PI * 2;
         
-        // Set position
-        asteroid.position.set(x, y, z);
+        // Set position with tilted coordinates
+        asteroid.position.set(xTilted, yTilted, zTilted);
         
         // Add to the group
         asteroidBeltGroup.add(asteroid);
