@@ -2,7 +2,7 @@
 
 // Called by various setup files
 
-import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.174.0/three.module.js';
+import * as THREE from 'three';
 import { 
     spacecraft, 
     engineGlowMaterial, 
