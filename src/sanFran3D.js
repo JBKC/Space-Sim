@@ -43,6 +43,11 @@ const coordConfig = {
 let coordinateSystem;
 let localOrigin; // Local origin point for coordinate system
 
+// Add a variable to track initialization time for collision safety
+let initializationTime = 0;
+const COLLISION_SAFETY_PERIOD = 5000; // 5 seconds of safety after initialization
+let isInitialEarthEntry = true; // Flag to track first entry
+
 export { 
  scene, 
  camera, 
@@ -1152,6 +1157,17 @@ export function init() {
  return { scene: scene, camera: camera, renderer: renderer, tiles: tiles };
  }
 
+ // Set initialization time to current time to prevent collision warnings during startup
+ initializationTime = Date.now();
+ isInitialEarthEntry = true; // Mark as initial entry
+ console.log("Setting initialization safety period for collision detection");
+ 
+ // Set a timeout to mark the end of initial entry after the safety period
+ setTimeout(() => {
+   isInitialEarthEntry = false;
+   console.log("Initial Earth entry period ended, normal collision detection enabled");
+ }, COLLISION_SAFETY_PERIOD);
+
  scene = new THREE.Scene();
     const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(0), 64, 64);
     env.mapping = THREE.EquirectangularReflectionMapping;
@@ -1204,131 +1220,6 @@ initSpacecraft();
     };
 }
 
-// Remove the call to updateGridAlignment in the update function
-export function update(deltaTime = 0.016) {
- try {
- if (!sanFranInitialized) {
- console.log("Not initialized yet");
-            return false;
-        }
-
-        if (!tiles) {
-            return false;
-        }
-
-        updateMovement();
-        updateCamera();
-        
- // Call to updateGridAlignment removed since grid is now hidden
- 
- // Handle laser firing with spacebar
- if (keys.space && spacecraft) {
-   // LASER FIRING DISABLED
-   // fireLaser(spacecraft, scene, 'sanFran', keys.up, keys.down);
- }
- 
- // Update all active lasers
- updateLasers(deltaTime);
- 
- // Update reticle position if available
- if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
-   // Pass both boost and slow states to the reticle update function
-   spacecraft.userData.updateReticle(keys.up, keys.down);
- } else {
-   // Only log this warning once to avoid console spam
-   if (!window.reticleWarningLogged) {
-     console.warn("Reticle update function not found on spacecraft userData", spacecraft);
-     window.reticleWarningLogged = true;
-   }
- }
- 
-        if (tiles.group) {
-            tiles.group.traverse((node) => {
-                if (node.isMesh && node.receiveShadow === undefined) {
-                    node.receiveShadow = true;
-                }
-            });
-        }
-        
-        // Check for collision with base plane
-        checkBasePlaneCollision();
-        
- updateearthLighting();
-
- if (!camera) {
- console.warn("Camera not initialized");
-            return false;
-        }
-
- tiles.setCamera(camera);
- tiles.setResolutionFromRenderer(camera, renderer);
- camera.updateMatrixWorld();
-        tiles.update();
-        
-        // Update cockpit elements if in first-person view
-        if (spacecraft && spacecraft.updateCockpit) {
-            spacecraft.updateCockpit(deltaTime);
-        }
-        
-        return true;
-    } catch (error) {
- console.error("Error in update:", error);
-        return false;
-    }
-}
-
-function updateearthLighting() {
-    if (!earthSun || !spacecraft) return;
-    
-    const spacecraftPosition = spacecraft.position.clone();
-    earthSun.position.set(
-        spacecraftPosition.x,
-        spacecraftPosition.y + 100000,
-        spacecraftPosition.z
-    );
-    
-    if (earthSun.target) {
-        earthSun.target.position.copy(spacecraftPosition);
-        earthSun.target.updateMatrixWorld();
-    }
-    
-    // Update the player sun based on config
-    if (playerSun && playerSunTarget) {
-        if (playerSunConfig.fixedPosition) {
-            // For fixed position, use the global lat/lon coordinates to position the sun
-            // Only update if we need to maintain the position in global space
-            const playerSunPosition = latLonHeightToEcef(
-                playerSunConfig.position.lat,
-                playerSunConfig.position.lon,
-                playerSunConfig.position.height
-            );
-            playerSun.position.copy(playerSunPosition);
-            
-            // Point the sun at the player's position
-            playerSunTarget.position.copy(spacecraftPosition);
-            playerSunTarget.position.add(new THREE.Vector3(
-                playerSunConfig.targetOffset.x,
-                playerSunConfig.targetOffset.y,
-                playerSunConfig.targetOffset.z
-            ));
-        } else {
-            // If following player, position the sun above the player's local up direction
-            const playerUp = new THREE.Vector3(0, 1, 0).applyQuaternion(spacecraft.quaternion);
-            playerUp.normalize().multiplyScalar(playerSunConfig.position.height);
-            
-            // Set the sun position relative to the player
-            playerSun.position.copy(spacecraftPosition).add(playerUp);
-            
-            // Set the target to the player's position
-            playerSunTarget.position.copy(spacecraftPosition);
-        }
-        
-        playerSunTarget.updateMatrixWorld();
-        playerSun.target = playerSunTarget;
-        playerSun.updateMatrixWorld(true);
-    }
-}
-
 function onWindowResize() {
  camera.aspect = window.innerWidth / window.innerHeight;
  camera.updateProjectionMatrix();
@@ -1338,6 +1229,11 @@ function onWindowResize() {
 
 // Add a function to check collision with base plane
 function checkBasePlaneCollision() {
+  // Extra safety: Always skip collision detection during initial entry period
+  if (isInitialEarthEntry || Date.now() - initializationTime < COLLISION_SAFETY_PERIOD) {
+    return false;
+  }
+
   if (!spacecraft || !basePlane || !window.gridCoordinateSystem) return false;
 
   // Get the world position of the spacecraft
@@ -1420,6 +1316,13 @@ function checkBasePlaneCollision() {
 
 // Function to display a temporary collision warning message
 function showCollisionWarning(message = "COLLISION") {
+  // Safety check: Don't show warnings during initialization safety period
+  if (Date.now() - initializationTime < COLLISION_SAFETY_PERIOD) {
+    console.log(`Suppressing "${message}" warning during safety period. Remaining time:`, 
+                Math.round((COLLISION_SAFETY_PERIOD - (Date.now() - initializationTime))/1000) + "s");
+    return; // Exit without showing warning
+  }
+  
   // Check if a warning message already exists and remove it
   const existingWarning = document.getElementById('collision-warning');
   if (existingWarning) {
@@ -1612,4 +1515,135 @@ export function setPlayerSunTargetOffset(x = 0, y = 0, z = 0) {
     playerSunConfig.targetOffset.z = z;
     
     console.log(`Player sun target offset set to (${x}, ${y}, ${z})`);
+}
+
+// Remove the call to updateGridAlignment in the update function
+export function update(deltaTime = 0.016) {
+ try {
+ if (!sanFranInitialized) {
+ console.log("Not initialized yet");
+            return false;
+        }
+
+        if (!tiles) {
+            return false;
+        }
+
+        updateMovement();
+        updateCamera();
+        
+ // Call to updateGridAlignment removed since grid is now hidden
+ 
+ // Handle laser firing with spacebar
+ if (keys.space && spacecraft) {
+   // LASER FIRING DISABLED
+   // fireLaser(spacecraft, scene, 'sanFran', keys.up, keys.down);
+ }
+ 
+ // Update all active lasers
+ updateLasers(deltaTime);
+ 
+ // Update reticle position if available
+ if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
+   // Pass both boost and slow states to the reticle update function
+   spacecraft.userData.updateReticle(keys.up, keys.down);
+ } else {
+   // Only log this warning once to avoid console spam
+   if (!window.reticleWarningLogged) {
+     console.warn("Reticle update function not found on spacecraft userData", spacecraft);
+     window.reticleWarningLogged = true;
+   }
+ }
+ 
+        if (tiles.group) {
+            tiles.group.traverse((node) => {
+                if (node.isMesh && node.receiveShadow === undefined) {
+                    node.receiveShadow = true;
+                }
+            });
+        }
+        
+        // Check for collision with base plane - only after safety period has passed
+        if (!isInitialEarthEntry && Date.now() - initializationTime >= COLLISION_SAFETY_PERIOD) {
+            checkBasePlaneCollision();
+        } else if (Math.random() < 0.01) { // Only log occasionally to avoid spam
+            // During safety period, log that collision detection is skipped
+            console.log("Skipping collision detection during initial Earth entry, remaining time:", 
+                Math.round((COLLISION_SAFETY_PERIOD - (Date.now() - initializationTime))/1000) + "s");
+        }
+        
+ updateearthLighting();
+
+ if (!camera) {
+ console.warn("Camera not initialized");
+            return false;
+        }
+
+ tiles.setCamera(camera);
+ tiles.setResolutionFromRenderer(camera, renderer);
+ camera.updateMatrixWorld();
+        tiles.update();
+        
+        // Update cockpit elements if in first-person view
+        if (spacecraft && spacecraft.updateCockpit) {
+            spacecraft.updateCockpit(deltaTime);
+        }
+        
+        return true;
+    } catch (error) {
+ console.error("Error in update:", error);
+        return false;
+    }
+}
+
+function updateearthLighting() {
+    if (!earthSun || !spacecraft) return;
+    
+    const spacecraftPosition = spacecraft.position.clone();
+    earthSun.position.set(
+        spacecraftPosition.x,
+        spacecraftPosition.y + 100000,
+        spacecraftPosition.z
+    );
+    
+    if (earthSun.target) {
+        earthSun.target.position.copy(spacecraftPosition);
+        earthSun.target.updateMatrixWorld();
+    }
+    
+    // Update the player sun based on config
+    if (playerSun && playerSunTarget) {
+        if (playerSunConfig.fixedPosition) {
+            // For fixed position, use the global lat/lon coordinates to position the sun
+            // Only update if we need to maintain the position in global space
+            const playerSunPosition = latLonHeightToEcef(
+                playerSunConfig.position.lat,
+                playerSunConfig.position.lon,
+                playerSunConfig.position.height
+            );
+            playerSun.position.copy(playerSunPosition);
+            
+            // Point the sun at the player's position
+            playerSunTarget.position.copy(spacecraftPosition);
+            playerSunTarget.position.add(new THREE.Vector3(
+                playerSunConfig.targetOffset.x,
+                playerSunConfig.targetOffset.y,
+                playerSunConfig.targetOffset.z
+            ));
+        } else {
+            // If following player, position the sun above the player's local up direction
+            const playerUp = new THREE.Vector3(0, 1, 0).applyQuaternion(spacecraft.quaternion);
+            playerUp.normalize().multiplyScalar(playerSunConfig.position.height);
+            
+            // Set the sun position relative to the player
+            playerSun.position.copy(spacecraftPosition).add(playerUp);
+            
+            // Set the target to the player's position
+            playerSunTarget.position.copy(spacecraftPosition);
+        }
+        
+        playerSunTarget.updateMatrixWorld();
+        playerSun.target = playerSunTarget;
+        playerSun.updateMatrixWorld(true);
+    }
 }
