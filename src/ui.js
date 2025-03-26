@@ -244,3 +244,50 @@ export function updateUI() {
     // Currently empty as we don't have any UI elements that need constant updates
     // This function is called in the animation loop for future UI updates
 }
+
+// Show/hide the surface selector UI when approaching Earth
+export function toggleSurfaceSelector(show) {
+    const surfaceSelector = document.getElementById('surface-selector');
+    if (!surfaceSelector) return;
+    
+    surfaceSelector.style.display = show ? 'block' : 'none';
+}
+
+// Initialize the surface selector buttons
+export function initSurfaceSelectors(onSanFranSelected, onWashingtonSelected) {
+    const surfaceSelector = document.getElementById('surface-selector');
+    if (!surfaceSelector) return;
+    
+    const sanFranBtn = document.getElementById('sanfran-btn');
+    const washingtonBtn = document.getElementById('washington-btn');
+    
+    if (sanFranBtn && washingtonBtn) {
+        // Set San Francisco as the default selected option
+        sanFranBtn.classList.add('active');
+        
+        // Add click event listeners
+        sanFranBtn.addEventListener('click', () => {
+            sanFranBtn.classList.add('active');
+            washingtonBtn.classList.remove('active');
+            
+            if (typeof onSanFranSelected === 'function') {
+                onSanFranSelected();
+            }
+            
+            // Hide the selector after selection
+            toggleSurfaceSelector(false);
+        });
+        
+        washingtonBtn.addEventListener('click', () => {
+            washingtonBtn.classList.add('active');
+            sanFranBtn.classList.remove('active');
+            
+            if (typeof onWashingtonSelected === 'function') {
+                onWashingtonSelected();
+            }
+            
+            // Hide the selector after selection
+            toggleSurfaceSelector(false);
+        });
+    }
+}

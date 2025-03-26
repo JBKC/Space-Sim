@@ -305,6 +305,56 @@
             0% { opacity: 0; }
             100% { opacity: 1; }
         }
+        
+        /* Surface Selector Styles */
+        #surface-selector {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #4fc3f7;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            font-family: 'Orbitron', sans-serif;
+            z-index: 10000;
+            display: none; /* Hidden by default */
+            box-shadow: 0 0 20px rgba(79, 195, 247, 0.5);
+        }
+        
+        .surface-selector-title {
+            color: #4fc3f7;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        #surface-selector button {
+            background: rgba(0, 0, 0, 0.6);
+            color: #b3e5fc;
+            border: 1px solid #4fc3f7;
+            border-radius: 5px;
+            padding: 10px 15px;
+            margin: 5px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        #surface-selector button:hover {
+            background: rgba(79, 195, 247, 0.2);
+            transform: scale(1.05);
+        }
+        
+        #surface-selector button.active {
+            background: rgba(79, 195, 247, 0.3);
+            color: white;
+            box-shadow: 0 0 10px rgba(79, 195, 247, 0.5);
+        }
     </style>
 </head>
 <body>
@@ -362,6 +412,13 @@
         
         <h3>ACTIONS</h3>
         <p>C: First Person View</p>
+    </div>
+    
+    <!-- Earth Surface Selection UI -->
+    <div id="surface-selector">
+        <div class="surface-selector-title">Choose Location:</div>
+        <button id="sanfran-btn">San Francisco</button>
+        <button id="washington-btn">Washington DC</button>
     </div>
 </body>
 </html>

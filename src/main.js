@@ -5,9 +5,9 @@ import {
     updateStars, 
     updatePlanetLabels, 
     checkPlanetProximity, 
-    isSanFranSurfaceActive,
-    isWashingtonSurfaceActive,
-    isMoonSurfaceActive, // Uncommented Moon surface access
+    isSanFranSurfaceActive as importedSanFranSurfaceActive,
+    isWashingtonSurfaceActive as importedWashingtonSurfaceActive,
+    isMoonSurfaceActive as importedMoonSurfaceActive, // Uncommented Moon surface access
     exitEarthSurface,
     exitMoonSurface, // Uncommented Moon surface access
     updateMoonPosition,
@@ -75,7 +75,9 @@ import {
     hideRaceModeUI, 
     updateUI,
     showControlsPrompt,
-    updateControlsDropdown
+    updateControlsDropdown,
+    toggleSurfaceSelector,
+    initSurfaceSelectors
 } from './ui.js';
 
 // Import the reticle functions but we won't initialize them here
@@ -121,6 +123,13 @@ let prevMoonSurfaceActive = false;
 setupUIElements();
 setupDirectionalIndicator();
 
+// Expose functions to the window object for access from other modules
+window.toggleSurfaceSelector = toggleSurfaceSelector;
+window.resetSanFranInitialized = () => { sanFranInitialized = false; };
+window.resetWashingtonInitialized = () => { washingtonInitialized = false; };
+window.resetMoonInitialized = () => { moonInitialized = false; };
+window.animate = animate;
+
 // Function to ensure wings are open at startup
 function initializeWingsOpen() {
     // Check every 500ms for 5 seconds to ensure spacecraft is fully loaded
@@ -146,6 +155,24 @@ function initializeWingsOpen() {
     setTimeout(checkAndSetWings, 500);
 }
 
+// Initialize the surface selection UI
+function initEarthSurfaceSelection() {
+    initSurfaceSelectors(
+        // San Francisco selected callback
+        () => {
+            console.log('San Francisco surface selected');
+            setSanFranSurfaceActive(true);
+            setWashingtonSurfaceActive(false);
+        },
+        // Washington selected callback
+        () => {
+            console.log('Washington surface selected');
+            setSanFranSurfaceActive(false);
+            setWashingtonSurfaceActive(true);
+        }
+    );
+}
+
 // Keydown event listeners for controls
 document.addEventListener('keydown', (event) => {
     if (event.code === 'Space') {
@@ -167,31 +194,51 @@ document.addEventListener('keydown', (event) => {
         }
     }
     // Only allow hyperspace if not on Earth's surface
-    if ((event.code === 'ShiftLeft' || event.code === 'ShiftRight') && !isSanFranSurfaceActive && !isWashingtonSurfaceActive) {
+    if ((event.code === 'ShiftLeft' || event.code === 'ShiftRight') && !importedSanFranSurfaceActive && !importedWashingtonSurfaceActive) {
         startHyperspace();
     }
     // Reset position in Earth surface mode
-    if (event.code === 'KeyR' && isSanFranSurfaceActive) {
+    if (event.code === 'KeyR' && importedSanFranSurfaceActive) {
         console.log('R pressed - resetting position in San Francisco');
         resetSanFranPosition();
     }
     // Reset position in Moon surface mode
-    if (event.code === 'KeyR' && isMoonSurfaceActive) {
+    if (event.code === 'KeyR' && importedMoonSurfaceActive) {
         console.log('R pressed - resetting position on the Moon');
         resetMoonPosition();
     }
-    if (event.code === 'KeyR' && isWashingtonSurfaceActive) {
+    if (event.code === 'KeyR' && importedWashingtonSurfaceActive) {
         console.log('R pressed - resetting position in Washington');
         resetWashingtonPosition();
+    }
+    // Exit surface view with ESC key
+    if (event.code === 'Escape') {
+        if (importedSanFranSurfaceActive || importedWashingtonSurfaceActive) {
+            console.log('ESC pressed - exiting Earth surface');
+            exitEarthSurface();
+            
+            // Reset the first entry flags so next time we enter Earth surfaces, they're treated as a first entry
+            isFirstSanFranEntry = true;
+            isFirstWashingtonEntry = true;
+        } else if (importedMoonSurfaceActive) {
+            console.log('ESC pressed - exiting Moon surface');
+            exitMoonSurface();
+            
+            // Reset the first entry flag so next time we enter Moon, it's treated as a first entry
+            isFirstMoonEntry = true;
+        }
+        
+        // Also hide the surface selector if it's visible
+        toggleSurfaceSelector(false);
     }
     // Toggle first-person/third-person view with 'C' key
     if (event.code === 'KeyC') {
         console.log('===== C KEY PRESSED - TOGGLE COCKPIT VIEW =====');
-        console.log('Is on San Fran surface:', isSanFranSurfaceActive);
+        console.log('Is on San Fran surface:', importedSanFranSurfaceActive);
         console.log('Has spacecraft:', !!spacecraft);
         console.log('Has San Fran spacecraft:', !!sanFranSpacecraft);
         
-        if (isSanFranSurfaceActive && sanFranSpacecraft) {
+        if (importedSanFranSurfaceActive && sanFranSpacecraft) {
             console.log('C pressed - toggling cockpit view in San Fran scene');
             if (typeof sanFranSpacecraft.toggleView === 'function') {
                 const result = sanFranSpacecraft.toggleView(sanFranCamera, (isFirstPerson) => {
@@ -204,7 +251,7 @@ document.addEventListener('keydown', (event) => {
             } else {
                 console.warn('Toggle view function not available on Earth spacecraft');
             }
-        } else if (isWashingtonSurfaceActive && washingtonSpacecraft) {
+        } else if (importedWashingtonSurfaceActive && washingtonSpacecraft) {
             console.log('C pressed - toggling cockpit view in Washington scene');
             if (typeof washingtonSpacecraft.toggleView === 'function') {
                 const result = washingtonSpacecraft.toggleView(washingtonCamera, (isFirstPerson) => {
@@ -217,7 +264,7 @@ document.addEventListener('keydown', (event) => {
             } else {
                 console.warn('Toggle view function not available on Washington spacecraft');
             }
-        } else if (isMoonSurfaceActive && moonSpacecraft) {
+        } else if (importedMoonSurfaceActive && moonSpacecraft) {
             console.log('C pressed - toggling cockpit view in Moon scene');
             if (typeof moonSpacecraft.toggleView === 'function') {
                 const result = moonSpacecraft.toggleView(moonCamera, (isFirstPerson) => {
@@ -247,25 +294,6 @@ document.addEventListener('keydown', (event) => {
             } else {
                 console.warn('Toggle view function not available on Space spacecraft');
             }
-        }
-    }
-    // Enhanced ESC key to exit Moon surface or Earth surface
-    if (event.code === 'Escape') {
-        if (isMoonSurfaceActive) {
-            console.log('ESC pressed - exiting Moon surface');
-            exitMoonSurface();
-            // Reset the first entry flag so next time we enter Moon, it's treated as a first entry
-            isFirstMoonEntry = true;
-        } else if (isSanFranSurfaceActive) {
-            console.log('ESC pressed - exiting San Fran surface');
-            exitEarthSurface();
-            // Reset the first entry flag so next time we enter San Fran, it's treated as a first entry
-            isFirstSanFranEntry = true;
-        } else if (isWashingtonSurfaceActive) {
-            console.log('ESC pressed - exiting Washington surface');
-            exitEarthSurface();
-            // Reset the first entry flag so next time we enter Washington, it's treated as a first entry
-            isFirstWashingtonEntry = true;
         }
     }
 });
@@ -306,31 +334,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Start the game with the selected mode
 function startGame(mode) {
-    console.log('Starting game in mode:', mode);
+    console.log(`Starting game in ${mode} mode`);
     gameMode = mode;
-    setGameMode(mode);
+    
+    // Hide the welcome screen
     const welcomeScreen = document.getElementById('welcome-screen');
     if (welcomeScreen) {
         welcomeScreen.style.display = 'none';
     }
     
-    // Show coordinates when game starts
+    // Initialize UI elements for each mode
+    if (mode === 'race') {
+        showRaceModeUI();
+    } else if (mode === 'exploration') {
+        hideRaceModeUI();
+    }
+    
+    // Show coordinates display
     const coordsDiv = document.getElementById('coordinates');
     if (coordsDiv) {
         coordsDiv.style.display = 'block';
     }
     
-    // Show the controls prompt and initialize dropdown state
+    // Initialize space scene if not already
+    if (!spaceInitialized) {
+        initSpace();
+        spaceInitialized = true;
+    }
+    
+    // Set up control prompts and Earth surface selection UI
     showControlsPrompt();
-    updateControlsDropdown(isSanFranSurfaceActive, isWashingtonSurfaceActive, isMoonSurfaceActive);
-
-    // Ensure wings are open at startup
-    initializeWingsOpen();
-
+    initEarthSurfaceSelection();
+    
+    // Start the animation loop if not already running
     if (!isAnimating) {
         isAnimating = true;
         animate();
     }
+    
+    // Ensure wings are open at startup
+    initializeWingsOpen();
 }
 
 // Create rate-limited version of startGame - ONLY for initial game loading
@@ -407,7 +450,7 @@ function updateStreaks() {
 // Function to start hyperspace with progress bar and streaks
 function startHyperspace() {
     // Don't activate hyperspace if already in hyperspace or on Earth's surface
-    if (isHyperspace || isSanFranSurfaceActive || isWashingtonSurfaceActive) return;
+    if (isHyperspace || importedSanFranSurfaceActive || importedWashingtonSurfaceActive) return;
     
     isHyperspace = true;
     // Make sure to set the global isHyperspace flag immediately so other modules can detect it
@@ -514,31 +557,6 @@ function startHyperspace() {
 
 let debugMode = true;
 
-// Make the reset functions available globally to avoid circular imports
-window.resetSanFranInitialized = function() {
-    sanFranInitialized = false;
-    console.log('Reset San Fran surface initialization state');
-    
-    // Also reset the Washington initialization flag
-    resetSanFranInitialized();
-};
-
-window.resetWashingtonInitialized = function() {
-    washingtonInitialized = false;
-    console.log('Reset Washington surface initialization state');
-    
-    // Also reset the San Fran initialization flag
-    resetWashingtonInitialized();
-};
-
-window.resetMoonInitialized = function() {
-    moonInitialized = false;
-    console.log('Reset Moon surface initialization state');
-    
-    // Also reset the Moon3D initialization flag
-    resetMoonInitialized();
-};
-
 // Add a global function to directly toggle wings for debugging
 window.toggleWings = function() {
     if (spacecraft && spacecraft.toggleWings) {
@@ -634,18 +652,18 @@ function animate(currentTime = 0) {
             let sceneType = 'space';
             
             /* Moon surface access disabled
-            if (isMoonSurfaceActive) {
+            if (importedMoonSurfaceActive) {
                 activeScene = moonScene;
                 activeSpacecraft = moonSpacecraft || spacecraft;
                 sceneType = 'moon';
             }
             */
-            if (isSanFranSurfaceActive) {
+            if (importedSanFranSurfaceActive) {
                 activeScene = sanFranScene;
                 activeSpacecraft = sanFranSpacecraft || spacecraft;
                 sceneType = 'sanFran';
             }
-            if (isWashingtonSurfaceActive) {
+            if (importedWashingtonSurfaceActive) {
                 activeScene = washingtonScene;
                 activeSpacecraft = washingtonSpacecraft || spacecraft;
                 sceneType = 'washington';
@@ -664,7 +682,7 @@ function animate(currentTime = 0) {
         updateLasers(deltaTime);
 
         // CASE 0 = normal space view
-        if (!isSanFranSurfaceActive && !isWashingtonSurfaceActive && !isMoonSurfaceActive) {
+        if (!importedSanFranSurfaceActive && !importedWashingtonSurfaceActive && !importedMoonSurfaceActive) {
             // If we just exited a planet surface, make sure space container is visible
             const spaceContainer = document.getElementById('space-container');
             if (spaceContainer && spaceContainer.style.display === 'none') {
@@ -738,7 +756,7 @@ function animate(currentTime = 0) {
         }
 
         // CASE 1 = San Fran surface view
-        if (isSanFranSurfaceActive && !isWashingtonSurfaceActive && !isMoonSurfaceActive) {
+        if (importedSanFranSurfaceActive && !importedWashingtonSurfaceActive && !importedMoonSurfaceActive) {
             try {
                 // Detect if we just entered San Fran's surface
                 if (!prevSanFranSurfaceActive) {
@@ -875,8 +893,8 @@ function animate(currentTime = 0) {
         }
         
         // Update the hyperspace option in the controls dropdown when scene changes
-        if (prevSanFranSurfaceActive !== isSanFranSurfaceActive) {
-            updateControlsDropdown(isSanFranSurfaceActive, isMoonSurfaceActive);
+        if (prevSanFranSurfaceActive !== importedSanFranSurfaceActive) {
+            updateControlsDropdown(importedSanFranSurfaceActive, importedMoonSurfaceActive);
             
             // Hide hyperspace progress bar when on Earth's surface
             const progressContainer = document.getElementById('hyperspace-progress-container');
@@ -886,7 +904,7 @@ function animate(currentTime = 0) {
         }
 
         // CASE 1.5 = Washington surface view
-        if (!isSanFranSurfaceActive && isWashingtonSurfaceActive && !isMoonSurfaceActive) {
+        if (!importedSanFranSurfaceActive && importedWashingtonSurfaceActive && !importedMoonSurfaceActive) {
             try {
                 // Detect if we just entered Washington's surface
                 if (!prevWashingtonSurfaceActive) {
@@ -1023,8 +1041,8 @@ function animate(currentTime = 0) {
         }
         
         // Update the hyperspace option in the controls dropdown when scene changes
-        if (prevWashingtonSurfaceActive !== isWashingtonSurfaceActive) {
-            updateControlsDropdown(isWashingtonSurfaceActive, isMoonSurfaceActive);
+        if (prevWashingtonSurfaceActive !== importedWashingtonSurfaceActive) {
+            updateControlsDropdown(importedWashingtonSurfaceActive, importedMoonSurfaceActive);
             
             // Hide hyperspace progress bar when on Earth's surface
             const progressContainer = document.getElementById('hyperspace-progress-container');
@@ -1034,7 +1052,7 @@ function animate(currentTime = 0) {
         }
         
         // CASE 2 = moon surface view
-        if (!isSanFranSurfaceActive && !isWashingtonSurfaceActive && isMoonSurfaceActive) {
+        if (!importedSanFranSurfaceActive && !importedWashingtonSurfaceActive && importedMoonSurfaceActive) {
             try {
                 // Detect if we just entered moon's surface
                 if (!prevMoonSurfaceActive) {
@@ -1179,8 +1197,8 @@ function animate(currentTime = 0) {
         }
         
         // Update the hyperspace option in the controls dropdown when scene changes
-        if (prevMoonSurfaceActive !== isMoonSurfaceActive) {
-            updateControlsDropdown(isSanFranSurfaceActive, isWashingtonSurfaceActive, isMoonSurfaceActive);
+        if (prevMoonSurfaceActive !== importedMoonSurfaceActive) {
+            updateControlsDropdown(importedSanFranSurfaceActive, importedWashingtonSurfaceActive, importedMoonSurfaceActive);
             
             // Hide hyperspace progress bar when on Moon's surface
             const progressContainer = document.getElementById('hyperspace-progress-container');
@@ -1189,7 +1207,7 @@ function animate(currentTime = 0) {
             }
             
             // If we just entered moon surface, ensure all space UI elements are hidden
-            if (isMoonSurfaceActive) {
+            if (importedMoonSurfaceActive) {
                 // Hide any planet info boxes that might be visible
                 const planetInfoBox = document.querySelector('.planet-info-box');
                 if (planetInfoBox) {
@@ -1240,9 +1258,9 @@ function animate(currentTime = 0) {
     }
 
     // Update previous state for next frame
-    prevSanFranSurfaceActive = isSanFranSurfaceActive;
-    prevWashingtonSurfaceActive = isWashingtonSurfaceActive;
-    prevMoonSurfaceActive = isMoonSurfaceActive;
+    prevSanFranSurfaceActive = importedSanFranSurfaceActive;
+    prevWashingtonSurfaceActive = importedWashingtonSurfaceActive;
+    prevMoonSurfaceActive = importedMoonSurfaceActive;
 }
 
 // Function to show the blue transition effect when entering Earth's atmosphere
@@ -1345,4 +1363,26 @@ function showMoonTransition(callback) {
         // Execute the callback if provided
         if (callback) callback();
     }, 500);
+}
+
+// Create functions to update the surface state in setup.js
+function setSanFranSurfaceActive(value) {
+    importedSanFranSurfaceActive = value;
+    if (typeof window.setSanFranSurfaceActive === 'function') {
+        window.setSanFranSurfaceActive(value);
+    }
+}
+
+function setWashingtonSurfaceActive(value) {
+    importedWashingtonSurfaceActive = value;
+    if (typeof window.setWashingtonSurfaceActive === 'function') {
+        window.setWashingtonSurfaceActive(value);
+    }
+}
+
+function setMoonSurfaceActive(value) {
+    importedMoonSurfaceActive = value;
+    if (typeof window.setMoonSurfaceActive === 'function') {
+        window.setMoonSurfaceActive(value);
+    }
 }

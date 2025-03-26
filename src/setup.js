@@ -229,7 +229,20 @@ document.addEventListener('keydown', (event) => {
 // Variable to track if Earth surface is active
 export let isSanFranSurfaceActive = false;
 export let isWashingtonSurfaceActive = false;
+export let isMoonSurfaceActive = false;
 
+// Expose surface state update functions to the window object
+window.setSanFranSurfaceActive = (value) => {
+    isSanFranSurfaceActive = value;
+};
+
+window.setWashingtonSurfaceActive = (value) => {
+    isWashingtonSurfaceActive = value;
+};
+
+window.setMoonSurfaceActive = (value) => {
+    isMoonSurfaceActive = value;
+};
 
 export { 
     renderer, 
@@ -359,10 +372,9 @@ scene.background = new THREE.Color(0x000000);
 
 
 // Flag to track which scene is active
-export let isMoonSurfaceActive = false;
+// export let isMoonSurfaceActive = false;  // Already declared earlier
 
 // Render function that delegates to each surface scene
-// Update the renderScene function to avoid initializing earth3D multiple times
 export function renderScene() {
     if (isMoonSurfaceActive) {
         // nothing to do here
@@ -654,15 +666,34 @@ export function checkPlanetProximity() {
     const earthEntryThreshold = 500; // Distance threshold for Earth entry
     
     if (distanceToEarth < earthRadius + earthEntryThreshold && !isSanFranSurfaceActive && !isWashingtonSurfaceActive) {
-        // If close enough - activate Earth surface
-        isSanFranSurfaceActive = true;
-        console.log("Earth surface active - distance:", distanceToEarth.toFixed(2));
+        console.log("Earth approach detected - distance:", distanceToEarth.toFixed(2));
         
-    } else if (distanceToEarth >= earthRadius + earthEntryThreshold * 1.2 && isSanFranSurfaceActive) {
-        // Add a small buffer (20% larger) to avoid oscillation at the boundary
-        // If moving away from Earth, exit Earth surface
-        isSanFranSurfaceActive = false;
-        console.log("Exiting Earth surface - distance:", distanceToEarth.toFixed(2));
+        // Show the surface selector UI instead of automatically activating San Francisco
+        if (typeof window.toggleSurfaceSelector === 'function') {
+            window.toggleSurfaceSelector(true);
+            console.log("Showing surface selector UI");
+        } else {
+            console.warn("toggleSurfaceSelector function not found on window - defaulting to San Francisco");
+            isSanFranSurfaceActive = true;
+        }
+        
+    } else if (distanceToEarth >= earthRadius + earthEntryThreshold * 1.2) {
+        // Moving away from Earth
+        if (typeof window.toggleSurfaceSelector === 'function') {
+            window.toggleSurfaceSelector(false);
+        }
+        
+        if (isSanFranSurfaceActive) {
+            // Only reset if we're actually on the surface
+            isSanFranSurfaceActive = false;
+            console.log("Exiting San Francisco surface - distance:", distanceToEarth.toFixed(2));
+        }
+        
+        if (isWashingtonSurfaceActive) {
+            // Only reset if we're actually on the surface
+            isWashingtonSurfaceActive = false;
+            console.log("Exiting Washington surface - distance:", distanceToEarth.toFixed(2));
+        }
     }
     
     // Debug distances
