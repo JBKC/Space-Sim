@@ -665,7 +665,7 @@ export function exitEarthSurface() {
     isEarthSurfaceActive = false;
     
     // Update the controls dropdown to show hyperspace option again
-    updateControlsDropdown(false);
+    updateControlsDropdown(false, false);
     
     // Remove the persistent surface message if it exists
     const persistentMessage = document.getElementById('earth-surface-message');

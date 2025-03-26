@@ -11,7 +11,7 @@ export default defineConfig({
     target: 'esnext', // Use modern JavaScript for smaller bundle sizes
     outDir: 'dist', // Output directory for production build
     emptyOutDir: true, // Clean directory before build
-    assetsDir: 'assets', // Directory for static assets in output (matches .env.production)
+    assetsDir: 'src/assets', // Directory for static assets
     sourcemap: false, // Disable source maps for smaller builds
     minify: 'terser', // Terser for optimal minification
     terserOptions: {
@@ -21,9 +21,6 @@ export default defineConfig({
       },
     },
     rollupOptions: {
-      input: {
-        main: resolve(__dirname, 'index.html')
-      },
       output: {
         manualChunks: (id) => {
           if (id.includes('node_modules')) {
@@ -31,23 +28,6 @@ export default defineConfig({
             return 'vendor';
           }
         },
-        // Ensure assets are properly copied and maintain their paths
-        assetFileNames: (assetInfo) => {
-          const info = assetInfo.name.split('.');
-          const ext = info[info.length - 1];
-          
-          if (/\.(png|jpe?g|svg|gif|tiff|bmp|ico|webp|glb|gltf)$/i.test(assetInfo.name)) {
-            return `assets/[name]-[hash][extname]`;
-          }
-          
-          if (ext === 'css') {
-            return `[name][extname]`;  // Don't add hash to CSS files for direct reference
-          }
-          
-          return `assets/[name]-[hash][extname]`;
-        },
-        chunkFileNames: 'assets/[name]-[hash].js',
-        entryFileNames: 'assets/[name]-[hash].js',
       },
     },
   },

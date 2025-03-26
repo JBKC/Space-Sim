@@ -281,7 +281,7 @@ function startGame(mode) {
     
     // Show the controls prompt and initialize dropdown state
     showControlsPrompt();
-    updateControlsDropdown(isEarthSurfaceActive);
+    updateControlsDropdown(isEarthSurfaceActive, isMoonSurfaceActive);
 
     // Ensure wings are open at startup
     initializeWingsOpen();
@@ -816,7 +816,7 @@ function animate(currentTime = 0) {
         
         // Update the hyperspace option in the controls dropdown when scene changes
         if (prevEarthSurfaceActive !== isEarthSurfaceActive) {
-            updateControlsDropdown(isEarthSurfaceActive);
+            updateControlsDropdown(isEarthSurfaceActive, isMoonSurfaceActive);
             
             // Hide hyperspace progress bar when on Earth's surface
             const progressContainer = document.getElementById('hyperspace-progress-container');
@@ -972,7 +972,7 @@ function animate(currentTime = 0) {
         
         // Update the hyperspace option in the controls dropdown when scene changes
         if (prevMoonSurfaceActive !== isMoonSurfaceActive) {
-            updateControlsDropdown(isMoonSurfaceActive);
+            updateControlsDropdown(isEarthSurfaceActiveisMoonSurfaceActive);
             
             // Hide hyperspace progress bar when on Moon's surface
             const progressContainer = document.getElementById('hyperspace-progress-container');

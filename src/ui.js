@@ -100,17 +100,16 @@ export function toggleControlsDropdown() {
 }
 
 // Update controls dropdown content based on current scene
-export function updateControlsDropdown(isEarthSurfaceActive) {
+export function updateControlsDropdown(isEarthSurfaceActive, isMoonSurfaceActive) {
     const controlsDropdown = document.getElementById('controls-dropdown');
     if (!controlsDropdown) return;
     
     const hyperspaceOption = controlsDropdown.querySelector('.hyperspace-option');
     if (hyperspaceOption) {
-        // Show the hyperspace option when NOT on Earth's or Moon's surface
-        // 'isEarthSurfaceActive' is the parameter name for both Earth and Moon surfaces
-        // depending on which scene is calling this function
-        hyperspaceOption.style.display = isEarthSurfaceActive ? 'none' : 'block';
+        // Hide hyperspace option when on Earth's or Moon's surface
+        hyperspaceOption.style.display = (isEarthSurfaceActive || isMoonSurfaceActive) ? 'none' : 'block';
     }
+    
 }
 
 // Show controls prompt when game starts

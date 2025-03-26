@@ -24,7 +24,7 @@ export const sanFranCamera = {
     base: new THREE.Vector3(0, 2, -2),
     boost: new THREE.Vector3(0, 2, 10),
     slow: new THREE.Vector3(0, 2, -4),
-    collision: new THREE.Vector3(0, 5, -20),
+    collision: new THREE.Vector3(0, 2, -2),
 };
 
 // San Francisco cockpit camera offsets
@@ -32,7 +32,7 @@ export const sanFranCockpitCamera = {
     base: new THREE.Vector3(0, 0, 13.35),         // Inside cockpit, looking forward
     boost: new THREE.Vector3(0, 0, 40.1),        // Slightly downward tilt when boosting
     slow: new THREE.Vector3(0, 0, 6.7),         // Slightly upward tilt when slow
-    collision: new THREE.Vector3(0, 2, -1),        // Pulled back during collision
+    collision: new THREE.Vector3(0, 0, 13.35),        // Pulled back during collision
 };
 
 // Washington mountains camera offsets
@@ -40,7 +40,7 @@ export const washingtonCamera = {
     base: new THREE.Vector3(0, 2, 30),
     boost: new THREE.Vector3(0, 2, 200),
     slow: new THREE.Vector3(0, 2, 12),
-    collision: new THREE.Vector3(0, 2, 100),
+    collision: new THREE.Vector3(0, 10, 100),
 };
 
 // Washington mountains cockpit camera offsets
@@ -48,7 +48,7 @@ export const washingtonCockpitCamera = {
     base: new THREE.Vector3(0, 0, 44.9),       // Inside cockpit, looking forward
     boost: new THREE.Vector3(0, 0, 224.7),       // Slightly downward tilt when boosting
     slow: new THREE.Vector3(0, 0, 22.5),         // Slightly upward tilt when slows
-    collision: new THREE.Vector3(0, 2, 200),      // Pulled back during collision
+    collision: new THREE.Vector3(0, 0, 44.9),      // Pulled back during collision
 };
 
 
