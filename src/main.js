@@ -112,20 +112,20 @@ let prevMoonSurfaceActive = false;
 // Initialize FPS counter
 const stats = new Stats();
 stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
-stats.dom.style.cssText = 'position:absolute;bottom:0;left:0;opacity:0.9;z-index:10000;';
+stats.dom.style.cssText = 'position:absolute;bottom:0;left:0;opacity:0.9;z-index:10000;display:none;'; // Start hidden
 document.body.appendChild(stats.dom);
 
 // Create a custom FPS display element
 const fpsDisplay = document.createElement('div');
 fpsDisplay.id = 'fps-display';
-fpsDisplay.style.cssText = 'position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.6);color:#0ff;font-family:monospace;font-size:16px;font-weight:bold;padding:5px 10px;border-radius:5px;z-index:10000;';
+fpsDisplay.style.cssText = 'position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.6);color:#0ff;font-family:monospace;font-size:16px;font-weight:bold;padding:5px 10px;border-radius:5px;z-index:10000;display:none;'; // Start hidden
 fpsDisplay.textContent = 'FPS: 0';
 document.body.appendChild(fpsDisplay);
 
 // Create an asset loader display
 const assetDisplay = document.createElement('div');
 assetDisplay.id = 'asset-display';
-assetDisplay.style.cssText = 'position:absolute;bottom:45px;left:10px;background:rgba(0,0,0,0.6);color:#0fa;font-family:monospace;font-size:14px;font-weight:bold;padding:5px 10px;border-radius:5px;z-index:10000;';
+assetDisplay.style.cssText = 'position:absolute;bottom:45px;left:10px;background:rgba(0,0,0,0.6);color:#0fa;font-family:monospace;font-size:14px;font-weight:bold;padding:5px 10px;border-radius:5px;z-index:10000;display:none;'; // Start hidden
 assetDisplay.innerHTML = 'Assets: 0/0<br>Textures: 0/0';
 document.body.appendChild(assetDisplay);
 
@@ -177,6 +177,15 @@ function initializeWingsOpen() {
 
 // Keydown event listeners for controls
 document.addEventListener('keydown', (event) => {
+    // Check if we're in the welcome screen (main menu)
+    const welcomeScreen = document.getElementById('welcome-screen');
+    const isInMainMenu = welcomeScreen && welcomeScreen.style.display !== 'none';
+    
+    // Skip handling most keys when in main menu except for game start (Enter key)
+    if (isInMainMenu && event.key !== 'Enter') {
+        return;
+    }
+    
     if (event.code === 'Space') {
         isSpacePressed = true;
         // Also update the keys object used by scenes
@@ -195,8 +204,8 @@ document.addEventListener('keydown', (event) => {
             coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
         }
     }
-    // Only allow hyperspace if not on Earth's surface
-    if ((event.code === 'ShiftLeft' || event.code === 'ShiftRight') && !isEarthSurfaceActive) {
+    // Only allow hyperspace if not on Earth's surface and not in main menu
+    if ((event.code === 'ShiftLeft' || event.code === 'ShiftRight') && !isEarthSurfaceActive && !isInMainMenu) {
         startHyperspace();
     }
     // Reset position in Earth surface mode
@@ -327,6 +336,11 @@ function startGame(mode) {
         coordsDiv.style.display = 'block';
     }
     
+    // Show the stats displays now that we're in the game
+    stats.dom.style.display = 'block';
+    fpsDisplay.style.display = 'block';
+    assetDisplay.style.display = 'block';
+    
     // Show the controls prompt and initialize dropdown state
     showControlsPrompt();
     updateControlsDropdown(isEarthSurfaceActive, isMoonSurfaceActive);
@@ -413,8 +427,9 @@ function updateStreaks() {
 
 // Function to start hyperspace with progress bar and streaks
 function startHyperspace() {
-    // Don't activate hyperspace if already in hyperspace or on Earth's surface
-    if (isHyperspace || isEarthSurfaceActive) return;
+    // Don't activate hyperspace if already in hyperspace, on Earth's surface, or if we're still at the welcome screen
+    const welcomeScreen = document.getElementById('welcome-screen');
+    if (isHyperspace || isEarthSurfaceActive || (welcomeScreen && welcomeScreen.style.display !== 'none')) return;
     
     isHyperspace = true;
     // Make sure to set the global isHyperspace flag immediately so other modules can detect it
