@@ -158,7 +158,7 @@ if (typeof process !== 'undefined' && process.versions && process.versions.node)
 }
 
 // Pull CESIUM API key from environment variables or localStorage
-let apiKey = localStorage.getItem('ionApiKey') || process.env.CESIUM_ACCESS_TOKEN || 'YOUR_CESIUM_TOKEN_HERE';
+let apiKey = localStorage.getItem('ionApiKey') || import.meta.env.VITE_CESIUM_ACCESS_TOKEN || 'YOUR_CESIUM_TOKEN_HERE';
 
 // Fallback for local development if no .env variable is found
 if (!apiKey) {
