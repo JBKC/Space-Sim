@@ -1488,17 +1488,32 @@ function createReferenceSphere() {
     color: 0x606060
   });
   
-  // Add a slight blue rim glow by adjusting material properties
+  // Add atmosphere effect with gradient haze at the bottom
   material.onBeforeCompile = (shader) => {
-    // Add simple effect to soften the edge - simulates atmospheric scattering
+    // Add shader code for atmospheric effect
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <dithering_fragment>',
       `
       #include <dithering_fragment>
-      // Simple atmospheric effect - add slight blue tint at the edges
+      
+      // Calculate position-based factors for atmospheric effects
       float edgeFactor = 1.0 - abs(dot(vNormal, vec3(0.0, 0.0, 1.0)));
-      edgeFactor = smoothstep(0.3, 1.0, edgeFactor) * 0.3; // Control intensity here (0.3 is subtle)
+      edgeFactor = smoothstep(0.3, 1.0, edgeFactor) * 0.3; // Edge atmosphere (subtle blue)
+      
+      // Calculate bottom haze effect - strongest at the bottom of the planet
+      float bottomFactor = smoothstep(0.0, 0.7, -vNormal.y);
+      bottomFactor *= 0.7; // Control intensity
+      
+      // Apply blue rim glow (lighter at edges)
       gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.5, 0.7, 1.0), edgeFactor);
+      
+      // Apply white-green atmospheric haze at the bottom
+      vec3 hazeColor = mix(vec3(0.9, 1.0, 0.9), vec3(0.7, 0.95, 0.7), bottomFactor * 0.5);
+      gl_FragColor.rgb = mix(gl_FragColor.rgb, hazeColor, bottomFactor);
+      
+      // Add slight bloom/glow effect
+      float glowIntensity = bottomFactor * 0.3;
+      gl_FragColor.rgb += hazeColor * glowIntensity;
       `
     );
   };

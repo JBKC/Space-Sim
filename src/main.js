@@ -5,8 +5,8 @@ import {
     updateStars, 
     updatePlanetLabels, 
     checkPlanetProximity, 
-    isMoonSurfaceActive, // Uncommented Moon surface access
     isEarthSurfaceActive,
+    isMoonSurfaceActive, // Uncommented Moon surface access
     exitEarthSurface,
     exitMoonSurface, // Uncommented Moon surface access
     updateMoonPosition,
@@ -657,6 +657,9 @@ function animate(currentTime = 0) {
                     if (spacecraft) {
                         // Format coordinates to 1 decimal place
                         coordsDiv.textContent = `X: ${spacecraft.position.x.toFixed(1)}, Y: ${spacecraft.position.y.toFixed(1)}, Z: ${spacecraft.position.z.toFixed(1)}`;
+                        
+                        // Console log the spacecraft global coordinates
+                        // console.log(`Spacecraft Global Coordinates: X: ${spacecraft.position.x.toFixed(1)}, Y: ${spacecraft.position.y.toFixed(1)}, Z: ${spacecraft.position.z.toFixed(1)}`);
                     }
                     coordsDiv.style.display = 'block';
                 }

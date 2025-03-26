@@ -342,16 +342,19 @@ renderer.autoClear = true;
 renderer.sortObjects = false;
 renderer.physicallyCorrectLights = false;
 
-// Lighting
-const ambientLight = new THREE.AmbientLight(0xfffacc, 0.1); //  subtle ambient light
+
+// LIGHTING
+
+
+const directionalLight = new THREE.DirectionalLight(0xffffff, 10);
+directionalLight.position.set(-1, -1, -1,);
+scene.add(directionalLight);
+
+const ambientLight = new THREE.AmbientLight(0xffffff, 1);
 scene.add(ambientLight);
 
+scene.background = new THREE.Color(0x000000);
 
-
-// Add a central point light at the sun's position
-const centralLight = new THREE.PointLight(0xfffacc, 10000, 250000); // Warm white light with long range
-centralLight.position.set(0, 0, 0); // Position at the center (sun location)
-scene.add(centralLight);
 
 // Flag to track which scene is active
 export let isMoonSurfaceActive = false;
@@ -691,12 +694,12 @@ export function exitEarthSurface() {
     // spacecraft.userData.reticle = reticleComponent.reticle;
     // spacecraft.userData.updateReticle = reticleComponent.update;
 
-        // Verify reticle creation
-    if (spacecraftComponents.reticle) {
-        console.log("Reticle was successfully created with spacecraft in sanFran3D.js");
-    } else {
-        console.warn("Reticle not found in spacecraft components");
-    }
+    //     // Verify reticle creation
+    // if (spacecraftComponents.reticle) {
+    //     console.log("Reticle was successfully created with spacecraft in sanFran3D.js");
+    // } else {
+    //     console.warn("Reticle not found in spacecraft components");
+    // }
     
     // Show the space container again
     const spaceContainer = document.getElementById('space-container');
@@ -1140,7 +1143,6 @@ asteroidCollisionSphere.name = "asteroidBeltCollision";
 asteroidBeltGroup.add(asteroidCollisionSphere);
 
 // Position the asteroid belt group to orbit around the sun (0,0,0)
-// This ensures it's properly centered on the sun unlike other planets that use random angles
 asteroidBeltGroup.position.set(0, 0, 0);
 
 // The number of asteroids to create
@@ -1171,9 +1173,9 @@ loadModelWithFallback(
         const baseAsteroid = asteroidModel;
         
         // Create a ring of asteroids
-        const radius = 48000; // Distance from sun (slightly outside Mars orbit)
+        const radius = 55000; // Distance from sun (between Mars and Jupiter)
         const count = 100; // Number of asteroids
-        const asteroidScale = 30; // Size of the asteroids
+        const asteroidScale = 200; // Size of the asteroids
         
         // Create a box to detect proximity to the entire belt (for efficiency)
         const beltBoxGeometry = new THREE.BoxGeometry(radius * 2, 5000, radius * 2);
