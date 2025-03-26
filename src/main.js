@@ -35,9 +35,10 @@ import {
     renderer as earthRenderer,
     spacecraft as earthSpacecraft,  // Import the spacecraft from the 3D scene
     resetPosition as resetEarthPosition,  // Import the generic reset position function
-    resetWashingtonInitialized  // Import the new function to reset the Washington initialization flag
-} from './washington3D.js';
-// } from './sanFran3D.js';
+    resetSanFranInitialized,  // Import the new function to reset the San Fran initialization flag
+    resetKeys as resetEarthKeys  // Import function to reset Earth surface key states
+// } from './washington3D.js';
+} from './sanFran3D.js';
 // 
 import { 
     init as initMoonSurface, 
@@ -48,7 +49,8 @@ import {
     renderer as moonRenderer,
     spacecraft as moonSpacecraft,  // Import the spacecraft from the 3D scene
     resetPosition as resetMoonPosition,  // Import the generic reset position function
-    resetMoonInitialized  // Import the new function to reset the Moon initialization flag
+    resetMoonInitialized,  // Import the new function to reset the Moon initialization flag
+    resetKeys as resetMoonKeys  // Import function to reset Moon surface key states
 } from './moon3D.js';
 
 
@@ -481,7 +483,7 @@ window.resetEarthInitialized = function() {
     console.log('Reset Earth surface initialization state');
     
     // Also reset the Washington initialization flag
-    resetWashingtonInitialized();
+    resetSanFranInitialized();
 };
 
 window.resetMoonInitialized = function() {
@@ -688,17 +690,29 @@ function animate(currentTime = 0) {
         // CASE 1 = earth surface view
         if (isEarthSurfaceActive && !isMoonSurfaceActive) {
             try {
+                // Reset movement inputs immediately to prevent stuck key states
+                resetMovementInputs();
+                
                 // Detect if we just entered Earth's surface
                 if (!prevEarthSurfaceActive) {
+                    // Reset movement inputs immediately to prevent stuck key states
+                    resetMovementInputs();
+                    
                     // Show transition before initializing Earth surface
                     showEarthTransition(() => {
+                        // Reset movement inputs again after transition to ensure clean state
+                        resetMovementInputs();
+                        
                         // Initialize Earth once the transition is complete
                         if (!earthInitialized) {
                             console.log('Initializing Earth surface');
                             const earthObjects = initEarthSurface();
                             earthInitialized = true;
                             console.log('Earth surface initialized successfully', earthObjects);
-    
+                            
+                            // Also reset the Earth-specific keys
+                            resetEarthKeys();
+                            
                             // Hide space container to see surface scene
                             const spaceContainer = document.getElementById('space-container');
                             if (spaceContainer) {
@@ -790,6 +804,10 @@ function animate(currentTime = 0) {
                             console.log('Automatically resetting position to starting point');
                             resetEarthPosition();
                             
+                            // Ensure no keys are stuck after position reset
+                            resetMovementInputs();
+                            resetEarthKeys(); // Reset Earth-specific keys too
+                            
                             // Set first entry flag to false AFTER the initial position reset
                             if (isFirstEarthEntry) {
                                 console.log('First Earth entry completed');
@@ -836,17 +854,29 @@ function animate(currentTime = 0) {
         // CASE 2 = moon surface view
         if (!isEarthSurfaceActive && isMoonSurfaceActive) {
             try {
+                // Reset movement inputs immediately to prevent stuck key states
+                resetMovementInputs();
+                
                 // Detect if we just entered moon's surface
                 if (!prevMoonSurfaceActive) {
+                    // Reset movement inputs immediately to prevent stuck key states
+                    resetMovementInputs();
+                    
                     // Show transition before initializing Moon surface
                     showMoonTransition(() => {
+                        // Reset movement inputs again after transition to ensure clean state
+                        resetMovementInputs();
+                        
                         // Initialize Moon once the transition is complete
                         if (!moonInitialized) {
                             console.log('Initializing Moon surface');
                             const moonObjects = initMoonSurface();
                             moonInitialized = true;
                             console.log('Moon surface initialized successfully', moonObjects);
-    
+                            
+                            // Also reset the Moon-specific keys
+                            resetMoonKeys();
+                            
                             // Hide space container to see surface scene
                             const spaceContainer = document.getElementById('space-container');
                             if (spaceContainer) {
@@ -945,6 +975,10 @@ function animate(currentTime = 0) {
                         setTimeout(() => {
                             console.log('Automatically resetting position to starting point');
                             resetMoonPosition();
+                            
+                            // Ensure no keys are stuck after position reset
+                            resetMovementInputs();
+                            resetMoonKeys(); // Reset Moon-specific keys too
                             
                             // Set first entry flag to false AFTER the initial position reset
                             if (isFirstMoonEntry) {

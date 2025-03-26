@@ -34,6 +34,21 @@ export function isMoonInitialized() {
   return moonInitialized;
 }
 
+// Function to reset all key states to prevent stuck movement
+export function resetKeys() {
+  // Reset all keys to prevent stuck movement patterns
+  keys.w = false;
+  keys.s = false;
+  keys.a = false;
+  keys.d = false;
+  keys.left = false;
+  keys.right = false;
+  keys.up = false;
+  keys.down = false;
+  keys.space = false;
+  console.log('Moon: Reset all key states');
+}
+
 // DEFINE local coordinate system (not applied here)
 const coordConfig = {
  scale: 2,

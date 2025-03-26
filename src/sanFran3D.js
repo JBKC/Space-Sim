@@ -20,7 +20,7 @@ import { configureCesiumRequestScheduler, optimizeTerrainLoading } from './cesiu
 import config from './config.js';
 
 let camera, scene, renderer, tiles, cameraTarget;
-let earthInitialized = false;
+let sanFranInitialized = false;
 
 // DEFINE local coordinate system (align to the 3D tile rendering)
 const coordConfig = {
@@ -198,6 +198,32 @@ const basePlaneConfig = {
 // Create camera state for sanFran scene
 const cameraState = createCameraState('sanFran');
 const smoothFactor = 0.1;
+
+// Export the initialized flag and a function to reset it
+export function resetSanFranInitialized() {
+    sanFranInitialized = false;
+    console.log('Reset San Fran surface initialization state');
+}
+
+// Export the initialized state
+export function isSanFranInitialized() {
+    return sanFranInitialized;
+}
+
+// Function to reset all key states to prevent stuck movement
+export function resetKeys() {
+  // Reset all keys to prevent stuck movement patterns
+  keys.w = false;
+  keys.s = false;
+  keys.a = false;
+  keys.d = false;
+  keys.left = false;
+  keys.right = false;
+  keys.up = false;
+  keys.down = false;
+  keys.space = false;
+  console.log('San Francisco: Reset all key states');
+}
 
 function initSpacecraft() {
  const spacecraftComponents = createSpacecraft(scene);
@@ -1121,7 +1147,7 @@ function setupearthLighting() {
 export function init() {
  console.log("San Francisco 3D initialization started");
  
- if (earthInitialized) {
+ if (sanFranInitialized) {
  console.log("Already initialized, skipping");
  return { scene: scene, camera: camera, renderer: renderer, tiles: tiles };
  }
@@ -1167,7 +1193,7 @@ initSpacecraft();
     window.addEventListener('resize', onWindowResize, false);
     initControls();
 
- earthInitialized = true;
+ sanFranInitialized = true;
  console.log("San Francisco 3D initialization complete");
     
     return { 
@@ -1181,7 +1207,7 @@ initSpacecraft();
 // Remove the call to updateGridAlignment in the update function
 export function update(deltaTime = 0.016) {
  try {
- if (!earthInitialized) {
+ if (!sanFranInitialized) {
  console.log("Not initialized yet");
             return false;
         }

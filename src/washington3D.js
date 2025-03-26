@@ -200,6 +200,21 @@ export function isWashingtonInitialized() {
   return washingtonInitialized;
 }
 
+// Function to reset all key states to prevent stuck movement
+export function resetKeys() {
+  // Reset all keys to prevent stuck movement patterns
+  keys.w = false;
+  keys.s = false;
+  keys.a = false;
+  keys.d = false;
+  keys.left = false;
+  keys.right = false;
+  keys.up = false;
+  keys.down = false;
+  keys.space = false;
+  console.log('Washington: Reset all key states');
+}
+
 function initSpacecraft() {
     const spacecraftComponents = createSpacecraft(scene);
     spacecraft = spacecraftComponents.spacecraft;
