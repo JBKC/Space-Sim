@@ -86,7 +86,13 @@ export function toggleControlsDropdown() {
     
     if (controlsDropdown.style.display === 'none' || controlsDropdown.style.display === '') {
         controlsDropdown.style.display = 'block';
+        controlsDropdown.style.zIndex = '10000'; // Ensure it's above everything else
         controlsPrompt.textContent = 'Press Enter to hide controls';
+        
+        // Log for debugging
+        console.log('Controls dropdown visibility: ', controlsDropdown.style.display);
+        console.log('Controls dropdown z-index: ', controlsDropdown.style.zIndex);
+        console.log('Controls dropdown position: ', controlsDropdown.style.position);
     } else {
         controlsDropdown.style.display = 'none';
         controlsPrompt.textContent = 'Press Enter to view controls';
@@ -100,7 +106,9 @@ export function updateControlsDropdown(isEarthSurfaceActive) {
     
     const hyperspaceOption = controlsDropdown.querySelector('.hyperspace-option');
     if (hyperspaceOption) {
-        // Hide the hyperspace option when on Earth's surface
+        // Show the hyperspace option when NOT on Earth's or Moon's surface
+        // 'isEarthSurfaceActive' is the parameter name for both Earth and Moon surfaces
+        // depending on which scene is calling this function
         hyperspaceOption.style.display = isEarthSurfaceActive ? 'none' : 'block';
     }
 }

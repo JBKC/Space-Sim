@@ -371,8 +371,8 @@ function startHyperspace() {
     isHyperspace = true;
     // Make sure to set the global isHyperspace flag immediately so other modules can detect it
     window.isHyperspace = true;
-    // console.log('🚀 ENTERING HYPERSPACE - Wings should CLOSE!');
-    // console.log('Setting window.isHyperspace =', window.isHyperspace);
+    console.log('🚀 ENTERING HYPERSPACE - Wings should CLOSE!');
+    console.log('Setting window.isHyperspace =', window.isHyperspace);
 
     // Create hyperspace streaks
     createStreaks();
@@ -399,29 +399,61 @@ function startHyperspace() {
         return;
     }
 
+    // Force visibility and higher z-index
     progressContainer.style.display = 'block'; // Show the container
+    progressContainer.style.zIndex = '10000'; // Ensure it's above everything else
+    progressContainer.style.opacity = '1'; // Ensure full opacity
+    progressContainer.style.visibility = 'visible'; // Force visibility
     bar.style.width = '100%'; // Start at 100% for right-to-left unfilling
 
+    // Add glow effect to make it more visible
+    bar.style.boxShadow = '0 0 10px 2px #ffffff';
+    
     // Debug: Log visibility and positioning
     console.log('Progress container display:', progressContainer.style.display);
     console.log('Label visibility:', label.style.display, 'Text:', label.textContent);
     console.log('Label position:', label.style.top, label.style.left);
+    console.log('Z-index:', progressContainer.style.zIndex);
 
-    let progress = 100;
-    const interval = setInterval(() => {
-        progress -= (100 / (2000 / 16)); // Decrease from 100% to 0% over 2 seconds
-        bar.style.width = `${progress}%`;
-        if (progress <= 0) {
-            clearInterval(interval);
+    // Calculate total hyperspace duration in milliseconds
+    const hyperspaceDuration = 2000; // 2 seconds
+
+    // Use requestAnimationFrame for smoother animation tied to display refresh rate
+    const startTime = performance.now();
+    const endTime = startTime + hyperspaceDuration;
+
+    // Animation function using timestamps for precise timing
+    const animateProgress = (timestamp) => {
+        // Calculate how much time has elapsed
+        const elapsed = timestamp - startTime;
+        
+        // Calculate the remaining percentage
+        const remaining = Math.max(0, 100 * (1 - elapsed / hyperspaceDuration));
+        
+        // Update the bar width
+        bar.style.width = `${remaining}%`;
+        
+        // Continue animation if we haven't reached the end time
+        if (timestamp < endTime) {
+            requestAnimationFrame(animateProgress);
+        } else {
+            // Ensure the bar is completely empty at the end
+            bar.style.width = '0%';
+            // Hide the container at exactly the end of hyperspace
             progressContainer.style.display = 'none';
         }
-    }, 16); // Approx. 60 FPS
+    };
 
+    // Start the animation
+    requestAnimationFrame(animateProgress);
+
+    // Set a timeout for exiting hyperspace that matches the exact duration
     setTimeout(() => {
+        // Exit hyperspace
         isHyperspace = false;
         window.isHyperspace = false;
-        // console.log('🚀 EXITING HYPERSPACE - Wings should OPEN!');
-        // console.log('Setting window.isHyperspace =', window.isHyperspace);
+        console.log('🚀 EXITING HYPERSPACE - Wings should OPEN!');
+        console.log('Setting window.isHyperspace =', window.isHyperspace);
         resetMovementInputs();
         
         // Reset visual indication
@@ -433,7 +465,10 @@ function startHyperspace() {
         // Clean up streaks
         streakLines.forEach(streak => spaceScene.remove(streak.line));
         streakLines = [];
-    }, 2000);
+        
+        // Force hide progress bar to ensure it doesn't linger
+        progressContainer.style.display = 'none';
+    }, hyperspaceDuration);
 }
 
 let debugMode = true;
@@ -576,6 +611,15 @@ function animate(currentTime = 0) {
                 spaceContainer.style.display = 'block';
                 console.log('Restored space-container visibility');
             }
+            
+            // Fix for controls dropdown visibility - check if controls should be visible
+            const controlsPrompt = document.getElementById('controls-prompt');
+            const controlsDropdown = document.getElementById('controls-dropdown');
+            if (controlsPrompt && controlsDropdown && controlsPrompt.textContent === 'Press Enter to hide controls') {
+                controlsDropdown.style.display = 'block';
+                controlsDropdown.style.zIndex = '10000'; // Ensure it's above everything else
+                console.log('Force-restoring controls dropdown visibility');
+            }
 
             try {
                 // Initialize space scene if needed
@@ -595,6 +639,16 @@ function animate(currentTime = 0) {
                 // Update hyperspace streaks if active
                 if (isHyperspace) {
                     updateStreaks();
+                    
+                    // Make doubly sure the hyperspace progress bar is visible during hyperspace
+                    const progressContainer = document.getElementById('hyperspace-progress-container');
+                    if (progressContainer && progressContainer.style.display !== 'block') {
+                        console.log('Force-restoring hyperspace progress visibility during active hyperspace');
+                        progressContainer.style.display = 'block';
+                        progressContainer.style.zIndex = '10000';
+                        progressContainer.style.opacity = '1';
+                        progressContainer.style.visibility = 'visible';
+                    }
                 }
                 
                 // Update coordinates display - only show in space mode

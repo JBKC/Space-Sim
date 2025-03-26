@@ -23,6 +23,11 @@ const formatPath = (path) => {
 const formattedAssetsPath = formatPath(ASSETS_PATH);
 const formattedDracoPath = formatPath(DRACO_PATH);
 
+// Add debug logging for asset paths
+console.log(`Environment: ${ENV}`);
+console.log(`Asset Path: ${formattedAssetsPath}`);
+console.log(`Draco Path: ${formattedDracoPath}`);
+
 // Export the configuration object
 export default {
   ENV,

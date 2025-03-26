@@ -2490,11 +2490,17 @@ export function checkReticleHover() {
 function loadModelWithFallback(modelName, primaryPath, onSuccess, onProgress, onError) {
     console.log(`Attempting to load ${modelName} from: ${primaryPath}`);
     
-    // Define alternative paths to try if the primary path fails
+    // Define alternative paths to try if the primary path fails - consider environment
     const alternativePaths = [
-        // Try with relative path
+        // First try based on environment variable
+        `${config.ASSETS_PATH}models/${modelName}/scene.gltf`,
+        // Try prod path format
+        `assets/models/${modelName}/scene.gltf`,
+        // Try with relative path as fallback
         `src/assets/models/${modelName}/scene.gltf`,
-        // Try with config path
+        // Try with complete path from config
+        `${config.models.path}/${modelName}/scene.gltf`,
+        // Try without starting slash
         `${config.models.path}${modelName}/scene.gltf`
     ];
     
@@ -2505,6 +2511,7 @@ function loadModelWithFallback(modelName, primaryPath, onSuccess, onProgress, on
         onProgress,
         (error) => {
             console.error(`Primary path failed for ${modelName}:`, error);
+            console.log(`Current environment: ${config.ENV}, using asset path: ${config.ASSETS_PATH}`);
             // Try alternative paths in sequence
             tryAlternativePaths(0);
         }

@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development --config vite.config.js --outDir dist-dev",
+    "prebuild:prod": "node copy-assets.js",
     "build:prod": "vite build --mode production --config vite.config.prod.js",
     "preview": "vite preview",
     "preview:dev": "vite preview --outDir dist-dev",
