@@ -1,6 +1,6 @@
-import * as THREE from './assets/lib/three.module.js';
+import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.174.0/three.module.js';
 import { createReticle } from './reticle.js';
-import { GLTFLoader } from './assets/lib/jsm/loaders/GLTFLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import config from './config.js';
 
 // AXES: x = yaw, y = pitch, z = roll

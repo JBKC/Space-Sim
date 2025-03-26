@@ -1,20 +1,17 @@
 import {
 	Color,
 	FrontSide,
-	LinearFilter,
-	MathUtils,
 	Matrix4,
 	Mesh,
 	PerspectiveCamera,
 	Plane,
-	RGBFormat,
 	ShaderMaterial,
 	UniformsLib,
 	UniformsUtils,
 	Vector3,
 	Vector4,
 	WebGLRenderTarget
-} from '../../three.module.js';
+} from 'three';
 
 /**
  * Work based on :

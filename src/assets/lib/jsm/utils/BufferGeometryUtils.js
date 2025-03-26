@@ -8,8 +8,8 @@ import {
 	TriangleFanDrawMode,
 	TriangleStripDrawMode,
 	TrianglesDrawMode,
-	Vector3
-} from '../../three.module.js';
+	Vector3,
+} from 'three';
 
 function computeMikkTSpaceTangents( geometry, MikkTSpace, negateSign = true ) {
 
