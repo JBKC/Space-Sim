@@ -595,14 +595,24 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
 
 // Modify the checkPlanetProximity function
 export function checkPlanetProximity() {
-    // Skip if spacecraft isn't initialized yet
-    if (!spacecraft) return;
+    // Get spacecraft position
+    const position = spacecraft.position.clone();
     
-    const spacecraftPosition = spacecraft.position.clone();
+    // Skip proximity check when on a surface
+    if (isEarthSurfaceActive || isMoonSurfaceActive) {
+        // Make sure distance indicators are hidden when on surface
+        if (earthDistanceIndicator) earthDistanceIndicator.style.display = 'none';
+        if (moonDistanceIndicator) moonDistanceIndicator.style.display = 'none';
+        
+        // Also hide the planet info box if visible
+        if (planetInfoBox) planetInfoBox.style.display = 'none';
+        
+        return;
+    }
     
     // Check Moon proximity first (direct global position)
     const moonPosition = moonGroup.position.clone();
-    const distanceToMoon = moonPosition.distanceTo(spacecraftPosition);
+    const distanceToMoon = moonPosition.distanceTo(position);
     // console.log("Distance to moon:", distanceToMoon);
     
     // Define entry threshold directly in this function
@@ -624,7 +634,7 @@ export function checkPlanetProximity() {
     
     // Check Earth proximity (separate check)
     const earthPosition = earthGroup.position.clone();
-    const distanceToEarth = earthPosition.distanceTo(spacecraftPosition);
+    const distanceToEarth = earthPosition.distanceTo(position);
 
     // Define Earth entry threshold
     const earthEntryThreshold = 500; // Distance threshold for Earth entry
@@ -1737,13 +1747,18 @@ document.body.appendChild(moonDistanceIndicator);
 // Function to update label positions
 export function updatePlanetLabels() {
     // If on surface, hide all planet labels
-    if (isEarthSurfaceActive) {
+    if (isEarthSurfaceActive || isMoonSurfaceActive) {
         labels.forEach(label => {
             label.element.style.display = 'none';
         });
+        
+        // Also hide distance indicators when on surface
         earthDistanceIndicator.style.display = 'none';
         moonDistanceIndicator.style.display = 'none';
-        planetInfoBox.style.display = 'none'; // Also hide the planet info box
+        
+        // Hide planet info box as well
+        planetInfoBox.style.display = 'none';
+        
         return;
     }
 

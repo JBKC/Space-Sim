@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { TilesRenderer } from '3d-tiles-renderer/src/three/TilesRenderer.js';
+import { TilesRenderer } from '3d-tiles-renderer';
 import { CesiumIonAuthPlugin } from '3d-tiles-renderer/src/plugins/three/CesiumIonAuthPlugin.js';
 import { GLTFExtensionsPlugin } from '3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
@@ -15,8 +15,6 @@ import {
 } from './camera.js';
 // Import Cesium rate limiting utilities
 import { configureCesiumRequestScheduler, optimizeTerrainLoading } from './cesiumRateLimit.js';
-// Import the config
-import config from './config.js';
 
 let camera, scene, renderer, tiles, cameraTarget;
 let washingtonInitialized = false;
@@ -163,23 +161,20 @@ if (typeof process !== 'undefined' && process.versions && process.versions.node)
 }
 
 // Pull CESIUM API key from environment variables or localStorage
-let apiKey = localStorage.getItem('ionApiKey') || import.meta.env.VITE_CESIUM_ACCESS_TOKEN || 'YOUR_CESIUM_TOKEN_HERE';
+let apiKey = localStorage.getItem('ionApiKey') || process.env.CESIUM_ACCESS_TOKEN || 'YOUR_CESIUM_TOKEN_HERE';
 
 // Fallback for local development if no .env variable is found
-if (!apiKey && typeof process !== 'undefined' && process.versions && process.versions.node) {
-    try {
-        // Only attempt to import fs in a Node.js environment
-        const fs = await import('fs/promises').catch(() => {
-            console.warn('fs/promises module not available');
-            return { readFile: () => Promise.reject(new Error('fs not available')) };
-        });
-        
-        const configData = await fs.readFile('./config.json', 'utf8');
-        const config = JSON.parse(configData);
-        apiKey = config.cesiumAccessToken || apiKey;
-    } catch (error) {
-        console.warn('Failed to load config.json, using localStorage or default token:', error);
-    }
+if (!apiKey) {
+  if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+      const fs = await import('fs/promises');
+      try {
+          const configData = await fs.readFile('./config.json', 'utf8');
+          const config = JSON.parse(configData);
+          apiKey = config.cesiumAccessToken || apiKey;
+      } catch (error) {
+          console.warn('Failed to load config.json, using localStorage or default token:', error);
+      }
+  }
 }
 
 // Parameters for Washington mountains 3D tileset
@@ -378,7 +373,7 @@ function createBackgroundSphere(scene, spawnPosition, spawnRotation, options = {
     
     // Load the texture after adding the sphere to the scene
     textureLoader.load(
-        `${config.textures.skybox}/2k_neptune.jpg`, // Use config path
+        'skybox/2k_neptune.jpg', // Use relative path without leading slash
         function(texture) {
             // When the texture is loaded, set it to the shader material's uniform
             sphere.material.uniforms.planetTexture.value = texture;
@@ -391,7 +386,7 @@ function createBackgroundSphere(scene, spawnPosition, spawnRotation, options = {
             console.error('Error loading planet texture:', err);
             // Try alternative path if the first one fails
             textureLoader.load(
-                `${config.textures.skybox}/planet1.webp`,
+                './skybox/planet1.webp',
                 function(texture) {
                     // Set the texture to the shader material's uniform
                     sphere.material.uniforms.planetTexture.value = texture;
@@ -1166,7 +1161,7 @@ let updateEngineEffects;
 function setupTiles() {
     tiles.fetchOptions.mode = 'cors';
     tiles.registerPlugin(new GLTFExtensionsPlugin({
-        dracoLoader: new DRACOLoader().setDecoderPath(config.DRACO_PATH)
+        dracoLoader: new DRACOLoader().setDecoderPath('./draco/')
     }));
     
     // Configure Cesium's request scheduler for optimal tile loading performance
@@ -1526,8 +1521,8 @@ export function init() {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.physicallyCorrectLights = true;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMappingExposure = 0.8; // Reduced from 1.2 for darker space
+    renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.gammaFactor = 2.2;
  
     document.body.appendChild(renderer.domElement);
@@ -2092,7 +2087,7 @@ function createPlanet(scene, playerPosition, playerRotation) {
     }
     
     textureLoader.load(
-        './assets/textures/skybox/2k_neptune.jpg',
+        'skybox/2k_neptune.jpg',
         function(texture) {
             // Apply texture when loaded
             planetMesh.material.uniforms.planetTexture.value = texture;

@@ -1227,7 +1227,8 @@ function createReferenceSphere() {
   const geometry = new THREE.SphereGeometry(sphereConfig.radius, 32, 32);
   
   // Load Earth texture from skybox folder
-  const earthTexture = textureLoader.load('./assets/textures/skybox/2k_earth_daymap.jpg', (texture) => {
+  const earthTexture = textureLoader.load(`${config.textures.path}/2k_earth_daymap.jpg`, (texture) => {
+
     // Apply a simple blur effect to the texture to simulate atmosphere
     // texture.minFilter = THREE.LinearFilter;
     // texture.magFilter = THREE.LinearFilter;

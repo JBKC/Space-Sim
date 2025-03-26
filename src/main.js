@@ -35,8 +35,8 @@ import {
     renderer as earthRenderer,
     spacecraft as earthSpacecraft,  // Import the spacecraft from the 3D scene
     resetPosition as resetEarthPosition,  // Import the generic reset position function
-// } from './washington3D.js';
-} from './sanFran3D.js';
+} from './washington3D.js';
+// } from './sanFran3D.js';
 // 
 import { 
     init as initMoonSurface, 
@@ -682,6 +682,35 @@ function animate(currentTime = 0) {
                                 isHyperspace = false;
                             }
                             
+                            // Hide any planet info boxes that might be visible
+                            const planetInfoBox = document.querySelector('.planet-info-box');
+                            if (planetInfoBox) {
+                                planetInfoBox.style.display = 'none';
+                            }
+                            
+                            // Hide any distance indicators
+                            const distanceIndicators = document.querySelectorAll('.distance-indicator');
+                            distanceIndicators.forEach(indicator => {
+                                indicator.style.display = 'none';
+                            });
+                            
+                            // Hide any reticle display
+                            if (spacecraft && spacecraft.userData && spacecraft.userData.reticle) {
+                                spacecraft.userData.reticle.visible = false;
+                            }
+                            
+                            // Clear any active lasers
+                            if (typeof clearAllLasers === 'function') {
+                                clearAllLasers();
+                            }
+                            
+                            // Hide any other UI elements that should not be visible on moon surface
+                            // Look for elements by class that might contain 'popup', 'tooltip', or 'notification'
+                            const otherUIElements = document.querySelectorAll('[class*="popup"], [class*="tooltip"], [class*="notification"]');
+                            otherUIElements.forEach(element => {
+                                element.style.display = 'none';
+                            });
+                            
                             // Ensure keyboard focus is on the page after scene change
                             setTimeout(() => {
                                 window.focus();
@@ -766,14 +795,20 @@ function animate(currentTime = 0) {
                             moonMsg.style.position = 'fixed';
                             moonMsg.style.top = '20px';
                             moonMsg.style.right = '20px';
-                            moonMsg.style.color = 'white';
+                            moonMsg.style.color = '#b3e5fc'; // Changed from white to light blue
                             moonMsg.style.fontFamily = 'Orbitron, sans-serif';
                             moonMsg.style.fontSize = '16px';
                             moonMsg.style.padding = '10px';
                             moonMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
                             moonMsg.style.borderRadius = '5px';
                             moonMsg.style.zIndex = '9999';
+                            moonMsg.style.boxShadow = '0 0 10px rgba(79, 195, 247, 0.3)'; // Added subtle blue glow
+                            moonMsg.style.border = '1px solid rgba(79, 195, 247, 0.3)'; // Added subtle border
                             moonMsg.innerHTML = 'MOON SURFACE<br>Press ESC to return to space<br>Press R to reset position';
+                            
+                            // Make sure no animation classes are applied
+                            moonMsg.classList.remove('distance-indicator-urgent');
+                            
                             document.body.appendChild(moonMsg);
                             
                             // Hide coordinates display in moon surface mode
@@ -800,6 +835,37 @@ function animate(currentTime = 0) {
                                 streakLines = [];
                                 isHyperspace = false;
                             }
+                            
+                            // Hide any planet info boxes that might be visible
+                            const planetInfoBox = document.querySelector('.planet-info-box');
+                            if (planetInfoBox) {
+                                planetInfoBox.style.display = 'none';
+                            }
+                            
+                            // Hide any distance indicators
+                            const distanceIndicators = document.querySelectorAll('.distance-indicator');
+                            distanceIndicators.forEach(indicator => {
+                                indicator.style.display = 'none';
+                            });
+                            
+                            // Hide any reticle display
+                            if (spacecraft && spacecraft.userData && spacecraft.userData.reticle) {
+                                spacecraft.userData.reticle.visible = false;
+                            }
+                            
+                            // Clear any active lasers
+                            if (typeof clearAllLasers === 'function') {
+                                clearAllLasers();
+                            }
+                            
+                            // Hide any other UI elements that should not be visible on moon surface
+                            // Look for elements by class that might contain 'popup', 'tooltip', or 'notification'
+                            const otherUIElements = document.querySelectorAll('[class*="popup"], [class*="tooltip"], [class*="notification"], .info-box, [id*="indicator"]');
+                            otherUIElements.forEach(element => {
+                                if (element.id !== 'moon-surface-message' && element.id !== 'controls-prompt' && element.id !== 'controls-dropdown') {
+                                    element.style.display = 'none';
+                                }
+                            });
                             
                             // Ensure keyboard focus is on the page after scene change
                             setTimeout(() => {
@@ -855,6 +921,51 @@ function animate(currentTime = 0) {
             const progressContainer = document.getElementById('hyperspace-progress-container');
             if (progressContainer) {
                 progressContainer.style.display = 'none'; // Always hide when scene changes
+            }
+            
+            // If we just entered moon surface, ensure all space UI elements are hidden
+            if (isMoonSurfaceActive) {
+                // Hide any planet info boxes that might be visible
+                const planetInfoBox = document.querySelector('.planet-info-box');
+                if (planetInfoBox) {
+                    planetInfoBox.style.display = 'none';
+                }
+                
+                // Make sure all distance indicators are hidden
+                const distanceIndicators = document.querySelectorAll('.distance-indicator');
+                distanceIndicators.forEach(indicator => {
+                    indicator.style.display = 'none';
+                });
+                
+                // Hide any reticle display
+                if (spacecraft && spacecraft.userData && spacecraft.userData.reticle) {
+                    spacecraft.userData.reticle.visible = false;
+                }
+                
+                // Clear any active lasers
+                if (typeof clearAllLasers === 'function') {
+                    clearAllLasers();
+                }
+                
+                // Hide any coordinates display
+                const coordsDiv = document.getElementById('coordinates');
+                if (coordsDiv) {
+                    coordsDiv.style.display = 'none';
+                }
+                
+                // Hide any exploration counter
+                const explorationCounter = document.querySelector('.exploration-counter');
+                if (explorationCounter) {
+                    explorationCounter.style.display = 'none';
+                }
+                
+                // Hide any other UI elements that should not be visible on moon surface
+                const otherUIElements = document.querySelectorAll('[class*="popup"], [class*="tooltip"], [class*="notification"], .info-box, [id*="indicator"]');
+                otherUIElements.forEach(element => {
+                    if (element.id !== 'moon-surface-message' && element.id !== 'controls-prompt' && element.id !== 'controls-dropdown') {
+                        element.style.display = 'none';
+                    }
+                });
             }
         }
 
