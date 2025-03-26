@@ -687,9 +687,9 @@ export function exitEarthSurface() {
     // Reset spacecraft rotation to look toward the center of the solar system
     spacecraft.lookAt(new THREE.Vector3(0, 0, 0));
 
-    const reticleComponent = createReticle(scene, spacecraft);
-    spacecraft.userData.reticle = reticleComponent.reticle;
-    spacecraft.userData.updateReticle = reticleComponent.update;
+    // const reticleComponent = createReticle(scene, spacecraft);
+    // spacecraft.userData.reticle = reticleComponent.reticle;
+    // spacecraft.userData.updateReticle = reticleComponent.update;
 
         // Verify reticle creation
     if (spacecraftComponents.reticle) {

@@ -40,6 +40,10 @@ export default defineConfig({
             return `assets/[name]-[hash][extname]`;
           }
           
+          if (ext === 'css') {
+            return `[name][extname]`;  // Don't add hash to CSS files for direct reference
+          }
+          
           return `assets/[name]-[hash][extname]`;
         },
         chunkFileNames: 'assets/[name]-[hash].js',

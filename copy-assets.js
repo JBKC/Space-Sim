@@ -56,6 +56,17 @@ function copyDirectory(source, target) {
   }
 }
 
+// Copy styles.css file to the dist directory
+const stylesSourcePath = path.resolve(__dirname, 'styles.css');
+const stylesTargetPath = path.resolve(__dirname, 'public/styles.css');
+
+if (fs.existsSync(stylesSourcePath)) {
+  fs.copyFileSync(stylesSourcePath, stylesTargetPath);
+  console.log(`Copied: ${stylesSourcePath} -> ${stylesTargetPath}`);
+} else {
+  console.error(`Styles file not found at ${stylesSourcePath}`);
+}
+
 // Start copying
 console.log('Starting asset copy process...');
 copyDirectory(SOURCE_DIR, TARGET_DIR);
