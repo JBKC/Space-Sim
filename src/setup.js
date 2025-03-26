@@ -1,5 +1,5 @@
 // src/setup.js
-import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.module.js';
+import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { updateMovement, keys } from './movement.js';
 import { createSpacecraft } from './spacecraft.js';
@@ -14,6 +14,8 @@ import {
     updateCameraOffsets,
     createForwardRotation
 } from './camera.js';
+// Import configuration
+import config from './config.js';
 
 // General initialization - scene, camera, renderer
 // do outside of init function as scene is required by multiple other files
@@ -789,7 +791,7 @@ export function exitMoonSurface() {
 const textureLoader = new THREE.TextureLoader();
 
 // Skybox setup
-const skyboxTexture = textureLoader.load('skybox/galaxy5.jpeg');
+const skyboxTexture = textureLoader.load(`${config.textures.skybox}/galaxy5.jpeg`);
 const skyboxGeometry = new THREE.BoxGeometry(250000, 250000, 250000);
 const skyboxMaterial = new THREE.MeshBasicMaterial({
     map: skyboxTexture,
@@ -810,7 +812,7 @@ scene.add(sunGroup);
 
 const sunRadius = 10000;
 const sunGeometry = new THREE.SphereGeometry(sunRadius, 64, 64);
-const sunTexture = textureLoader.load('skybox/2k_sun.jpg');
+const sunTexture = textureLoader.load(`${config.textures.skybox}/2k_sun.jpg`);
 const sunMaterial = new THREE.MeshStandardMaterial({
     map: sunTexture,
     emissive: 0xffffff,
@@ -894,7 +896,7 @@ const mercuryGroup = new THREE.Group();
 scene.add(mercuryGroup);
 const mercuryRadius = 1000;
 const mercuryGeometry = new THREE.SphereGeometry(mercuryRadius, 32, 32);
-const mercuryTexture = textureLoader.load('skybox/2k_mercury.jpg');
+const mercuryTexture = textureLoader.load(`${config.textures.skybox}/2k_mercury.jpg`);
 const mercuryMaterial = new THREE.MeshStandardMaterial({
     map: mercuryTexture,
     side: THREE.FrontSide,
@@ -917,7 +919,7 @@ const venusGroup = new THREE.Group();
 scene.add(venusGroup);
 const venusRadius = 2000;
 const venusGeometry = new THREE.SphereGeometry(venusRadius, 32, 32);
-const venusTexture = textureLoader.load('skybox/2k_venus_surface.jpg');
+const venusTexture = textureLoader.load(`${config.textures.skybox}/2k_venus_surface.jpg`);
 const venusMaterial = new THREE.MeshStandardMaterial({
     map: venusTexture,
     side: THREE.FrontSide,
@@ -943,7 +945,7 @@ const venusAtmosphereMaterial = new THREE.MeshStandardMaterial({
 });
 const venusAtmosphere = new THREE.Mesh(venusAtmosphereGeometry, venusAtmosphereMaterial);
 venusGroup.add(venusAtmosphere);
-const cloudTexture = textureLoader.load('skybox/Earth-clouds.png');
+const cloudTexture = textureLoader.load(`${config.textures.skybox}/Earth-clouds.png`);
 const venusCloudMaterial = new THREE.MeshStandardMaterial({
     map: cloudTexture,
     transparent: true,
@@ -967,7 +969,7 @@ const earthGroup = new THREE.Group();
 scene.add(earthGroup);
 const earthRadius = 2000;
 const earthGeometry = new THREE.SphereGeometry(earthRadius, 64, 64);
-const earthTexture = textureLoader.load('skybox/2k_earth_daymap.jpg');
+const earthTexture = textureLoader.load(`${config.textures.skybox}/2k_earth_daymap.jpg`);
 const earthMaterial = new THREE.MeshStandardMaterial({
     map: earthTexture,
     side: THREE.FrontSide,
@@ -1015,7 +1017,7 @@ const moonGroup = new THREE.Group();
 scene.add(moonGroup); // Add Moon directly to the scene instead of as a child of Earth
 const moonRadius = 500;
 const moonGeometry = new THREE.SphereGeometry(moonRadius, 32, 32);
-const moonTexture = textureLoader.load('skybox/2k_moon.jpg');
+const moonTexture = textureLoader.load(`${config.textures.skybox}/2k_moon.jpg`);
 const moonMaterial = new THREE.MeshStandardMaterial({
     map: moonTexture,
     side: THREE.FrontSide,
@@ -1078,7 +1080,7 @@ const marsGroup = new THREE.Group();
 scene.add(marsGroup);
 const marsRadius = 1500;
 const marsGeometry = new THREE.SphereGeometry(marsRadius, 32, 32);
-const marsTexture = textureLoader.load('skybox/2k_mars.jpg');
+const marsTexture = textureLoader.load(`${config.textures.skybox}/2k_mars.jpg`);
 const marsMaterial = new THREE.MeshStandardMaterial({
     map: marsTexture,
     side: THREE.FrontSide,
@@ -1093,7 +1095,7 @@ const marsCollisionGeometry = new THREE.SphereGeometry(marsRadius * 1.5, 16, 16)
 const marsCollisionSphere = new THREE.Mesh(marsCollisionGeometry, collisionMaterialInvisible);
 marsGroup.add(marsCollisionSphere);
 
-const redCloudTexture = textureLoader.load('skybox/Earth-clouds.png');
+const redCloudTexture = textureLoader.load(`${config.textures.skybox}/Earth-clouds.png`);
 const marsCloudMaterial = new THREE.MeshStandardMaterial({
     map: redCloudTexture,
     transparent: true,
@@ -1136,77 +1138,79 @@ const asteroidCount = 100;
 let asteroidModels = [];
 
 // Load asteroid models
-loader.load(
-    './asteroids_pack_metallic_version/scene.gltf',
+const asteroidsModelPath = `/src/assets/models/asteroids_pack_metallic_version/scene.gltf`;
+console.log('Loading asteroids from:', asteroidsModelPath);
+
+// Use the enhanced loader for asteroids
+loadModelWithFallback(
+    'asteroids_pack_metallic_version',
+    asteroidsModelPath,
+    // Success callback
     (gltf) => {
         console.log('Asteroid pack loaded successfully');
+        const asteroidModel = gltf.scene;
         
-        // Extract the individual asteroid models from the pack
-        gltf.scene.traverse((child) => {
-            // Find mesh objects that represent individual asteroids
-            if (child.isMesh) {
-                // Clone each asteroid to use for instancing
-                const asteroid = child.clone();
-                asteroidModels.push(asteroid);
-            }
+        // Create the main asteroid belt
+        const asteroidBelt = new THREE.Group();
+        asteroidBelt.name = "asteroidBelt"; // Add name for reference
+        scene.add(asteroidBelt);
+        
+        // Scale and multiply the asteroids to create a belt
+        const baseAsteroid = asteroidModel;
+        
+        // Create a ring of asteroids
+        const radius = 48000; // Distance from sun (slightly outside Mars orbit)
+        const count = 100; // Number of asteroids
+        const asteroidScale = 30; // Size of the asteroids
+        
+        // Create a box to detect proximity to the entire belt (for efficiency)
+        const beltBoxGeometry = new THREE.BoxGeometry(radius * 2, 5000, radius * 2);
+        const beltBoxMaterial = new THREE.MeshBasicMaterial({ 
+            visible: false // Invisible collision box
         });
+        const beltCollisionBox = new THREE.Mesh(beltBoxGeometry, beltBoxMaterial);
+        beltCollisionBox.name = "asteroidBeltCollision";
+        asteroidBelt.add(beltCollisionBox);
         
-        // Now create multiple asteroids distributed in a belt pattern
-        if (asteroidModels.length > 0) {
-            // Create a belt around the orbit radius with some variation
-            const orbitRadius = 55000;
-            const beltWidth = 10000;  // Width of the asteroid belt
-            const beltHeight = 3000;  // Height of the asteroid belt
+        for (let i = 0; i < count; i++) {
+            const angle = (i / count) * Math.PI * 2; // Position around the circle
+            const randomRadius = radius * (0.9 + Math.random() * 0.2); // Vary the radius slightly
             
-            for (let i = 0; i < asteroidCount; i++) {
-                // Pick a random asteroid model from the loaded ones
-                const randomIndex = Math.floor(Math.random() * asteroidModels.length);
-                const asteroidModel = asteroidModels[randomIndex].clone();
-                
-                // Random position within the belt
-                const angle = Math.random() * Math.PI * 2;
-                const radiusVariation = (Math.random() - 0.5) * beltWidth;
-                const heightVariation = (Math.random() - 0.5) * beltHeight;
-                const asteroidRadius = orbitRadius + radiusVariation;
-                
-                // Position in a circular pattern with some variation
-                // Use x and z as the orbital plane with y as height variation
-                // This ensures asteroids orbit around the sun at (0,0,0)
-                const x = Math.cos(angle) * asteroidRadius;
-                const z = Math.sin(angle) * asteroidRadius;
-                const y = heightVariation;
-                
-                // Random scale between 200 and 600
-                const scale = 200 + Math.random() * 400;
-                asteroidModel.scale.set(scale, scale, scale);
-                
-                // Random rotation
-                asteroidModel.rotation.x = Math.random() * Math.PI * 2;
-                asteroidModel.rotation.y = Math.random() * Math.PI * 2;
-                asteroidModel.rotation.z = Math.random() * Math.PI * 2;
-                
-                // Set position
-                asteroidModel.position.set(x, y, z);
-                
-                // Add to the group
-                asteroidBeltGroup.add(asteroidModel);
-            }
+            // Calculate position on the circle
+            const x = Math.cos(angle) * randomRadius;
+            const z = Math.sin(angle) * randomRadius;
+            const y = (Math.random() - 0.5) * 5000; // Random height in belt
             
-            console.log(`Created ${asteroidCount} asteroids in the belt`);
-        } else {
-            console.warn('No asteroid models found in the loaded GLTF');
+            // Clone the asteroid model
+            const asteroidClone = baseAsteroid.clone();
             
-            // Create a fallback visualization of the asteroid belt
-            createFallbackAsteroidBelt();
+            // Scale the asteroid randomly
+            const scale = asteroidScale * (0.5 + Math.random());
+            asteroidClone.scale.set(scale, scale, scale);
+            
+            // Randomize rotation
+            asteroidClone.rotation.x = Math.random() * Math.PI * 2;
+            asteroidClone.rotation.y = Math.random() * Math.PI * 2;
+            asteroidClone.rotation.z = Math.random() * Math.PI * 2;
+            
+            // Set position
+            asteroidClone.position.set(x, y, z);
+            
+            // Add to the belt
+            asteroidBelt.add(asteroidClone);
         }
-    },
-    (xhr) => {
-        console.log(`Loading asteroid pack: ${(xhr.loaded / xhr.total) * 100}% loaded`);
-    },
-    (error) => {
-        console.error('Error loading asteroid pack:', error);
         
-        // Create a fallback visualization if the model fails to load
+        // Add the belt to the list of planet groups (for distance-based visibility)
+        planetGroups.push({ group: asteroidBelt, z: 48000 });
+    },
+    // Progress callback
+    (xhr) => {
+        console.log(`Loading asteroids: ${(xhr.loaded / xhr.total) * 100}% loaded`);
+    },
+    // Error callback
+    (error) => {
+        console.error('Error loading asteroids:', error);
+        // Create a fallback asteroid belt with basic shapes
         createFallbackAsteroidBelt();
     }
 );
@@ -1269,7 +1273,7 @@ const jupiterGroup = new THREE.Group();
 scene.add(jupiterGroup);
 const jupiterRadius = 5000;
 const jupiterGeometry = new THREE.SphereGeometry(jupiterRadius, 32, 32);
-const jupiterTexture = textureLoader.load('skybox/2k_jupiter.jpg');
+const jupiterTexture = textureLoader.load('./assets/textures/skybox/2k_jupiter.jpg');
 const jupiterMaterial = new THREE.MeshStandardMaterial({
     map: jupiterTexture,
     side: THREE.FrontSide,
@@ -1319,8 +1323,14 @@ let starDestroyer; // Store reference to the first model
 let starDestroyer2; // Store reference to the second model
 
 // Load the first Star Destroyer
-loader.load(
-    './star_wars_imperial_ii_star_destroyer/scene.gltf',
+const starDestroyerModelPath = `/src/assets/models/star_wars_imperial_ii_star_destroyer/scene.gltf`;
+console.log('Loading First Star Destroyer from:', starDestroyerModelPath);
+
+// Use the enhanced loader for the first Star Destroyer
+loadModelWithFallback(
+    'star_wars_imperial_ii_star_destroyer',
+    starDestroyerModelPath,
+    // Success callback
     (gltf) => {
         starDestroyer = gltf.scene;
         
@@ -1341,9 +1351,11 @@ loader.load(
         // Load the second Star Destroyer after the first one is loaded
         loadSecondStarDestroyer();
     },
+    // Progress callback
     (xhr) => {
         console.log(`Loading Star Destroyer: ${(xhr.loaded / xhr.total) * 100}% loaded`);
     },
+    // Error callback
     (error) => {
         console.error('Error loading Star Destroyer:', error);
         
@@ -1367,8 +1379,14 @@ loader.load(
 
 // Function to load the second Star Destroyer
 function loadSecondStarDestroyer() {
-    loader.load(
-        './star_wars_imperial_ii_star_destroyer/scene.gltf',
+    const modelPath = `/src/assets/models/star_wars_imperial_ii_star_destroyer/scene.gltf`;
+    console.log('Loading Second Star Destroyer from:', modelPath);
+    
+    // Use the enhanced loader for the second Star Destroyer
+    loadModelWithFallback(
+        'star_wars_imperial_ii_star_destroyer',
+        modelPath,
+        // Success callback
         (gltf) => {
             starDestroyer2 = gltf.scene;
             
@@ -1386,9 +1404,11 @@ function loadSecondStarDestroyer() {
             
             console.log('Second Imperial Star Destroyer loaded successfully');
         },
+        // Progress callback
         (xhr) => {
             console.log(`Loading Second Star Destroyer: ${(xhr.loaded / xhr.total) * 100}% loaded`);
         },
+        // Error callback
         (error) => {
             console.error('Error loading Second Star Destroyer:', error);
             
@@ -1416,7 +1436,7 @@ const saturnGroup = new THREE.Group();
 scene.add(saturnGroup);
 const saturnRadius = 4000;
 const saturnGeometry = new THREE.SphereGeometry(saturnRadius, 32, 32);
-const saturnTexture = textureLoader.load('skybox/2k_saturn.jpg');
+const saturnTexture = textureLoader.load(`${config.textures.skybox}/2k_saturn.jpg`);
 const saturnMaterial = new THREE.MeshStandardMaterial({
     map: saturnTexture,
     side: THREE.FrontSide,
@@ -1432,7 +1452,7 @@ const saturnCollisionSphere = new THREE.Mesh(saturnCollisionGeometry, collisionM
 saturnGroup.add(saturnCollisionSphere);
 
 // Load the ring texture
-const ringTexture = textureLoader.load('skybox/2k_saturn_ring_alpha.png');
+const ringTexture = textureLoader.load(`${config.textures.skybox}/2k_saturn_ring_alpha.png`);
 
 // Create the 3D rings using a torus geometry instead of a flat ring
 const ringOuterRadius = 8000;
@@ -1491,7 +1511,7 @@ const uranusGroup = new THREE.Group();
 scene.add(uranusGroup);
 const uranusRadius = 3000;
 const uranusGeometry = new THREE.SphereGeometry(uranusRadius, 32, 32);
-const uranusTexture = textureLoader.load('skybox/2k_uranus.jpg');
+const uranusTexture = textureLoader.load(`${config.textures.skybox}/2k_uranus.jpg`);
 const uranusMaterial = new THREE.MeshStandardMaterial({
     map: uranusTexture,
     side: THREE.FrontSide,
@@ -1513,7 +1533,7 @@ const neptuneGroup = new THREE.Group();
 scene.add(neptuneGroup);
 const neptuneRadius = 3000;
 const neptuneGeometry = new THREE.SphereGeometry(neptuneRadius, 32, 32);
-const neptuneTexture = textureLoader.load('skybox/2k_neptune.jpg');
+const neptuneTexture = textureLoader.load(`${config.textures.skybox}/2k_neptune.jpg`);
 const neptuneMaterial = new THREE.MeshStandardMaterial({
     map: neptuneTexture,
     side: THREE.FrontSide,
@@ -1551,8 +1571,14 @@ lucrehulkGroup.add(lucrehulkCollisionBox);
 let lucrehulkModel; // Store reference to the model
 
 // Load the Lucrehulk
-loader.load(
-    './lucrehulk/scene.gltf',
+const lucrehulkModelPath = `/src/assets/models/lucrehulk/scene.gltf`;
+console.log('Loading Lucrehulk from:', lucrehulkModelPath);
+
+// Use the enhanced loader for Lucrehulk
+loadModelWithFallback(
+    'lucrehulk',
+    lucrehulkModelPath,
+    // Success callback
     (gltf) => {
         lucrehulkModel = gltf.scene;
         
@@ -1567,23 +1593,23 @@ loader.load(
         
         console.log('Lucrehulk battleship loaded successfully');
     },
+    // Progress callback
     (xhr) => {
         console.log(`Loading Lucrehulk: ${(xhr.loaded / xhr.total) * 100}% loaded`);
     },
+    // Error callback
     (error) => {
         console.error('Error loading Lucrehulk:', error);
         
         // Fallback: Create a placeholder if model fails to load
-        const placeholderGeometry = new THREE.TorusGeometry(3000, 1000, 16, 32);
+        const placeholderGeometry = new THREE.BoxGeometry(5000, 2000, 5000);
         const placeholderMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0xbbbbbb,
-            metalness: 0.9,
-            roughness: 0.2
+            color: 0xcccccc,
+            metalness: 0.7,
+            roughness: 0.3
         });
         const placeholderMesh = new THREE.Mesh(placeholderGeometry, placeholderMaterial);
-        placeholderMesh.rotation.x = Math.PI / 2; // Make it face forward
         lucrehulkGroup.add(placeholderMesh);
-        lucrehulkModel = placeholderMesh;
         console.log('Using placeholder for Lucrehulk');
     }
 );
@@ -2347,5 +2373,53 @@ export function checkReticleHover() {
             lastHoveredPlanet = null;
         }
         */
+    }
+}
+
+// Enhanced model loading function that tries multiple path formats
+function loadModelWithFallback(modelName, primaryPath, onSuccess, onProgress, onError) {
+    console.log(`Attempting to load ${modelName} from: ${primaryPath}`);
+    
+    // Define alternative paths to try if the primary path fails
+    const alternativePaths = [
+        // Try with relative path
+        `src/assets/models/${modelName}/scene.gltf`,
+        // Try with config path
+        `${config.models.path}${modelName}/scene.gltf`
+    ];
+    
+    // Try the primary path first
+    loader.load(
+        primaryPath,
+        onSuccess,
+        onProgress,
+        (error) => {
+            console.error(`Primary path failed for ${modelName}:`, error);
+            // Try alternative paths in sequence
+            tryAlternativePaths(0);
+        }
+    );
+    
+    // Function to try alternative paths in sequence
+    function tryAlternativePaths(index) {
+        if (index >= alternativePaths.length) {
+            console.error(`All paths failed for ${modelName}`);
+            if (onError) onError(new Error(`Failed to load ${modelName} after trying all paths`));
+            return;
+        }
+        
+        const path = alternativePaths[index];
+        console.log(`Trying alternative path ${index+1} for ${modelName}: ${path}`);
+        
+        loader.load(
+            path,
+            onSuccess,
+            onProgress,
+            (error) => {
+                console.error(`Alternative path ${index+1} failed for ${modelName}:`, error);
+                // Try the next path
+                tryAlternativePaths(index + 1);
+            }
+        );
     }
 }

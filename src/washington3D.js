@@ -15,6 +15,8 @@ import {
 } from './camera.js';
 // Import Cesium rate limiting utilities
 import { configureCesiumRequestScheduler, optimizeTerrainLoading } from './cesiumRateLimit.js';
+// Import the config
+import config from './config.js';
 
 let camera, scene, renderer, tiles, cameraTarget;
 let washingtonInitialized = false;
@@ -373,7 +375,7 @@ function createBackgroundSphere(scene, spawnPosition, spawnRotation, options = {
     
     // Load the texture after adding the sphere to the scene
     textureLoader.load(
-        'skybox/2k_neptune.jpg', // Use relative path without leading slash
+        `${config.textures.skybox}/2k_neptune.jpg`, // Use config path
         function(texture) {
             // When the texture is loaded, set it to the shader material's uniform
             sphere.material.uniforms.planetTexture.value = texture;
@@ -386,7 +388,7 @@ function createBackgroundSphere(scene, spawnPosition, spawnRotation, options = {
             console.error('Error loading planet texture:', err);
             // Try alternative path if the first one fails
             textureLoader.load(
-                './skybox/planet1.webp',
+                `${config.textures.skybox}/planet1.webp`,
                 function(texture) {
                     // Set the texture to the shader material's uniform
                     sphere.material.uniforms.planetTexture.value = texture;
@@ -1161,7 +1163,7 @@ let updateEngineEffects;
 function setupTiles() {
     tiles.fetchOptions.mode = 'cors';
     tiles.registerPlugin(new GLTFExtensionsPlugin({
-        dracoLoader: new DRACOLoader().setDecoderPath('./draco/')
+        dracoLoader: new DRACOLoader().setDecoderPath(config.DRACO_PATH)
     }));
     
     // Configure Cesium's request scheduler for optimal tile loading performance
@@ -1522,7 +1524,7 @@ export function init() {
     renderer.physicallyCorrectLights = true;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.8; // Reduced from 1.2 for darker space
-    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.gammaFactor = 2.2;
  
     document.body.appendChild(renderer.domElement);
@@ -2087,7 +2089,7 @@ function createPlanet(scene, playerPosition, playerRotation) {
     }
     
     textureLoader.load(
-        'skybox/2k_neptune.jpg',
+        './assets/textures/skybox/2k_neptune.jpg',
         function(texture) {
             // Apply texture when loaded
             planetMesh.material.uniforms.planetTexture.value = texture;

@@ -16,6 +16,8 @@ import {
 } from './camera.js';
 // Import Cesium rate limiting utilities
 import { configureCesiumRequestScheduler, optimizeTerrainLoading } from './cesiumRateLimit.js';
+// Import the config
+import config from './config.js';
 
 // DEFINE GLOBAL VARIABLES
 let camera, scene, renderer, tiles, cameraTarget;
@@ -757,7 +759,7 @@ let updateEngineEffects;
 function setupTiles() {
     tiles.fetchOptions.mode = 'cors';
     tiles.registerPlugin(new GLTFExtensionsPlugin({
-        dracoLoader: new DRACOLoader().setDecoderPath('./draco/')
+        dracoLoader: new DRACOLoader().setDecoderPath(config.DRACO_PATH)
     }));
     
     // Configure Cesium's request scheduler for optimal tile loading performance
@@ -923,7 +925,7 @@ export function init() {
     renderer.physicallyCorrectLights = true;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.8; // Reduced from 1.2 for darker space
-    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.gammaFactor = 2.2;
  
     document.body.appendChild(renderer.domElement);
@@ -1222,7 +1224,7 @@ function createReferenceSphere() {
   const geometry = new THREE.SphereGeometry(sphereConfig.radius, 32, 32);
   
   // Load Earth texture from skybox folder
-  const earthTexture = textureLoader.load('./skybox/2k_earth_daymap.jpg', (texture) => {
+  const earthTexture = textureLoader.load('./assets/textures/skybox/2k_earth_daymap.jpg', (texture) => {
     // Apply a simple blur effect to the texture to simulate atmosphere
     // texture.minFilter = THREE.LinearFilter;
     // texture.magFilter = THREE.LinearFilter;

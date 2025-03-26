@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createReticle } from './reticle.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import config from './config.js';
 
 // AXES: x = yaw, y = pitch, z = roll
 
@@ -46,7 +47,7 @@ export function createSpacecraft(scene) {
     // Promise to load the glTF model
     const loadModel = new Promise((resolve, reject) => {
         loader.load(
-            '/xwing_axespoints.glb',
+            `${config.models.path}/xwing_axespoints.glb`,
             (gltf) => {
                 const model = gltf.scene;
                 
@@ -443,7 +444,7 @@ export function createSpacecraft(scene) {
     // Load the cockpit model for first-person view
     const loadCockpitModel = new Promise((resolve, reject) => {
         loader.load(
-            '/x-wing_cockpit/scene.gltf',
+            `${config.models.path}/x-wing_cockpit/scene.gltf`,
             (gltf) => {
                 const model = gltf.scene;
                 

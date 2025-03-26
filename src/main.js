@@ -22,6 +22,9 @@ import {
 // Import the rate limiter for initial game loading only
 import { createRateLimitedGameLoader } from './gameLoader.js';
 
+// Import THREE.js from node_modules instead of CDN
+import * as THREE from 'three';
+
 // import earth surface functions
 import { 
     init as initEarthSurface, 
@@ -64,8 +67,6 @@ import { setReticleVisibility } from './reticle.js';
 
 // Import laser functionality
 import { fireLaser, updateLasers, clearAllLasers } from './laser.js';
-
-import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.module.js'; // Explicitly import Three.js module
 
 let gameMode = null;
 let isAnimating = false;
