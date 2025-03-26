@@ -1,0 +1,12 @@
+[build]
+  command = "npm run build:prod"
+  publish = "dist"
+  
+[build.environment]
+  NODE_VERSION = "18" # Or whatever Node version you're using
+
+# Redirects for the SPA
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200 
