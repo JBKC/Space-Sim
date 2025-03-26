@@ -1,0 +1,11 @@
+Model Information:
+* title:	X-Wing Cockpit
+* source:	https://sketchfab.com/3d-models/x-wing-cockpit-b60c7e036370469481c7c18ca379fc17
+* author:	MichaelEGA (https://sketchfab.com/MichaelEGA)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "X-Wing Cockpit" (https://sketchfab.com/3d-models/x-wing-cockpit-b60c7e036370469481c7c18ca379fc17) by MichaelEGA (https://sketchfab.com/MichaelEGA) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

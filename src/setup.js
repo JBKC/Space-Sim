@@ -343,18 +343,15 @@ renderer.sortObjects = false;
 renderer.physicallyCorrectLights = false;
 
 // Lighting
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.1);
+const ambientLight = new THREE.AmbientLight(0xfffacc, 0.05); // Very subtle blue-tinted ambient light
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
-directionalLight.position.set(1, 1, -1).normalize();
-scene.add(directionalLight);
 
-const sideLight = new THREE.DirectionalLight(0xffffff, 0.5);
-sideLight.position.set(-1, -1, 1).normalize();
-scene.add(sideLight);
 
-scene.background = new THREE.Color(0x000000);
+// Add a central point light at the sun's position
+const centralLight = new THREE.PointLight(0xfffacc, 10000, 250000); // Warm white light with long range
+centralLight.position.set(0, 0, 0); // Position at the center (sun location)
+scene.add(centralLight);
 
 // Flag to track which scene is active
 export let isMoonSurfaceActive = false;
@@ -797,7 +794,8 @@ const skyboxMaterial = new THREE.MeshBasicMaterial({
     map: skyboxTexture,
     side: THREE.BackSide,
     depthWrite: false, // Prevent depth interference
-    depthTest: false   // Avoid rendering issues
+    depthTest: false,  // Avoid rendering issues
+    color: 0x555555    // Add darker color tint to make the skybox darker (was previously white/0xffffff by default)
 });
 const skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
 skybox.position.set(0, 0, 0); // Ensure centered at origin
@@ -816,7 +814,7 @@ const sunTexture = textureLoader.load(`${config.textures.path}/2k_sun.jpg`);
 const sunMaterial = new THREE.MeshStandardMaterial({
     map: sunTexture,
     emissive: 0xffffff,
-    emissiveIntensity: 0.4,
+    emissiveIntensity: 0.3, // Reduced from 0.4 to 0.3
     side: THREE.FrontSide
 });
 export const sun = new THREE.Mesh(sunGeometry, sunMaterial);
@@ -826,7 +824,7 @@ sunGroup.add(sun);
 const blazingMaterial = new THREE.ShaderMaterial({
     uniforms: {
         time: { value: 0 },
-        intensity: { value: 0.5 },
+        intensity: { value: 0.4 }, // Reduced from 0.5 to 0.4
         baseColor: { value: new THREE.Vector3(1.0, 0.5, 0.0) },
         noiseScale: { value: 2.0 }
     },
@@ -874,7 +872,9 @@ const halo = new THREE.Mesh(haloGeometry, haloMaterial);
 sunGroup.add(halo);
 
 // Sun light
-const sunLight = new THREE.PointLight(0xffffff, 2, 45000);
+const sunLight = new THREE.PointLight(0xffffdd, 1.2, 35000); // Slightly more focused with a warmer color
+sunLight.castShadow = true; // Enable shadow casting
+sunLight.shadow.bias = -0.0001; // Reduce shadow acne
 sunGroup.add(sunLight);
 
 sunGroup.position.set(0, 0, 0);

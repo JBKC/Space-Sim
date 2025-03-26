@@ -35,8 +35,8 @@ import {
     renderer as earthRenderer,
     spacecraft as earthSpacecraft,  // Import the spacecraft from the 3D scene
     resetPosition as resetEarthPosition,  // Import the generic reset position function
-} from './washington3D.js';
-// } from './sanFran3D.js';
+// } from './washington3D.js';
+} from './sanFran3D.js';
 // 
 import { 
     init as initMoonSurface, 
