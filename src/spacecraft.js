@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { createReticle } from './reticle.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import config from './config.js';
+// Import loading managers
+import { loadingManager, textureLoadingManager } from './loaders.js';
 
 // AXES: x = yaw, y = pitch, z = roll
 
@@ -40,7 +42,7 @@ export function createSpacecraft(scene) {
     });
     
     // Load the X-Wing glTF model
-    const loader = new GLTFLoader();
+    const loader = new GLTFLoader(loadingManager);
     const xWingModel = new THREE.Group(); // This will hold the loaded model
     xWingModel.name = 'xWingModel'; // Set a name for the model
     

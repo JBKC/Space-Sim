@@ -18,6 +18,8 @@ import {
 import { configureCesiumRequestScheduler, optimizeTerrainLoading } from './cesiumRateLimit.js';
 // Import the config
 import config from './config.js';
+// Import loading managers at the top of the file
+import { loadingManager, textureLoadingManager } from './loaders.js';
 
 // DEFINE GLOBAL VARIABLES
 let camera, scene, renderer, tiles, cameraTarget;
@@ -117,7 +119,7 @@ const collisionOffset = new THREE.Vector3();
 
 // Lighting elements
 let playerSun, playerSunTarget; // Main directional light and its target
-let textureLoader = new THREE.TextureLoader();
+let textureLoader = new THREE.TextureLoader(textureLoadingManager);
 
 
 // SET PARAMETERS
@@ -1083,7 +1085,7 @@ export function init() {
     camera.position.set(100, 100, -100);
     camera.lookAt(0, 0, 0);
  
-    textureLoader = new THREE.TextureLoader();
+    textureLoader = new THREE.TextureLoader(textureLoadingManager);
     initSpacecraft();
     setupmoonLighting();
     

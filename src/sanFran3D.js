@@ -18,6 +18,8 @@ import {
 import { configureCesiumRequestScheduler, optimizeTerrainLoading } from './cesiumRateLimit.js';
 // Import the config
 import config from './config.js';
+// Import loading managers
+import { loadingManager, textureLoadingManager } from './loaders.js';
 
 let camera, scene, renderer, tiles, cameraTarget;
 let sanFranInitialized = false;
@@ -116,7 +118,7 @@ const collisionOffset = new THREE.Vector3();
 // Sun objects and materials
 let earthSun, sunGroup, sunMesh, sunHalo, sunFlare;
 let playerSun, playerSunTarget; // Add variables for player sun
-let textureLoader = new THREE.TextureLoader();
+let textureLoader = new THREE.TextureLoader(textureLoadingManager);
 
 // Add player sun configuration options
 const playerSunConfig = {
@@ -1054,7 +1056,7 @@ function initControls() {
 
 function setupearthLighting() {
     if (!textureLoader) {
-        textureLoader = new THREE.TextureLoader();
+        textureLoader = new THREE.TextureLoader(textureLoadingManager);
     }
     
     // Create a stronger ambient light for more even lighting
@@ -1198,7 +1200,7 @@ export function init() {
  camera.position.set(100, 100, -100);
  camera.lookAt(0, 0, 0);
  
-    textureLoader = new THREE.TextureLoader();
+    textureLoader = new THREE.TextureLoader(textureLoadingManager);
 setupearthLighting();
 initSpacecraft();
     

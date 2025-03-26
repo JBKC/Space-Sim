@@ -25,6 +25,12 @@ import { createRateLimitedGameLoader } from './gameLoader.js';
 // Import THREE.js from node_modules instead of CDN
 import * as THREE from 'three';
 
+// Import Stats for FPS counter
+import Stats from 'three/examples/jsm/libs/stats.module.js';
+
+// Import loading managers from the new loaders.js file
+import { loadingManager, textureLoadingManager, updateAssetDisplay } from './loaders.js';
+
 // import earth surface functions
 import { 
     init as initEarthSurface, 
@@ -102,6 +108,44 @@ let lastFrameTime = 0;
 // Track previous state to detect changes for transitions
 let prevEarthSurfaceActive = false;
 let prevMoonSurfaceActive = false;
+
+// Initialize FPS counter
+const stats = new Stats();
+stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
+stats.dom.style.cssText = 'position:absolute;bottom:0;left:0;opacity:0.9;z-index:10000;';
+document.body.appendChild(stats.dom);
+
+// Create a custom FPS display element
+const fpsDisplay = document.createElement('div');
+fpsDisplay.id = 'fps-display';
+fpsDisplay.style.cssText = 'position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.6);color:#0ff;font-family:monospace;font-size:16px;font-weight:bold;padding:5px 10px;border-radius:5px;z-index:10000;';
+fpsDisplay.textContent = 'FPS: 0';
+document.body.appendChild(fpsDisplay);
+
+// Create an asset loader display
+const assetDisplay = document.createElement('div');
+assetDisplay.id = 'asset-display';
+assetDisplay.style.cssText = 'position:absolute;bottom:45px;left:10px;background:rgba(0,0,0,0.6);color:#0fa;font-family:monospace;font-size:14px;font-weight:bold;padding:5px 10px;border-radius:5px;z-index:10000;';
+assetDisplay.innerHTML = 'Assets: 0/0<br>Textures: 0/0';
+document.body.appendChild(assetDisplay);
+
+// Initialize variables for FPS calculation
+let frameCount = 0;
+let lastFpsUpdateTime = 0;
+const fpsUpdateInterval = 500; // Update numerical display every 500ms
+
+// Add click handler to toggle between FPS and MS panels
+stats.dom.addEventListener('click', function() {
+    // Toggle between FPS (0) and MS (1) panels
+    const currentPanel = stats.dom.children[0].classList.contains('fps') ? 0 : 1;
+    stats.showPanel(currentPanel === 0 ? 1 : 0);
+    
+    // Update the display text based on the selected panel
+    if (currentPanel) {
+        fpsDisplay.textContent = 'FPS: 0';
+    }
+});
+
 // Initialize UI elements and directional indicator
 setupUIElements();
 setupDirectionalIndicator();
@@ -575,10 +619,61 @@ function animate(currentTime = 0) {
     }
     
     requestAnimationFrame(animate);
+    
+    // Begin stats measurement for this frame
+    stats.begin();
 
     // Calculate delta time in seconds for smooth movement
     const deltaTime = (currentTime - lastFrameTime) / 1000;
     lastFrameTime = currentTime;
+    
+    // Update frame counter for custom FPS display
+    frameCount++;
+    
+    // Update numerical FPS display every interval
+    if (currentTime - lastFpsUpdateTime > fpsUpdateInterval) {
+        // Calculate FPS: frames / elapsed time in seconds
+        const fps = Math.round(frameCount / ((currentTime - lastFpsUpdateTime) / 1000));
+        
+        // Update the FPS display
+        fpsDisplay.textContent = `FPS: ${fps}`;
+        
+        // Color code based on performance
+        if (fps > 50) {
+            fpsDisplay.style.color = '#0f0'; // Good FPS - green
+        } else if (fps > 30) {
+            fpsDisplay.style.color = '#ff0'; // Okay FPS - yellow
+        } else {
+            fpsDisplay.style.color = '#f00'; // Poor FPS - red
+        }
+        
+        // Reset counters
+        lastFpsUpdateTime = currentTime;
+        frameCount = 0;
+        
+        // Check if assets are fully loaded and hide asset display after a delay
+        const assetsComplete = 
+            loadingStats.assets.loaded === loadingStats.assets.total && 
+            loadingStats.assets.loaded > 0 &&
+            loadingStats.textures.loaded === loadingStats.textures.total && 
+            loadingStats.textures.loaded > 0;
+            
+        if (assetsComplete && !assetDisplay.dataset.hidePending) {
+            // Mark that we're planning to hide it
+            assetDisplay.dataset.hidePending = 'true';
+            
+            // After 5 seconds, fade out the asset display
+            setTimeout(() => {
+                assetDisplay.style.transition = 'opacity 1s ease-out';
+                assetDisplay.style.opacity = '0';
+                
+                // After fade out, hide it completely
+                setTimeout(() => {
+                    assetDisplay.style.display = 'none';
+                }, 1000);
+            }, 5000);
+        }
+    }
 
     try {
         // Handle laser firing when spacebar is pressed
@@ -1072,6 +1167,9 @@ function animate(currentTime = 0) {
     } catch (e) {
         console.error('Main animation loop error:', e);
     }
+    
+    // End stats measurement for this frame
+    stats.end();
 
     // Update previous state for next frame
     prevEarthSurfaceActive = isEarthSurfaceActive;

@@ -16,6 +16,8 @@ import {
 } from './camera.js';
 // Import configuration
 import config from './config.js';
+// Import loading managers for tracking asset loading
+import { loadingManager, textureLoadingManager } from './loaders.js';
 
 // General initialization - scene, camera, renderer
 // do outside of init function as scene is required by multiple other files
@@ -55,7 +57,7 @@ const planetInfo = {
     'earth': {
         composition: 'Iron core, silicate mantle',
         atmosphere: 'Nitrogen, oxygen',
-        gravity: '1.98 m/s²'
+        gravity: '9.81 m/s²'
     },
     'moon': {
         composition: 'Rocky, silicate crust',
@@ -827,7 +829,7 @@ export function exitMoonSurface() {
 
 ///////////////////// Solar System Setup /////////////////////
 
-const textureLoader = new THREE.TextureLoader();
+const textureLoader = new THREE.TextureLoader(textureLoadingManager);
 
 // Skybox setup
 const skyboxTexture = textureLoader.load(`${config.textures.skybox}/galaxy5.jpeg`);
