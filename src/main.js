@@ -35,6 +35,7 @@ import {
     renderer as earthRenderer,
     spacecraft as earthSpacecraft,  // Import the spacecraft from the 3D scene
     resetPosition as resetEarthPosition,  // Import the generic reset position function
+    resetWashingtonInitialized  // Import the new function to reset the Washington initialization flag
 } from './washington3D.js';
 // } from './sanFran3D.js';
 // 
@@ -47,6 +48,7 @@ import {
     renderer as moonRenderer,
     spacecraft as moonSpacecraft,  // Import the spacecraft from the 3D scene
     resetPosition as resetMoonPosition,  // Import the generic reset position function
+    resetMoonInitialized  // Import the new function to reset the Moon initialization flag
 } from './moon3D.js';
 
 
@@ -477,11 +479,17 @@ let debugMode = true;
 window.resetEarthInitialized = function() {
     earthInitialized = false;
     console.log('Reset Earth surface initialization state');
+    
+    // Also reset the Washington initialization flag
+    resetWashingtonInitialized();
 };
 
 window.resetMoonInitialized = function() {
     moonInitialized = false;
     console.log('Reset Moon surface initialization state');
+    
+    // Also reset the Moon3D initialization flag
+    resetMoonInitialized();
 };
 
 // Add a global function to directly toggle wings for debugging
@@ -972,7 +980,7 @@ function animate(currentTime = 0) {
         
         // Update the hyperspace option in the controls dropdown when scene changes
         if (prevMoonSurfaceActive !== isMoonSurfaceActive) {
-            updateControlsDropdown(isEarthSurfaceActiveisMoonSurfaceActive);
+            updateControlsDropdown(isEarthSurfaceActive, isMoonSurfaceActive);
             
             // Hide hyperspace progress bar when on Moon's surface
             const progressContainer = document.getElementById('hyperspace-progress-container');

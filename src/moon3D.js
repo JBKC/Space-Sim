@@ -23,6 +23,17 @@ import config from './config.js';
 let camera, scene, renderer, tiles, cameraTarget;
 let moonInitialized = false;
 
+// Add function to reset the moonInitialized flag
+export function resetMoonInitialized() {
+  moonInitialized = false;
+  console.log('Reset Moon surface initialization state');
+}
+
+// Export the initialization state
+export function isMoonInitialized() {
+  return moonInitialized;
+}
+
 // DEFINE local coordinate system (not applied here)
 const coordConfig = {
  scale: 2,

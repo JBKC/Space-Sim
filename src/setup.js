@@ -3,8 +3,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { updateMovement, keys } from './movement.js';
 import { createSpacecraft } from './spacecraft.js';
-import { createReticle } from './reticle.js';
-import { fireLaser, updateLasers } from './laser.js';
+import { createReticle, setReticleVisibility } from './reticle.js';
+import { fireLaser, updateLasers, clearAllLasers } from './laser.js';
 import { updateControlsDropdown } from './ui.js';
 import { 
     spaceCamera, 
@@ -690,16 +690,24 @@ export function exitEarthSurface() {
     // Reset spacecraft rotation to look toward the center of the solar system
     spacecraft.lookAt(new THREE.Vector3(0, 0, 0));
 
-    // const reticleComponent = createReticle(scene, spacecraft);
-    // spacecraft.userData.reticle = reticleComponent.reticle;
-    // spacecraft.userData.updateReticle = reticleComponent.update;
-
-    //     // Verify reticle creation
-    // if (spacecraftComponents.reticle) {
-    //     console.log("Reticle was successfully created with spacecraft in sanFran3D.js");
-    // } else {
-    //     console.warn("Reticle not found in spacecraft components");
-    // }
+    // Re-initialize the reticle for the spacecraft in space
+    if (spacecraft) {
+        console.log("Re-creating and re-attaching reticle to spacecraft after Earth exit");
+        // First, check if there's an existing reticle to clean up
+        if (spacecraft.userData && spacecraft.userData.reticle) {
+            // Remove old reticle from scene if it exists
+            scene.remove(spacecraft.userData.reticle);
+        }
+        
+        // Create a new reticle and attach it to the spacecraft
+        const reticleComponent = createReticle(scene, spacecraft);
+        spacecraft.userData.reticle = reticleComponent.reticle;
+        spacecraft.userData.updateReticle = reticleComponent.update;
+        spacecraft.userData.reticle.visible = true;
+        
+        // Reset the warning flag so we get warned if the reticle is missing
+        window.setupReticleWarningLogged = false;
+    }
     
     // Show the space container again
     const spaceContainer = document.getElementById('space-container');
@@ -724,9 +732,10 @@ export function exitEarthSurface() {
         console.log('Reset keys object:', keys);
     }
     
-    // Reset the earthInitialized flag in main.js
+    // Reset both initialization flags for Earth surface using main.js reset function
     if (typeof window.resetEarthInitialized === 'function') {
         window.resetEarthInitialized();
+        console.log('Both Earth and Washington initialization flags have been reset');
     } else {
         console.warn('resetEarthInitialized function not found on window object');
     }
@@ -760,6 +769,25 @@ export function exitMoonSurface() {
     // Reset spacecraft rotation to look toward the center of the solar system
     spacecraft.lookAt(new THREE.Vector3(0, 0, 0));
     
+    // Re-initialize the reticle for the spacecraft in space
+    if (spacecraft) {
+        console.log("Re-creating and re-attaching reticle to spacecraft after Moon exit");
+        // First, check if there's an existing reticle to clean up
+        if (spacecraft.userData && spacecraft.userData.reticle) {
+            // Remove old reticle from scene if it exists
+            scene.remove(spacecraft.userData.reticle);
+        }
+        
+        // Create a new reticle and attach it to the spacecraft
+        const reticleComponent = createReticle(scene, spacecraft);
+        spacecraft.userData.reticle = reticleComponent.reticle;
+        spacecraft.userData.updateReticle = reticleComponent.update;
+        spacecraft.userData.reticle.visible = true;
+        
+        // Reset the warning flag so we get warned if the reticle is missing
+        window.setupReticleWarningLogged = false;
+    }
+    
     // Show the space container again
     const spaceContainer = document.getElementById('space-container');
     if (spaceContainer) {
@@ -783,6 +811,7 @@ export function exitMoonSurface() {
     // Reset the moonInitialized flag in main.js
     if (typeof window.resetMoonInitialized === 'function') {
         window.resetMoonInitialized();
+        console.log('Both Moon and Moon3D initialization flags have been reset');
     } else {
         console.warn('resetMoonInitialized function not found on window object');
     }

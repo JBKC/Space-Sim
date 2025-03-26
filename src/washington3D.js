@@ -189,9 +189,16 @@ const basePlaneConfig = {
 const cameraState = createCameraState('washington');
 const smoothFactor = 0.1;
 
+// Export the initialized flag and a function to reset it
+export function resetWashingtonInitialized() {
+  washingtonInitialized = false;
+  console.log('Reset Washington surface initialization state');
+}
 
-
-
+// Export the initialized state
+export function isWashingtonInitialized() {
+  return washingtonInitialized;
+}
 
 function initSpacecraft() {
     const spacecraftComponents = createSpacecraft(scene);
