@@ -1,4 +1,4 @@
-import Bottleneck from 'bottleneck';
+import Bottleneck from '/node_modules/bottleneck/lib/Bottleneck.js';
 
 // Create default limiter instances for different use cases
 const defaultLimiter = new Bottleneck({

@@ -1,4 +1,4 @@
-import Bottleneck from 'bottleneck';
+import Bottleneck from '/node_modules/bottleneck/lib/Bottleneck.js';
 
 // Create a single limiter specifically for initial game loading
 const gameLoadLimiter = new Bottleneck({
