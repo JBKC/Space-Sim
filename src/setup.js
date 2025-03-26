@@ -812,7 +812,7 @@ scene.add(sunGroup);
 
 const sunRadius = 10000;
 const sunGeometry = new THREE.SphereGeometry(sunRadius, 64, 64);
-const sunTexture = textureLoader.load(`${config.textures.skybox}/2k_sun.jpg`);
+const sunTexture = textureLoader.load(`${config.textures.path}/2k_sun.jpg`);
 const sunMaterial = new THREE.MeshStandardMaterial({
     map: sunTexture,
     emissive: 0xffffff,
@@ -896,7 +896,7 @@ const mercuryGroup = new THREE.Group();
 scene.add(mercuryGroup);
 const mercuryRadius = 1000;
 const mercuryGeometry = new THREE.SphereGeometry(mercuryRadius, 32, 32);
-const mercuryTexture = textureLoader.load(`${config.textures.skybox}/2k_mercury.jpg`);
+const mercuryTexture = textureLoader.load(`${config.textures.path}/2k_mercury.jpg`);
 const mercuryMaterial = new THREE.MeshStandardMaterial({
     map: mercuryTexture,
     side: THREE.FrontSide,
@@ -919,7 +919,7 @@ const venusGroup = new THREE.Group();
 scene.add(venusGroup);
 const venusRadius = 2000;
 const venusGeometry = new THREE.SphereGeometry(venusRadius, 32, 32);
-const venusTexture = textureLoader.load(`${config.textures.skybox}/2k_venus_surface.jpg`);
+const venusTexture = textureLoader.load(`${config.textures.path}/2k_venus_surface.jpg`);
 const venusMaterial = new THREE.MeshStandardMaterial({
     map: venusTexture,
     side: THREE.FrontSide,
@@ -945,7 +945,7 @@ const venusAtmosphereMaterial = new THREE.MeshStandardMaterial({
 });
 const venusAtmosphere = new THREE.Mesh(venusAtmosphereGeometry, venusAtmosphereMaterial);
 venusGroup.add(venusAtmosphere);
-const cloudTexture = textureLoader.load(`${config.textures.skybox}/Earth-clouds.png`);
+const cloudTexture = textureLoader.load(`${config.textures.path}/Earth-clouds.png`);
 const venusCloudMaterial = new THREE.MeshStandardMaterial({
     map: cloudTexture,
     transparent: true,
@@ -969,7 +969,7 @@ const earthGroup = new THREE.Group();
 scene.add(earthGroup);
 const earthRadius = 2000;
 const earthGeometry = new THREE.SphereGeometry(earthRadius, 64, 64);
-const earthTexture = textureLoader.load(`${config.textures.skybox}/2k_earth_daymap.jpg`);
+const earthTexture = textureLoader.load(`${config.textures.path}/2k_earth_daymap.jpg`);
 const earthMaterial = new THREE.MeshStandardMaterial({
     map: earthTexture,
     side: THREE.FrontSide,
@@ -1017,7 +1017,7 @@ const moonGroup = new THREE.Group();
 scene.add(moonGroup); // Add Moon directly to the scene instead of as a child of Earth
 const moonRadius = 500;
 const moonGeometry = new THREE.SphereGeometry(moonRadius, 32, 32);
-const moonTexture = textureLoader.load(`${config.textures.skybox}/2k_moon.jpg`);
+const moonTexture = textureLoader.load(`${config.textures.path}/2k_moon.jpg`);
 const moonMaterial = new THREE.MeshStandardMaterial({
     map: moonTexture,
     side: THREE.FrontSide,
@@ -1080,7 +1080,7 @@ const marsGroup = new THREE.Group();
 scene.add(marsGroup);
 const marsRadius = 1500;
 const marsGeometry = new THREE.SphereGeometry(marsRadius, 32, 32);
-const marsTexture = textureLoader.load(`${config.textures.skybox}/2k_mars.jpg`);
+const marsTexture = textureLoader.load(`${config.textures.path}/2k_mars.jpg`);
 const marsMaterial = new THREE.MeshStandardMaterial({
     map: marsTexture,
     side: THREE.FrontSide,
@@ -1095,7 +1095,7 @@ const marsCollisionGeometry = new THREE.SphereGeometry(marsRadius * 1.5, 16, 16)
 const marsCollisionSphere = new THREE.Mesh(marsCollisionGeometry, collisionMaterialInvisible);
 marsGroup.add(marsCollisionSphere);
 
-const redCloudTexture = textureLoader.load(`${config.textures.skybox}/Earth-clouds.png`);
+const redCloudTexture = textureLoader.load(`${config.textures.path}/Earth-clouds.png`);
 const marsCloudMaterial = new THREE.MeshStandardMaterial({
     map: redCloudTexture,
     transparent: true,
@@ -1138,7 +1138,9 @@ const asteroidCount = 100;
 let asteroidModels = [];
 
 // Load asteroid models
-const asteroidsModelPath = `/src/assets/models/asteroids_pack_metallic_version/scene.gltf`;
+const asteroidsModelPath = `${config.models.path}/asteroids_pack_metallic_version/scene.gltf`;
+
+
 console.log('Loading asteroids from:', asteroidsModelPath);
 
 // Use the enhanced loader for asteroids
@@ -1271,9 +1273,9 @@ planetGroups.push({ group: asteroidBeltGroup, z: 55000 });
 // --- Jupiter Setup ---
 const jupiterGroup = new THREE.Group();
 scene.add(jupiterGroup);
-const jupiterRadius = 5000;
+const jupiterRadius = 4500;
 const jupiterGeometry = new THREE.SphereGeometry(jupiterRadius, 32, 32);
-const jupiterTexture = textureLoader.load('./assets/textures/skybox/2k_jupiter.jpg');
+const jupiterTexture = textureLoader.load(`${config.textures.path}/2k_jupiter.jpg`);
 const jupiterMaterial = new THREE.MeshStandardMaterial({
     map: jupiterTexture,
     side: THREE.FrontSide,
@@ -1323,7 +1325,7 @@ let starDestroyer; // Store reference to the first model
 let starDestroyer2; // Store reference to the second model
 
 // Load the first Star Destroyer
-const starDestroyerModelPath = `/src/assets/models/star_wars_imperial_ii_star_destroyer/scene.gltf`;
+const starDestroyerModelPath = `${config.models.path}/star_wars_imperial_ii_star_destroyer/scene.gltf`;
 console.log('Loading First Star Destroyer from:', starDestroyerModelPath);
 
 // Use the enhanced loader for the first Star Destroyer
@@ -1379,7 +1381,8 @@ loadModelWithFallback(
 
 // Function to load the second Star Destroyer
 function loadSecondStarDestroyer() {
-    const modelPath = `/src/assets/models/star_wars_imperial_ii_star_destroyer/scene.gltf`;
+    const modelPath = `${config.models.path}/star_wars_imperial_ii_star_destroyer/scene.gltf`;
+    
     console.log('Loading Second Star Destroyer from:', modelPath);
     
     // Use the enhanced loader for the second Star Destroyer
@@ -1436,7 +1439,7 @@ const saturnGroup = new THREE.Group();
 scene.add(saturnGroup);
 const saturnRadius = 4000;
 const saturnGeometry = new THREE.SphereGeometry(saturnRadius, 32, 32);
-const saturnTexture = textureLoader.load(`${config.textures.skybox}/2k_saturn.jpg`);
+const saturnTexture = textureLoader.load(`${config.textures.path}/2k_saturn.jpg`);
 const saturnMaterial = new THREE.MeshStandardMaterial({
     map: saturnTexture,
     side: THREE.FrontSide,
@@ -1452,7 +1455,7 @@ const saturnCollisionSphere = new THREE.Mesh(saturnCollisionGeometry, collisionM
 saturnGroup.add(saturnCollisionSphere);
 
 // Load the ring texture
-const ringTexture = textureLoader.load(`${config.textures.skybox}/2k_saturn_ring_alpha.png`);
+const ringTexture = textureLoader.load(`${config.textures.path}/2k_saturn_ring_alpha.png`);
 
 // Create the 3D rings using a torus geometry instead of a flat ring
 const ringOuterRadius = 8000;
@@ -1511,7 +1514,7 @@ const uranusGroup = new THREE.Group();
 scene.add(uranusGroup);
 const uranusRadius = 3000;
 const uranusGeometry = new THREE.SphereGeometry(uranusRadius, 32, 32);
-const uranusTexture = textureLoader.load(`${config.textures.skybox}/2k_uranus.jpg`);
+const uranusTexture = textureLoader.load(`${config.textures.path}/2k_uranus.jpg`);
 const uranusMaterial = new THREE.MeshStandardMaterial({
     map: uranusTexture,
     side: THREE.FrontSide,
@@ -1533,7 +1536,7 @@ const neptuneGroup = new THREE.Group();
 scene.add(neptuneGroup);
 const neptuneRadius = 3000;
 const neptuneGeometry = new THREE.SphereGeometry(neptuneRadius, 32, 32);
-const neptuneTexture = textureLoader.load(`${config.textures.skybox}/2k_neptune.jpg`);
+const neptuneTexture = textureLoader.load(`${config.textures.path}/2k_neptune.jpg`);
 const neptuneMaterial = new THREE.MeshStandardMaterial({
     map: neptuneTexture,
     side: THREE.FrontSide,
@@ -1571,7 +1574,8 @@ lucrehulkGroup.add(lucrehulkCollisionBox);
 let lucrehulkModel; // Store reference to the model
 
 // Load the Lucrehulk
-const lucrehulkModelPath = `/src/assets/models/lucrehulk/scene.gltf`;
+const lucrehulkModelPath = `${config.models.path}/lucrehulk/scene.gltf`;
+
 console.log('Loading Lucrehulk from:', lucrehulkModelPath);
 
 // Use the enhanced loader for Lucrehulk
@@ -1705,6 +1709,12 @@ earthDistanceIndicator.style.fontSize = '18px';
 earthDistanceIndicator.style.textAlign = 'center';
 earthDistanceIndicator.style.position = 'absolute';
 earthDistanceIndicator.style.display = 'none'; // Initially hidden
+// Add background and padding for better visibility
+earthDistanceIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+earthDistanceIndicator.style.padding = '5px 10px';
+earthDistanceIndicator.style.borderRadius = '5px';
+// Remove border
+earthDistanceIndicator.style.zIndex = '9999'; // Ensure it's on top of other elements
 document.body.appendChild(earthDistanceIndicator);
 
 // Create a distance indicator for the Moon
@@ -1716,6 +1726,12 @@ moonDistanceIndicator.style.fontSize = '18px';
 moonDistanceIndicator.style.textAlign = 'center';
 moonDistanceIndicator.style.position = 'absolute';
 moonDistanceIndicator.style.display = 'none'; // Initially hidden
+// Add background and padding for better visibility
+moonDistanceIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+moonDistanceIndicator.style.padding = '5px 10px';
+moonDistanceIndicator.style.borderRadius = '5px';
+// Remove border
+moonDistanceIndicator.style.zIndex = '9999'; // Ensure it's on top of other elements
 document.body.appendChild(moonDistanceIndicator);
 
 // Function to update label positions
@@ -1741,16 +1757,82 @@ export function updatePlanetLabels() {
     const distanceToEarth = earthPosition.distanceTo(spacecraftPosition);
     const distanceToEntry = Math.max(0, distanceToEarth - (earthRadius + 500)); // 500 is the entry threshold
     
-    // Update the Earth distance indicator text
-    earthDistanceIndicator.textContent = `EARTH ENTRY: ${Math.round(distanceToEntry)}`;
+    // Update the Earth distance indicator text with simplified formatting
+    if (distanceToEntry <= 10000) {
+        // Format the text with more prominent styling
+        if (distanceToEntry <= 1000) {
+            // Imminent entry - show in red
+            earthDistanceIndicator.style.color = '#ff0000';
+            earthDistanceIndicator.style.fontSize = '24px';
+            earthDistanceIndicator.style.fontWeight = 'bold';
+            earthDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 0, 0, 1.0), 0 0 25px rgba(255, 0, 0, 1.0)';
+            earthDistanceIndicator.textContent = `EARTH ENTRY: ${Math.round(distanceToEntry)}`;
+            // Add urgent animation
+            earthDistanceIndicator.classList.remove('distance-indicator-pulse');
+            earthDistanceIndicator.classList.add('distance-indicator-urgent');
+        } else {
+            // Standard display - white
+            earthDistanceIndicator.style.color = 'white';
+            earthDistanceIndicator.style.fontSize = '20px';
+            earthDistanceIndicator.style.fontWeight = 'normal';
+            earthDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px rgba(79, 195, 247, 1.0)';
+            earthDistanceIndicator.textContent = `EARTH ENTRY: ${Math.round(distanceToEntry)}`;
+            // Remove animations
+            earthDistanceIndicator.classList.remove('distance-indicator-pulse');
+            earthDistanceIndicator.classList.remove('distance-indicator-urgent');
+        }
+    } else {
+        // Reset styling for normal display
+        earthDistanceIndicator.style.color = 'white';
+        earthDistanceIndicator.style.fontSize = '18px';
+        earthDistanceIndicator.style.fontWeight = 'normal';
+        earthDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px rgba(79, 195, 247, 1.0)';
+        earthDistanceIndicator.textContent = `EARTH ENTRY: ${Math.round(distanceToEntry)}`;
+        // Remove animations
+        earthDistanceIndicator.classList.remove('distance-indicator-pulse');
+        earthDistanceIndicator.classList.remove('distance-indicator-urgent');
+    }
 
     // Calculate distance to Moon for the indicator - using direct position since Moon is now in global coordinates
     const moonPosition = moonGroup.position.clone();
     const distanceToMoon = moonPosition.distanceTo(spacecraftPosition);
     const moonEntryDistance = Math.max(0, distanceToMoon - (moonRadius + 500));
     
-    // Update the Moon distance indicator text
-    // moonDistanceIndicator.textContent = `MOON ENTRY: ${Math.round(moonEntryDistance)}`;
+    // Update the Moon distance indicator text with simplified formatting
+    if (moonEntryDistance <= 10000) {
+        // Format the text with more prominent styling
+        if (moonEntryDistance <= 1000) {
+            // Imminent entry - show in red
+            moonDistanceIndicator.style.color = '#ff0000';
+            moonDistanceIndicator.style.fontSize = '24px';
+            moonDistanceIndicator.style.fontWeight = 'bold';
+            moonDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 0, 0, 1.0), 0 0 25px rgba(255, 0, 0, 1.0)';
+            moonDistanceIndicator.textContent = `MOON ENTRY: ${Math.round(moonEntryDistance)}`;
+            // Add urgent animation
+            moonDistanceIndicator.classList.remove('distance-indicator-pulse');
+            moonDistanceIndicator.classList.add('distance-indicator-urgent');
+        } else {
+            // Standard display - white
+            moonDistanceIndicator.style.color = 'white';
+            moonDistanceIndicator.style.fontSize = '20px';
+            moonDistanceIndicator.style.fontWeight = 'normal';
+            moonDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px rgba(79, 195, 247, 1.0)';
+            moonDistanceIndicator.textContent = `MOON ENTRY: ${Math.round(moonEntryDistance)}`;
+            // Remove animations
+            moonDistanceIndicator.classList.remove('distance-indicator-pulse');
+            moonDistanceIndicator.classList.remove('distance-indicator-urgent');
+        }
+    } else {
+        // Reset styling for normal display
+        moonDistanceIndicator.style.color = 'white';
+        moonDistanceIndicator.style.fontSize = '18px';
+        moonDistanceIndicator.style.fontWeight = 'normal';
+        moonDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px rgba(79, 195, 247, 1.0)';
+        moonDistanceIndicator.textContent = `MOON ENTRY: ${Math.round(moonEntryDistance)}`;
+        // Remove animations
+        moonDistanceIndicator.classList.remove('distance-indicator-pulse');
+        moonDistanceIndicator.classList.remove('distance-indicator-urgent');
+    }
 
     // To track if the currently hovered planet is visible
     let hoveredPlanetVisible = false;
@@ -1790,6 +1872,14 @@ export function updatePlanetLabels() {
                 earthDistanceIndicator.style.display = 'block'; // Show the distance indicator
             }
             
+            // If this is Moon, position the distance indicator below it
+            if (label.planetGroup === moonGroup) {
+                moonDistanceIndicator.style.left = `${x}px`;
+                moonDistanceIndicator.style.top = `${y + 35}px`; // 35px spacing just like Earth
+                moonDistanceIndicator.style.transform = 'translateX(-50%)';
+                moonDistanceIndicator.style.display = 'block'; // Show the distance indicator
+            }
+            
             // Update the info box position if we're currently hovering over this planet
             if (lastHoveredPlanet && lastHoveredPlanet === label.element.textContent.toLowerCase()) {
                 hoveredPlanetVisible = true;
@@ -1806,6 +1896,11 @@ export function updatePlanetLabels() {
             // If this is Earth, also hide the distance indicator
             if (label.planetGroup === earthGroup) {
                 earthDistanceIndicator.style.display = 'none';
+            }
+            
+            // If this is Moon, also hide the distance indicator
+            if (label.planetGroup === moonGroup) {
+                moonDistanceIndicator.style.display = 'none';
             }
         }
     });
