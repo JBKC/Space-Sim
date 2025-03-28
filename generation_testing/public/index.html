@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Model Generator</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.159.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.159.0/examples/jsm/",
+        "three/examples/jsm/": "https://unpkg.com/three@0.159.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>3D Model Generator</h1>
+      <div class="status-bar">
+        <span id="connection-status">Checking server...</span>
+      </div>
+    </div>
+    
+    <div class="content">
+      <div class="upload-section">
+        <form id="upload-form">
+          <div class="form-group">
+            <label for="image-upload">Upload Image:</label>
+            <input type="file" id="image-upload" name="image" accept="image/*" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="caption">Caption (optional):</label>
+            <input type="text" id="caption" name="caption" placeholder="Describe the object">
+          </div>
+          
+          <div class="form-group">
+            <button type="submit" id="generate-btn">Generate 3D Model</button>
+          </div>
+        </form>
+        
+        <div class="button-group">
+          <button id="test-connection">Test Server Connection</button>
+          <button id="load-dummy">Load Sample Model</button>
+        </div>
+        
+        <div class="button-group">
+          <button id="test-mode-btn" type="button">Use Test Mode (No API Call)</button>
+        </div>
+        
+        <div id="progress-container" class="progress-container">
+          <div class="progress-header">
+            <h3>Processing Status</h3>
+            <span id="progress-percentage">0%</span>
+          </div>
+          <div class="progress-bar-container">
+            <div id="progress-bar" class="progress-bar"></div>
+          </div>
+          <div id="progress-status" class="progress-status">Waiting to start...</div>
+        </div>
+        
+        <div id="log-container" class="log-container">
+          <h3>Process Log</h3>
+          <div id="log-entries" class="log-entries"></div>
+        </div>
+        
+        <div id="parameters-display" class="parameters-display">
+          <h3>API Parameters</h3>
+          <div id="parameters-content"></div>
+        </div>
+        
+        <div id="status" class="status-message"></div>
+        <div id="error" class="error-message"></div>
+      </div>
+      
+      <div class="viewer-section">
+        <div id="model-viewer"></div>
+        <div id="model-stats"></div>
+      </div>
+    </div>
+  </div>
+  
+  <script type="module" src="app.js"></script>
+</body>
+</html> 
