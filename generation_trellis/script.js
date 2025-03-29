@@ -8,6 +8,8 @@ const progressBar = document.getElementById('progressBar');
 const modelViewer = document.getElementById('modelViewer');
 const downloadSection = document.getElementById('downloadSection');
 const downloadLink = document.getElementById('downloadLink');
+const loadingSpinner = document.getElementById('loadingSpinner');
+const modelViewerStatus = document.getElementById('modelViewerStatus');
 
 // Global variables
 let uploadedImage = null;
@@ -123,8 +125,10 @@ async function generateModel() {
 
     // Update UI for processing state
     generateBtn.disabled = true;
-    statusMessage.textContent = 'Uploading image...';
-    progressBar.style.width = '10%';
+    
+    // Show processing status over the model viewer with spinner
+    modelViewerStatus.style.display = 'flex';
+    document.getElementById('processingText').textContent = 'Model generating...';
 
     try {
         // Create form data to send the image
@@ -132,7 +136,6 @@ async function generateModel() {
         formData.append('image', uploadedImage);
         
         console.log('Sending image to server...');
-        statusMessage.textContent = 'Sending image to server...';
         
         // Send the image to the server endpoint
         const response = await fetch(`${SERVER_URL}${GENERATE_ENDPOINT}`, {
@@ -179,16 +182,16 @@ async function generateModel() {
         }
         
         console.log('Using task_id:', taskId);
-        statusMessage.textContent = 'Processing image (this may take a few minutes)...';
-        progressBar.style.width = '30%';
+        statusMessage.textContent = 'Processing...';
         
         // Start polling for status
         startStatusPolling();
     } catch (error) {
         console.error('Error generating model:', error);
         statusMessage.textContent = `Error: ${error.message.substring(0, 100)}${error.message.length > 100 ? '...' : ''}`;
+        modelViewerStatus.textContent = 'Error';
         generateBtn.disabled = false;
-        progressBar.style.width = '0%';
+        modelViewerStatus.style.display = 'none';
     }
 }
 
@@ -206,17 +209,15 @@ async function checkTaskStatus() {
     try {
         if (!taskId) {
             console.error('No task ID available for status check');
-            statusMessage.textContent = 'Error: No task ID to check status';
+            document.getElementById('processingText').textContent = 'Error';
             clearInterval(statusCheckInterval);
             generateBtn.disabled = false;
             return;
         }
         
         console.log('Checking status for task:', taskId);
-        statusMessage.textContent = `Checking status for task: ${taskId}...`;
         
-        // Call the server endpoint with the taskId - use the new URL format
-        // NOTE: Changed from query parameter format to path parameter format
+        // Call the server endpoint with the taskId
         const response = await fetch(`${SERVER_URL}${STATUS_ENDPOINT}/${taskId}`);
 
         // Get the text response first to examine it
@@ -258,8 +259,6 @@ async function checkTaskStatus() {
         // Update progress based on status
         if (status === 'succeeded' || status === 'completed') {
             clearInterval(statusCheckInterval);
-            statusMessage.textContent = 'Model generated successfully!';
-            progressBar.style.width = '100%';
             
             // Load the 3D model
             if (output && output.model_file) {
@@ -273,23 +272,22 @@ async function checkTaskStatus() {
                 loadModel(proxiedModelUrl, output.model_file);
             } else {
                 console.error('No model file URL found in output:', output);
+                document.getElementById('processingText').textContent = 'Error: No model file';
                 throw new Error('No model file in the response');
             }
             
             generateBtn.disabled = false;
         } else if (status === 'failed' || status === 'error') {
             clearInterval(statusCheckInterval);
-            statusMessage.textContent = 'Model generation failed.';
-            progressBar.style.width = '0%';
+            document.getElementById('processingText').textContent = 'Generation failed';
             generateBtn.disabled = false;
         } else {
             // Still processing
-            statusMessage.textContent = `Processing: ${status || 'in progress'}`;
-            progressBar.style.width = '50%';
+            document.getElementById('processingText').textContent = 'Model generating...';
         }
     } catch (error) {
         console.error('Error checking task status:', error);
-        statusMessage.textContent = `Error checking status: ${error.message.substring(0, 100)}${error.message.length > 100 ? '...' : ''}`;
+        document.getElementById('processingText').textContent = 'Error checking status';
         clearInterval(statusCheckInterval);
         generateBtn.disabled = false;
     }
@@ -298,19 +296,22 @@ async function checkTaskStatus() {
 function initializeViewer() {
     // Create scene
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf0f0f0);
+    scene.background = new THREE.Color(0x000000); // Black background
 
     // Create camera
     camera = new THREE.PerspectiveCamera(75, modelViewer.clientWidth / modelViewer.clientHeight, 0.1, 1000);
     camera.position.z = 5;
 
-    // Create renderer with better settings
+    // Create renderer with enhanced quality settings
     renderer = new THREE.WebGLRenderer({ 
-        antialias: true,
+        antialias: true,              // Enable anti-aliasing
         preserveDrawingBuffer: true,  // Needed for taking screenshots
-        alpha: true                   // Allow transparency
+        alpha: true,                  // Allow transparency
+        powerPreference: 'high-performance', // Request high performance GPU
+        precision: 'highp'           // Use high precision for better visuals
     });
     renderer.setSize(modelViewer.clientWidth, modelViewer.clientHeight);
+    renderer.setPixelRatio(window.devicePixelRatio); // Use device pixel ratio for sharper display
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Better shadow quality
     
@@ -319,13 +320,16 @@ function initializeViewer() {
         // For newer versions of THREE.js
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.2; // Increased exposure for better visibility
+        renderer.toneMappingExposure = 2.5; // Increased exposure for better brightness
+        renderer.logarithmicDepthBuffer = true; // Better handling of near/far objects
     } catch (e) {
         // Fallback for older versions
         try {
             renderer.physicallyCorrectLights = true;
             renderer.outputEncoding = THREE.sRGBEncoding;
-            renderer.toneMappingExposure = 1.2;
+            renderer.toneMappingExposure = 2.5;
+            renderer.gammaOutput = true;
+            renderer.gammaFactor = 2.2;
         } catch (err) {
             console.warn('Could not set advanced renderer properties:', err);
         }
@@ -342,7 +346,7 @@ function initializeViewer() {
         const envMap = pmremGenerator.fromEquirectangular(environmentTexture).texture;
         
         scene.environment = envMap;
-        scene.background = new THREE.Color(0xf0f0f0); // Keep the background color
+        scene.background = new THREE.Color(0x000000); // Keep the black background
         
         // Store the environment map for later use
         window.envMap = envMap;
@@ -353,13 +357,13 @@ function initializeViewer() {
         console.warn('Could not set up environment mapping:', e);
     }
     
-    // Set up comprehensive lighting system
+    // Set up comprehensive lighting system with increased values
     // Ambient light (overall scene illumination)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7); // Brighter ambient
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2); // Significantly brighter ambient
     scene.add(ambientLight);
 
     // Main directional light (sun-like with shadows)
-    const mainLight = new THREE.DirectionalLight(0xffffff, 1.0); // Increased intensity
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1.5); // Increased intensity
     mainLight.position.set(10, 10, 10);
     mainLight.castShadow = true;
     
@@ -373,21 +377,26 @@ function initializeViewer() {
     scene.add(mainLight);
 
     // Add fill lights to prevent harsh shadows
-    const fillLight1 = new THREE.DirectionalLight(0xffffff, 0.5);
+    const fillLight1 = new THREE.DirectionalLight(0xffffff, 0.8); // Increased brightness
     fillLight1.position.set(-5, 5, -5);
     scene.add(fillLight1);
 
-    const fillLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
+    const fillLight2 = new THREE.DirectionalLight(0xffffff, 0.8); // Increased brightness
     fillLight2.position.set(5, -5, -5);
     scene.add(fillLight2);
     
     // Add a spot light from below for dramatic effect
-    const spotLight = new THREE.SpotLight(0xffffff, 0.5);
+    const spotLight = new THREE.SpotLight(0xffffff, 0.8); // Increased brightness
     spotLight.position.set(0, -10, 0);
     spotLight.angle = Math.PI / 4;
     spotLight.penumbra = 0.1;
     spotLight.castShadow = true;
     scene.add(spotLight);
+
+    // Add an additional rim light for better edge definition
+    const rimLight = new THREE.DirectionalLight(0xffffff, 0.7);
+    rimLight.position.set(0, 0, -10);
+    scene.add(rimLight);
 
     // Add controls
     controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -395,44 +404,15 @@ function initializeViewer() {
     controls.dampingFactor = 0.25;
     controls.screenSpacePanning = false;
     controls.maxPolarAngle = Math.PI;
-    controls.minDistance = 1;
+    controls.minDistance = 0.2; // Allow even closer zoom
     controls.maxDistance = 10;
-    controls.autoRotate = false; // Can be enabled for automatic rotation
+    controls.autoRotate = true; // Enable auto-rotation by default
     controls.autoRotateSpeed = 1.0;
-
-    // Add a small ground plane with shadow receiving
-    const groundGeometry = new THREE.PlaneGeometry(20, 20);
-    const groundMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0xeeeeee,
-        roughness: 0.8,
-        metalness: 0.2,
-        side: THREE.DoubleSide
-    });
-    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-    ground.rotation.x = Math.PI / 2;
-    ground.position.y = -2;
-    ground.receiveShadow = true;
-    ground.visible = false; // Hidden by default, will enable when model loads
-    scene.add(ground);
-    
-    // Store the ground for later reference
-    window.ground = ground;
 
     // Handle window resize
     window.addEventListener('resize', onWindowResize, false);
 
-    // Add initial cube to show the viewer is working
-    const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const material = new THREE.MeshStandardMaterial({ 
-        color: 0x3498db,
-        roughness: 0.5,
-        metalness: 0.2,
-        envMapIntensity: 1.0
-    });
-    const cube = new THREE.Mesh(geometry, material);
-    cube.castShadow = true;
-    cube.receiveShadow = true;
-    scene.add(cube);
+    // Empty scene - no cube anymore
     
     // Animate the scene
     animate();
@@ -483,17 +463,13 @@ function createEnvironmentTexture() {
 
 function loadModel(modelUrl, originalUrl) {
     try {
-        // Store the original URL for the download button (direct from source)
+        // Store the URL for the download button
         if (originalUrl) {
             downloadLink.href = originalUrl;
         } else {
             downloadLink.href = modelUrl;
         }
-        downloadLink.download = 'trellis_model.glb'; // Suggest a filename
-        downloadSection.style.display = 'block';
-        
-        // Automatically trigger download as a fallback
-        triggerModelDownload(originalUrl || modelUrl);
+        downloadLink.download = 'model.glb'; // Suggest a filename
         
         // Clear existing model
         if (model) {
@@ -507,13 +483,13 @@ function loadModel(modelUrl, originalUrl) {
         const manager = new THREE.LoadingManager();
         manager.onProgress = function(item, loaded, total) {
             const percent = Math.round((loaded / total) * 100);
-            statusMessage.textContent = `Loading model: ${percent}%`;
+            document.getElementById('processingText').textContent = `Model generating...`;
             console.log(`Loading progress: ${loaded}/${total} (${percent}%)`);
         };
         
         manager.onError = function(url) {
             console.error('Error loading resource:', url);
-            statusMessage.textContent = 'Error loading model. Downloadable version available below.';
+            document.getElementById('processingText').textContent = 'Error loading model';
         };
         
         const loader = new THREE.GLTFLoader(manager);
@@ -556,22 +532,15 @@ function loadModel(modelUrl, originalUrl) {
                 model.position.y = -center.y;
                 model.position.z = -center.z;
                 
-                // Get model size to adjust ground plane and camera
+                // Get model size to adjust camera
                 const size = box.getSize(new THREE.Vector3());
                 const maxDim = Math.max(size.x, size.y, size.z);
-                
-                // Show and resize ground plane based on model size
-                if (window.ground) {
-                    window.ground.visible = true;
-                    window.ground.position.y = -size.y/2 - 0.01; // Position it just below the model
-                    window.ground.scale.set(maxDim * 3, maxDim * 3, 1); // Scale it based on model size
-                }
                 
                 // Add the model to the scene
                 scene.add(model);
                 
-                // Adjust camera to fit the model
-                const distance = maxDim * 2.5; // Provide more space around the model
+                // Adjust camera position based on model size for better fit in smaller viewer
+                const distance = maxDim * 0.5; // More zoomed out for better fit in smaller viewer
                 camera.position.set(distance, distance, distance);
                 camera.lookAt(0, 0, 0);
                 
@@ -579,28 +548,27 @@ function loadModel(modelUrl, originalUrl) {
                 controls.target.set(0, 0, 0);
                 controls.update();
                 
-                // Enable auto-rotation for better viewing
-                controls.autoRotate = true;
+                // Fine-tune the controls for the smaller viewer
+                controls.minDistance = 0.2;
+                controls.maxDistance = maxDim * 3.0;
+                controls.autoRotate = true; // Enable auto-rotation
+                controls.autoRotateSpeed = 0.8; // Slightly slower rotation
                 
-                // Remove initial cube if model loads successfully
-                scene.children.forEach(child => {
-                    if (child.type === 'Mesh' && child.geometry.type === 'BoxGeometry') {
-                        scene.remove(child);
-                    }
-                });
+                // Hide the status overlay once model is loaded
+                modelViewerStatus.style.display = 'none';
                 
-                // Update status
-                statusMessage.textContent = 'Model loaded successfully!';
+                // Show download section
+                downloadSection.style.display = 'block';
             },
             function (xhr) {
                 // Progress
                 const percent = Math.round((xhr.loaded / xhr.total) * 100);
-                statusMessage.textContent = `Loading model: ${percent}%`;
+                document.getElementById('processingText').textContent = `Model generating...`;
                 console.log(`Loading progress: ${percent}%`);
             },
             function (error) {
                 console.error('Error loading model:', error);
-                statusMessage.textContent = 'Error loading model. Model has been automatically downloaded.';
+                document.getElementById('processingText').textContent = 'Error loading model';
                 
                 // Make sure the download button is visible even if the model fails to load
                 downloadSection.style.display = 'block';
@@ -608,14 +576,14 @@ function loadModel(modelUrl, originalUrl) {
         );
     } catch (error) {
         console.error('Exception in loadModel:', error);
-        statusMessage.textContent = 'Error loading model. Model has been automatically downloaded.';
+        document.getElementById('processingText').textContent = 'Error loading model';
         
-        // Make sure the download button is visible even if there's an error
+        // Always ensure download button is visible
         downloadSection.style.display = 'block';
     }
 }
 
-// Enhanced material processing with better shading
+// Enhanced material processing with better shading - improved for HD rendering
 function enhanceMaterial(material) {
     if (!material) return;
     
@@ -625,19 +593,24 @@ function enhanceMaterial(material) {
     
     // For standard materials, adjust properties for better shading
     if (material.isMeshStandardMaterial) {
-        // Adjust roughness and metalness for better light interaction
-        material.roughness = Math.min(material.roughness, 0.6);
-        material.metalness = Math.max(material.metalness, 0.3);
+        // Fine-tune parameters for higher quality
+        material.roughness = Math.min(material.roughness, 0.4); // Smoother surface
+        material.metalness = Math.max(material.metalness, 0.5); // More metallic look
         
-        // Enhance environment map reflections
+        // Enhance environment map reflections - higher intensity for more detail
         if (window.envMap) {
             material.envMap = window.envMap;
-            material.envMapIntensity = 1.0;
+            material.envMapIntensity = 1.5; // Increased for more detailed reflections
         }
         
         // Increase normal map intensity if present
         if (material.normalMap) {
-            material.normalScale.set(1.5, 1.5);
+            material.normalScale.set(2.0, 2.0); // Higher value for more surface detail
+        }
+        
+        // Enhance the material's anisotropy if it has textures
+        if (material.map) {
+            material.map.anisotropy = 16; // Maximum anisotropy for sharper textures
         }
     }
     
@@ -647,8 +620,8 @@ function enhanceMaterial(material) {
         const newMat = new THREE.MeshStandardMaterial({
             color: origColor || new THREE.Color(0xcccccc),
             map: origMap,
-            roughness: 0.5,
-            metalness: 0.3
+            roughness: 0.4,  // Lower for smoother look
+            metalness: 0.4   // Higher for better reflections
         });
         
         // Copy any other useful properties
@@ -660,7 +633,12 @@ function enhanceMaterial(material) {
         // Apply environment map
         if (window.envMap) {
             newMat.envMap = window.envMap;
-            newMat.envMapIntensity = 1.0;
+            newMat.envMapIntensity = 1.5; // Higher for better detail
+        }
+        
+        // Enhance texture quality if present
+        if (newMat.map) {
+            newMat.map.anisotropy = 16; // Maximum anisotropy for sharper textures
         }
         
         // Replace the original material
@@ -694,42 +672,6 @@ function applyModelPostProcessing(model) {
     // Ensure model gets environment lighting
     model.castShadow = true;
     model.receiveShadow = true;
-}
-
-// Function to trigger an automatic download of the model
-function triggerModelDownload(url) {
-    // Create a hidden link and trigger a click
-    const tempLink = document.createElement('a');
-    tempLink.style.display = 'none';
-    tempLink.href = url;
-    tempLink.download = 'trellis_model.glb';
-    tempLink.setAttribute('target', '_blank');
-    document.body.appendChild(tempLink);
-    
-    // Use setTimeout to ensure the UI updates before the download starts
-    setTimeout(() => {
-        console.log('Auto-downloading model from:', url);
-        try {
-            tempLink.click();
-            // Show a message about the download
-            const downloadMessage = document.createElement('div');
-            downloadMessage.className = 'download-notification';
-            downloadMessage.textContent = 'Model download has started automatically';
-            document.body.appendChild(downloadMessage);
-            
-            // Remove the message after 5 seconds
-            setTimeout(() => {
-                if (downloadMessage.parentNode) {
-                    document.body.removeChild(downloadMessage);
-                }
-            }, 5000);
-        } catch (e) {
-            console.error('Failed to auto-download:', e);
-        }
-        
-        // Clean up
-        document.body.removeChild(tempLink);
-    }, 1000);
 }
 
 function onWindowResize() {

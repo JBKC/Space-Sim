@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trellis 3D Model Generator</title>
+    <title>3D Model Generator</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
@@ -11,46 +11,53 @@
 </head>
 <body>
     <div class="container">
-        <h1>Trellis 3D Model Generator</h1>
-        
-        <div class="upload-section">
-            <h2>Upload an Image</h2>
-            <p>Upload an image to generate a 3D model (max size: 1024x1024)</p>
-            
-            <div class="drop-area" id="dropArea">
-                <p>Drag & drop an image here or</p>
-                <label for="fileInput" class="file-input-label" onclick="event.stopPropagation();">Choose a file</label>
-                <input type="file" id="fileInput" accept="image/*" hidden>
-                <div id="preview" class="preview-container"></div>
+        <div class="left-panel">
+            <div class="upload-section">
+                <h2>Upload Image</h2>
+                
+                <div class="drop-area" id="dropArea">
+                    <p>Drag & drop an image here or</p>
+                    <label for="fileInput" class="file-input-label" onclick="event.stopPropagation();">Choose a File</label>
+                    <input type="file" id="fileInput" accept="image/*" hidden>
+                    <div id="preview" class="preview-container"></div>
+                </div>
+                
+                <button id="generateBtn" disabled>Generate 3D Model</button>
             </div>
-            
-            <button id="generateBtn" disabled>Generate 3D Model</button>
-        </div>
 
-        <div class="status-section" id="statusSection">
-            <h2>Generation Status</h2>
-            <div id="statusMessage">No generation in progress</div>
-            <div id="progressContainer" class="progress-container">
-                <div id="progressBar" class="progress-bar"></div>
+            <div class="status-section" id="statusSection">
+                <div id="statusMessage">Ready</div>
+                <div class="loading-spinner" id="loadingSpinner" style="display:none;">
+                    <div class="spinner"></div>
+                    <div>Model generating...</div>
+                </div>
+                <!-- Keep this for backward compatibility but hide via CSS -->
+                <div id="progressContainer" class="progress-container">
+                    <div id="progressBar" class="progress-bar"></div>
+                </div>
+            </div>
+            
+            <div class="download-section" id="downloadSection" style="display:none;">
+                <a id="downloadLink" href="#" class="download-button" download>Download 3D Model</a>
             </div>
         </div>
         
-        <div class="model-viewer-section" id="modelViewerSection">
-            <h2>3D Model Viewer</h2>
-            <div id="modelViewer" class="model-viewer"></div>
-            <div class="controls-info">
-                <p>Controls: Left click + drag to rotate | Right click + drag to pan | Scroll to zoom</p>
+        <div class="right-panel">
+            <div class="model-viewer-section" id="modelViewerSection">
+                <div id="modelViewer" class="model-viewer">
+                    <!-- Add status overlay for the model viewer with spinner inside -->
+                    <div id="modelViewerStatus" class="model-viewer-status" style="display:none;">
+                        <div class="spinner"></div>
+                        <div id="processingText">Model generating...</div>
+                    </div>
+                <!-- </div>
+                <div class="controls-info">
+                    <p>Controls: Left click + drag to rotate | Right click + drag to pan | Scroll to zoom</p> -->
+                </div>
             </div>
-        </div>
-        
-        <div class="download-section" id="downloadSection" style="display:none;">
-            <h2>Download Model</h2>
-            <p>If the model viewer is not working, you can download the model directly:</p>
-            <a id="downloadLink" href="#" class="download-button" download>Download 3D Model</a>
-            <p class="download-info">The model is in GLB format and can be opened with 3D viewers like Windows 3D Viewer, macOS Preview, or online tools.</p>
         </div>
     </div>
     
-    <script src="script.js?v=20240712"></script>
+    <script src="script.js?v=20240713"></script>
 </body>
 </html> 
