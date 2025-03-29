@@ -305,45 +305,75 @@ function initializeViewer() {
         // For newer versions of THREE.js
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.0;
+        renderer.toneMappingExposure = 1.2; // Increased exposure for better visibility
     } catch (e) {
         // Fallback for older versions
         try {
             renderer.physicallyCorrectLights = true;
             renderer.outputEncoding = THREE.sRGBEncoding;
-            renderer.toneMappingExposure = 1.0;
+            renderer.toneMappingExposure = 1.2;
         } catch (err) {
             console.warn('Could not set advanced renderer properties:', err);
         }
     }
     modelViewer.appendChild(renderer.domElement);
 
+    // Add environment map for realistic reflections
+    try {
+        const pmremGenerator = new THREE.PMREMGenerator(renderer);
+        pmremGenerator.compileEquirectangularShader();
+
+        // Create a simple environment map
+        const environmentTexture = createEnvironmentTexture();
+        const envMap = pmremGenerator.fromEquirectangular(environmentTexture).texture;
+        
+        scene.environment = envMap;
+        scene.background = new THREE.Color(0xf0f0f0); // Keep the background color
+        
+        // Store the environment map for later use
+        window.envMap = envMap;
+        
+        environmentTexture.dispose();
+        pmremGenerator.dispose();
+    } catch (e) {
+        console.warn('Could not set up environment mapping:', e);
+    }
+    
     // Set up comprehensive lighting system
     // Ambient light (overall scene illumination)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // Brighter ambient
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7); // Brighter ambient
     scene.add(ambientLight);
 
     // Main directional light (sun-like with shadows)
-    const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1.0); // Increased intensity
     mainLight.position.set(10, 10, 10);
     mainLight.castShadow = true;
     
     // Configure shadow properties for better quality
-    mainLight.shadow.mapSize.width = 1024;
-    mainLight.shadow.mapSize.height = 1024;
+    mainLight.shadow.mapSize.width = 2048;  // Higher resolution shadows
+    mainLight.shadow.mapSize.height = 2048;
     mainLight.shadow.camera.near = 0.5;
     mainLight.shadow.camera.far = 50;
     mainLight.shadow.bias = -0.0001;
+    mainLight.shadow.normalBias = 0.02;  // Helps prevent shadow acne
     scene.add(mainLight);
 
     // Add fill lights to prevent harsh shadows
-    const fillLight1 = new THREE.DirectionalLight(0xffffff, 0.4);
+    const fillLight1 = new THREE.DirectionalLight(0xffffff, 0.5);
     fillLight1.position.set(-5, 5, -5);
     scene.add(fillLight1);
 
-    const fillLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+    const fillLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
     fillLight2.position.set(5, -5, -5);
     scene.add(fillLight2);
+    
+    // Add a spot light from below for dramatic effect
+    const spotLight = new THREE.SpotLight(0xffffff, 0.5);
+    spotLight.position.set(0, -10, 0);
+    spotLight.angle = Math.PI / 4;
+    spotLight.penumbra = 0.1;
+    spotLight.castShadow = true;
+    scene.add(spotLight);
 
     // Add controls
     controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -382,7 +412,8 @@ function initializeViewer() {
     const material = new THREE.MeshStandardMaterial({ 
         color: 0x3498db,
         roughness: 0.5,
-        metalness: 0.2
+        metalness: 0.2,
+        envMapIntensity: 1.0
     });
     const cube = new THREE.Mesh(geometry, material);
     cube.castShadow = true;
@@ -391,6 +422,49 @@ function initializeViewer() {
     
     // Animate the scene
     animate();
+}
+
+// Create a simple procedural environment texture
+function createEnvironmentTexture() {
+    const size = 512;
+    const data = new Uint8Array(size * size * 4);
+    
+    for (let i = 0; i < size; i++) {
+        for (let j = 0; j < size; j++) {
+            const idx = (i * size + j) * 4;
+            
+            // Simple gradient from blue to light
+            const phi = Math.PI * i / size;
+            const theta = 2 * Math.PI * j / size;
+            
+            const x = Math.sin(phi) * Math.cos(theta);
+            const y = Math.cos(phi);
+            const z = Math.sin(phi) * Math.sin(theta);
+            
+            // Sky (blue to white gradient)
+            if (y > 0) {
+                const intensity = 0.7 + 0.3 * y; // Brighter towards the top
+                data[idx] = Math.floor(135 * intensity); // R
+                data[idx + 1] = Math.floor(206 * intensity); // G
+                data[idx + 2] = Math.floor(235 * intensity); // B
+                data[idx + 3] = 255; // A
+            } 
+            // Ground (warm tone)
+            else {
+                const intensity = 0.3 + 0.2 * (-y);
+                data[idx] = Math.floor(210 * intensity); // R
+                data[idx + 1] = Math.floor(200 * intensity); // G
+                data[idx + 2] = Math.floor(190 * intensity); // B
+                data[idx + 3] = 255; // A
+            }
+        }
+    }
+    
+    const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+    texture.needsUpdate = true;
+    
+    return texture;
 }
 
 function loadModel(modelUrl, originalUrl) {
@@ -440,13 +514,14 @@ function loadModel(modelUrl, originalUrl) {
                 console.log('Model loaded successfully:', gltf);
                 model = gltf.scene;
                 
-                // Enable shadows for the whole model and its children
+                // Enable shadows and enhance materials for the whole model and its children
                 model.traverse(function(node) {
                     if (node.isMesh) {
+                        // Enable shadows
                         node.castShadow = true;
                         node.receiveShadow = true;
                         
-                        // Enhance materials if they exist
+                        // Apply high-quality material enhancements
                         if (node.material) {
                             if (Array.isArray(node.material)) {
                                 node.material.forEach(mat => enhanceMaterial(mat));
@@ -456,6 +531,9 @@ function loadModel(modelUrl, originalUrl) {
                         }
                     }
                 });
+                
+                // Apply post-processing for the entire model
+                applyModelPostProcessing(model);
                 
                 // Center the model
                 const box = new THREE.Box3().setFromObject(model);
@@ -523,27 +601,85 @@ function loadModel(modelUrl, originalUrl) {
     }
 }
 
-// Helper function to enhance materials
+// Enhanced material processing with better shading
 function enhanceMaterial(material) {
     if (!material) return;
     
-    // For standard materials, adjust properties
+    // Store original properties
+    const origColor = material.color ? material.color.clone() : null;
+    const origMap = material.map;
+    
+    // For standard materials, adjust properties for better shading
     if (material.isMeshStandardMaterial) {
-        material.roughness = Math.min(material.roughness, 0.7); // Reduce roughness if it's too high
-        material.metalness = Math.max(material.metalness, 0.2); // Increase metalness if it's too low
-        material.envMapIntensity = 1.0; // Enhance environment reflections
+        // Adjust roughness and metalness for better light interaction
+        material.roughness = Math.min(material.roughness, 0.6);
+        material.metalness = Math.max(material.metalness, 0.3);
+        
+        // Enhance environment map reflections
+        if (window.envMap) {
+            material.envMap = window.envMap;
+            material.envMapIntensity = 1.0;
+        }
+        
+        // Increase normal map intensity if present
+        if (material.normalMap) {
+            material.normalScale.set(1.5, 1.5);
+        }
     }
     
-    // For basic materials, convert to standard material
-    if (material.isMeshBasicMaterial) {
+    // Handle basic materials by converting to standard
+    else if (material.isMeshBasicMaterial || material.isMeshLambertMaterial || material.isMeshPhongMaterial) {
+        console.log('Converting basic/lambert/phong material to standard for better shading');
         const newMat = new THREE.MeshStandardMaterial({
-            color: material.color,
-            map: material.map,
+            color: origColor || new THREE.Color(0xcccccc),
+            map: origMap,
             roughness: 0.5,
-            metalness: 0.2
+            metalness: 0.3
         });
-        material.copy(newMat);
+        
+        // Copy any other useful properties
+        if (material.transparent) newMat.transparent = true;
+        if (material.opacity !== undefined) newMat.opacity = material.opacity;
+        if (material.alphaTest !== undefined) newMat.alphaTest = material.alphaTest;
+        if (material.side !== undefined) newMat.side = material.side;
+        
+        // Apply environment map
+        if (window.envMap) {
+            newMat.envMap = window.envMap;
+            newMat.envMapIntensity = 1.0;
+        }
+        
+        // Replace the original material
+        try {
+            Object.assign(material, newMat);
+        } catch (e) {
+            console.warn('Could not fully convert material:', e);
+        }
     }
+    
+    // Force material update
+    material.needsUpdate = true;
+}
+
+// Apply post-processing to the entire model
+function applyModelPostProcessing(model) {
+    if (!model) return;
+    
+    // Check if we need to normalize the model's scale
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    
+    // If the model is too small or too large, normalize its size
+    if (maxDim < 0.1 || maxDim > 10) {
+        const scale = 1.0 / maxDim;
+        model.scale.set(scale, scale, scale);
+        console.log(`Normalized model scale from ${maxDim} to 1.0`);
+    }
+    
+    // Ensure model gets environment lighting
+    model.castShadow = true;
+    model.receiveShadow = true;
 }
 
 // Function to trigger an automatic download of the model
