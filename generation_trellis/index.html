@@ -19,7 +19,7 @@
             
             <div class="drop-area" id="dropArea">
                 <p>Drag & drop an image here or</p>
-                <label for="fileInput" class="file-input-label">Choose a file</label>
+                <label for="fileInput" class="file-input-label" onclick="event.stopPropagation();">Choose a file</label>
                 <input type="file" id="fileInput" accept="image/*" hidden>
                 <div id="preview" class="preview-container"></div>
             </div>

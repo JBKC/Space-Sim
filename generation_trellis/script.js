@@ -43,7 +43,21 @@ function setupEventListeners() {
 
     dropArea.addEventListener('drop', handleDrop, false);
     fileInput.addEventListener('change', handleFileSelect, false);
-    dropArea.addEventListener('click', () => fileInput.click(), false);
+    
+    // Fix: Add preventDefault to stop the page from reloading when clicking the label 
+    // and separate the file input click handler from the dropArea click handler
+    const fileInputLabel = document.querySelector('.file-input-label');
+    if (fileInputLabel) {
+        fileInputLabel.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            fileInput.click();
+        }, false);
+    } else {
+        // Fallback to the old method if label not found
+        dropArea.addEventListener('click', () => fileInput.click(), false);
+    }
+    
     generateBtn.addEventListener('click', generateModel, false);
 
     // Display any errors in the console
