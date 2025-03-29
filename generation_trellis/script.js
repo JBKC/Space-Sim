@@ -11,17 +11,29 @@ const downloadLink = document.getElementById('downloadLink');
 const loadingSpinner = document.getElementById('loadingSpinner');
 const modelViewerStatus = document.getElementById('modelViewerStatus');
 
+// Webcam related DOM elements
+const webcamButton = document.getElementById('webcamButton');
+const webcamModal = document.getElementById('webcamModal');
+const webcamVideo = document.getElementById('webcamVideo');
+const webcamCanvas = document.getElementById('webcamCanvas');
+const captureButton = document.getElementById('captureButton');
+const closeWebcamButton = document.querySelector('.close-webcam');
+
 // Global variables
 let uploadedImage = null;
+let processedImage = null; // New: store the processed image
 let scene, camera, renderer, controls, model;
 let taskId = null;
 let statusCheckInterval = null;
 let currentModelUrl = null; // Store the model URL for download 
+let stream = null; // Store the webcam stream
+let isProcessingImage = false; // Flag to prevent multiple processing requests
 
 // Server API endpoints
 const SERVER_URL = 'http://localhost:3000';
 const GENERATE_ENDPOINT = '/api/generate';
 const STATUS_ENDPOINT = '/api/status';
+const PROCESS_IMAGE_ENDPOINT = '/api/process-image'; // New endpoint for image processing
 
 // Initialize 3D viewer
 initializeViewer();
@@ -62,6 +74,18 @@ function setupEventListeners() {
     
     generateBtn.addEventListener('click', generateModel, false);
 
+    // Setup webcam related event listeners
+    webcamButton.addEventListener('click', openWebcam, false);
+    closeWebcamButton.addEventListener('click', closeWebcam, false);
+    captureButton.addEventListener('click', captureAndUsePhoto, false);
+
+    // Close modal when clicking outside the modal content
+    webcamModal.addEventListener('click', (e) => {
+        if (e.target === webcamModal) {
+            closeWebcam();
+        }
+    });
+
     // Display any errors in the console
     window.addEventListener('error', function(event) {
         console.error('Global error caught:', event.error);
@@ -97,15 +121,43 @@ function handleFiles(files) {
     if (files.length > 0) {
         const file = files[0];
         if (file.type.match('image.*')) {
-            uploadedImage = file;
-            displayPreview(file);
-            generateBtn.disabled = false;
+            // Add image validation
+            validateAndProcessImage(file);
+            // Don't enable generate button immediately
+            // Instead, process with Gemini API first
+            processWithGemini(file);
         } else {
             alert('Please upload an image file.');
         }
     }
 }
 
+// New function to validate and process images
+function validateAndProcessImage(file) {
+    uploadedImage = file;
+    
+    // Check file size
+    if (file.size > 5 * 1024 * 1024) {
+        console.warn('Large image detected (>5MB). This may cause API issues.');
+        document.getElementById('processingText').textContent = 'Warning: Large image may cause issues';
+    } else if (file.size < 10 * 1024) {
+        console.warn('Small image detected (<10KB). This may not provide enough detail.');
+        document.getElementById('processingText').textContent = 'Warning: Image may be too small';
+    }
+    
+    // Check if this is a webcam capture
+    if (file.name.startsWith('webcam-capture-')) {
+        console.log('Processing webcam capture');
+    }
+    
+    // Display preview
+    displayPreview(file);
+    
+    // Log details about the image
+    console.log(`Processing image: ${file.name}, Size: ${(file.size / 1024).toFixed(2)}KB, Type: ${file.type}`);
+}
+
+// Display preview with error handling
 function displayPreview(file) {
     preview.innerHTML = '';
     const img = document.createElement('img');
@@ -113,7 +165,34 @@ function displayPreview(file) {
     preview.appendChild(img);
 
     const reader = new FileReader();
-    reader.onload = (e) => { img.src = e.target.result; };
+    
+    // Add error handling
+    reader.onerror = function(error) {
+        console.error('Error reading file:', error);
+        preview.innerHTML = '<p style="color: red;">Error loading preview</p>';
+    };
+    
+    reader.onload = (e) => { 
+        img.src = e.target.result; 
+        
+        // Verify the image loaded properly
+        img.onload = function() {
+            if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+                console.error('Invalid image file');
+                preview.innerHTML = '<p style="color: red;">Invalid image file</p>';
+                uploadedImage = null;
+                generateBtn.disabled = true;
+            }
+        };
+        
+        img.onerror = function() {
+            console.error('Error displaying image');
+            preview.innerHTML = '<p style="color: red;">Error displaying image</p>';
+            uploadedImage = null;
+            generateBtn.disabled = true;
+        };
+    };
+    
     reader.readAsDataURL(file);
 }
 
@@ -188,10 +267,10 @@ async function generateModel() {
         startStatusPolling();
     } catch (error) {
         console.error('Error generating model:', error);
-        statusMessage.textContent = `Error: ${error.message.substring(0, 100)}${error.message.length > 100 ? '...' : ''}`;
-        modelViewerStatus.textContent = 'Error';
-        generateBtn.disabled = false;
-        modelViewerStatus.style.display = 'none';
+        displayUserFriendlyError(error, 'processingText');
+        modelViewerStatus.style.display = 'flex';
+        // Always ensure the download button remains hidden on error
+        downloadSection.style.display = 'none';
     }
 }
 
@@ -281,13 +360,24 @@ async function checkTaskStatus() {
             clearInterval(statusCheckInterval);
             document.getElementById('processingText').textContent = 'Generation failed';
             generateBtn.disabled = false;
+            // Add additional error feedback to help the user
+            if (status.includes('failed')) {
+                let failureMessage = 'Model generation failed. Try a different image with:';
+                failureMessage += '<ul style="text-align:left; margin-top:10px;">';
+                failureMessage += '<li>Clear object boundaries</li>';
+                failureMessage += '<li>Good lighting</li>';
+                failureMessage += '<li>Simple background</li>';
+                failureMessage += '<li>Single object focus</li>';
+                failureMessage += '</ul>';
+                document.getElementById('processingText').innerHTML = failureMessage;
+            }
         } else {
             // Still processing
             document.getElementById('processingText').textContent = 'Model generating...';
         }
     } catch (error) {
         console.error('Error checking task status:', error);
-        document.getElementById('processingText').textContent = 'Error checking status';
+        displayUserFriendlyError(error, 'processingText');
         clearInterval(statusCheckInterval);
         generateBtn.disabled = false;
     }
@@ -296,7 +386,7 @@ async function checkTaskStatus() {
 function initializeViewer() {
     // Create scene
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x000000); // Black background
+    scene.background = new THREE.Color(0xf6e6cf); // Light beige background matching the UI
 
     // Create camera
     camera = new THREE.PerspectiveCamera(75, modelViewer.clientWidth / modelViewer.clientHeight, 0.1, 1000);
@@ -320,14 +410,14 @@ function initializeViewer() {
         // For newer versions of THREE.js
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 2.5; // Increased exposure for better brightness
+        renderer.toneMappingExposure = 1.5; // Reduced exposure for less shine
         renderer.logarithmicDepthBuffer = true; // Better handling of near/far objects
     } catch (e) {
         // Fallback for older versions
         try {
             renderer.physicallyCorrectLights = true;
             renderer.outputEncoding = THREE.sRGBEncoding;
-            renderer.toneMappingExposure = 2.5;
+            renderer.toneMappingExposure = 1.5;
             renderer.gammaOutput = true;
             renderer.gammaFactor = 2.2;
         } catch (err) {
@@ -346,7 +436,7 @@ function initializeViewer() {
         const envMap = pmremGenerator.fromEquirectangular(environmentTexture).texture;
         
         scene.environment = envMap;
-        scene.background = new THREE.Color(0x000000); // Keep the black background
+        scene.background = new THREE.Color(0xf6e6cf); // Keep the light beige background
         
         // Store the environment map for later use
         window.envMap = envMap;
@@ -357,45 +447,37 @@ function initializeViewer() {
         console.warn('Could not set up environment mapping:', e);
     }
     
-    // Set up comprehensive lighting system with increased values
+    // Set up softer lighting for light mode
     // Ambient light (overall scene illumination)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2); // Significantly brighter ambient
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9); // Softer ambient for light mode
     scene.add(ambientLight);
 
-    // Main directional light (sun-like with shadows)
-    const mainLight = new THREE.DirectionalLight(0xffffff, 1.5); // Increased intensity
-    mainLight.position.set(10, 10, 10);
+    // Main directional light (sun-like)
+    const mainLight = new THREE.DirectionalLight(0xffffff, 0.8); // Softer main light
+    mainLight.position.set(5, 5, 5);
     mainLight.castShadow = true;
     
-    // Configure shadow properties for better quality
-    mainLight.shadow.mapSize.width = 2048;  // Higher resolution shadows
+    // Configure shadow properties
+    mainLight.shadow.mapSize.width = 2048;
     mainLight.shadow.mapSize.height = 2048;
     mainLight.shadow.camera.near = 0.5;
     mainLight.shadow.camera.far = 50;
     mainLight.shadow.bias = -0.0001;
-    mainLight.shadow.normalBias = 0.02;  // Helps prevent shadow acne
+    mainLight.shadow.normalBias = 0.02;
     scene.add(mainLight);
 
-    // Add fill lights to prevent harsh shadows
-    const fillLight1 = new THREE.DirectionalLight(0xffffff, 0.8); // Increased brightness
+    // Add fill lights
+    const fillLight1 = new THREE.DirectionalLight(0xffffff, 0.4); // Softer fill light
     fillLight1.position.set(-5, 5, -5);
     scene.add(fillLight1);
 
-    const fillLight2 = new THREE.DirectionalLight(0xffffff, 0.8); // Increased brightness
+    const fillLight2 = new THREE.DirectionalLight(0xffffff, 0.4); // Softer fill light
     fillLight2.position.set(5, -5, -5);
     scene.add(fillLight2);
     
-    // Add a spot light from below for dramatic effect
-    const spotLight = new THREE.SpotLight(0xffffff, 0.8); // Increased brightness
-    spotLight.position.set(0, -10, 0);
-    spotLight.angle = Math.PI / 4;
-    spotLight.penumbra = 0.1;
-    spotLight.castShadow = true;
-    scene.add(spotLight);
-
-    // Add an additional rim light for better edge definition
-    const rimLight = new THREE.DirectionalLight(0xffffff, 0.7);
-    rimLight.position.set(0, 0, -10);
+    // Add a gentle rim light for subtle definition
+    const rimLight = new THREE.DirectionalLight(0xffffff, 0.3);
+    rimLight.position.set(0, 0, -5);
     scene.add(rimLight);
 
     // Add controls
@@ -418,7 +500,7 @@ function initializeViewer() {
     animate();
 }
 
-// Create a simple procedural environment texture
+// Create a simple procedural environment texture with lighter colors
 function createEnvironmentTexture() {
     const size = 512;
     const data = new Uint8Array(size * size * 4);
@@ -427,7 +509,7 @@ function createEnvironmentTexture() {
         for (let j = 0; j < size; j++) {
             const idx = (i * size + j) * 4;
             
-            // Simple gradient from blue to light
+            // Simple gradient for light mode
             const phi = Math.PI * i / size;
             const theta = 2 * Math.PI * j / size;
             
@@ -435,20 +517,22 @@ function createEnvironmentTexture() {
             const y = Math.cos(phi);
             const z = Math.sin(phi) * Math.sin(theta);
             
-            // Sky (blue to white gradient)
+            // Sky (soft gradient to match the theme)
             if (y > 0) {
-                const intensity = 0.7 + 0.3 * y; // Brighter towards the top
-                data[idx] = Math.floor(135 * intensity); // R
-                data[idx + 1] = Math.floor(206 * intensity); // G
-                data[idx + 2] = Math.floor(235 * intensity); // B
+                const intensity = 0.95 + 0.05 * y; // Subtle gradient
+                // Convert #f6e6cf to RGB
+                data[idx] = Math.floor(246 * intensity); // R
+                data[idx + 1] = Math.floor(230 * intensity); // G
+                data[idx + 2] = Math.floor(207 * intensity); // B
                 data[idx + 3] = 255; // A
             } 
-            // Ground (warm tone)
+            // Ground (slightly darker tone)
             else {
-                const intensity = 0.3 + 0.2 * (-y);
-                data[idx] = Math.floor(210 * intensity); // R
-                data[idx + 1] = Math.floor(200 * intensity); // G
-                data[idx + 2] = Math.floor(190 * intensity); // B
+                const intensity = 0.9 + 0.1 * (-y); // Subtle gradient
+                // Slightly darker than the main color
+                data[idx] = Math.floor(226 * intensity); // R
+                data[idx + 1] = Math.floor(210 * intensity); // G
+                data[idx + 2] = Math.floor(187 * intensity); // B
                 data[idx + 3] = 255; // A
             }
         }
@@ -583,7 +667,7 @@ function loadModel(modelUrl, originalUrl) {
     }
 }
 
-// Enhanced material processing with better shading - improved for HD rendering
+// Enhanced material processing with more matte finish
 function enhanceMaterial(material) {
     if (!material) return;
     
@@ -591,37 +675,37 @@ function enhanceMaterial(material) {
     const origColor = material.color ? material.color.clone() : null;
     const origMap = material.map;
     
-    // For standard materials, adjust properties for better shading
+    // For standard materials, adjust properties for less shiny surface
     if (material.isMeshStandardMaterial) {
-        // Fine-tune parameters for higher quality
-        material.roughness = Math.min(material.roughness, 0.4); // Smoother surface
-        material.metalness = Math.max(material.metalness, 0.5); // More metallic look
+        // Set higher roughness for more matte appearance
+        material.roughness = Math.max(material.roughness, 0.8); // Much higher roughness for matte look
+        material.metalness = Math.min(material.metalness, 0.1); // Much lower metalness for less shine
         
-        // Enhance environment map reflections - higher intensity for more detail
+        // Reduce environment map reflections for a more matte finish
         if (window.envMap) {
             material.envMap = window.envMap;
-            material.envMapIntensity = 1.5; // Increased for more detailed reflections
+            material.envMapIntensity = 0.5; // Reduced for less reflections
         }
         
-        // Increase normal map intensity if present
+        // Keep normal map detail but tone down the effect
         if (material.normalMap) {
-            material.normalScale.set(2.0, 2.0); // Higher value for more surface detail
+            material.normalScale.set(1.0, 1.0); // Normal scale for surface detail
         }
         
-        // Enhance the material's anisotropy if it has textures
+        // Keep anisotropy for texture quality
         if (material.map) {
-            material.map.anisotropy = 16; // Maximum anisotropy for sharper textures
+            material.map.anisotropy = 16;
         }
     }
     
-    // Handle basic materials by converting to standard
+    // Handle basic materials by converting to standard with matte finish
     else if (material.isMeshBasicMaterial || material.isMeshLambertMaterial || material.isMeshPhongMaterial) {
-        console.log('Converting basic/lambert/phong material to standard for better shading');
+        console.log('Converting basic/lambert/phong material to standard with matte finish');
         const newMat = new THREE.MeshStandardMaterial({
             color: origColor || new THREE.Color(0xcccccc),
             map: origMap,
-            roughness: 0.4,  // Lower for smoother look
-            metalness: 0.4   // Higher for better reflections
+            roughness: 0.8,  // Higher for matte finish
+            metalness: 0.1   // Lower for less shine
         });
         
         // Copy any other useful properties
@@ -630,15 +714,15 @@ function enhanceMaterial(material) {
         if (material.alphaTest !== undefined) newMat.alphaTest = material.alphaTest;
         if (material.side !== undefined) newMat.side = material.side;
         
-        // Apply environment map
+        // Apply environment map with reduced intensity
         if (window.envMap) {
             newMat.envMap = window.envMap;
-            newMat.envMapIntensity = 1.5; // Higher for better detail
+            newMat.envMapIntensity = 0.5; // Reduced for less reflection
         }
         
-        // Enhance texture quality if present
+        // Keep anisotropy for texture quality
         if (newMat.map) {
-            newMat.map.anisotropy = 16; // Maximum anisotropy for sharper textures
+            newMat.map.anisotropy = 16;
         }
         
         // Replace the original material
@@ -684,4 +768,272 @@ function animate() {
     requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
+}
+
+// Function to display a friendly error message
+function displayUserFriendlyError(error, location = 'processingText') {
+    console.error('Error:', error);
+    
+    // Default error message
+    let userMessage = 'An error occurred. Please try again.';
+    
+    // Check if this is an API error with details
+    if (error.message && error.message.includes('API Error')) {
+        userMessage = 'The 3D generation service could not process your image. Try a different image with better lighting and clear subject boundaries.';
+    }
+    
+    // Check if this is a network error
+    if (error.message && error.message.includes('NetworkError')) {
+        userMessage = 'Connection error. Please check your internet connection and try again.';
+    }
+    
+    // Server error
+    if (error.message && error.message.includes('Server error')) {
+        userMessage = 'The server encountered an error. Please try again later.';
+    }
+    
+    // Update the appropriate element
+    if (location === 'statusMessage') {
+        statusMessage.textContent = userMessage;
+    } else {
+        document.getElementById('processingText').innerHTML = userMessage;
+    }
+    
+    // Re-enable the generate button
+    generateBtn.disabled = false;
+}
+
+// Webcam related functions
+async function openWebcam() {
+    webcamModal.style.display = 'block';
+    captureButton.style.display = 'block';
+    webcamVideo.style.display = 'block';
+    webcamCanvas.style.display = 'none';
+    
+    try {
+        // Request access to the webcam
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        webcamVideo.srcObject = stream;
+    } catch (error) {
+        console.error('Error accessing webcam:', error);
+        alert('Unable to access webcam. Please check your permissions and try again.');
+        closeWebcam();
+    }
+}
+
+function closeWebcam() {
+    webcamModal.style.display = 'none';
+    
+    // Stop the webcam stream if it exists
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+    }
+}
+
+// Modified function to handle files
+function handleFiles(files) {
+    if (files.length > 0) {
+        const file = files[0];
+        if (file.type.match('image.*')) {
+            // Add image validation
+            validateAndProcessImage(file);
+            // Don't enable generate button immediately
+            // Instead, process with Gemini API first
+            processWithGemini(file);
+        } else {
+            alert('Please upload an image file.');
+        }
+    }
+}
+
+// New function to process image with Google Gemini API
+async function processWithGemini(file) {
+    if (isProcessingImage) return; // Prevent multiple processing
+    isProcessingImage = true;
+    
+    // Disable generate button during processing
+    generateBtn.disabled = true;
+    
+    try {
+        // Show processing status
+        modelViewerStatus.style.display = 'flex';
+        document.getElementById('processingText').textContent = 'Removing background and shadows...';
+        
+        // Create form data for the image
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        // Add a custom prompt - this can be changed to anything
+        const geminiPrompt = "Remove background and shadows from this object";
+        formData.append('prompt', geminiPrompt);
+        
+        // Call the server endpoint
+        const response = await fetch(`${SERVER_URL}${PROCESS_IMAGE_ENDPOINT}`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}: ${await response.text()}`);
+        }
+        
+        const result = await response.json();
+        
+        if (!result.success || !result.processedImage) {
+            throw new Error('Failed to process image');
+        }
+        
+        // Convert base64 to a Blob
+        const imageBlob = base64ToBlob(result.processedImage, 'image/png');
+        
+        // Convert Blob to File
+        const fileName = file.name.replace(/\.[^/.]+$/, '') + '_processed.png';
+        processedImage = new File([imageBlob], fileName, { type: 'image/png' });
+        
+        // Create a dedicated element to display the processed image in the bottom left
+        displayProcessedImageBottomLeft(result.processedImage);
+        
+        // Update status message
+        document.getElementById('processingText').textContent = 'Starting 3D model generation...';
+        
+        // Automatically trigger model generation after a short delay
+        // to give users a chance to see the processed image
+        setTimeout(() => {
+            uploadedImage = processedImage; // Use the processed image for generation
+            generateModel();
+        }, 1500); // 1.5 second delay to allow time to see the processed image
+        
+    } catch (error) {
+        console.error('Error processing with Gemini:', error);
+        document.getElementById('processingText').textContent = 'Error processing image. Proceeding with original.';
+        
+        // Fall back to the original image
+        setTimeout(() => {
+            uploadedImage = file; // Use the original image for generation
+            generateModel();
+        }, 1500);
+    } finally {
+        isProcessingImage = false;
+    }
+}
+
+// Helper function to convert base64 to Blob
+function base64ToBlob(base64, mimeType) {
+    const byteString = atob(base64);
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    
+    for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+    }
+    
+    return new Blob([ab], { type: mimeType });
+}
+
+// New function to display the processed image in the bottom left corner of the UI
+function displayProcessedImageBottomLeft(base64Image) {
+    // First check if there's already a processed image section and remove it
+    let existingSection = document.getElementById('processedImageSection');
+    if (existingSection) {
+        existingSection.remove();
+    }
+    
+    // Create a new section for the processed image
+    const processedSection = document.createElement('div');
+    processedSection.id = 'processedImageSection';
+    processedSection.className = 'processed-image-section';
+    
+    // Create image element
+    const img = document.createElement('img');
+    img.src = `data:image/png;base64,${base64Image}`;
+    img.alt = 'Processed Image';
+    img.className = 'processed-image';
+    
+    // Add label
+    const label = document.createElement('div');
+    label.className = 'processed-image-title';
+    label.textContent = 'AI-Processed Image';
+    
+    // Add elements to the section
+    processedSection.appendChild(label);
+    processedSection.appendChild(img);
+    
+    // Add the section to the page in the bottom left
+    const leftPanel = document.querySelector('.left-panel');
+    leftPanel.appendChild(processedSection);
+    
+    // Also update the preview area as before
+    displayProcessedImage(base64Image);
+}
+
+// Modified webcam capture function
+function captureAndUsePhoto() {
+    const context = webcamCanvas.getContext('2d');
+    
+    // Set canvas dimensions to match the video
+    webcamCanvas.width = webcamVideo.videoWidth;
+    webcamCanvas.height = webcamVideo.videoHeight;
+    
+    // Draw the current video frame on the canvas
+    context.drawImage(webcamVideo, 0, 0, webcamCanvas.width, webcamCanvas.height);
+    
+    // Process the captured photo immediately
+    processWebcamCapture();
+}
+
+// Modified to process with Gemini after webcam capture
+function processWebcamCapture() {
+    try {
+        webcamCanvas.toBlob((blob) => {
+            if (!blob) {
+                throw new Error('Failed to create image from webcam');
+            }
+            
+            // Create a File object from the Blob
+            const currentDate = new Date();
+            const fileName = `webcam-capture-${currentDate.getTime()}.png`;
+            const file = new File([blob], fileName, { type: 'image/png' });
+            
+            // Process the file as if it was uploaded
+            uploadedImage = file;
+            displayPreview(file);
+            
+            // Close the webcam modal
+            closeWebcam();
+            
+            // Process with Gemini (which will trigger model generation)
+            processWithGemini(file);
+            
+        }, 'image/png', 0.95); // Add quality parameter for better images
+    } catch (error) {
+        console.error('Error processing webcam photo:', error);
+        alert('Failed to process webcam photo. Please try again.');
+        closeWebcam();
+    }
+}
+
+// Display the processed image in the preview area
+function displayProcessedImage(base64Image) {
+    // Create a separate container for the processed image
+    const processedContainer = document.createElement('div');
+    processedContainer.className = 'processed-image-container';
+    
+    // Create image element
+    const img = document.createElement('img');
+    img.src = `data:image/png;base64,${base64Image}`;
+    img.alt = 'Processed Image';
+    
+    // Add label
+    const label = document.createElement('p');
+    label.textContent = 'AI-Processed'; // More generic text that doesn't specifically mention background removal
+    label.className = 'processed-image-label';
+    
+    // Add to preview
+    processedContainer.appendChild(img);
+    processedContainer.appendChild(label);
+    
+    // Clear previous preview and add new container
+    preview.innerHTML = '';
+    preview.appendChild(processedContainer);
 } 

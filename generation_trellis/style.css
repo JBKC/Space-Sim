@@ -6,8 +6,8 @@
 }
 
 body {
-    background-color: #121212; /* Dark background */
-    color: #e0e0e0; /* Light text for dark background */
+    background-color: #f6e6cf; /* Soft beige color matching image */
+    color: #333333; /* Darker text for light background */
     line-height: 1.6;
     min-height: 100vh;
 }
@@ -25,14 +25,14 @@ body {
 h1 {
     text-align: center;
     margin-bottom: 1rem;
-    color: #e0e0e0;
+    color: #333333; /* Dark text for light background */
     width: 100%;
     padding-top: 1rem;
 }
 
 h2 {
     margin-bottom: 1rem;
-    color: #e0e0e0;
+    color: #333333; /* Dark text for light background */
 }
 
 .left-panel {
@@ -49,11 +49,12 @@ h2 {
 }
 
 .upload-section {
-    background-color: #1e1e1e; /* Dark panel */
+    background-color: #f6e6cf; /* Light mode panel */
     border-radius: 8px;
+    border: 1px solid #000000; /* Thin black border */
     padding: 1.2rem;
     margin-bottom: 1.2rem;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Lighter shadow for light mode */
 }
 
 .status-section {
@@ -83,19 +84,165 @@ h2 {
     border-color: #2980b9;
 }
 
-.file-input-label {
+/* File input and webcam button styles - making them identical */
+.file-input-label, .webcam-button {
     display: inline-block;
     background-color: #3498db;
     color: white;
     padding: 0.5rem 1rem;
     border-radius: 4px;
     cursor: pointer;
-    margin-top: 1rem;
     transition: background-color 0.3s ease;
+    box-sizing: border-box;
+    font-size: 1rem;
+    white-space: nowrap;
+    text-align: center;
+    /* Remove fixed width to ensure they match their content exactly */
+    width: auto; 
+    min-width: 120px;
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-weight: normal;
+    border: none;
 }
 
-.file-input-label:hover {
+.file-input-label:hover, .webcam-button:hover {
     background-color: #2980b9;
+}
+
+/* Button group for file input and webcam buttons */
+.button-group {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+/* Webcam modal styles */
+.webcam-modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    overflow: auto;
+}
+
+.webcam-modal-content {
+    background-color: #f6e6cf;
+    margin: 10% auto;
+    padding: 20px;
+    border: 1px solid #000000;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 600px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    position: relative;
+}
+
+.webcam-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.webcam-header h3 {
+    margin: 0;
+    color: #333333;
+}
+
+.close-webcam {
+    color: #333333;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    position: absolute;
+    top: 10px;
+    right: 15px;
+}
+
+.webcam-container {
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+    border-radius: 4px;
+    background-color: #000;
+    margin: 0 0 15px 0;
+}
+
+#webcamVideo, #webcamCanvas {
+    width: 100%;
+    height: auto;
+    display: block;
+    max-height: 400px;
+    object-fit: cover;
+}
+
+.webcam-tips {
+    background-color: rgba(52, 152, 219, 0.1);
+    border-radius: 4px;
+    padding: 10px 15px;
+    margin-bottom: 15px;
+    border-left: 3px solid #3498db;
+}
+
+.webcam-tips p {
+    margin: 0 0 5px 0;
+    font-weight: bold;
+    color: #333333;
+}
+
+.webcam-tips ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.webcam-tips li {
+    color: #555555;
+    margin-bottom: 3px;
+}
+
+.webcam-footer {
+    display: flex;
+    justify-content: center;
+}
+
+.capture-button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 0.75rem 2rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+    font-weight: bold;
+}
+
+.capture-button:hover {
+    background-color: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+.use-photo-button {
+    background-color: #27ae60;
+}
+
+.use-photo-button:hover {
+    background-color: #219955;
+}
+
+.retake-button {
+    background-color: #e74c3c;
+}
+
+.retake-button:hover {
+    background-color: #c0392b;
 }
 
 .preview-container {
@@ -108,6 +255,62 @@ h2 {
     max-height: 150px; /* Reduced height for preview images */
     border-radius: 4px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+/* New styles for processed image */
+.processed-image-container {
+    margin-top: 1.2rem;
+    text-align: center;
+    position: relative;
+    padding-bottom: 20px; /* Space for label */
+}
+
+.processed-image-container img {
+    max-width: 100%;
+    max-height: 150px;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    background-color: rgba(255, 255, 255, 0.5); /* Light background for transparent image */
+}
+
+.processed-image-label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #2980b9;
+    font-weight: 600;
+    margin-top: 0.5rem;
+}
+
+/* Styles for the processed image section in the bottom left */
+.processed-image-section {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background-color: #f6e6cf;
+    border: 1px solid #000000;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.processed-image-title {
+    font-weight: 600;
+    color: #2980b9;
+    margin-bottom: 0.8rem;
+    font-size: 1rem;
+}
+
+.processed-image {
+    max-width: 100%;
+    max-height: 180px;
+    border-radius: 6px;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+    background-color: rgba(255, 255, 255, 0.5); /* Light background for transparent image */
+    display: block;
+    margin: 0 auto;
 }
 
 button {
@@ -138,8 +341,9 @@ button:disabled {
     height: 100%;
     min-height: 400px; /* Reduced height for laptop screens */
     max-height: 60vh; /* Cap the height to 60% of viewport height */
-    background-color: #000000; /* Black background for model viewer */
+    background-color: #f6e6cf; /* Background matching the image */
     border-radius: 8px;
+    border: 1px solid #000000; /* Thin black border */
     overflow: hidden;
     position: relative;
 }
@@ -156,15 +360,16 @@ button:disabled {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    color: #ffffff;
+    color: #333333; /* Darker text for light background */
     font-size: 1.5rem;
     text-align: center;
     z-index: 10;
     pointer-events: none; /* Allow clicks to pass through */
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.9); /* Add shadow for better visibility */
-    background-color: rgba(0, 0, 0, 0.6);
+    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5); /* Light shadow for dark text */
+    background-color: rgba(246, 230, 207, 0.8); /* Semi-transparent background matching the theme */
     padding: 1.5rem 2rem;
     border-radius: 8px;
+    border: none; /* Removed the black border */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -176,7 +381,7 @@ button:disabled {
     text-align: center;
     margin-top: 0.5rem;
     font-size: 0.8rem;
-    color: #a0a0a0;
+    color: #666666; /* Darker text for light mode */
 }
 
 #statusMessage {
@@ -185,18 +390,19 @@ button:disabled {
 
 /* Streamlined download section */
 .download-section {
-    background-color: #1c1c1c;
+    background-color: #f6e6cf; /* Light mode background */
     border-radius: 8px;
+    border: 1px solid #000000; /* Thin black border */
     padding: 1rem;
     margin-top: 1rem;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     text-align: center;
 }
 
 .download-section h2 {
     margin-bottom: 1.2rem;
     font-size: 1.8rem;
-    color: #ffffff;
+    color: #333333; /* Dark text for light background */
     font-weight: 500;
 }
 
