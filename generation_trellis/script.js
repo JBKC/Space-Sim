@@ -290,18 +290,60 @@ function initializeViewer() {
     camera = new THREE.PerspectiveCamera(75, modelViewer.clientWidth / modelViewer.clientHeight, 0.1, 1000);
     camera.position.z = 5;
 
-    // Create renderer
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    // Create renderer with better settings
+    renderer = new THREE.WebGLRenderer({ 
+        antialias: true,
+        preserveDrawingBuffer: true,  // Needed for taking screenshots
+        alpha: true                   // Allow transparency
+    });
     renderer.setSize(modelViewer.clientWidth, modelViewer.clientHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Better shadow quality
+    
+    // For THREE.js r129 and newer, use these settings
+    try {
+        // For newer versions of THREE.js
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+    } catch (e) {
+        // Fallback for older versions
+        try {
+            renderer.physicallyCorrectLights = true;
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.toneMappingExposure = 1.0;
+        } catch (err) {
+            console.warn('Could not set advanced renderer properties:', err);
+        }
+    }
     modelViewer.appendChild(renderer.domElement);
 
-    // Add lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    // Set up comprehensive lighting system
+    // Ambient light (overall scene illumination)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // Brighter ambient
     scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(0, 1, 1);
-    scene.add(directionalLight);
+    // Main directional light (sun-like with shadows)
+    const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    mainLight.position.set(10, 10, 10);
+    mainLight.castShadow = true;
+    
+    // Configure shadow properties for better quality
+    mainLight.shadow.mapSize.width = 1024;
+    mainLight.shadow.mapSize.height = 1024;
+    mainLight.shadow.camera.near = 0.5;
+    mainLight.shadow.camera.far = 50;
+    mainLight.shadow.bias = -0.0001;
+    scene.add(mainLight);
+
+    // Add fill lights to prevent harsh shadows
+    const fillLight1 = new THREE.DirectionalLight(0xffffff, 0.4);
+    fillLight1.position.set(-5, 5, -5);
+    scene.add(fillLight1);
+
+    const fillLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+    fillLight2.position.set(5, -5, -5);
+    scene.add(fillLight2);
 
     // Add controls
     controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -311,14 +353,40 @@ function initializeViewer() {
     controls.maxPolarAngle = Math.PI;
     controls.minDistance = 1;
     controls.maxDistance = 10;
+    controls.autoRotate = false; // Can be enabled for automatic rotation
+    controls.autoRotateSpeed = 1.0;
+
+    // Add a small ground plane with shadow receiving
+    const groundGeometry = new THREE.PlaneGeometry(20, 20);
+    const groundMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xeeeeee,
+        roughness: 0.8,
+        metalness: 0.2,
+        side: THREE.DoubleSide
+    });
+    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    ground.rotation.x = Math.PI / 2;
+    ground.position.y = -2;
+    ground.receiveShadow = true;
+    ground.visible = false; // Hidden by default, will enable when model loads
+    scene.add(ground);
+    
+    // Store the ground for later reference
+    window.ground = ground;
 
     // Handle window resize
     window.addEventListener('resize', onWindowResize, false);
 
     // Add initial cube to show the viewer is working
     const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const material = new THREE.MeshStandardMaterial({ color: 0x3498db });
+    const material = new THREE.MeshStandardMaterial({ 
+        color: 0x3498db,
+        roughness: 0.5,
+        metalness: 0.2
+    });
     const cube = new THREE.Mesh(geometry, material);
+    cube.castShadow = true;
+    cube.receiveShadow = true;
     scene.add(cube);
     
     // Animate the scene
@@ -335,6 +403,9 @@ function loadModel(modelUrl, originalUrl) {
         }
         downloadLink.download = 'trellis_model.glb'; // Suggest a filename
         downloadSection.style.display = 'block';
+        
+        // Automatically trigger download as a fallback
+        triggerModelDownload(originalUrl || modelUrl);
         
         // Clear existing model
         if (model) {
@@ -354,7 +425,7 @@ function loadModel(modelUrl, originalUrl) {
         
         manager.onError = function(url) {
             console.error('Error loading resource:', url);
-            statusMessage.textContent = 'Error loading model';
+            statusMessage.textContent = 'Error loading model. Downloadable version available below.';
         };
         
         const loader = new THREE.GLTFLoader(manager);
@@ -369,6 +440,23 @@ function loadModel(modelUrl, originalUrl) {
                 console.log('Model loaded successfully:', gltf);
                 model = gltf.scene;
                 
+                // Enable shadows for the whole model and its children
+                model.traverse(function(node) {
+                    if (node.isMesh) {
+                        node.castShadow = true;
+                        node.receiveShadow = true;
+                        
+                        // Enhance materials if they exist
+                        if (node.material) {
+                            if (Array.isArray(node.material)) {
+                                node.material.forEach(mat => enhanceMaterial(mat));
+                            } else {
+                                enhanceMaterial(node.material);
+                            }
+                        }
+                    }
+                });
+                
                 // Center the model
                 const box = new THREE.Box3().setFromObject(model);
                 const center = box.getCenter(new THREE.Vector3());
@@ -376,19 +464,31 @@ function loadModel(modelUrl, originalUrl) {
                 model.position.y = -center.y;
                 model.position.z = -center.z;
                 
+                // Get model size to adjust ground plane and camera
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+                
+                // Show and resize ground plane based on model size
+                if (window.ground) {
+                    window.ground.visible = true;
+                    window.ground.position.y = -size.y/2 - 0.01; // Position it just below the model
+                    window.ground.scale.set(maxDim * 3, maxDim * 3, 1); // Scale it based on model size
+                }
+                
                 // Add the model to the scene
                 scene.add(model);
                 
                 // Adjust camera to fit the model
-                const size = box.getSize(new THREE.Vector3());
-                const maxDim = Math.max(size.x, size.y, size.z);
-                const distance = maxDim * 2;
+                const distance = maxDim * 2.5; // Provide more space around the model
                 camera.position.set(distance, distance, distance);
                 camera.lookAt(0, 0, 0);
                 
                 // Reset controls target to model center
                 controls.target.set(0, 0, 0);
                 controls.update();
+                
+                // Enable auto-rotation for better viewing
+                controls.autoRotate = true;
                 
                 // Remove initial cube if model loads successfully
                 scene.children.forEach(child => {
@@ -408,7 +508,7 @@ function loadModel(modelUrl, originalUrl) {
             },
             function (error) {
                 console.error('Error loading model:', error);
-                statusMessage.textContent = 'Error loading model. You can still download it using the button below.';
+                statusMessage.textContent = 'Error loading model. Model has been automatically downloaded.';
                 
                 // Make sure the download button is visible even if the model fails to load
                 downloadSection.style.display = 'block';
@@ -416,11 +516,70 @@ function loadModel(modelUrl, originalUrl) {
         );
     } catch (error) {
         console.error('Exception in loadModel:', error);
-        statusMessage.textContent = 'Error loading model. You can still download it using the button below.';
+        statusMessage.textContent = 'Error loading model. Model has been automatically downloaded.';
         
         // Make sure the download button is visible even if there's an error
         downloadSection.style.display = 'block';
     }
+}
+
+// Helper function to enhance materials
+function enhanceMaterial(material) {
+    if (!material) return;
+    
+    // For standard materials, adjust properties
+    if (material.isMeshStandardMaterial) {
+        material.roughness = Math.min(material.roughness, 0.7); // Reduce roughness if it's too high
+        material.metalness = Math.max(material.metalness, 0.2); // Increase metalness if it's too low
+        material.envMapIntensity = 1.0; // Enhance environment reflections
+    }
+    
+    // For basic materials, convert to standard material
+    if (material.isMeshBasicMaterial) {
+        const newMat = new THREE.MeshStandardMaterial({
+            color: material.color,
+            map: material.map,
+            roughness: 0.5,
+            metalness: 0.2
+        });
+        material.copy(newMat);
+    }
+}
+
+// Function to trigger an automatic download of the model
+function triggerModelDownload(url) {
+    // Create a hidden link and trigger a click
+    const tempLink = document.createElement('a');
+    tempLink.style.display = 'none';
+    tempLink.href = url;
+    tempLink.download = 'trellis_model.glb';
+    tempLink.setAttribute('target', '_blank');
+    document.body.appendChild(tempLink);
+    
+    // Use setTimeout to ensure the UI updates before the download starts
+    setTimeout(() => {
+        console.log('Auto-downloading model from:', url);
+        try {
+            tempLink.click();
+            // Show a message about the download
+            const downloadMessage = document.createElement('div');
+            downloadMessage.className = 'download-notification';
+            downloadMessage.textContent = 'Model download has started automatically';
+            document.body.appendChild(downloadMessage);
+            
+            // Remove the message after 5 seconds
+            setTimeout(() => {
+                if (downloadMessage.parentNode) {
+                    document.body.removeChild(downloadMessage);
+                }
+            }, 5000);
+        } catch (e) {
+            console.error('Failed to auto-download:', e);
+        }
+        
+        // Clean up
+        document.body.removeChild(tempLink);
+    }, 1000);
 }
 
 function onWindowResize() {

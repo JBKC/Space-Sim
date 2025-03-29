@@ -165,4 +165,38 @@ button:disabled {
     font-size: 0.9rem;
     color: #666;
     margin-top: 10px;
+}
+
+.download-notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: rgba(46, 204, 113, 0.9);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    animation: slideIn 0.5s ease-out forwards, fadeOut 0.5s ease-in forwards 4.5s;
+    font-weight: bold;
+    z-index: 1000;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(100px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
 } 
