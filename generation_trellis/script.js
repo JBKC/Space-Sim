@@ -11,17 +11,6 @@ const downloadLink = document.getElementById('downloadLink');
 const loadingSpinner = document.getElementById('loadingSpinner');
 const modelViewerStatus = document.getElementById('modelViewerStatus');
 
-// Webcam related DOM elements
-const webcamButton = document.getElementById('webcamButton');
-const webcamModal = document.getElementById('webcamModal');
-const webcamVideo = document.getElementById('webcamVideo');
-const webcamCanvas = document.getElementById('webcamCanvas');
-const captureButton = document.getElementById('captureButton');
-const closeWebcamButton = document.querySelector('.close-webcam');
-
-// Model selection element - will be created dynamically
-let modelSelector = null;
-
 // Global variables
 let uploadedImage = null;
 let processedImage = null; // New: store the processed image
@@ -29,13 +18,12 @@ let scene, camera, renderer, controls, model;
 let taskId = null;
 let statusCheckInterval = null;
 let currentModelUrl = null; // Store the model URL for download 
-let stream = null; // Store the webcam stream
 let isProcessingImage = false; // Flag to prevent multiple processing requests
+let statusCheckErrorCount = 0;
 
 // Server API endpoints
-const SERVER_URL = 'http://localhost:3000';
+const SERVER_URL = 'http://localhost:3001';
 const GENERATE_ENDPOINT = '/api/generate';
-const GENERATE_MODEL_ENDPOINT = '/api/generate-model'; // New endpoint with model selection
 const STATUS_ENDPOINT = '/api/status';
 const PROCESS_IMAGE_ENDPOINT = '/api/process-image'; // New endpoint for image processing
 
@@ -44,9 +32,6 @@ initializeViewer();
 
 // Setup event listeners
 setupEventListeners();
-
-// Create and add model selector
-createModelSelector();
 
 function setupEventListeners() {
     // Drag and drop events
@@ -81,89 +66,10 @@ function setupEventListeners() {
     
     generateBtn.addEventListener('click', generateModel, false);
 
-    // Setup webcam related event listeners
-    webcamButton.addEventListener('click', openWebcam, false);
-    closeWebcamButton.addEventListener('click', closeWebcam, false);
-    captureButton.addEventListener('click', captureAndUsePhoto, false);
-
-    // Close modal when clicking outside the modal content
-    webcamModal.addEventListener('click', (e) => {
-        if (e.target === webcamModal) {
-            closeWebcam();
-        }
-    });
-
     // Display any errors in the console
     window.addEventListener('error', function(event) {
         console.error('Global error caught:', event.error);
         statusMessage.textContent = `Error: ${event.error.message}`;
-    });
-}
-
-// Create and add model selector to the UI
-function createModelSelector() {
-    // Create container for the model selector
-    const modelSelectorContainer = document.createElement('div');
-    modelSelectorContainer.className = 'model-selector-container';
-    modelSelectorContainer.style.marginBottom = '1rem';
-    modelSelectorContainer.style.textAlign = 'center';
-    
-    // Create label
-    const label = document.createElement('label');
-    label.htmlFor = 'modelSelector';
-    label.textContent = 'Select 3D Model Generator: ';
-    label.style.marginRight = '0.5rem';
-    
-    // Create select element
-    modelSelector = document.createElement('select');
-    modelSelector.id = 'modelSelector';
-    modelSelector.style.padding = '0.3rem';
-    modelSelector.style.borderRadius = '4px';
-    modelSelector.style.backgroundColor = '#2a2a2a';
-    modelSelector.style.color = '#f5f5f5';
-    modelSelector.style.border = '1px solid #444444';
-    
-    // Add options
-    const trellisOption = document.createElement('option');
-    trellisOption.value = 'trellis';
-    trellisOption.textContent = 'Trellis (Default)';
-    
-    const tripoOption = document.createElement('option');
-    tripoOption.value = 'tripo';
-    tripoOption.textContent = 'TripoSG (Experimental)';
-    
-    // Add options to select
-    modelSelector.appendChild(trellisOption);
-    modelSelector.appendChild(tripoOption);
-    
-    // Add elements to container
-    modelSelectorContainer.appendChild(label);
-    modelSelectorContainer.appendChild(modelSelector);
-    
-    // Add info about the models
-    const modelInfo = document.createElement('div');
-    modelInfo.className = 'model-info';
-    modelInfo.style.fontSize = '0.8rem';
-    modelInfo.style.color = '#bbbbbb';
-    modelInfo.style.marginTop = '0.5rem';
-    modelInfo.innerHTML = 'Trellis: Fast, reliable model generation<br>TripoSG: Alternative model with different style (may take longer)';
-    
-    modelSelectorContainer.appendChild(modelInfo);
-    
-    // Find a place to insert the selector (before the drop area)
-    const uploadSection = document.querySelector('.upload-section');
-    const dropAreaElement = document.querySelector('.drop-area');
-    
-    if (uploadSection && dropAreaElement) {
-        uploadSection.insertBefore(modelSelectorContainer, dropAreaElement);
-        console.log('Model selector added to UI');
-    } else {
-        console.error('Could not find upload section or drop area to insert model selector');
-    }
-    
-    // Add event listener for model change
-    modelSelector.addEventListener('change', function() {
-        console.log(`Model changed to: ${this.value}`);
     });
 }
 
@@ -198,656 +104,544 @@ function handleFiles(files) {
             // Add image validation
             validateAndProcessImage(file);
             // Don't enable generate button immediately
-            // Instead, process with Gemini API first
-            processWithGemini(file);
         } else {
-            alert('Please upload an image file.');
+            statusMessage.textContent = 'Please upload an image file.';
         }
     }
 }
 
-// New function to validate and process images
 function validateAndProcessImage(file) {
-    uploadedImage = file;
+    // Clear any existing previews
+    preview.innerHTML = '';
     
-    // Check file size
-    if (file.size > 5 * 1024 * 1024) {
-        console.warn('Large image detected (>5MB). This may cause API issues.');
-        document.getElementById('processingText').textContent = 'Warning: Large image may cause issues';
-    } else if (file.size < 10 * 1024) {
-        console.warn('Small image detected (<10KB). This may not provide enough detail.');
-        document.getElementById('processingText').textContent = 'Warning: Image may be too small';
-    }
+    // Display loading message
+    statusMessage.textContent = 'Processing image...';
     
-    // Check if this is a webcam capture
-    if (file.name.startsWith('webcam-capture-')) {
-        console.log('Processing webcam capture');
-    }
-    
-    // Display preview
+    // Display initial preview
     displayPreview(file);
     
-    // Log details about the image
-    console.log(`Processing image: ${file.name}, Size: ${(file.size / 1024).toFixed(2)}KB, Type: ${file.type}`);
+    // Store the uploaded image
+    uploadedImage = file;
+    
+    // Process with Gemini
+    processWithGemini(file);
 }
 
-// Display preview with error handling
 function displayPreview(file) {
-    preview.innerHTML = '';
+    // Create an initial preview
     const img = document.createElement('img');
-    img.file = file;
-    preview.appendChild(img);
-
     const reader = new FileReader();
     
-    // Add error handling
-    reader.onerror = function(error) {
-        console.error('Error reading file:', error);
-        preview.innerHTML = '<p style="color: red;">Error loading preview</p>';
-    };
+    reader.onload = function(e) {
+        img.src = e.target.result;
+    }
     
-    reader.onload = (e) => { 
-        img.src = e.target.result; 
-        
-        // Verify the image loaded properly
-        img.onload = function() {
-            if (img.naturalWidth === 0 || img.naturalHeight === 0) {
-                console.error('Invalid image file');
-                preview.innerHTML = '<p style="color: red;">Invalid image file</p>';
-                uploadedImage = null;
-                generateBtn.disabled = true;
-            }
-        };
-        
-        img.onerror = function() {
-            console.error('Error displaying image');
-            preview.innerHTML = '<p style="color: red;">Error displaying image</p>';
-            uploadedImage = null;
-            generateBtn.disabled = true;
-        };
-    };
-    
+    preview.appendChild(img);
     reader.readAsDataURL(file);
 }
 
 async function generateModel() {
-    if (!uploadedImage) {
-        alert('Please upload an image first.');
+    if (!processedImage) {
+        statusMessage.textContent = 'Please upload and process an image first.';
         return;
     }
-
-    // Update UI for processing state
-    generateBtn.disabled = true;
     
-    // Show processing status over the model viewer with spinner
+    // Update UI state
+    statusMessage.textContent = 'Generating 3D model...';
+    generateBtn.disabled = true;
+    loadingSpinner.style.display = 'flex';
+    
+    // Show the model viewer status overlay
     modelViewerStatus.style.display = 'flex';
-    document.getElementById('processingText').textContent = 'Model generating...';
-
+    document.getElementById('processingText').innerText = 'Model generation started...';
+    
     try {
-        // Create form data to send the image
+        // Create a FormData object
         const formData = new FormData();
-        formData.append('image', uploadedImage);
         
-        // Get the selected model
-        const selectedModel = modelSelector ? modelSelector.value : 'trellis';
-        formData.append('model', selectedModel); // Add the selected model to the form data
-        
-        console.log(`Sending image to server using ${selectedModel} model...`);
-        
-        // Use the model-specific endpoint
-        const endpoint = selectedModel === 'trellis' ? GENERATE_ENDPOINT : GENERATE_MODEL_ENDPOINT;
-        console.log(`Using endpoint: ${endpoint}`);
-        
-        // Send the image to the server endpoint
-        const response = await fetch(`${SERVER_URL}${endpoint}`, {
-            method: 'POST',
-            body: formData
-        });
-
-        // Get the text response first to examine it
-        const responseText = await response.text();
-        console.log('Server response text:', responseText);
-        
-        // Try to parse as JSON
-        let responseData;
-        try {
-            responseData = JSON.parse(responseText);
-            console.log('Successfully parsed server response as JSON:', responseData);
-        } catch (e) {
-            console.error('Error parsing response as JSON:', e);
-            throw new Error(`Invalid response format from server: ${responseText.substring(0, 100)}...`);
-        }
-
-        if (!response.ok) {
-            console.error('Server returned error status:', response.status);
-            throw new Error(`Server error: ${responseData.error || response.status}. Details: ${JSON.stringify(responseData.details || {})}`);
+        // Make sure we're sending a proper file, not a base64 string
+        if (typeof processedImage === 'string') {
+            // If it's a base64 string, convert to file first
+            processedImage = base64ToFile(processedImage, 'processed_image.png');
         }
         
-        console.log('Full parsed response data:', responseData);
+        formData.append('image', processedImage);
         
-        // Verify we received a valid task_id
-        if (!responseData.task_id) {
-            console.error('No task_id in response:', responseData);
-            // Check if there's a nested structure that wasn't properly processed by the server
-            if (responseData.code === 200 && responseData.data && responseData.data.task_id) {
-                // Extract task_id directly from the nested structure
-                console.log('Found nested task_id in response that server missed');
-                taskId = responseData.data.task_id;
-            } else {
-                statusMessage.textContent = 'Error: No task ID found in response';
-                throw new Error(`No task ID returned from server. Full response: ${JSON.stringify(responseData)}`);
+        console.log('Sending image for 3D model generation, type:', processedImage.type, 'size:', processedImage.size);
+        
+        // Make the API call with retry logic
+        let response;
+        let retries = 0;
+        const maxRetries = 2;
+        
+        while (retries <= maxRetries) {
+            try {
+                console.log(`Attempt ${retries + 1} to generate model...`);
+                response = await fetch(`${SERVER_URL}${GENERATE_ENDPOINT}`, {
+                    method: 'POST',
+                    body: formData,
+                    // Add a longer timeout for large image uploads
+                    timeout: 60000 // 60 seconds
+                });
+                
+                // Exit retry loop if successful
+                break;
+            } catch (err) {
+                retries++;
+                console.error(`Attempt ${retries} failed:`, err);
+                
+                if (retries > maxRetries) {
+                    throw err; // Give up after max retries
+                }
+                
+                // Update status for retry
+                document.getElementById('processingText').innerText = `Retrying (${retries}/${maxRetries})...`;
+                
+                // Wait before retrying (exponential backoff)
+                await new Promise(resolve => setTimeout(resolve, 1000 * retries));
             }
-        } else {
-            // Use the task_id provided by the server
-            taskId = responseData.task_id;
         }
         
-        // Store which model was used
-        window.currentModel = selectedModel;
-        console.log(`Using task_id: ${taskId} for model: ${window.currentModel}`);
-        statusMessage.textContent = 'Processing...';
+        // Handle the response
+        if (!response.ok) {
+            const errorText = await response.text();
+            let errorMsg;
+            
+            try {
+                // Try to parse as JSON for structured error
+                const errorData = JSON.parse(errorText);
+                errorMsg = errorData.error || errorData.details || `Server error: ${response.status}`;
+            } catch (e) {
+                // If can't parse as JSON, use text
+                errorMsg = `Server responded with ${response.status}: ${errorText.substring(0, 100)}`;
+            }
+            
+            throw new Error(errorMsg);
+        }
         
-        // Start polling for status
-        startStatusPolling();
+        // Parse JSON response
+        let data;
+        try {
+            data = await response.json();
+        } catch (e) {
+            throw new Error(`Invalid response format: ${e.message}`);
+        }
+        
+        if (data.success) {
+            // Store the task ID for status polling
+            taskId = data.task_id;
+            console.log('Model generation task started. Task ID:', taskId);
+            
+            // Start polling for status updates
+            startStatusPolling();
+        } else {
+            throw new Error(data.error || 'Failed to start model generation.');
+        }
     } catch (error) {
         console.error('Error generating model:', error);
-        displayUserFriendlyError(error, 'processingText');
-        modelViewerStatus.style.display = 'flex';
-        // Always ensure the download button remains hidden on error
-        downloadSection.style.display = 'none';
+        statusMessage.textContent = `Error: ${error.message}`;
+        loadingSpinner.style.display = 'none';
+        generateBtn.disabled = false;
+        
+        // Update the model viewer status with the error
+        displayUserFriendlyError(error);
     }
 }
 
 function startStatusPolling() {
-    // Clear any existing interval
-    if (statusCheckInterval) {
-        clearInterval(statusCheckInterval);
-    }
-    
-    // Set a new interval to check status every 5 seconds
-    statusCheckInterval = setInterval(checkTaskStatus, 5000);
+    // Set a polling interval - check status every 2 seconds
+    statusCheckInterval = setInterval(checkTaskStatus, 2000);
 }
 
-async function checkTaskStatus() {
-    try {
-        if (!taskId) {
-            console.error('No task ID available for status check');
-            document.getElementById('processingText').textContent = 'Error';
-            clearInterval(statusCheckInterval);
-            generateBtn.disabled = false;
-            return;
-        }
-        
-        console.log('Checking status for task:', taskId);
-        console.log('Current model:', window.currentModel || 'unknown');
-        
-        // Call the server endpoint with the taskId
-        const response = await fetch(`${SERVER_URL}${STATUS_ENDPOINT}/${taskId}`);
-
-        // Get the text response first to examine it
-        const responseText = await response.text();
-        console.log('Status response text:', responseText);
-        
-        // Try to parse as JSON
-        let statusData;
-        try {
-            statusData = JSON.parse(responseText);
-            console.log('Successfully parsed status response as JSON:', statusData);
-        } catch (e) {
-            console.error('Error parsing status response as JSON:', e);
-            throw new Error(`Invalid status response format from server: ${responseText.substring(0, 100)}...`);
-        }
-
-        if (!response.ok) {
-            console.error('Status check returned error:', response.status);
-            throw new Error(`Server error: ${statusData.error || response.status}. Details: ${JSON.stringify(statusData.details || {})}`);
-        }
-        
-        console.log('Full parsed status data:', statusData);
-        
-        // If the server didn't process the nested structure correctly, do it here
-        let status, output;
-        if (statusData.code === 200 && statusData.data) {
-            console.log('Found nested structure in status response that server missed');
-            status = statusData.data.status;
-            output = statusData.data.output;
-        } else {
-            // Use the data from the server
-            status = statusData.status;
-            output = statusData.output;
-        }
-        
-        // Log the output object details
-        console.log('Model output details:', output);
-        
-        // Update progress based on status
-        if (status === 'succeeded' || status === 'completed') {
-            clearInterval(statusCheckInterval);
+function checkTaskStatus() {
+    console.log(`Checking status for task: ${taskId}`);
+    
+    fetch(`${SERVER_URL}/api/status?task_id=${taskId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Status check failed with status ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Client received status response:', data);
             
-            // Load the 3D model
-            if (output && output.model_file) {
-                console.log('Original model URL:', output.model_file);
+            // Debug logging to see exactly what's in the response
+            if (data.status) {
+                console.log(`Status value: "${data.status}"`);
+            }
+            if (data.model_url) {
+                console.log(`Model URL value: "${data.model_url}"`);
+            }
+            
+            if (data.status === 'completed' && data.model_url) {
+                // Task completed successfully with a model URL
+                console.log(`Model generation completed! URL: ${data.model_url}`);
+                statusMessage.textContent = 'Model generation completed!';
                 
-                // Handle model URL based on the model type
-                let modelUrl;
-                if (window.currentModel === 'tripo') {
-                    // For TripoSG, the URL is already relative to our server
-                    modelUrl = `${SERVER_URL}${output.model_file}`;
-                    console.log('Using local TripoSG model URL:', modelUrl);
-                } else {
-                    // For Trellis, use the proxy endpoint to avoid CORS issues
-                    modelUrl = `${SERVER_URL}/api/proxy-model?url=${encodeURIComponent(output.model_file)}`;
-                    console.log('Using proxied Trellis model URL:', modelUrl);
+                // Store model URL for later use
+                currentModelUrl = data.model_url;
+                
+                // Update the download link
+                downloadLink.href = data.model_url;
+                downloadLink.download = 'generated_model.glb';
+                
+                // Show the download section
+                downloadSection.style.display = 'block';
+                
+                // Call the loadModel function with the URL
+                console.log(`Loading model from URL: ${data.model_url}`);
+                loadModel(data.model_url);
+                
+                // Update UI
+                document.getElementById('processingText').innerText = 'Loading model...';
+                
+                // Stop the status check interval
+                if (statusCheckInterval) {
+                    console.log('Stopping status check interval');
+                    clearInterval(statusCheckInterval);
+                    statusCheckInterval = null;
                 }
                 
-                // Use original URL for direct download link - browsers handle CORS differently for downloads
-                currentModelUrl = output.model_file; 
-                loadModel(modelUrl, output.model_file);
+                // Re-enable the generate button
+                generateBtn.disabled = false;
+            } else if (data.status === 'failed') {
+                // Task failed
+                console.error('Model generation failed:', data.error || 'Unknown error');
+                statusMessage.textContent = `Model generation failed: ${data.error || 'Unknown error'}`;
+                document.getElementById('processingText').innerText = 'Generation failed';
+                document.getElementById('spinner').style.display = 'none';
+                
+                // Display a user-friendly error message
+                displayUserFriendlyError({
+                    message: data.error || 'Model generation failed. Please try again with a different image.'
+                });
+                
+                // Stop the status check interval
+                if (statusCheckInterval) {
+                    clearInterval(statusCheckInterval);
+                    statusCheckInterval = null;
+                }
+                
+                // Re-enable the generate button
+                generateBtn.disabled = false;
             } else {
-                console.error('No model file URL found in output:', output);
-                document.getElementById('processingText').textContent = 'Error: No model file';
-                throw new Error('No model file in the response');
+                // Task is still processing
+                console.log(`Model generation status: ${data.status}`);
+                statusMessage.textContent = `Model generation in progress (${data.status})...`;
+                
+                // Update the processing text if needed
+                let processingText = document.getElementById('processingText');
+                const currentDots = (processingText.innerText.match(/\./g) || []).length;
+                const newDots = (currentDots + 1) % 4;
+                processingText.innerText = `Processing${'.'.repeat(newDots)}`;
             }
+        })
+        .catch(error => {
+            console.error('Error checking task status:', error);
+            statusMessage.textContent = `Error checking status: ${error.message}`;
             
-            generateBtn.disabled = false;
-        } else if (status === 'failed' || status === 'error') {
-            clearInterval(statusCheckInterval);
-            document.getElementById('processingText').textContent = 'Generation failed';
-            generateBtn.disabled = false;
-            // Add additional error feedback to help the user
-            if (status.includes('failed')) {
-                let failureMessage = 'Model generation failed. Try a different image with:';
-                failureMessage += '<ul style="text-align:left; margin-top:10px;">';
-                failureMessage += '<li>Clear object boundaries</li>';
-                failureMessage += '<li>Good lighting</li>';
-                failureMessage += '<li>Simple background</li>';
-                failureMessage += '<li>Single object focus</li>';
-                failureMessage += '</ul>';
-                document.getElementById('processingText').innerHTML = failureMessage;
+            // If there are repeated errors, stop checking after 5 failures
+            statusCheckErrorCount++;
+            if (statusCheckErrorCount >= 5) {
+                console.log('Too many status check errors, stopping checks');
+                clearInterval(statusCheckInterval);
+                statusCheckInterval = null;
+                
+                displayUserFriendlyError({
+                    message: 'Lost connection to the server. Please try refreshing the page.'
+                });
+                
+                // Re-enable the generate button
+                generateBtn.disabled = false;
             }
-        } else {
-            // Still processing
-            document.getElementById('processingText').textContent = 'Model generating...';
-        }
-    } catch (error) {
-        console.error('Error checking task status:', error);
-        displayUserFriendlyError(error, 'processingText');
-        clearInterval(statusCheckInterval);
-        generateBtn.disabled = false;
-    }
+        });
 }
 
 function initializeViewer() {
-    // Create scene
+    // Create scene, camera, renderer, etc.
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a1a); // Dark background matching the UI
+    scene.background = new THREE.Color(0x1a1a1a); // Dark background color
 
     // Create camera
-    camera = new THREE.PerspectiveCamera(75, modelViewer.clientWidth / modelViewer.clientHeight, 0.1, 1000);
-    camera.position.z = 5;
-
-    // Create renderer with enhanced quality settings
-    renderer = new THREE.WebGLRenderer({ 
-        antialias: true,              // Enable anti-aliasing
-        preserveDrawingBuffer: true,  // Needed for taking screenshots
-        alpha: true,                  // Allow transparency
-        powerPreference: 'high-performance', // Request high performance GPU
-        precision: 'highp'           // Use high precision for better visuals
-    });
-    renderer.setSize(modelViewer.clientWidth, modelViewer.clientHeight);
-    renderer.setPixelRatio(window.devicePixelRatio); // Use device pixel ratio for sharper display
+    const width = modelViewer.clientWidth;
+    const height = modelViewer.clientHeight;
+    camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+    camera.position.set(0, 0, 5);
+    
+    // Create renderer
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(width, height);
+    renderer.physicallyCorrectLights = true;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Better shadow quality
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     
-    // For THREE.js r129 and newer, use these settings
-    try {
-        // For newer versions of THREE.js
-        renderer.outputColorSpace = THREE.SRGBColorSpace;
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.0; // Lower exposure for dark mode
-        renderer.logarithmicDepthBuffer = true; // Better handling of near/far objects
-    } catch (e) {
-        // Fallback for older versions
-        try {
-            renderer.physicallyCorrectLights = true;
-            renderer.outputEncoding = THREE.sRGBEncoding;
-            renderer.toneMappingExposure = 1.0; // Lower exposure for dark mode
-            renderer.gammaOutput = true;
-            renderer.gammaFactor = 2.2;
-        } catch (err) {
-            console.warn('Could not set advanced renderer properties:', err);
-        }
-    }
-    modelViewer.appendChild(renderer.domElement);
-
-    // Add environment map for realistic reflections
-    try {
-        const pmremGenerator = new THREE.PMREMGenerator(renderer);
-        pmremGenerator.compileEquirectangularShader();
-
-        // Create a simple environment map
-        const environmentTexture = createEnvironmentTexture();
-        const envMap = pmremGenerator.fromEquirectangular(environmentTexture).texture;
-        
-        scene.environment = envMap;
-        scene.background = new THREE.Color(0x1a1a1a); // Keep the dark background
-        
-        // Store the environment map for later use
-        window.envMap = envMap;
-        
-        environmentTexture.dispose();
-        pmremGenerator.dispose();
-    } catch (e) {
-        console.warn('Could not set up environment mapping:', e);
+    // Append renderer to the container
+    if (modelViewer.firstChild) {
+        modelViewer.insertBefore(renderer.domElement, modelViewer.firstChild);
+    } else {
+        modelViewer.appendChild(renderer.domElement);
     }
     
-    // Set up lighting for dark mode
-    // Ambient light (overall scene illumination)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Lower ambient for dark mode
-    scene.add(ambientLight);
-
-    // Main directional light (sun-like)
-    const mainLight = new THREE.DirectionalLight(0xffffff, 0.7); // Stronger directional light for contrast
-    mainLight.position.set(5, 5, 5);
-    mainLight.castShadow = true;
-    
-    // Configure shadow properties
-    mainLight.shadow.mapSize.width = 2048;
-    mainLight.shadow.mapSize.height = 2048;
-    mainLight.shadow.camera.near = 0.5;
-    mainLight.shadow.camera.far = 50;
-    mainLight.shadow.bias = -0.0001;
-    mainLight.shadow.normalBias = 0.02;
-    scene.add(mainLight);
-
-    // Add fill lights
-    const fillLight1 = new THREE.DirectionalLight(0x8080ff, 0.2); // Subtle blue fill light
-    fillLight1.position.set(-5, 5, -5);
-    scene.add(fillLight1);
-
-    const fillLight2 = new THREE.DirectionalLight(0x80ff80, 0.2); // Subtle green fill light
-    fillLight2.position.set(5, -5, -5);
-    scene.add(fillLight2);
-    
-    // Add a rim light for better definition against dark background
-    const rimLight = new THREE.DirectionalLight(0xffffff, 0.5); // Stronger rim light
-    rimLight.position.set(0, 0, -10);
-    scene.add(rimLight);
-
-    // Add controls
+    // Add orbit controls
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.25;
+    controls.dampingFactor = 0.05;
     controls.screenSpacePanning = false;
-    controls.maxPolarAngle = Math.PI;
-    controls.minDistance = 0.2; // Allow even closer zoom
-    controls.maxDistance = 10;
-    controls.autoRotate = true; // Enable auto-rotation by default
-    controls.autoRotateSpeed = 1.0;
+    controls.minDistance = 0.1;
+    controls.maxDistance = 50;
+    controls.maxPolarAngle = Math.PI / 1.5;
+    controls.target.set(0, 0, 0);
+    
+    // Add ambient light for basic illumination
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+    scene.add(ambientLight);
+    
+    // Add directional light for sunlight effect
+    const mainLight = new THREE.DirectionalLight(0xffffff, 2.0);
+    mainLight.position.set(10, 10, 10);
+    mainLight.castShadow = true;
+    mainLight.shadow.mapSize.width = 1024;
+    mainLight.shadow.mapSize.height = 1024;
+    mainLight.shadow.camera.near = 0.1;
+    mainLight.shadow.camera.far = 50;
+    mainLight.shadow.bias = -0.001;
+    scene.add(mainLight);
+    
+    // Add fill light from the opposite side
+    const fillLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    fillLight.position.set(-10, 5, -10);
+    scene.add(fillLight);
+    
+    // Add rim light for edge highlighting
+    const rimLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    rimLight.position.set(5, 0, -10);
+    scene.add(rimLight);
+    
+    // Add a ground plane with shadow
+    const groundGeometry = new THREE.PlaneGeometry(100, 100);
+    const groundMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x222222, 
+        metalness: 0, 
+        roughness: 0.8,
+        transparent: true,
+        opacity: 0.5
+    });
+    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -1.5;
+    ground.receiveShadow = true;
+    scene.add(ground);
 
+    // Initialize an empty group to hold the model
+    model = new THREE.Group();
+    scene.add(model);
+    
     // Handle window resize
     window.addEventListener('resize', onWindowResize, false);
-
-    // Empty scene - no cube anymore
     
-    // Animate the scene
+    // Start animation loop
     animate();
 }
 
-// Create a simple procedural environment texture with darker colors
-function createEnvironmentTexture() {
-    const size = 512;
-    const data = new Uint8Array(size * size * 4);
-    
-    for (let i = 0; i < size; i++) {
-        for (let j = 0; j < size; j++) {
-            const idx = (i * size + j) * 4;
-            
-            // Simple gradient for dark mode
-            const phi = Math.PI * i / size;
-            const theta = 2 * Math.PI * j / size;
-            
-            const x = Math.sin(phi) * Math.cos(theta);
-            const y = Math.cos(phi);
-            const z = Math.sin(phi) * Math.sin(theta);
-            
-            // Sky (dark gradient)
-            if (y > 0) {
-                const intensity = 0.3 + 0.2 * y; // Subtle dark gradient
-                data[idx] = Math.floor(50 * intensity); // R
-                data[idx + 1] = Math.floor(50 * intensity); // G
-                data[idx + 2] = Math.floor(60 * intensity); // B
-                data[idx + 3] = 255; // A
-            } 
-            // Ground (slightly darker tone)
-            else {
-                const intensity = 0.2 + 0.1 * (-y); // Subtle gradient
-                data[idx] = Math.floor(30 * intensity); // R
-                data[idx + 1] = Math.floor(30 * intensity); // G
-                data[idx + 2] = Math.floor(35 * intensity); // B
-                data[idx + 3] = 255; // A
-            }
-        }
-    }
-    
-    const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
-    texture.mapping = THREE.EquirectangularReflectionMapping;
-    texture.needsUpdate = true;
-    
-    return texture;
-}
-
 function loadModel(modelUrl, originalUrl) {
-    try {
-        // Store the URL for the download button
-        if (originalUrl) {
-            downloadLink.href = originalUrl;
+    // Clear any existing model
+    model.clear();
+    
+    // Update the viewer status
+    document.getElementById('processingText').innerText = 'Loading model...';
+    
+    console.log('Loading model from URL:', modelUrl);
+    
+    // Check if this is an external URL that might have CORS issues
+    if (modelUrl.startsWith('http') && !modelUrl.includes(window.location.hostname)) {
+        console.log('External URL detected, may need CORS handling');
+        
+        // Use a CORS proxy for external URLs if needed
+        if (modelUrl.includes('img.theapi.app') || modelUrl.includes('piapi.ai')) {
+            console.log('Using Image proxy for Trellis API URL');
+            // Add a custom header to ensure the image loads correctly
+            const loader = new THREE.GLTFLoader();
+            
+            // Create a manager with custom headers
+            const manager = new THREE.LoadingManager();
+            manager.addHandler(/\.glb$/, loader);
+            
+            // Load the model with direct URL - most model servers allow this
+            loader.load(
+                modelUrl,
+                onModelLoaded,
+                onProgress,
+                onError
+            );
         } else {
-            downloadLink.href = modelUrl;
+            // For other external URLs, try direct loading first
+            const loader = new THREE.GLTFLoader();
+            loader.load(
+                modelUrl,
+                onModelLoaded,
+                onProgress,
+                onError
+            );
         }
-        downloadLink.download = 'model.glb'; // Suggest a filename
-        
-        // Clear existing model
-        if (model) {
-            scene.remove(model);
-        }
-
-        // Log that we're attempting to load the model
-        console.log('Attempting to load 3D model from:', modelUrl);
-        
-        // Create a loader with a manager to track progress and errors
-        const manager = new THREE.LoadingManager();
-        manager.onProgress = function(item, loaded, total) {
-            const percent = Math.round((loaded / total) * 100);
-            document.getElementById('processingText').textContent = `Model generating...`;
-            console.log(`Loading progress: ${loaded}/${total} (${percent}%)`);
-        };
-        
-        manager.onError = function(url) {
-            console.error('Error loading resource:', url);
-            document.getElementById('processingText').textContent = 'Error loading model';
-        };
-        
-        const loader = new THREE.GLTFLoader(manager);
-        
-        // Add a crossOrigin header if needed (for cross-domain requests)
-        THREE.Cache.enabled = true;
-        
-        // Load the model with error handling
+    } else {
+        // For local URLs, load directly
+        const loader = new THREE.GLTFLoader();
         loader.load(
             modelUrl,
-            function (gltf) {
-                console.log('Model loaded successfully:', gltf);
-                model = gltf.scene;
-                
-                // Enable shadows and enhance materials for the whole model and its children
-                model.traverse(function(node) {
-                    if (node.isMesh) {
-                        // Enable shadows
-                        node.castShadow = true;
-                        node.receiveShadow = true;
-                        
-                        // Apply high-quality material enhancements
-                        if (node.material) {
-                            if (Array.isArray(node.material)) {
-                                node.material.forEach(mat => enhanceMaterial(mat));
-                            } else {
-                                enhanceMaterial(node.material);
-                            }
-                        }
-                    }
-                });
-                
-                // Apply post-processing for the entire model
-                applyModelPostProcessing(model);
-                
-                // Center the model
-                const box = new THREE.Box3().setFromObject(model);
-                const center = box.getCenter(new THREE.Vector3());
-                model.position.x = -center.x;
-                model.position.y = -center.y;
-                model.position.z = -center.z;
-                
-                // Get model size to adjust camera
-                const size = box.getSize(new THREE.Vector3());
-                const maxDim = Math.max(size.x, size.y, size.z);
-                
-                // Add the model to the scene
-                scene.add(model);
-                
-                // Adjust camera position based on model size for better fit in smaller viewer
-                const distance = maxDim * 0.5; // More zoomed out for better fit in smaller viewer
-                camera.position.set(distance, distance, distance);
-                camera.lookAt(0, 0, 0);
-                
-                // Reset controls target to model center
-                controls.target.set(0, 0, 0);
-                controls.update();
-                
-                // Fine-tune the controls for the smaller viewer
-                controls.minDistance = 0.2;
-                controls.maxDistance = maxDim * 3.0;
-                controls.autoRotate = true; // Enable auto-rotation
-                controls.autoRotateSpeed = 0.8; // Slightly slower rotation
-                
-                // Hide the status overlay once model is loaded
-                modelViewerStatus.style.display = 'none';
-                
-                // Show download section
-                downloadSection.style.display = 'block';
-            },
-            function (xhr) {
-                // Progress
-                const percent = Math.round((xhr.loaded / xhr.total) * 100);
-                document.getElementById('processingText').textContent = `Model generating...`;
-                console.log(`Loading progress: ${percent}%`);
-            },
-            function (error) {
-                console.error('Error loading model:', error);
-                document.getElementById('processingText').textContent = 'Error loading model';
-                
-                // Make sure the download button is visible even if the model fails to load
-                downloadSection.style.display = 'block';
-            }
+            onModelLoaded,
+            onProgress,
+            onError
         );
-    } catch (error) {
-        console.error('Exception in loadModel:', error);
-        document.getElementById('processingText').textContent = 'Error loading model';
+    }
+    
+    // Function to handle the loaded model
+    function onModelLoaded(gltf) {
+        console.log('Model loaded successfully', gltf);
         
-        // Always ensure download button is visible
+        // Hide the status overlay
+        modelViewerStatus.style.display = 'none';
+        
+        // Process the loaded model
+        const loadedModel = gltf.scene;
+        
+        // Apply material enhancements
+        loadedModel.traverse(function(child) {
+            if (child.isMesh) {
+                // Make sure materials work correctly
+                if (child.material) {
+                    enhanceMaterial(child.material);
+                } else if (Array.isArray(child.materials)) {
+                    child.materials.forEach(enhanceMaterial);
+                }
+                
+                // Ensure shadows are enabled
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+        
+        // Apply post-processing to the model
+        applyModelPostProcessing(loadedModel);
+        
+        // Add to the scene
+        model.add(loadedModel);
+        
+        // Set camera position based on model size
+        fitCameraToObject(loadedModel);
+        
+        // Update status
+        statusMessage.textContent = 'Model loaded successfully!';
+        
+        // Show download section with proper URL
         downloadSection.style.display = 'block';
+        downloadLink.href = modelUrl;
+        downloadLink.download = 'generated_model.glb';
+    }
+    
+    // Progress callback
+    function onProgress(xhr) {
+        const percent = Math.round((xhr.loaded / xhr.total) * 100);
+        document.getElementById('processingText').innerText = `Loading model: ${percent}%`;
+        console.log(`Model loading: ${percent}%`);
+    }
+    
+    // Error callback
+    function onError(error) {
+        console.error('Error loading model:', error);
+        statusMessage.textContent = `Error loading model: ${error.message}`;
+        displayUserFriendlyError(error);
+        
+        // If direct loading fails, try through a proxy
+        if (!modelUrl.includes('proxy')) {
+            console.log('Direct loading failed, attempting through proxy...');
+            const proxyUrl = `${SERVER_URL}/api/proxy-model?url=${encodeURIComponent(modelUrl)}`;
+            loadModel(proxyUrl);
+        }
+    }
+    
+    // Function to fit camera to the model
+    function fitCameraToObject(object, offset = 1.5) {
+        const boundingBox = new THREE.Box3().setFromObject(object);
+        const center = boundingBox.getCenter(new THREE.Vector3());
+        const size = boundingBox.getSize(new THREE.Vector3());
+        
+        // Set controls target to center of the object
+        controls.target.copy(center);
+        
+        // Calculate the max dimension and required distance
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const fov = camera.fov * (Math.PI / 180);
+        const cameraDistance = (maxDim / 2) / Math.tan(fov / 2) * offset;
+        
+        // Position camera
+        const direction = new THREE.Vector3();
+        direction.subVectors(camera.position, controls.target).normalize();
+        direction.multiplyScalar(cameraDistance);
+        camera.position.copy(controls.target).add(direction);
+        
+        // Update controls and camera
+        camera.near = cameraDistance / 100;
+        camera.far = cameraDistance * 100;
+        camera.updateProjectionMatrix();
+        controls.update();
     }
 }
 
-// Enhanced material processing with more matte finish
 function enhanceMaterial(material) {
     if (!material) return;
     
-    // Store original properties
-    const origColor = material.color ? material.color.clone() : null;
-    const origMap = material.map;
-    
-    // For standard materials, adjust properties for less shiny surface
-    if (material.isMeshStandardMaterial) {
-        // Set higher roughness for more matte appearance
-        material.roughness = Math.max(material.roughness, 0.8); // Much higher roughness for matte look
-        material.metalness = Math.min(material.metalness, 0.1); // Much lower metalness for less shine
-        
-        // Reduce environment map reflections for a more matte finish
-        if (window.envMap) {
-            material.envMap = window.envMap;
-            material.envMapIntensity = 0.5; // Reduced for less reflections
-        }
-        
-        // Keep normal map detail but tone down the effect
-        if (material.normalMap) {
-            material.normalScale.set(1.0, 1.0); // Normal scale for surface detail
-        }
-        
-        // Keep anisotropy for texture quality
-        if (material.map) {
-            material.map.anisotropy = 16;
-        }
-    }
-    
-    // Handle basic materials by converting to standard with matte finish
-    else if (material.isMeshBasicMaterial || material.isMeshLambertMaterial || material.isMeshPhongMaterial) {
-        console.log('Converting basic/lambert/phong material to standard with matte finish');
-        const newMat = new THREE.MeshStandardMaterial({
-            color: origColor || new THREE.Color(0xcccccc),
-            map: origMap,
-            roughness: 0.8,  // Higher for matte finish
-            metalness: 0.1   // Lower for less shine
-        });
-        
-        // Copy any other useful properties
-        if (material.transparent) newMat.transparent = true;
-        if (material.opacity !== undefined) newMat.opacity = material.opacity;
-        if (material.alphaTest !== undefined) newMat.alphaTest = material.alphaTest;
-        if (material.side !== undefined) newMat.side = material.side;
-        
-        // Apply environment map with reduced intensity
-        if (window.envMap) {
-            newMat.envMap = window.envMap;
-            newMat.envMapIntensity = 0.5; // Reduced for less reflection
-        }
-        
-        // Keep anisotropy for texture quality
-        if (newMat.map) {
-            newMat.map.anisotropy = 16;
-        }
-        
-        // Replace the original material
-        try {
-            Object.assign(material, newMat);
-        } catch (e) {
-            console.warn('Could not fully convert material:', e);
-        }
-    }
-    
-    // Force material update
+    // Enhance material properties for better realism
     material.needsUpdate = true;
+    
+    // Set appropriate roughness and metalness values if not specified
+    if (material.roughness === undefined || material.roughness === 0) {
+        material.roughness = 0.4;
+    }
+    
+    if (material.metalness === undefined) {
+        material.metalness = 0.2;
+    }
+    
+    // Ensure shadow casting is enabled
+    material.shadowSide = THREE.FrontSide;
+    
+    // Make sure textures use correct encoding
+    if (material.map) {
+        material.map.encoding = THREE.sRGBEncoding;
+        material.map.anisotropy = 16;
+    }
+    
+    if (material.emissiveMap) {
+        material.emissiveMap.encoding = THREE.sRGBEncoding;
+    }
+    
+    if (material.specularMap) {
+        material.specularMap.encoding = THREE.sRGBEncoding;
+    }
+    
+    // Set physical material properties
+    material.side = THREE.DoubleSide; // Render both sides in case of non-manifold geometry
 }
 
-// Apply post-processing to the entire model
 function applyModelPostProcessing(model) {
-    if (!model) return;
-    
-    // Check if we need to normalize the model's scale
+    // Center the model at the origin
     const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    model.position.x = -center.x;
+    model.position.y = -center.y;
+    model.position.z = -center.z;
+    
+    // Scale the model to a reasonable size
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
-    
-    // If the model is too small or too large, normalize its size
-    if (maxDim < 0.1 || maxDim > 10) {
-        const scale = 1.0 / maxDim;
-        model.scale.set(scale, scale, scale);
-        console.log(`Normalized model scale from ${maxDim} to 1.0`);
+    if (maxDim > 5) {
+        const scale = 3 / maxDim;
+        model.scale.multiplyScalar(scale);
     }
-    
-    // Ensure model gets environment lighting
-    model.castShadow = true;
-    model.receiveShadow = true;
 }
 
 function onWindowResize() {
@@ -862,208 +656,190 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// Function to display a friendly error message
+// Display a more detailed and helpful error message
 function displayUserFriendlyError(error, location = 'processingText') {
-    console.error('Error:', error);
+    console.error('Error in application:', error);
     
-    // Default error message
-    let userMessage = 'An error occurred. Please try again.';
+    // Get the error display element
+    const errorDisplay = document.getElementById(location);
+    if (!errorDisplay) return;
     
-    // Check if this is an API error with details
-    if (error.message && error.message.includes('API Error')) {
-        userMessage = 'The 3D generation service could not process your image. Try a different image with better lighting and clear subject boundaries.';
-    }
+    // Create a user-friendly error message
+    let friendlyMessage = 'Sorry, something went wrong.';
     
-    // Check if this is a network error
-    if (error.message && error.message.includes('NetworkError')) {
-        userMessage = 'Connection error. Please check your internet connection and try again.';
-    }
-    
-    // Server error
-    if (error.message && error.message.includes('Server error')) {
-        userMessage = 'The server encountered an error. Please try again later.';
-    }
-    
-    // Update the appropriate element
-    if (location === 'statusMessage') {
-        statusMessage.textContent = userMessage;
-    } else {
-        document.getElementById('processingText').innerHTML = userMessage;
-    }
-    
-    // Re-enable the generate button
-    generateBtn.disabled = false;
-}
-
-// Webcam related functions
-async function openWebcam() {
-    webcamModal.style.display = 'block';
-    captureButton.style.display = 'block';
-    webcamVideo.style.display = 'block';
-    webcamCanvas.style.display = 'none';
-    
-    try {
-        // Request access to the webcam
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        webcamVideo.srcObject = stream;
-    } catch (error) {
-        console.error('Error accessing webcam:', error);
-        alert('Unable to access webcam. Please check your permissions and try again.');
-        closeWebcam();
-    }
-}
-
-function closeWebcam() {
-    webcamModal.style.display = 'none';
-    
-    // Stop the webcam stream if it exists
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        stream = null;
-    }
-}
-
-// Modified function to handle files
-function handleFiles(files) {
-    if (files.length > 0) {
-        const file = files[0];
-        if (file.type.match('image.*')) {
-            // Add image validation
-            validateAndProcessImage(file);
-            // Don't enable generate button immediately
-            // Instead, process with Gemini API first
-            processWithGemini(file);
+    // Check for specific error types and customize the message
+    if (error.message) {
+        if (error.message.includes('Failed to initiate model generation')) {
+            friendlyMessage = 'The 3D model generation service failed to process your request. This might be due to an issue with the API key or the server is currently unavailable. Please try again later or contact support.';
+        }
+        else if (error.message.includes('API Error')) {
+            friendlyMessage = 'The 3D generation API returned an error. The server might be experiencing issues. Please try again later.';
+        }
+        else if (error.message.includes('network') || error.message.includes('fetch') || error.message.includes('connection')) {
+            friendlyMessage = 'There was a network error. Please check your internet connection and try again.';
+        } else if (error.message.includes('timeout') || error.message.includes('timed out')) {
+            friendlyMessage = 'The server took too long to respond. Please try again later.';
+        } else if (error.message.includes('404')) {
+            friendlyMessage = 'The requested resource was not found. Please try again with a different image.';
+        } else if (error.message.includes('server') || error.message.includes('500')) {
+            friendlyMessage = 'There was a server error. Our team has been notified. Please try again later.';
+        } else if (error.message.includes('format') || error.message.includes('parse')) {
+            friendlyMessage = 'There was an error processing the response. Please try again with a different image.';
+        } else if (error.message.includes('permission') || error.message.includes('403')) {
+            friendlyMessage = 'You do not have permission to access this resource. Please contact support.';
         } else {
-            alert('Please upload an image file.');
+            // For other error messages, include them but truncate if too long
+            const truncatedMessage = error.message.length > 100 ? 
+                error.message.substring(0, 100) + '...' : error.message;
+            friendlyMessage = `Error: ${truncatedMessage}`;
         }
     }
+    
+    // Display the error message
+    errorDisplay.innerHTML = friendlyMessage;
+    
+    // Also update the status message
+    if (location !== 'statusMessage' && statusMessage) {
+        statusMessage.textContent = 'An error occurred.';
+    }
+    
+    // Hide loading elements
+    if (loadingSpinner) {
+        loadingSpinner.style.display = 'none';
+    }
+    
+    // Show status overlay with error
+    if (modelViewerStatus) {
+        modelViewerStatus.style.display = 'flex';
+    }
 }
 
-// New function to process image with Google Gemini API
 async function processWithGemini(file, autoGenerateModel = false) {
-    if (isProcessingImage) return; // Prevent multiple processing
+    // Prevent multiple processing requests
+    if (isProcessingImage) {
+        console.log('Already processing an image, please wait');
+        return;
+    }
+    
     isProcessingImage = true;
     
-    // Disable generate button during processing
-    generateBtn.disabled = true;
+    // Update status
+    statusMessage.textContent = 'Processing image with Gemini...';
     
     try {
-        // Show processing status
-        modelViewerStatus.style.display = 'flex';
-        document.getElementById('processingText').textContent = 'Processing image...';
-        
-        // Create form data for the image
+        // Create a FormData object with the image
         const formData = new FormData();
         formData.append('image', file);
         
-        // Add a custom prompt - this can be changed to anything
-        const geminiPrompt = "Remove background and shadows from this object. Create a clean isolated image with a transparent background.";
-        formData.append('prompt', geminiPrompt);
+        // Optional: Add a custom prompt
+        const customPrompt = "Remove background and shadows from this object. Create a clean isolated image with a transparent background.";
+        formData.append('prompt', customPrompt);
         
-        // Call the server endpoint
+        // Send the request to the backend
         const response = await fetch(`${SERVER_URL}${PROCESS_IMAGE_ENDPOINT}`, {
             method: 'POST',
             body: formData
         });
         
         if (!response.ok) {
-            throw new Error(`Server returned ${response.status}: ${await response.text()}`);
+            throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
         }
         
-        const result = await response.json();
+        const data = await response.json();
         
-        if (!result.success || !result.processedImage) {
-            throw new Error('Failed to process image');
-        }
-        
-        console.log('Received processed image');
-        
-        // Store the processed image
-        processedImage = {
-            data: result.processedImage,
-            analysis: result.analysis || "No analysis available"
-        };
-        
-        // Create a File object from the processed image
-        const processedFile = base64ToFile(result.processedImage, 'processed_image.png');
-        if (processedFile) {
-            // Update the uploadedImage with the processed version
-            uploadedImage = processedFile;
-            console.log('Using processed image for model generation');
+        if (data.success) {
+            console.log('Image processed successfully with Gemini');
             
-            // Display the processed image directly in the preview area
-            displayDirectlyInPreview(result.processedImage);
-        } else {
-            console.log('Using original image for model generation (could not convert processed image)');
-            // Keep using the original image, display original preview
-            displayPreview(file);
-        }
-        
-        // Update status message
-        document.getElementById('processingText').textContent = 'Image processed. Ready for 3D generation.';
-        
-        // Enable the generate button
-        generateBtn.disabled = false;
-        
-        // If this is from webcam, automatically generate the model after a short delay
-        if (autoGenerateModel) {
-            document.getElementById('processingText').textContent = 'Automatically generating 3D model...';
-            // Give a brief moment for the UI to update before generating
-            setTimeout(() => {
-                generateModel();
-            }, 1000);
-        }
-        
-    } catch (error) {
-        console.error('Error processing image:', error);
-        document.getElementById('processingText').textContent = 'Error processing image. Proceeding with original.';
-        
-        // Fall back to the original image
-        setTimeout(() => {
-            // Keep the original uploadedImage
-            displayPreview(file); // Make sure original preview is shown
-            generateBtn.disabled = false;
-            modelViewerStatus.style.display = 'none';
+            // Convert base64 to file
+            processedImage = base64ToFile(data.processedImage, 'processed_image.png');
             
-            // If auto-generating, still try to generate the model with the original image
-            if (autoGenerateModel) {
-                setTimeout(() => {
-                    generateModel();
-                }, 1000);
+            // Display the processed image
+            displayProcessedImage(data.processedImage);
+            
+            // Display the analysis text if provided
+            if (data.analysis) {
+                console.log('Image analysis:', data.analysis);
             }
-        }, 1500);
+            
+            // Update status message
+            statusMessage.textContent = 'Image processed. Ready to generate model.';
+            
+            // Enable the generate button
+            generateBtn.disabled = false;
+            
+            // Automatically generate model if requested
+            if (autoGenerateModel) {
+                console.log('Auto-generating model...');
+                generateModel();
+            }
+            
+        } else {
+            throw new Error(data.error || 'Failed to process image with Gemini');
+        }
+    } catch (error) {
+        console.error('Error processing image with Gemini:', error);
+        
+        // Display the error
+        statusMessage.textContent = `Error: ${error.message}`;
+        
+        // If Gemini processing fails, use the original image
+        processedImage = file;
+        displayDirectlyInPreview(file);
+        
+        // Still enable generate button using original image
+        generateBtn.disabled = false;
     } finally {
         isProcessingImage = false;
     }
 }
 
-// New function to display processed image directly in the preview area
 function displayDirectlyInPreview(base64Image) {
+    // Clear preview
     preview.innerHTML = '';
+
+    // Create img element
     const img = document.createElement('img');
-    img.src = `data:image/png;base64,${base64Image}`;
-    img.alt = 'Processed Image';
-    img.style.maxWidth = '100%';
-    img.style.maxHeight = '150px';
-    img.style.borderRadius = '4px';
-    img.style.boxShadow = '0 2px 5px rgba(0, 0, 0, 0.3)';
-    img.style.backgroundColor = '#2a2a2a'; // Match the dark theme background
     
+    // If it's already a base64 string
+    if (typeof base64Image === 'string') {
+        img.src = `data:image/png;base64,${base64Image}`;
+    } 
+    // If it's a File object
+    else if (base64Image instanceof File) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            img.src = e.target.result;
+        }
+        reader.readAsDataURL(base64Image);
+    }
+    
+    // Append to preview
     preview.appendChild(img);
 }
 
-// Function to display the image with AI analysis - This function is no longer needed
-// but keeping a stub for compatibility
 function displayImageWithAnalysis(base64Image, analysisText) {
-    // This function is now essentially a no-op since we're 
-    // displaying directly in the preview area
-    console.log('Processing complete, displaying in main preview');
+    // Implementation details if needed
 }
 
-// Helper function to convert base64 to File object
 function base64ToFile(base64String, filename) {
+    // Ensure base64String is a string
+    if (typeof base64String !== 'string') {
+        console.warn('base64ToFile received a non-string value:', typeof base64String);
+        if (base64String instanceof File) return base64String;
+        throw new Error('Invalid base64 string');
+    }
+    
     try {
-        // Convert base64 to blob
+        // Check if the string already includes the data URL prefix
+        if (base64String.startsWith('data:')) {
+            // Extract the actual base64 part
+            const parts = base64String.split(',');
+            if (parts.length === 2) {
+                base64String = parts[1];
+            }
+        }
+        
+        // Convert base64 to Blob
         const byteString = atob(base64String);
         const ab = new ArrayBuffer(byteString.length);
         const ia = new Uint8Array(ab);
@@ -1072,83 +848,51 @@ function base64ToFile(base64String, filename) {
             ia[i] = byteString.charCodeAt(i);
         }
         
-        const blob = new Blob([ab], { type: 'image/png' });
+        // Determine the content type from the base64 string if possible
+        let contentType = 'image/png';
+        if (base64String.startsWith('/9j/')) {
+            contentType = 'image/jpeg';
+        } else if (base64String.startsWith('iVBOR')) {
+            contentType = 'image/png';
+        } else if (base64String.startsWith('R0lGOD')) {
+            contentType = 'image/gif';
+        } else if (base64String.startsWith('UklGR')) {
+            contentType = 'image/webp';
+        }
         
-        // Create File from Blob
-        return new File([blob], filename, { type: 'image/png' });
+        // Create Blob and File
+        const blob = new Blob([ab], { type: contentType });
+        
+        // Create a File from the Blob
+        return new File([blob], filename, { type: contentType });
     } catch (error) {
-        console.error('Error converting base64 to File:', error);
-        return null;
+        console.error('Error in base64ToFile:', error);
+        throw error;
     }
 }
 
-// Modified webcam capture function
-function captureAndUsePhoto() {
-    const context = webcamCanvas.getContext('2d');
-    
-    // Set canvas dimensions to match the video
-    webcamCanvas.width = webcamVideo.videoWidth;
-    webcamCanvas.height = webcamVideo.videoHeight;
-    
-    // Draw the current video frame on the canvas
-    context.drawImage(webcamVideo, 0, 0, webcamCanvas.width, webcamCanvas.height);
-    
-    // Process the captured photo immediately
-    processWebcamCapture();
-}
-
-// Modified to process with Gemini after webcam capture and automatically generate model
-function processWebcamCapture() {
-    try {
-        webcamCanvas.toBlob((blob) => {
-            if (!blob) {
-                throw new Error('Failed to create image from webcam');
-            }
-            
-            // Create a File object from the Blob
-            const currentDate = new Date();
-            const fileName = `webcam-capture-${currentDate.getTime()}.png`;
-            const file = new File([blob], fileName, { type: 'image/png' });
-            
-            // Process the file as if it was uploaded
-            uploadedImage = file;
-            displayPreview(file);
-            
-            // Close the webcam modal
-            closeWebcam();
-            
-            // Process with Gemini (which will handle displaying the image)
-            processWithGemini(file, true); // Pass true to indicate this is from webcam
-            
-        }, 'image/png', 0.95); // Add quality parameter for better images
-    } catch (error) {
-        console.error('Error processing webcam photo:', error);
-        alert('Failed to process webcam photo. Please try again.');
-        closeWebcam();
-    }
-}
-
-// Display the processed image in the preview area
 function displayProcessedImage(base64Image) {
-    // Create a separate container for the processed image
-    const processedContainer = document.createElement('div');
-    processedContainer.className = 'processed-image-container';
+    // Clear preview
+    preview.innerHTML = '';
+    
+    // Create a new image container
+    const container = document.createElement('div');
+    container.className = 'processed-image-container';
     
     // Create image element
     const img = document.createElement('img');
     img.src = `data:image/png;base64,${base64Image}`;
-    img.alt = 'Processed Image';
+    img.className = 'processed-image';
     
-    // Add label
-    const label = document.createElement('p');
-    label.textContent = 'AI-Processed'; // More generic text that doesn't specifically mention background removal
+    // Add a label
+    const label = document.createElement('div');
     label.className = 'processed-image-label';
+    label.textContent = 'Processed image'; // Can make dynamic if needed
+    
+    // Add to container
+    container.appendChild(img);
+    container.appendChild(label);
     
     // Add to preview
-    processedContainer.appendChild(img);
-    processedContainer.appendChild(label);
-    
-    // Clear previous preview and add new container
-    preview.innerHTML = '';
-    preview.appendChild(processedContainer);
+    preview.appendChild(container);
 } 

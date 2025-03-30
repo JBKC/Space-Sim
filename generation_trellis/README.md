@@ -73,7 +73,7 @@ The Trellis API returns responses in a nested format like this:
   "data": {
     "task_id": "c1641492-2bd4-4469-80a3-3d7114446eae",
     "model": "Qubico/trellis",
-    "task_type": "image-to-3d",
+    "task_type": "image-to-model",
     "status": "pending",
     "config": {
       "service_mode": "",
@@ -164,7 +164,7 @@ The Trellis API response is structured with a nested format:
   "data": {
     "task_id": "c1641492-2bd4-4469-80a3-3d7114446eae",
     "model": "Qubico/trellis",
-    "task_type": "image-to-3d",
+    "task_type": "image-to-model",
     "status": "pending",
     ...
   },

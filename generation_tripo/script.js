@@ -224,11 +224,18 @@ async function generateModel() {
     document.getElementById('processingText').innerText = 'Starting Tripo3D generation...';
     
     try {
-        // Create a FormData object
-        const formData = new FormData();
-        formData.append('image', uploadedImage);
+        // Check if the file is valid
+        if (!(uploadedImage instanceof File)) {
+            throw new Error('Invalid file object. Please try uploading again.');
+        }
         
-        console.log('Sending image directly to Tripo3D via server, type:', uploadedImage.type, 'size:', uploadedImage.size);
+        // Log the file details for debugging
+        console.log('File details:', {
+            name: uploadedImage.name,
+            type: uploadedImage.type,
+            size: uploadedImage.size,
+            lastModified: new Date(uploadedImage.lastModified).toISOString()
+        });
         
         // Make the API call with retry logic
         let response;
@@ -238,11 +245,25 @@ async function generateModel() {
         while (retries <= maxRetries) {
             try {
                 console.log(`Attempt ${retries + 1} to send to Tripo3D...`);
+                
+                // Create a fresh FormData for each attempt to avoid any potential issues
+                const formData = new FormData();
+                formData.append('image', uploadedImage);
+                
+                // This is important - don't set the Content-Type header manually
+                // The browser will set it automatically with the correct boundary for multipart/form-data
                 response = await fetch(`${SERVER_URL}${GENERATE_ENDPOINT}`, {
                     method: 'POST',
                     body: formData,
-                    // Add a longer timeout for large image uploads
+                    // Let the browser set the correct Content-Type header with boundary
+                    // headers: { 'Content-Type': 'multipart/form-data' } - DO NOT SET THIS
                     timeout: 60000 // 60 seconds
+                });
+                
+                console.log('Response received:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: Object.fromEntries([...response.headers])
                 });
                 
                 // Exit retry loop if successful
@@ -283,20 +304,94 @@ async function generateModel() {
         } else {
             // Handle HTTP errors
             if (response) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `Server error: ${response.status}`);
+                let errorText = `Server error: ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    console.error('Error response body:', errorData);
+                    errorText = errorData.error || errorText;
+                    
+                    // Log full error details to help with debugging
+                    console.log('Full error details:', errorData);
+                    
+                    // Display the complete error data for debugging
+                    console.log('COMPLETE ERROR RESPONSE:');
+                    console.log('Status:', response.status, response.statusText);
+                    console.log('Error Data:', JSON.stringify(errorData, null, 2));
+                    
+                    // Try to use errorString if available
+                    if (errorData.errorString) {
+                        console.log('Error string from server:', errorData.errorString);
+                        
+                        // Try to parse the error string into a JSON object for better debugging
+                        try {
+                            const parsedError = JSON.parse(errorData.errorString);
+                            console.log('Parsed API error from server:', parsedError);
+                            
+                            // Extract useful information from the parsed error
+                            if (parsedError.code && parsedError.message) {
+                                errorText = `API Error ${parsedError.code}: ${parsedError.message}`;
+                                if (parsedError.suggestion) {
+                                    errorText += ` (${parsedError.suggestion})`;
+                                }
+                            }
+                        } catch (e) {
+                            console.log('Failed to parse error string:', e);
+                        }
+                    }
+                    
+                    // Add details if available
+                    if (errorData.details) {
+                        // Format details more clearly
+                        if (typeof errorData.details === 'object') {
+                            const details = errorData.details;
+                            console.log('Error details object:', details);
+                            
+                            // Try to extract API error details
+                            if (details.code && details.message) {
+                                errorText = `${errorText} - Code ${details.code}: ${details.message}`;
+                                if (details.suggestion) {
+                                    errorText += ` (${details.suggestion})`;
+                                }
+                            } 
+                            // Look for nested error information in data
+                            else if (details.data && details.data.message) {
+                                errorText = `${errorText} - ${details.data.message}`;
+                            }
+                            // Otherwise, stringify the object
+                            else {
+                                try {
+                                    errorText += ` - ${JSON.stringify(details)}`;
+                                } catch (e) {
+                                    errorText += ` - Error details available in console`;
+                                }
+                            }
+                        } else {
+                            errorText += ` - ${errorData.details}`;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error parsing error response:', e);
+                    // Try to get text instead
+                    try {
+                        const textResponse = await response.text();
+                        console.error('Error response as text:', textResponse);
+                        errorText += ` - ${textResponse.substring(0, 100)}`;
+                    } catch (textError) {
+                        console.error('Could not read response as text either:', textError);
+                    }
+                }
+                throw new Error(errorText);
             } else {
                 throw new Error('No response from server');
             }
         }
     } catch (error) {
-        // Handle errors in a user-friendly way
         console.error('Error generating model with Tripo3D:', error);
-        displayUserFriendlyError(error);
-        
-        // Re-enable the button
-        generateBtn.disabled = false;
-        loadingSpinner.style.display = 'none';
+        loadingUI(false);
+        // Display a more user-friendly error message
+        const errorMessage = error.toString();
+        displayUserFriendlyError(errorMessage);
+        throw error;
     }
 }
 
@@ -626,6 +721,19 @@ function animate() {
     renderer.render(scene, camera);
 }
 
+// Helper function to manage loading UI state
+function loadingUI(isLoading) {
+    if (isLoading) {
+        generateBtn.disabled = true;
+        loadingSpinner.style.display = 'flex';
+        modelViewerStatus.style.display = 'flex';
+    } else {
+        generateBtn.disabled = false;
+        loadingSpinner.style.display = 'none';
+        // Don't hide the modelViewerStatus here, as it might be displaying an error
+    }
+}
+
 function displayUserFriendlyError(error, location = 'processingText') {
     console.error('Error:', error);
     
@@ -641,12 +749,39 @@ function displayUserFriendlyError(error, location = 'processingText') {
         }
     }
     
+    // Check for "API Error" format where we've already formatted the error nicely
+    if (message.includes('API Error')) {
+        // Already in a good format, keep it
+    }
+    // Check for JSON objects in the error message (common with API responses)
+    else if (message.match(/(\{.*\})/)) {
+        let jsonMatch = message.match(/(\{.*\})/);
+        if (jsonMatch && jsonMatch[1]) {
+            try {
+                const jsonPart = jsonMatch[1];
+                const errorObj = JSON.parse(jsonPart);
+                // Extract useful fields from the error object
+                if (errorObj.message) {
+                    message = message.replace(jsonPart, errorObj.message);
+                }
+                if (errorObj.code) {
+                    message += ` (Error code: ${errorObj.code})`;
+                }
+            } catch (e) {
+                // If parsing fails, continue with original message
+                console.log('Could not parse JSON in error message', e);
+            }
+        }
+    }
+    
     // Clean up the message (remove technical details)
     const cleanMessage = message
         .replace(/Error:/gi, '')
         .replace(/\bat\b.*$/gm, '')
         .replace(/\{.*\}/g, '')
         .replace(/\[.*\]/g, '')
+        .replace(/undefined/g, '')
+        .replace(/\s+/g, ' ')
         .trim();
         
     // Update the appropriate element with the error message
@@ -658,12 +793,16 @@ function displayUserFriendlyError(error, location = 'processingText') {
         // Make sure the error message is visible
         modelViewerStatus.style.display = 'flex';
         
+        // Add a class to style error messages differently
+        document.getElementById('processingText').classList.add('error-message');
+        
         // Hide the error after a delay (for model viewer errors)
         setTimeout(() => {
             modelViewerStatus.style.display = 'none';
-        }, 5000);
+            document.getElementById('processingText').classList.remove('error-message');
+        }, 10000); // Show for 10 seconds to give user time to read
     }
     
-    // Stop any loading indicators
-    loadingSpinner.style.display = 'none';
+    // Ensure we reenable the button and hide loading spinner
+    loadingUI(false);
 } 

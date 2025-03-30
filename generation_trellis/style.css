@@ -84,8 +84,8 @@ h2 {
     border-color: #2980b9;
 }
 
-/* File input and webcam button styles - making them identical */
-.file-input-label, .webcam-button {
+/* File input styles */
+.file-input-label {
     display: inline-block;
     background-color: #3498db;
     color: white;
@@ -97,7 +97,6 @@ h2 {
     font-size: 1rem;
     white-space: nowrap;
     text-align: center;
-    /* Remove fixed width to ensure they match their content exactly */
     width: auto; 
     min-width: 120px;
     margin: 0;
@@ -106,143 +105,8 @@ h2 {
     border: none;
 }
 
-.file-input-label:hover, .webcam-button:hover {
+.file-input-label:hover {
     background-color: #2980b9;
-}
-
-/* Button group for file input and webcam buttons */
-.button-group {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    margin-top: 1rem;
-}
-
-/* Webcam modal styles */
-.webcam-modal {
-    display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
-    overflow: auto;
-}
-
-.webcam-modal-content {
-    background-color: #2a2a2a; /* Dark mode background */
-    margin: 10% auto;
-    padding: 20px;
-    border: 1px solid #444444; /* Darker border for dark mode */
-    border-radius: 8px;
-    width: 80%;
-    max-width: 600px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-    position: relative;
-}
-
-.webcam-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-}
-
-.webcam-header h3 {
-    margin: 0;
-    color: #f5f5f5; /* Light text for dark background */
-}
-
-.close-webcam {
-    color: #f5f5f5; /* Light text for dark background */
-    font-size: 28px;
-    font-weight: bold;
-    cursor: pointer;
-    position: absolute;
-    top: 10px;
-    right: 15px;
-}
-
-.webcam-container {
-    width: 100%;
-    position: relative;
-    overflow: hidden;
-    border-radius: 4px;
-    background-color: #000;
-    margin: 0 0 15px 0;
-}
-
-#webcamVideo, #webcamCanvas {
-    width: 100%;
-    height: auto;
-    display: block;
-    max-height: 400px;
-    object-fit: cover;
-}
-
-.webcam-tips {
-    background-color: rgba(52, 152, 219, 0.1);
-    border-radius: 4px;
-    padding: 10px 15px;
-    margin-bottom: 15px;
-    border-left: 3px solid #3498db;
-}
-
-.webcam-tips p {
-    margin: 0 0 5px 0;
-    font-weight: bold;
-    color: #f5f5f5; /* Light text for dark background */
-}
-
-.webcam-tips ul {
-    margin: 0;
-    padding-left: 20px;
-}
-
-.webcam-tips li {
-    color: #bbbbbb; /* Lighter text for dark mode */
-    margin-bottom: 3px;
-}
-
-.webcam-footer {
-    display: flex;
-    justify-content: center;
-}
-
-.capture-button {
-    background-color: #3498db;
-    color: white;
-    border: none;
-    padding: 0.75rem 2rem;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 1.1rem;
-    transition: all 0.3s ease;
-    font-weight: bold;
-}
-
-.capture-button:hover {
-    background-color: #2980b9;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-}
-
-.use-photo-button {
-    background-color: #27ae60;
-}
-
-.use-photo-button:hover {
-    background-color: #219955;
-}
-
-.retake-button {
-    background-color: #e74c3c;
-}
-
-.retake-button:hover {
-    background-color: #c0392b;
 }
 
 .preview-container {
