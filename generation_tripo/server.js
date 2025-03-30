@@ -852,32 +852,37 @@ app.post('/api/generateText', async (req, res) => {
 });
 
 // Status check endpoint - for both v1 and v2 API
+// Status check endpoint - for both v1 and v2 API
 app.get('/api/status/:taskId', async (req, res) => {
+    let responsePayload = {}; // Declare responsePayload at the top level of the try block
     try {
         const taskId = req.params.taskId;
-        
+
         if (!taskId) {
-            return res.status(400).json({ error: 'Task ID is required' });
+             responsePayload = { success: false, error: 'Task ID is required' };
+            return res.status(400).json(responsePayload);
         }
-        
+
+        console.log(`📝 Request received: GET /api/status/${taskId}`);
         console.log(`📊 TRIPO STATUS CHECK: Checking status for task: ${taskId}`);
-        
+
         // For /v2/openapi/task endpoint, the status URL is the same as the task endpoint + taskId
         const statusUrl = `${TRIPO_STATUS_URL}/${taskId}`;
         console.log(`📊 TRIPO STATUS CHECK: Using v2 status endpoint: ${statusUrl}`);
-        
-        try {
-            // Check if API_KEY is set
-            if (!API_KEY) {
-                return res.status(500).json({ error: 'API key is not configured on the server.' });
-            }
 
+        // Check if API_KEY is set
+        if (!API_KEY) {
+            console.error('❌ API key is not configured on the server.');
+             responsePayload = { success: false, error: 'API key is not configured on the server.' };
+            return res.status(500).json(responsePayload);
+        }
+        const maskedKey = API_KEY ? `${API_KEY.substring(0, 8)}...` : 'NOT FOUND';
+
+        try {
             console.log('\n🔍 MAKING ACTUAL STATUS CHECK REQUEST WITH AXIOS:');
             console.log(`🔍 URL: ${statusUrl}`);
             console.log(`🔍 METHOD: GET`);
-            console.log(`🔍 HEADERS: ${JSON.stringify({
-                'Authorization': `Bearer ${API_KEY.substring(0, 10)}...`
-            }, null, 2)}`);
+            console.log(`🔍 HEADERS: ${JSON.stringify({ 'Authorization': `Bearer ${maskedKey}` }, null, 2)}`);
 
             const response = await axios.get(statusUrl, {
                 headers: {
@@ -887,174 +892,139 @@ app.get('/api/status/:taskId', async (req, res) => {
                 validateStatus: () => true // Don't throw on any status code
             });
 
-            console.log('📥 STATUS CHECK RESPONSE:', {
-                status: response.status,
-                headers: response.headers,
-                data: response.data
-            });
-            
-            if (response.status === 404) {
-                console.error(`📊 TRIPO STATUS CHECK: Status endpoint not found (404): ${statusUrl}`);
-                console.log('📊 TRIPO STATUS CHECK: Trying alternative status URL format...');
-                
-                // Try alternative status URL formats
-                const alternativeUrls = [
-                    `https://api.tripo3d.ai/v2/openapi/task/${taskId}`, // Current endpoint
-                    `https://api.tripo3d.ai/v2/tasks/${taskId}`,     // Common pattern
-                    `https://api.tripo3d.ai/v2/model/${taskId}`,      // Previous attempt
-                    `https://api.tripo3d.ai/v1/tasks/${taskId}`      // v1 fallback
-                ];
-                
-                for (const altUrl of alternativeUrls) {
-                    try {
-                        console.log(`📊 TRIPO STATUS CHECK: Trying alternative URL: ${altUrl}`);
-                        const altResponse = await axios.get(altUrl, {
-                            headers: {
-                                'Authorization': `Bearer ${API_KEY}`
-                            },
-                            validateStatus: () => true
-                        });
-                        
-                        console.log(`📊 TRIPO STATUS CHECK: Alternative URL response: ${altResponse.status}`);
-                        
-                        if (altResponse.status !== 404) {
-                            // Update the status URL base for future requests
-                            TRIPO_STATUS_URL = altUrl.substring(0, altUrl.lastIndexOf('/'));
-                            console.log(`📊 TRIPO STATUS CHECK: Updating status URL base to: ${TRIPO_STATUS_URL}`);
-                            
-                            // Use this response instead
-                            return res.json({
-                                success: true,
-                                status: 'checking',
-                                message: 'Found alternative status endpoint, please check again',
-                                altUrl: altUrl
-                            });
-                        }
-                    } catch (altError) {
-                        console.error(`📊 TRIPO STATUS CHECK: Error with alternative URL ${altUrl}:`, altError.message);
-                    }
-                }
-                
-                return res.json({
-                    success: false,
-                    status: 'error',
-                    error: 'Status endpoint not found'
-                });
-            }
-            
-            // Parse response using v2 API format
-            const apiResponse = response.data;
-            
-            if (apiResponse.code === 0 && apiResponse.data) {
-                const data = apiResponse.data;
-                const status = data.status || 'unknown';
+            console.log('📥 STATUS CHECK RESPONSE:');
+            console.log(`- Status: ${response.status} ${response.statusText}`);
+            // console.log(`- Headers: ${JSON.stringify(response.headers, null, 2)}`); // Optional
+            console.log(`- Body: ${JSON.stringify(response.data, null, 2)}`); // Log the full body
+
+            // --- Process the response ---
+            // Initialize responsePayload defaults here before conditions
+             responsePayload = {
+                success: false, // Default to false
+                status: 'error', // Default status
+                message: 'Failed to process status response',
+                progress: 0,
+                modelUrl: null,
+                error: 'Initial status check state',
+                details: response.data // Include raw details for debugging
+            };
+
+            if (response.status === 200 && response.data && response.data.code === 0 && response.data.data) {
+                const taskData = response.data.data;
                 let modelUrl = null;
-                const message = data.status_message || '';
-                
-                // Check if model is done and extract model URL
-                if (status === 'succeed') {
-                    if (data.url && data.url.fbx) {
-                        modelUrl = data.url.fbx;
-                    } else if (data.url && data.url.glb) {
-                        modelUrl = data.url.glb;
-                    } else if (data.urls && data.urls.length > 0) {
-                        // Try to find a 3D model URL in the urls array
-                        const modelFile = data.urls.find(url => 
-                            url.endsWith('.glb') || url.endsWith('.fbx') || url.endsWith('.obj'));
-                        if (modelFile) {
-                            modelUrl = modelFile;
+                let progressPercent = taskData.progress || 0; // Use progress if available, default 0
+                const status = taskData.status || 'unknown';
+                let message = taskData.status_message || status;
+                let success = true;
+                let errorMsg = null;
+
+                 responsePayload.status = status; // Update status from taskData
+
+                // Check for completion status
+                if (status === 'success' || status === 'completed') {
+                    console.log(`✅ Task ${taskId} completed successfully.`);
+                    progressPercent = 100; // Ensure progress is 100
+
+                    // Try to extract the model URL based on latest logs (output.pbr_model)
+                    if (taskData.output && typeof taskData.output === 'object') {
+                        console.log(`⚙️ Checking 'output' object for model URL...`);
+                        if (typeof taskData.output.pbr_model === 'string' && taskData.output.pbr_model.length > 0) {
+                            modelUrl = taskData.output.pbr_model;
+                            console.log(`✅ Extracted model URL from output.pbr_model: ${modelUrl}`);
+                        } else if (typeof taskData.output.model === 'string' && taskData.output.model.length > 0) { // Fallback 1
+                            modelUrl = taskData.output.model;
+                             console.log(`✅ Extracted model URL from output.model (fallback): ${modelUrl}`);
+                        } else if (typeof taskData.output.base_model === 'string' && taskData.output.base_model.length > 0) { // Fallback 2
+                            modelUrl = taskData.output.base_model;
+                             console.log(`✅ Extracted model URL from output.base_model (fallback): ${modelUrl}`);
+                        } else {
+                            console.warn(`⚠️ Task completed but expected model URL not found in output object.`);
+                            console.warn(`-> Received output object: ${JSON.stringify(taskData.output)}`);
                         }
-                    }
-                    
-                    if (modelUrl) {
-                        console.log(`📊 TRIPO STATUS CHECK: Model completed. URL: ${modelUrl}`);
-                        
-                        // Return success with model URL
-                        return res.json({
-                            success: true,
-                            status: 'completed',
-                            modelUrl: modelUrl
-                        });
                     } else {
-                        console.error('📊 TRIPO STATUS CHECK: Model completed but no URL found in response');
-                        return res.json({
-                            success: true,
-                            status: 'error',
-                            error: 'Model URL not found in completed response'
-                        });
+                         console.warn(`⚠️ Task completed but the 'output' object itself is missing or not an object.`);
                     }
-                } 
-                // Check for failure states
-                else if (status === 'failed') {
-                    console.error(`📊 TRIPO STATUS CHECK: Model generation failed: ${message}`);
-                    return res.json({
-                        success: false,
-                        status: 'failed',
-                        error: message || 'Model generation failed'
-                    });
-                }
-                // Still processing
-                else {
-                    console.log(`📊 TRIPO STATUS CHECK: Model generation in progress. Status: ${status}`);
-                    // Calculate progress if available
-                    let progress = 0;
-                    if (data.progress) {
-                        progress = parseFloat(data.progress) * 100; // Convert to percentage
+
+                    // Final check for modelUrl
+                    if (modelUrl) {
+                        message = 'Model ready';
+                        responsePayload.modelUrl = modelUrl;
+                    } else {
+                         success = false;
+                         errorMsg = 'Output model file URL not found in API response structure.';
+                         message = errorMsg;
+                         responsePayload.status = 'error'; // Override status
+                         console.error(`❌ Failed to find model URL in task response. Check logs.`);
                     }
-                    
-                    return res.json({
-                        success: true,
-                        status: status,
-                        message: message || 'Processing',
-                        progress: progress
-                    });
+                } else if (status === 'failed' || status === 'error') {
+                    // Handle explicit failure status
+                    console.error(`❌ Task ${taskId} failed. Status: ${status}`);
+                     success = false;
+                     errorMsg = taskData.error || 'Task failed with unspecified error.';
+                     message = errorMsg;
+                     // Keep progress as reported by API if available, else 0
+                } else {
+                    // Still processing
+                     success = true; // Still successfully polling
+                     message = `Processing (${parseFloat(progressPercent).toFixed(0)}%)`;
+                     console.log(`📊 Task ${taskId} in progress. Status: ${status}, Progress: ${progressPercent}%`);
                 }
+
+                // Update final responsePayload fields
+                responsePayload.success = success;
+                responsePayload.message = message;
+                responsePayload.progress = parseFloat(progressPercent);
+                responsePayload.error = errorMsg;
+
             } else {
-                // API returned an error
-                console.error(`📊 TRIPO STATUS CHECK: API returned error code: ${apiResponse.code}`);
-                return res.json({
-                    success: false,
-                    status: 'error',
-                    error: apiResponse.message || 'API returned an error'
-                });
+                // Handle non-200 status or API error code (!== 0) or missing data
+                console.error(`📊 TRIPO STATUS CHECK: Received non-success status or API error.`);
+                console.error(`- Status: ${response.status}, API Code: ${response.data?.code ?? 'N/A'}`);
+                 responsePayload.error = response.data?.message || `Status check failed with HTTP status ${response.status}`;
+                 responsePayload.message = responsePayload.error;
+                 responsePayload.success = false;
+                 responsePayload.status = 'error';
+                 // Use HTTP status code from API if it indicates an error
+                 if (response.status >= 400) {
+                     return res.status(response.status).json(responsePayload);
+                 }
             }
+            // Send the final response
+             res.json(responsePayload);
+
         } catch (error) {
-            console.error('📊 TRIPO STATUS CHECK ERROR:', error.message);
-            let errorMessage = error.message;
-            let statusCode = 500;
-            
-            // Handle axios specific errors
-            if (error.response) {
-                statusCode = error.response.status;
-                errorMessage = `API Error: ${statusCode}`;
-                console.error('📊 TRIPO STATUS CHECK ERROR: API response error:', error.response.data);
-            }
-            
-            res.status(statusCode).json({
+            // Handle exceptions during the Axios request itself
+            console.error('❌ Exception during status check request:', error.message);
+             responsePayload = {
                 success: false,
                 status: 'error',
-                error: errorMessage
-            });
+                error: 'Failed to execute status check request',
+                details: error.message
+            };
+            if (error.response) {
+                console.error(`- Response Status: ${error.response.status}`);
+                console.error(`- Response Data: ${JSON.stringify(error.response.data)}`);
+                 responsePayload.details = error.response.data; // Add more detail
+                return res.status(error.response.status).json(responsePayload);
+            } else if (error.request) {
+                console.error('- No response received from status server.');
+                 responsePayload.error = 'No response from status server';
+            }
+             res.status(500).json(responsePayload);
         }
-    } catch (error) {
-        console.error('📊 TRIPO STATUS CHECK ERROR:', error.message);
-        let errorMessage = error.message;
-        let statusCode = 500;
-        
-        // Handle axios specific errors
-        if (error.response) {
-            statusCode = error.response.status;
-            errorMessage = `API Error: ${statusCode}`;
-            console.error('📊 TRIPO STATUS CHECK ERROR: API response error:', error.response.data);
-        }
-        
-        res.status(statusCode).json({
+    } catch (outerError) {
+         // Handle unexpected errors in the route handler logic itself
+         console.error('❌ Unexpected error in status check route:', outerError);
+          responsePayload = {
             success: false,
             status: 'error',
-            error: errorMessage
-        });
+            error: 'Internal server error during status check',
+            details: outerError.message
+        };
+         res.status(500).json(responsePayload);
     }
 });
+
 
 // Special route to check server health
 app.get('/health', (req, res) => {
