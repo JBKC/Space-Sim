@@ -26,7 +26,7 @@ npm install
 3. Create a `.env` file with your Tripo3D API key:
 ```
 TRIPO_API_KEY=your-tripo-api-key-here
-PORT=3001
+PORT=8000
 ```
 
 4. Start the server:
@@ -34,7 +34,7 @@ PORT=3001
 npm run dev
 ```
 
-5. Open your browser and go to http://localhost:3001
+5. Open your browser and go to http://localhost:8000
 
 ## How it works
 

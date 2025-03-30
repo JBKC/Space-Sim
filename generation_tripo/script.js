@@ -20,7 +20,7 @@ let currentModelUrl = null; // Store the model URL for download
 let statusCheckErrorCount = 0;
 
 // Server API endpoints
-const SERVER_URL = 'http://localhost:3001';
+const SERVER_URL = 'http://localhost:8000';
 const GENERATE_ENDPOINT = '/api/generate';
 const STATUS_ENDPOINT = '/api/status';
 
@@ -111,7 +111,7 @@ function validateAndProcessImage(file) {
     preview.innerHTML = '';
     
     // Display loading message
-    statusMessage.textContent = 'Image loaded successfully';
+    statusMessage.textContent = 'Image ready for processing';
     
     // Display initial preview
     displayPreview(file);
