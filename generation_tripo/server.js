@@ -12,7 +12,8 @@ const port = process.env.PORT || 8000;
 
 // API Key from .env file
 const API_KEY = process.env.TRIPO_API_KEY;
-const TRIPO_API_URL = 'https://platform.tripo3d.ai/api/v1/generation';
+// Updated API URL based on documentation
+const TRIPO_API_URL = 'https://api.tripo3d.ai/v2/openapi/task';
 
 console.log('-------------------------------------------');
 console.log('TRIPO3D MODEL GENERATOR SERVER');
@@ -66,14 +67,17 @@ app.post('/api/generate', upload.single('image'), async (req, res) => {
             const maskedKey = API_KEY ? `${API_KEY.substring(0, 8)}...` : 'NOT FOUND';
             console.log(`📤 TRIPO GENERATION: Using Tripo3D API key: ${maskedKey}`);
             
-            // Create proper JSON payload according to Tripo3D API docs
+            // Create proper JSON payload according to updated Tripo3D API docs
             const payload = {
-                image: base64Image,
-                remove_background: true // Optional - remove background from image
+                task_type: "image-to-3d",
+                input: {
+                    image: `data:image/jpeg;base64,${base64Image}`,
+                    remove_background: true
+                }
             };
             
-            console.log(`📤 TRIPO GENERATION: Sending request directly to Tripo3D API: ${TRIPO_API_URL}`);
-            console.log(`📤 TRIPO GENERATION: Payload includes image of ${base64Image.length} chars and remove_background=${payload.remove_background}`);
+            console.log(`📤 TRIPO GENERATION: Sending request to Tripo3D API: ${TRIPO_API_URL}`);
+            console.log(`📤 TRIPO GENERATION: Payload includes task_type: ${payload.task_type}`);
             
             // Send the request with JSON payload
             const response = await axios.post(TRIPO_API_URL, 
@@ -81,7 +85,7 @@ app.post('/api/generate', upload.single('image'), async (req, res) => {
                 {
                     headers: {
                         'Content-Type': 'application/json',
-                        'x-api-key': API_KEY
+                        'Authorization': `Bearer ${API_KEY}`
                     },
                     timeout: 60000 // 60 second timeout
                 }
@@ -165,10 +169,13 @@ app.get('/api/status/:taskId', async (req, res) => {
         
         console.log(`📊 TRIPO STATUS CHECK: Checking status for task: ${taskId}`);
         
-        // Call Tripo3D API to check status
-        const response = await axios.get(`${TRIPO_API_URL}/status/${taskId}`, {
+        // Call Tripo3D API to check status - use the specific task endpoint
+        const statusUrl = `${TRIPO_API_URL}/${taskId}`;
+        console.log(`📊 TRIPO STATUS CHECK: Using URL: ${statusUrl}`);
+        
+        const response = await axios.get(statusUrl, {
             headers: {
-                'x-api-key': API_KEY
+                'Authorization': `Bearer ${API_KEY}`
             }
         });
         
@@ -181,12 +188,15 @@ app.get('/api/status/:taskId', async (req, res) => {
         let modelUrl = null;
         let message = data.message || '';
         
-        // Check if model is done and extract model URL
-        if (status === 'completed' || status === 'done' || status === 'success') {
-            modelUrl = data.model_url || data.url || null;
-            
-            if (!modelUrl && data.result) {
-                modelUrl = data.result.model_url || data.result.url || null;
+        // Check if the task is done and extract model URL from the output
+        if (status === 'COMPLETED' || status === 'completed' || status === 'done' || status === 'success') {
+            // Look for model URL in the output
+            if (data.output && data.output.model) {
+                modelUrl = data.output.model;
+            } else if (data.output && data.output.url) {
+                modelUrl = data.output.url;
+            } else if (data.result && data.result.model_url) {
+                modelUrl = data.result.model_url;
             }
             
             if (modelUrl) {
@@ -208,7 +218,7 @@ app.get('/api/status/:taskId', async (req, res) => {
             }
         } 
         // Check for failure states
-        else if (status === 'failed' || status === 'error') {
+        else if (status === 'FAILED' || status === 'failed' || status === 'error') {
             console.error(`📊 TRIPO STATUS CHECK: Model generation failed: ${message}`);
             return res.json({
                 success: false,
@@ -268,4 +278,4 @@ app.listen(port, () => {
     console.log('Try accessing:');
     console.log(`  - Homepage: http://localhost:${port}/`);
     console.log(`  - Health check: http://localhost:${port}/health`);
-}); 
+});
