@@ -386,7 +386,7 @@ async function checkTaskStatus() {
 function initializeViewer() {
     // Create scene
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf6e6cf); // Light beige background matching the UI
+    scene.background = new THREE.Color(0x1a1a1a); // Dark background matching the UI
 
     // Create camera
     camera = new THREE.PerspectiveCamera(75, modelViewer.clientWidth / modelViewer.clientHeight, 0.1, 1000);
@@ -410,14 +410,14 @@ function initializeViewer() {
         // For newer versions of THREE.js
         renderer.outputColorSpace = THREE.SRGBColorSpace;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.5; // Reduced exposure for less shine
+        renderer.toneMappingExposure = 1.0; // Lower exposure for dark mode
         renderer.logarithmicDepthBuffer = true; // Better handling of near/far objects
     } catch (e) {
         // Fallback for older versions
         try {
             renderer.physicallyCorrectLights = true;
             renderer.outputEncoding = THREE.sRGBEncoding;
-            renderer.toneMappingExposure = 1.5;
+            renderer.toneMappingExposure = 1.0; // Lower exposure for dark mode
             renderer.gammaOutput = true;
             renderer.gammaFactor = 2.2;
         } catch (err) {
@@ -436,7 +436,7 @@ function initializeViewer() {
         const envMap = pmremGenerator.fromEquirectangular(environmentTexture).texture;
         
         scene.environment = envMap;
-        scene.background = new THREE.Color(0xf6e6cf); // Keep the light beige background
+        scene.background = new THREE.Color(0x1a1a1a); // Keep the dark background
         
         // Store the environment map for later use
         window.envMap = envMap;
@@ -447,13 +447,13 @@ function initializeViewer() {
         console.warn('Could not set up environment mapping:', e);
     }
     
-    // Set up softer lighting for light mode
+    // Set up lighting for dark mode
     // Ambient light (overall scene illumination)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9); // Softer ambient for light mode
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Lower ambient for dark mode
     scene.add(ambientLight);
 
     // Main directional light (sun-like)
-    const mainLight = new THREE.DirectionalLight(0xffffff, 0.8); // Softer main light
+    const mainLight = new THREE.DirectionalLight(0xffffff, 0.7); // Stronger directional light for contrast
     mainLight.position.set(5, 5, 5);
     mainLight.castShadow = true;
     
@@ -467,17 +467,17 @@ function initializeViewer() {
     scene.add(mainLight);
 
     // Add fill lights
-    const fillLight1 = new THREE.DirectionalLight(0xffffff, 0.4); // Softer fill light
+    const fillLight1 = new THREE.DirectionalLight(0x8080ff, 0.2); // Subtle blue fill light
     fillLight1.position.set(-5, 5, -5);
     scene.add(fillLight1);
 
-    const fillLight2 = new THREE.DirectionalLight(0xffffff, 0.4); // Softer fill light
+    const fillLight2 = new THREE.DirectionalLight(0x80ff80, 0.2); // Subtle green fill light
     fillLight2.position.set(5, -5, -5);
     scene.add(fillLight2);
     
-    // Add a gentle rim light for subtle definition
-    const rimLight = new THREE.DirectionalLight(0xffffff, 0.3);
-    rimLight.position.set(0, 0, -5);
+    // Add a rim light for better definition against dark background
+    const rimLight = new THREE.DirectionalLight(0xffffff, 0.5); // Stronger rim light
+    rimLight.position.set(0, 0, -10);
     scene.add(rimLight);
 
     // Add controls
@@ -500,7 +500,7 @@ function initializeViewer() {
     animate();
 }
 
-// Create a simple procedural environment texture with lighter colors
+// Create a simple procedural environment texture with darker colors
 function createEnvironmentTexture() {
     const size = 512;
     const data = new Uint8Array(size * size * 4);
@@ -509,7 +509,7 @@ function createEnvironmentTexture() {
         for (let j = 0; j < size; j++) {
             const idx = (i * size + j) * 4;
             
-            // Simple gradient for light mode
+            // Simple gradient for dark mode
             const phi = Math.PI * i / size;
             const theta = 2 * Math.PI * j / size;
             
@@ -517,22 +517,20 @@ function createEnvironmentTexture() {
             const y = Math.cos(phi);
             const z = Math.sin(phi) * Math.sin(theta);
             
-            // Sky (soft gradient to match the theme)
+            // Sky (dark gradient)
             if (y > 0) {
-                const intensity = 0.95 + 0.05 * y; // Subtle gradient
-                // Convert #f6e6cf to RGB
-                data[idx] = Math.floor(246 * intensity); // R
-                data[idx + 1] = Math.floor(230 * intensity); // G
-                data[idx + 2] = Math.floor(207 * intensity); // B
+                const intensity = 0.3 + 0.2 * y; // Subtle dark gradient
+                data[idx] = Math.floor(50 * intensity); // R
+                data[idx + 1] = Math.floor(50 * intensity); // G
+                data[idx + 2] = Math.floor(60 * intensity); // B
                 data[idx + 3] = 255; // A
             } 
             // Ground (slightly darker tone)
             else {
-                const intensity = 0.9 + 0.1 * (-y); // Subtle gradient
-                // Slightly darker than the main color
-                data[idx] = Math.floor(226 * intensity); // R
-                data[idx + 1] = Math.floor(210 * intensity); // G
-                data[idx + 2] = Math.floor(187 * intensity); // B
+                const intensity = 0.2 + 0.1 * (-y); // Subtle gradient
+                data[idx] = Math.floor(30 * intensity); // R
+                data[idx + 1] = Math.floor(30 * intensity); // G
+                data[idx + 2] = Math.floor(35 * intensity); // B
                 data[idx + 3] = 255; // A
             }
         }
@@ -848,7 +846,7 @@ function handleFiles(files) {
 }
 
 // New function to process image with Google Gemini API
-async function processWithGemini(file) {
+async function processWithGemini(file, autoGenerateModel = false) {
     if (isProcessingImage) return; // Prevent multiple processing
     isProcessingImage = true;
     
@@ -858,14 +856,14 @@ async function processWithGemini(file) {
     try {
         // Show processing status
         modelViewerStatus.style.display = 'flex';
-        document.getElementById('processingText').textContent = 'Removing background and shadows...';
+        document.getElementById('processingText').textContent = 'Processing image...';
         
         // Create form data for the image
         const formData = new FormData();
         formData.append('image', file);
         
         // Add a custom prompt - this can be changed to anything
-        const geminiPrompt = "Remove background and shadows from this object";
+        const geminiPrompt = "Remove background and shadows from this object. Create a clean isolated image with a transparent background.";
         formData.append('prompt', geminiPrompt);
         
         // Call the server endpoint
@@ -884,87 +882,110 @@ async function processWithGemini(file) {
             throw new Error('Failed to process image');
         }
         
-        // Convert base64 to a Blob
-        const imageBlob = base64ToBlob(result.processedImage, 'image/png');
+        console.log('Received processed image');
         
-        // Convert Blob to File
-        const fileName = file.name.replace(/\.[^/.]+$/, '') + '_processed.png';
-        processedImage = new File([imageBlob], fileName, { type: 'image/png' });
+        // Store the processed image
+        processedImage = {
+            data: result.processedImage,
+            analysis: result.analysis || "No analysis available"
+        };
         
-        // Create a dedicated element to display the processed image in the bottom left
-        displayProcessedImageBottomLeft(result.processedImage);
+        // Create a File object from the processed image
+        const processedFile = base64ToFile(result.processedImage, 'processed_image.png');
+        if (processedFile) {
+            // Update the uploadedImage with the processed version
+            uploadedImage = processedFile;
+            console.log('Using processed image for model generation');
+            
+            // Display the processed image directly in the preview area
+            displayDirectlyInPreview(result.processedImage);
+        } else {
+            console.log('Using original image for model generation (could not convert processed image)');
+            // Keep using the original image, display original preview
+            displayPreview(file);
+        }
         
         // Update status message
-        document.getElementById('processingText').textContent = 'Starting 3D model generation...';
+        document.getElementById('processingText').textContent = 'Image processed. Ready for 3D generation.';
         
-        // Automatically trigger model generation after a short delay
-        // to give users a chance to see the processed image
-        setTimeout(() => {
-            uploadedImage = processedImage; // Use the processed image for generation
-            generateModel();
-        }, 1500); // 1.5 second delay to allow time to see the processed image
+        // Enable the generate button
+        generateBtn.disabled = false;
+        
+        // If this is from webcam, automatically generate the model after a short delay
+        if (autoGenerateModel) {
+            document.getElementById('processingText').textContent = 'Automatically generating 3D model...';
+            // Give a brief moment for the UI to update before generating
+            setTimeout(() => {
+                generateModel();
+            }, 1000);
+        }
         
     } catch (error) {
-        console.error('Error processing with Gemini:', error);
+        console.error('Error processing image:', error);
         document.getElementById('processingText').textContent = 'Error processing image. Proceeding with original.';
         
         // Fall back to the original image
         setTimeout(() => {
-            uploadedImage = file; // Use the original image for generation
-            generateModel();
+            // Keep the original uploadedImage
+            displayPreview(file); // Make sure original preview is shown
+            generateBtn.disabled = false;
+            modelViewerStatus.style.display = 'none';
+            
+            // If auto-generating, still try to generate the model with the original image
+            if (autoGenerateModel) {
+                setTimeout(() => {
+                    generateModel();
+                }, 1000);
+            }
         }, 1500);
     } finally {
         isProcessingImage = false;
     }
 }
 
-// Helper function to convert base64 to Blob
-function base64ToBlob(base64, mimeType) {
-    const byteString = atob(base64);
-    const ab = new ArrayBuffer(byteString.length);
-    const ia = new Uint8Array(ab);
-    
-    for (let i = 0; i < byteString.length; i++) {
-        ia[i] = byteString.charCodeAt(i);
-    }
-    
-    return new Blob([ab], { type: mimeType });
-}
-
-// New function to display the processed image in the bottom left corner of the UI
-function displayProcessedImageBottomLeft(base64Image) {
-    // First check if there's already a processed image section and remove it
-    let existingSection = document.getElementById('processedImageSection');
-    if (existingSection) {
-        existingSection.remove();
-    }
-    
-    // Create a new section for the processed image
-    const processedSection = document.createElement('div');
-    processedSection.id = 'processedImageSection';
-    processedSection.className = 'processed-image-section';
-    
-    // Create image element
+// New function to display processed image directly in the preview area
+function displayDirectlyInPreview(base64Image) {
+    preview.innerHTML = '';
     const img = document.createElement('img');
     img.src = `data:image/png;base64,${base64Image}`;
     img.alt = 'Processed Image';
-    img.className = 'processed-image';
+    img.style.maxWidth = '100%';
+    img.style.maxHeight = '150px';
+    img.style.borderRadius = '4px';
+    img.style.boxShadow = '0 2px 5px rgba(0, 0, 0, 0.3)';
+    img.style.backgroundColor = '#2a2a2a'; // Match the dark theme background
     
-    // Add label
-    const label = document.createElement('div');
-    label.className = 'processed-image-title';
-    label.textContent = 'AI-Processed Image';
-    
-    // Add elements to the section
-    processedSection.appendChild(label);
-    processedSection.appendChild(img);
-    
-    // Add the section to the page in the bottom left
-    const leftPanel = document.querySelector('.left-panel');
-    leftPanel.appendChild(processedSection);
-    
-    // Also update the preview area as before
-    displayProcessedImage(base64Image);
+    preview.appendChild(img);
+}
+
+// Function to display the image with AI analysis - This function is no longer needed
+// but keeping a stub for compatibility
+function displayImageWithAnalysis(base64Image, analysisText) {
+    // This function is now essentially a no-op since we're 
+    // displaying directly in the preview area
+    console.log('Processing complete, displaying in main preview');
+}
+
+// Helper function to convert base64 to File object
+function base64ToFile(base64String, filename) {
+    try {
+        // Convert base64 to blob
+        const byteString = atob(base64String);
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        
+        for (let i = 0; i < byteString.length; i++) {
+            ia[i] = byteString.charCodeAt(i);
+        }
+        
+        const blob = new Blob([ab], { type: 'image/png' });
+        
+        // Create File from Blob
+        return new File([blob], filename, { type: 'image/png' });
+    } catch (error) {
+        console.error('Error converting base64 to File:', error);
+        return null;
+    }
 }
 
 // Modified webcam capture function
@@ -982,7 +1003,7 @@ function captureAndUsePhoto() {
     processWebcamCapture();
 }
 
-// Modified to process with Gemini after webcam capture
+// Modified to process with Gemini after webcam capture and automatically generate model
 function processWebcamCapture() {
     try {
         webcamCanvas.toBlob((blob) => {
@@ -1002,8 +1023,8 @@ function processWebcamCapture() {
             // Close the webcam modal
             closeWebcam();
             
-            // Process with Gemini (which will trigger model generation)
-            processWithGemini(file);
+            // Process with Gemini (which will handle displaying the image)
+            processWithGemini(file, true); // Pass true to indicate this is from webcam
             
         }, 'image/png', 0.95); // Add quality parameter for better images
     } catch (error) {

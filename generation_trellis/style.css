@@ -6,8 +6,8 @@
 }
 
 body {
-    background-color: #f6e6cf; /* Soft beige color matching image */
-    color: #333333; /* Darker text for light background */
+    background-color: #1a1a1a; /* Dark background instead of beige */
+    color: #f5f5f5; /* Light text for dark background */
     line-height: 1.6;
     min-height: 100vh;
 }
@@ -25,14 +25,14 @@ body {
 h1 {
     text-align: center;
     margin-bottom: 1rem;
-    color: #333333; /* Dark text for light background */
+    color: #f5f5f5; /* Light text for dark background */
     width: 100%;
     padding-top: 1rem;
 }
 
 h2 {
     margin-bottom: 1rem;
-    color: #333333; /* Dark text for light background */
+    color: #f5f5f5; /* Light text for dark background */
 }
 
 .left-panel {
@@ -49,12 +49,12 @@ h2 {
 }
 
 .upload-section {
-    background-color: #f6e6cf; /* Light mode panel */
+    background-color: #2a2a2a; /* Dark mode panel */
     border-radius: 8px;
-    border: 1px solid #000000; /* Thin black border */
+    border: 1px solid #444444; /* Darker border for dark mode */
     padding: 1.2rem;
     margin-bottom: 1.2rem;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Lighter shadow for light mode */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3); /* Slightly stronger shadow for dark mode */
 }
 
 .status-section {
@@ -132,10 +132,10 @@ h2 {
 }
 
 .webcam-modal-content {
-    background-color: #f6e6cf;
+    background-color: #2a2a2a; /* Dark mode background */
     margin: 10% auto;
     padding: 20px;
-    border: 1px solid #000000;
+    border: 1px solid #444444; /* Darker border for dark mode */
     border-radius: 8px;
     width: 80%;
     max-width: 600px;
@@ -152,11 +152,11 @@ h2 {
 
 .webcam-header h3 {
     margin: 0;
-    color: #333333;
+    color: #f5f5f5; /* Light text for dark background */
 }
 
 .close-webcam {
-    color: #333333;
+    color: #f5f5f5; /* Light text for dark background */
     font-size: 28px;
     font-weight: bold;
     cursor: pointer;
@@ -193,7 +193,7 @@ h2 {
 .webcam-tips p {
     margin: 0 0 5px 0;
     font-weight: bold;
-    color: #333333;
+    color: #f5f5f5; /* Light text for dark background */
 }
 
 .webcam-tips ul {
@@ -202,7 +202,7 @@ h2 {
 }
 
 .webcam-tips li {
-    color: #555555;
+    color: #bbbbbb; /* Lighter text for dark mode */
     margin-bottom: 3px;
 }
 
@@ -270,7 +270,7 @@ h2 {
     max-height: 150px;
     border-radius: 4px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-    background-color: rgba(255, 255, 255, 0.5); /* Light background for transparent image */
+    background-color: #2a2a2a; /* Match the dark theme background */
 }
 
 .processed-image-label {
@@ -287,30 +287,20 @@ h2 {
 
 /* Styles for the processed image section in the bottom left */
 .processed-image-section {
-    margin-top: 1.5rem;
-    padding: 1rem;
-    background-color: #f6e6cf;
-    border: 1px solid #000000;
-    border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    text-align: center;
+    display: none; /* Hide this section as we're now showing the processed image in the main preview */
 }
 
 .processed-image-title {
-    font-weight: 600;
-    color: #2980b9;
-    margin-bottom: 0.8rem;
-    font-size: 1rem;
+    display: none; /* Hide this title as it's no longer needed */
 }
 
 .processed-image {
-    max-width: 100%;
-    max-height: 180px;
-    border-radius: 6px;
-    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
-    background-color: rgba(255, 255, 255, 0.5); /* Light background for transparent image */
-    display: block;
-    margin: 0 auto;
+    display: none; /* Hide this as we're using inline styles for the preview image now */
+}
+
+/* Style for the AI analysis text */
+.image-analysis-text {
+    display: none; /* Hide analysis text completely */
 }
 
 button {
@@ -341,9 +331,9 @@ button:disabled {
     height: 100%;
     min-height: 400px; /* Reduced height for laptop screens */
     max-height: 60vh; /* Cap the height to 60% of viewport height */
-    background-color: #f6e6cf; /* Background matching the image */
+    background-color: #1a1a1a; /* Dark background matching the body */
     border-radius: 8px;
-    border: 1px solid #000000; /* Thin black border */
+    border: 1px solid #444444; /* Darker border for dark mode */
     overflow: hidden;
     position: relative;
 }
@@ -360,16 +350,16 @@ button:disabled {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    color: #333333; /* Darker text for light background */
+    color: #f5f5f5; /* Light text for dark background */
     font-size: 1.5rem;
     text-align: center;
     z-index: 10;
     pointer-events: none; /* Allow clicks to pass through */
-    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5); /* Light shadow for dark text */
-    background-color: rgba(246, 230, 207, 0.8); /* Semi-transparent background matching the theme */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); /* Dark shadow for light text */
+    background-color: rgba(42, 42, 42, 0.8); /* Semi-transparent dark background */
     padding: 1.5rem 2rem;
     border-radius: 8px;
-    border: none; /* Removed the black border */
+    border: none;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -381,7 +371,7 @@ button:disabled {
     text-align: center;
     margin-top: 0.5rem;
     font-size: 0.8rem;
-    color: #666666; /* Darker text for light mode */
+    color: #bbbbbb; /* Lighter text for dark mode */
 }
 
 #statusMessage {
@@ -390,19 +380,19 @@ button:disabled {
 
 /* Streamlined download section */
 .download-section {
-    background-color: #f6e6cf; /* Light mode background */
+    background-color: #2a2a2a; /* Dark mode background */
     border-radius: 8px;
-    border: 1px solid #000000; /* Thin black border */
+    border: 1px solid #444444; /* Darker border for dark mode */
     padding: 1rem;
     margin-top: 1rem;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
     text-align: center;
 }
 
 .download-section h2 {
     margin-bottom: 1.2rem;
     font-size: 1.8rem;
-    color: #333333; /* Dark text for light background */
+    color: #f5f5f5; /* Light text for dark background */
     font-weight: 500;
 }
 
