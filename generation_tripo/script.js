@@ -24,11 +24,31 @@ const SERVER_URL = 'http://localhost:8000';
 const GENERATE_ENDPOINT = '/api/generate';
 const STATUS_ENDPOINT = '/api/status';
 
+// Check server connectivity
+checkServerHealth();
+
 // Initialize 3D viewer
 initializeViewer();
 
 // Setup event listeners
 setupEventListeners();
+
+function checkServerHealth() {
+    fetch(`${SERVER_URL}/health`)
+        .then(response => {
+            if (response.ok) {
+                console.log('Server is running and healthy');
+                statusMessage.textContent = 'Ready - Server connected';
+            } else {
+                console.error('Server health check failed');
+                statusMessage.textContent = 'Warning: Server connection issue';
+            }
+        })
+        .catch(error => {
+            console.error('Server health check error:', error);
+            statusMessage.textContent = 'Error: Cannot connect to server';
+        });
+}
 
 function setupEventListeners() {
     // Drag and drop events
@@ -47,8 +67,7 @@ function setupEventListeners() {
     dropArea.addEventListener('drop', handleDrop, false);
     fileInput.addEventListener('change', handleFileSelect, false);
     
-    // Fix: Add preventDefault to stop the page from reloading when clicking the label 
-    // and separate the file input click handler from the dropArea click handler
+    // File input label click handler
     const fileInputLabel = document.querySelector('.file-input-label');
     if (fileInputLabel) {
         fileInputLabel.addEventListener('click', (e) => {
@@ -110,9 +129,6 @@ function validateAndProcessImage(file) {
     // Clear any existing previews
     preview.innerHTML = '';
     
-    // Display loading message
-    statusMessage.textContent = 'Image ready for processing';
-    
     // Display initial preview
     displayPreview(file);
     
@@ -121,6 +137,9 @@ function validateAndProcessImage(file) {
     
     // Enable the generate button
     generateBtn.disabled = false;
+    
+    // Update status
+    statusMessage.textContent = 'Image ready for 3D generation';
 }
 
 function displayPreview(file) {
@@ -143,20 +162,20 @@ async function generateModel() {
     }
     
     // Update UI state
-    statusMessage.textContent = 'Generating 3D model...';
+    statusMessage.textContent = 'Sending to Tripo3D API...';
     generateBtn.disabled = true;
     loadingSpinner.style.display = 'flex';
     
     // Show the model viewer status overlay
     modelViewerStatus.style.display = 'flex';
-    document.getElementById('processingText').innerText = 'Model generation started...';
+    document.getElementById('processingText').innerText = 'Starting Tripo3D generation...';
     
     try {
         // Create a FormData object
         const formData = new FormData();
         formData.append('image', uploadedImage);
         
-        console.log('Sending image for 3D model generation, type:', uploadedImage.type, 'size:', uploadedImage.size);
+        console.log('Sending image directly to Tripo3D via server, type:', uploadedImage.type, 'size:', uploadedImage.size);
         
         // Make the API call with retry logic
         let response;
@@ -165,7 +184,7 @@ async function generateModel() {
         
         while (retries <= maxRetries) {
             try {
-                console.log(`Attempt ${retries + 1} to generate model...`);
+                console.log(`Attempt ${retries + 1} to send to Tripo3D...`);
                 response = await fetch(`${SERVER_URL}${GENERATE_ENDPOINT}`, {
                     method: 'POST',
                     body: formData,
@@ -194,7 +213,7 @@ async function generateModel() {
         // Process the response
         if (response && response.ok) {
             const data = await response.json();
-            console.log('Model generation initiated:', data);
+            console.log('Tripo3D generation initiated:', data);
             
             if (data.success && data.taskId) {
                 taskId = data.taskId;
@@ -203,29 +222,23 @@ async function generateModel() {
                 startStatusPolling(taskId);
                 
                 // Update status
-                document.getElementById('processingText').innerText = 'Model generation in progress...';
+                document.getElementById('processingText').innerText = 'Tripo3D processing in progress...';
+                statusMessage.textContent = 'Tripo3D generation started';
             } else {
-                throw new Error(data.error || 'Failed to start model generation');
+                throw new Error(data.error || 'Failed to start Tripo3D generation');
             }
         } else {
             // Handle HTTP errors
-            let errorText = 'Server error';
             if (response) {
-                try {
-                    const errorData = await response.json();
-                    console.error('Error response:', errorData);
-                    errorText = errorData.error || `Server error: ${response.status}`;
-                } catch (e) {
-                    errorText = `Server error: ${response.status}`;
-                }
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Server error: ${response.status}`);
             } else {
-                errorText = 'No response from server';
+                throw new Error('No response from server');
             }
-            throw new Error(errorText);
         }
     } catch (error) {
         // Handle errors in a user-friendly way
-        console.error('Error generating model:', error);
+        console.error('Error generating model with Tripo3D:', error);
         displayUserFriendlyError(error);
         
         // Re-enable the button
