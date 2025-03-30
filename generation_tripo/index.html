@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tripo3D Model Generator</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="left-panel">
+            <div class="upload-section">
+                <h2>Upload Image</h2>
+                
+                <div class="drop-area" id="dropArea">
+                    <p>Drag & drop an image here or</p>
+                    <label for="fileInput" class="file-input-label" onclick="event.stopPropagation();">Choose a File</label>
+                    <input type="file" id="fileInput" accept="image/*" hidden>
+                    <div id="preview" class="preview-container"></div>
+                </div>
+                
+                <button id="generateBtn" disabled>Generate 3D Model</button>
+            </div>
+
+            <div class="status-section" id="statusSection">
+                <div id="statusMessage">Ready</div>
+                <div class="loading-spinner" id="loadingSpinner" style="display:none;">
+                    <div class="spinner"></div>
+                    <div>Model generating...</div>
+                </div>
+                <div id="progressContainer" class="progress-container">
+                    <div id="progressBar" class="progress-bar"></div>
+                </div>
+            </div>
+            
+            <div class="download-section" id="downloadSection" style="display:none;">
+                <a id="downloadLink" href="#" class="download-button" download>Download 3D Model</a>
+            </div>
+        </div>
+        
+        <div class="right-panel">
+            <div class="model-viewer-section" id="modelViewerSection">
+                <div id="modelViewer" class="model-viewer">
+                    <div id="modelViewerStatus" class="model-viewer-status" style="display:none;">
+                        <div class="spinner"></div>
+                        <div id="processingText">Model generating...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js?v=20240713"></script>
+</body>
+</html> 

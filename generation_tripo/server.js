@@ -1,0 +1,252 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const fetch = require('node-fetch');
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+const axios = require('axios');
+const FormData = require('form-data');
+
+const app = express();
+const port = process.env.PORT || 3001;
+
+// API Key from .env file
+const API_KEY = process.env.TRIPO_API_KEY;
+const TRIPO_API_URL = 'https://platform.tripo3d.ai/api/v1/generation';
+
+// CORS middleware with more specific configuration
+app.use(cors({
+    origin: '*', // Allow any origin
+    methods: ['GET', 'POST', 'OPTIONS'], // Allow these methods
+    allowedHeaders: ['Content-Type', 'x-api-key', 'Origin', 'Accept'], // Allow these headers
+    exposedHeaders: ['Content-Disposition'] // Expose these headers for downloads
+}));
+
+// Other middleware
+app.use(express.json({ limit: '50mb' }));
+app.use(express.static(path.join(__dirname)));
+
+// Set up multer for file upload
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'uploads/');
+    },
+    filename: function (req, file, cb) {
+        cb(null, Date.now() + '-' + file.originalname);
+    }
+});
+
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+
+// Create endpoint for 3D model generation
+app.post('/api/generate', upload.single('image'), async (req, res) => {
+    try {
+        if (!req.file) {
+            console.error('No file uploaded');
+            return res.status(400).json({ success: false, error: 'No file uploaded' });
+        }
+
+        console.log(`File received: ${req.file.originalname} (${req.file.size} bytes)`);
+        
+        try {
+            // Read file data and convert to base64
+            const fileData = fs.readFileSync(req.file.path);
+            const base64Image = fileData.toString('base64');
+            console.log(`Converted image to base64 (${base64Image.length} chars)`);
+            
+            // Log the API key (first few characters only)
+            const maskedKey = API_KEY ? `${API_KEY.substring(0, 8)}...` : 'NOT FOUND';
+            console.log(`Using Tripo3D API key: ${maskedKey}`);
+            
+            // Create proper JSON payload according to Tripo3D API docs
+            const payload = {
+                image: base64Image,
+                remove_background: true // Optional - remove background from image
+            };
+            
+            console.log(`Sending request to Tripo3D API: ${TRIPO_API_URL}`);
+            
+            // Send the request with JSON payload
+            const response = await axios.post(TRIPO_API_URL, 
+                payload,
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': API_KEY
+                    },
+                    timeout: 60000 // 60 second timeout
+                }
+            );
+            
+            // Log response details for debugging
+            console.log('Tripo3D API Response Status:', response.status);
+            
+            if (response.status === 200 || response.status === 201 || response.status === 202) {
+                // Success! Get the task ID from the response
+                const data = response.data;
+                console.log('Response data:', JSON.stringify(data, null, 2));
+                
+                // Extract task ID or job ID from response
+                const taskId = data.task_id || data.job_id || data.id;
+                
+                if (taskId) {
+                    console.log('Task ID:', taskId);
+                    res.json({ 
+                        success: true, 
+                        message: 'Model generation started', 
+                        taskId: taskId 
+                    });
+                } else {
+                    console.error('No task ID found in response');
+                    res.status(500).json({ 
+                        success: false, 
+                        error: 'No task ID found in response', 
+                        details: data 
+                    });
+                }
+            } else {
+                console.error('API request failed:', response.status, response.statusText);
+                res.status(response.status).json({ 
+                    success: false, 
+                    error: 'API request failed', 
+                    details: response.data 
+                });
+            }
+        } catch (error) {
+            console.error('Error calling Tripo3D API:', error);
+            let errorMessage = error.message;
+            let errorDetails = {};
+            
+            // Handle axios specific error responses
+            if (error.response) {
+                // The server responded with a status code outside of 2xx
+                console.error('API Error Response:', error.response.status, error.response.data);
+                errorMessage = `API Error: ${error.response.status}`;
+                errorDetails = error.response.data;
+            } else if (error.request) {
+                // The request was made but no response was received
+                console.error('No response received from API');
+                errorMessage = 'No response from Tripo3D API';
+            }
+            
+            res.status(500).json({ 
+                success: false, 
+                error: errorMessage, 
+                details: errorDetails
+            });
+        }
+    } catch (error) {
+        console.error('Error in generate endpoint:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to process request', 
+            details: error.message 
+        });
+    }
+});
+
+// Status check endpoint
+app.get('/api/status/:taskId', async (req, res) => {
+    try {
+        const taskId = req.params.taskId;
+        
+        if (!taskId) {
+            return res.status(400).json({ error: 'Task ID is required' });
+        }
+        
+        console.log(`Checking status for task: ${taskId}`);
+        
+        // Call Tripo3D API to check status
+        const response = await axios.get(`${TRIPO_API_URL}/status/${taskId}`, {
+            headers: {
+                'x-api-key': API_KEY
+            }
+        });
+        
+        console.log('Status response:', response.status, JSON.stringify(response.data, null, 2));
+        
+        // Parse response based on documented API structure
+        const data = response.data;
+        let status = data.status || 'unknown';
+        let modelUrl = null;
+        let message = data.message || '';
+        
+        // Check if model is done and extract model URL
+        if (status === 'completed' || status === 'done' || status === 'success') {
+            modelUrl = data.model_url || data.url || null;
+            
+            if (!modelUrl && data.result) {
+                modelUrl = data.result.model_url || data.result.url || null;
+            }
+            
+            if (modelUrl) {
+                console.log(`Model completed. URL: ${modelUrl}`);
+                
+                // Return success with model URL
+                return res.json({
+                    success: true,
+                    status: 'completed',
+                    modelUrl: modelUrl
+                });
+            } else {
+                console.error('Model completed but no URL found in response');
+                return res.json({
+                    success: true,
+                    status: 'error',
+                    error: 'Model URL not found in completed response'
+                });
+            }
+        } 
+        // Check for failure states
+        else if (status === 'failed' || status === 'error') {
+            console.error('Model generation failed:', message);
+            return res.json({
+                success: false,
+                status: 'failed',
+                error: message || 'Model generation failed'
+            });
+        }
+        // Still processing
+        else {
+            console.log(`Model generation in progress. Status: ${status}`);
+            return res.json({
+                success: true,
+                status: status,
+                message: message || 'Processing'
+            });
+        }
+    } catch (error) {
+        console.error('Error checking model status:', error.message);
+        let errorMessage = error.message;
+        let statusCode = 500;
+        
+        // Handle axios specific errors
+        if (error.response) {
+            statusCode = error.response.status;
+            errorMessage = `API Error: ${statusCode}`;
+            console.error('API response error:', error.response.data);
+        }
+        
+        res.status(statusCode).json({
+            success: false,
+            status: 'error',
+            error: errorMessage
+        });
+    }
+});
+
+// Start the server
+app.listen(port, () => {
+    // Log API key status
+    if (API_KEY) {
+        console.log('API Key: Found in environment variables');
+    } else {
+        console.log('WARNING: Tripo3D API Key not found! Set TRIPO_API_KEY in your .env file');
+    }
+    
+    console.log(`Server running at http://localhost:${port}`);
+}); 
