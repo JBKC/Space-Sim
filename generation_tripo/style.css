@@ -248,4 +248,30 @@ button:disabled {
     .right-panel {
         height: 400px;
     }
+}
+
+.drop-area.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.file-input-label.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+#retryConnectionBtn {
+    margin-top: 10px;
+    padding: 8px 16px;
+    background-color: #ff9800;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#retryConnectionBtn:hover {
+    background-color: #f57c00;
 } 
