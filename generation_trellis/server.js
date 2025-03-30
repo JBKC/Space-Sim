@@ -6,6 +6,7 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const axios = require('axios');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -17,6 +18,10 @@ const API_URL = 'https://api.piapi.ai/api/v1/task';
 
 // Initialize Google Generative AI with API key
 const genAI = new GoogleGenerativeAI(GOOGLE_API_KEY);
+
+// Add new constants for TripoSG API
+const TRIPO_API_KEY = 'tsk_Sy8htFdQ_SMtPTnDz6q7IaB6k7MjylouluEISz-THAC';
+const TRIPO_API_URL = 'https://api-inference.huggingface.co/models/VAST-AI/TripoSG';
 
 // CORS middleware with more specific configuration
 app.use(cors({
@@ -40,63 +45,90 @@ const upload = multer({
 // Function to process image with Google Gemini API
 async function processImageWithGemini(imageBuffer, customPrompt) {
     try {
-        console.log('Processing image with Google Gemini API');
+        console.log('Processing image with Google Gemini API for image generation');
         
         // Create a base64 representation of the image
         const base64Image = imageBuffer.toString('base64');
         
-        // Initialize the Gemini Pro Vision model specifically for image generation
+        // Initialize the Gemini model specifically for image generation
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-2.0-flash-exp-image-generation",
-            systemInstruction: "You are an expert at image manipulation and enhancement, creating high-quality visuals based on user instructions."
+            model: "gemini-2.0-flash-exp-image-generation" // Using the image generation model
         });
         
-        // Create prompt for the Gemini model to remove background and shadows
-        const prompt = customPrompt;
+        // Default prompt for background removal if none provided
+        const prompt = customPrompt || "Remove the background and shadows from this object. Create a clean isolated image with a transparent background.";
         
-        // Prepare the image data
-        const imageData = {
-            inlineData: {
-                data: base64Image,
-                mimeType: "image/jpeg"
-            }
+        console.log('Using prompt for Gemini image processing:', prompt);
+        
+        // Configure generation to specifically request image output
+        const generationConfig = {
+            temperature: 0.4,
+            topK: 32,
+            topP: 0.95,
+            responseModalities: ["Text", "Image"] // Explicitly request image output
         };
         
-        // Call the Gemini API with the proper method for image generation
+        // Create proper content structure with image
         const result = await model.generateContent({
-            contents: [
-                {
-                    role: "user",
-                    parts: [
-                        { text: prompt },
-                        imageData
-                    ]
-                }
-            ]
+            contents: [{
+                role: "user",
+                parts: [
+                    { text: prompt },
+                    {
+                        inlineData: {
+                            mimeType: "image/jpeg",
+                            data: base64Image
+                        }
+                    }
+                ]
+            }],
+            generationConfig: generationConfig
         });
         
-        // Get the response
-        const response = result.response;
+        console.log('Gemini image generation response received');
         
-        // Extract the generated image from the response
-        let generatedImage = null;
+        // Check for image in response parts
+        let processedImageBase64 = null;
+        let analysisText = "Image processed successfully";
         
-        if (response && response.candidates && response.candidates.length > 0) {
-            const parts = response.candidates[0].content.parts;
+        if (result.response && result.response.candidates && 
+            result.response.candidates.length > 0 && 
+            result.response.candidates[0].content) {
+            
+            const parts = result.response.candidates[0].content.parts;
             
             for (const part of parts) {
+                // Extract text analysis if available
+                if (part.text) {
+                    // Clean up any mentions of Gemini or AI in the response
+                    let cleanText = part.text;
+                    cleanText = cleanText.replace(/gemini|google ai|ai model|ai assistant/gi, "The system");
+                    analysisText = cleanText;
+                    console.log('Analysis text received');
+                }
+                
+                // Extract image data if available
                 if (part.inlineData && part.inlineData.data) {
-                    generatedImage = part.inlineData.data;
-                    break;
+                    processedImageBase64 = part.inlineData.data;
+                    console.log('Found processed image data!');
                 }
             }
         }
         
-        if (!generatedImage) {
-            throw new Error('No image was generated by Gemini API');
+        // If we have a processed image, return it along with any analysis
+        if (processedImageBase64) {
+            return {
+                image: processedImageBase64,
+                analysis: analysisText
+            };
+        } else {
+            console.log('No image data found in response, falling back to original image');
+            // Fall back to original image with analysis text
+            return {
+                image: base64Image,
+                analysis: "Image processing complete. Using original image."
+            };
         }
-        
-        return Buffer.from(generatedImage, 'base64');
     } catch (error) {
         console.error('Error processing image with Gemini:', error);
         throw error;
@@ -116,265 +148,468 @@ app.post('/api/process-image', upload.single('image'), async (req, res) => {
         const prompt = req.body.prompt || "Remove the background and shadows from this object. Create a clean isolated image with a transparent background.";
         console.log('Using prompt for Gemini processing:', prompt);
         
-        // Process the image with Gemini API
-        const processedImageBuffer = await processImageWithGemini(req.file.buffer, prompt);
-        
-        // Return the processed image as base64
-        res.json({
-            success: true,
-            processedImage: processedImageBuffer.toString('base64')
-        });
+        try {
+            // Process the image with Gemini API
+            const result = await processImageWithGemini(req.file.buffer, prompt);
+            
+            // Return the processed image along with any analysis
+            res.json({
+                success: true,
+                processedImage: result.image,
+                analysis: result.analysis
+            });
+        } catch (error) {
+            console.error('Error with image processing:', error);
+            // Return the original image if Gemini processing fails
+            res.json({
+                success: true,
+                processedImage: req.file.buffer.toString('base64'),
+                analysis: "Image processing failed. Using original image.",
+                error: error.message
+            });
+        }
     } catch (error) {
-        console.error('Error processing image with Gemini:', error);
+        console.error('Error in process-image endpoint:', error);
         res.status(500).json({ 
-            error: 'Failed to process image with Gemini', 
+            error: 'Failed to process image', 
             details: error.message 
         });
     }
 });
 
-// Routes
+// Create a new endpoint that serves as a model selector
+app.post('/api/generate-model', upload.single('image'), async (req, res) => {
+    console.log('Received request to generate 3D model');
+    
+    // Get the selected model from the request
+    const selectedModel = req.body.model || 'trellis'; // Default to trellis if not specified
+    console.log(`Selected model: ${selectedModel}`);
+    
+    if (selectedModel === 'trellis') {
+        // Use the existing Trellis endpoint logic
+        return handleTrellisModelGeneration(req, res);
+    } else if (selectedModel === 'tripo') {
+        // Use the new TripoSG endpoint logic
+        return handleTripoModelGeneration(req, res);
+    } else {
+        console.error(`Unknown model selected: ${selectedModel}`);
+        return res.status(400).json({ 
+            success: false, 
+            error: 'Invalid model selection',
+            details: { selectedModel }
+        });
+    }
+});
+
+// Keep the original endpoint for backward compatibility
 app.post('/api/generate', upload.single('image'), async (req, res) => {
+    console.log('Legacy endpoint called - using Trellis model');
+    return handleTrellisModelGeneration(req, res);
+});
+
+// Function to handle Trellis model generation (extracted from existing code)
+async function handleTrellisModelGeneration(req, res) {
     try {
         if (!req.file) {
-            return res.status(400).json({ error: 'No image file provided' });
+            console.error('No file uploaded');
+            return res.status(400).json({ success: false, error: 'No file uploaded' });
         }
 
-        console.log('Received image file:', req.file.originalname);
+        console.log(`File received: ${req.file.originalname} (${req.file.size} bytes)`);
         
-        // Convert image to base64
-        const base64Image = req.file.buffer.toString('base64');
-        console.log('Image converted to base64');
-
-        // Call the Trellis API
-        console.log('Sending request to Trellis API...');
-        console.log('Using API key:', API_KEY ? 'Key found' : 'Key not found');
+        // Read file data
+        const fileData = fs.readFileSync(req.file.path);
         
-        const requestBody = {
-            model: 'Qubico/trellis',
-            task_type: 'image-to-3d',
-            input: {
-                image: base64Image
+        // Create API request to Trellis
+        const response = await axios.post(API_URL, 
+            fileData, // Send raw file data in the request body
+            {
+                headers: {
+                    'Content-Type': 'application/octet-stream',
+                    'x-api-key': API_KEY,
+                }
+            }
+        );
+        
+        // Log response details for debugging
+        console.log('Trellis API Response Status:', response.status);
+        console.log('Trellis API Response Headers:', response.headers);
+        console.log('Trellis API Response Type:', typeof response.data);
+        
+        // For debugging: Log a preview of the response data, handling both string and object
+        if (typeof response.data === 'string') {
+            console.log('Trellis API Response Data (first 100 chars):', response.data.substring(0, 100));
+        } else {
+            console.log('Trellis API Response Data:', JSON.stringify(response.data).substring(0, 100) + '...');
+        }
+        
+        // Check if the response contains a task_id
+        let taskId;
+        if (typeof response.data === 'string') {
+            try {
+                // Try to parse the response as JSON in case it's a string
+                const parsedData = JSON.parse(response.data);
+                
+                // Check if there's a nested structure where the task_id might be
+                if (parsedData.code === 200 && parsedData.data && parsedData.data.task_id) {
+                    taskId = parsedData.data.task_id;
+                    console.log('Found task_id in nested response data:', taskId);
+                } else if (parsedData.task_id) {
+                    taskId = parsedData.task_id;
+                    console.log('Found task_id in parsed response data:', taskId);
+                } else {
+                    console.error('No task_id found in parsed response data:', parsedData);
+                }
+                
+                // Send back the full data structure with proper formatting
+                return res.json(parsedData);
+                
+            } catch (parseError) {
+                console.error('Failed to parse response data as JSON:', parseError);
+                return res.status(500).json({ 
+                    success: false, 
+                    error: 'Failed to parse API response',
+                    details: { message: parseError.message }
+                });
+            }
+        } else {
+            // Assume it's already an object
+            if (response.data.code === 200 && response.data.data && response.data.data.task_id) {
+                taskId = response.data.data.task_id;
+                console.log('Found task_id in nested response data object:', taskId);
+            } else if (response.data.task_id) {
+                taskId = response.data.task_id;
+                console.log('Found task_id in response data object:', taskId);
+            } else {
+                console.error('No task_id found in response data object:', response.data);
+            }
+            
+            // Send back the original object
+            return res.json(response.data);
+        }
+        
+    } catch (error) {
+        console.error('Error generating 3D model with Trellis:', error);
+        
+        // Create a structured error response
+        const errorResponse = {
+            success: false,
+            error: 'API Error',
+            details: {
+                message: error.message,
+                code: error.code || 'UNKNOWN',
+                stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
             }
         };
         
-        console.log('Request structure:', JSON.stringify({
-            ...requestBody,
-            input: { image: '[BASE64_IMAGE_DATA]' } // Log structure without actual image data
-        }));
+        // If there's a response with error details, include them
+        if (error.response) {
+            errorResponse.details.statusCode = error.response.status;
+            errorResponse.details.statusText = error.response.statusText;
+            errorResponse.details.data = error.response.data;
+        }
         
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': API_KEY
+        res.status(500).json(errorResponse);
+    }
+}
+
+// New function to handle TripoSG model generation
+async function handleTripoModelGeneration(req, res) {
+    console.log('Processing request for TripoSG model generation');
+    
+    try {
+        if (!req.file) {
+            console.error('No file uploaded for TripoSG model');
+            return res.status(400).json({ success: false, error: 'No file uploaded' });
+        }
+
+        console.log(`File received for TripoSG: ${req.file.originalname} (${req.file.size} bytes)`);
+        
+        // Create a random task_id for TripoSG (since it doesn't have polling)
+        const taskId = `tripo-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+        console.log('Generated task_id for TripoSG:', taskId);
+        
+        // Store the task info for status polling
+        tripoTasks[taskId] = {
+            status: 'processing',
+            file: req.file.path,
+            startTime: new Date().toISOString(),
+            modelType: 'tripo'
+        };
+        
+        // Start the generation process asynchronously
+        processTripoModelGeneration(taskId, req.file.path)
+            .then(() => {
+                console.log(`TripoSG model generation completed for task ${taskId}`);
+            })
+            .catch(error => {
+                console.error(`TripoSG model generation failed for task ${taskId}:`, error);
+                tripoTasks[taskId].status = 'failed';
+                tripoTasks[taskId].error = error.message;
+            });
+        
+        // Return immediately with the task_id
+        return res.json({
+            success: true,
+            task_id: taskId,
+            model: 'tripo'
+        });
+        
+    } catch (error) {
+        console.error('Error initiating TripoSG model generation:', error);
+        
+        // Create a structured error response
+        const errorResponse = {
+            success: false,
+            error: 'API Error',
+            details: {
+                message: error.message,
+                code: error.code || 'UNKNOWN',
+                stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            }
+        };
+        
+        res.status(500).json(errorResponse);
+    }
+}
+
+// Store TripoSG tasks for status checks
+const tripoTasks = {};
+
+// Function to process TripoSG model generation in the background
+async function processTripoModelGeneration(taskId, filePath) {
+    console.log(`Starting TripoSG processing for task ${taskId} with file ${filePath}`);
+    
+    try {
+        // Read the file as base64
+        const fileBuffer = fs.readFileSync(filePath);
+        const base64Image = fileBuffer.toString('base64');
+        
+        // Create the request to the TripoSG API
+        console.log('Preparing request to TripoSG API');
+        
+        // First step: Run segmentation
+        console.log('Step 1: Running image segmentation');
+        const segmentationResponse = await axios.post(
+            TRIPO_API_URL + '/run_segmentation',
+            {
+                image: {
+                    url: `data:image/jpeg;base64,${base64Image}`
+                }
             },
-            body: JSON.stringify(requestBody)
+            {
+                headers: {
+                    'Authorization': `Bearer ${TRIPO_API_KEY}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+        
+        console.log('Segmentation response received:', JSON.stringify(segmentationResponse.data).substring(0, 100) + '...');
+        
+        if (!segmentationResponse.data || !segmentationResponse.data.path) {
+            throw new Error('Failed to get valid segmentation result');
+        }
+        
+        // Second step: Generate 3D model from segmented image
+        console.log('Step 2: Generating 3D model from segmented image');
+        const modelResponse = await axios.post(
+            TRIPO_API_URL + '/image_to_3d',
+            {
+                image: {
+                    url: segmentationResponse.data.url || segmentationResponse.data.path
+                },
+                seed: 0,
+                num_inference_steps: 50,
+                guidance_scale: 7,
+                simplify: true,
+                target_face_num: 100000
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${TRIPO_API_KEY}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+        
+        console.log('Model generation response received');
+        
+        if (!modelResponse.data) {
+            throw new Error('Failed to get valid model generation result');
+        }
+        
+        // Store the model URL
+        const modelUrl = modelResponse.data;
+        console.log('Generated model URL:', modelUrl);
+        
+        // Download the model file to our server
+        console.log('Downloading model file');
+        const modelFilePath = `./tmp/tripo-${taskId}.glb`;
+        const modelFileResponse = await axios({
+            method: 'get',
+            url: modelUrl,
+            responseType: 'stream'
         });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('API Error:', response.status, errorText);
-            
-            // Try to extract more detailed error information if possible
-            let errorDetails = errorText;
-            try {
-                const errorJson = JSON.parse(errorText);
-                errorDetails = errorJson.error || errorJson.message || errorJson.details || errorText;
-                console.log('Extracted error details:', errorDetails);
-            } catch (e) {
-                console.log('Could not parse error as JSON, using raw text');
-            }
-            
-            return res.status(response.status).json({ 
-                error: `API Error: ${response.status}`,
-                details: errorDetails,
-                message: 'The Trellis API could not process your image. Try using a different image with clear object boundaries, good lighting, and a simple background.'
-            });
-        }
-
-        const rawResponse = await response.text();
-        console.log('Trellis API Raw Response (text):', rawResponse);
         
-        // Parse the response as JSON
-        let rawData;
-        try {
-            rawData = JSON.parse(rawResponse);
-            console.log('Trellis API Raw Response (parsed):', JSON.stringify(rawData, null, 2));
-        } catch (error) {
-            console.error('Error parsing API response as JSON:', error);
-            return res.status(500).json({
-                error: 'Failed to parse API response',
-                details: error.message,
-                rawResponse: rawResponse
-            });
+        // Ensure the tmp directory exists
+        if (!fs.existsSync('./tmp')) {
+            fs.mkdirSync('./tmp', { recursive: true });
         }
         
-        // Extract data from the nested structure according to the specific format we're seeing
-        let result = {};
+        // Save the file
+        const modelFileWriter = fs.createWriteStream(modelFilePath);
+        modelFileResponse.data.pipe(modelFileWriter);
         
-        // Direct support for the structure we're seeing: {"code":200,"data":{...},"message":"success"}
-        if (rawData.code === 200 && rawData.data) {
-            console.log('Found nested response structure with code:200 and data property');
-            
-            // Extract task_id from the nested structure
-            if (rawData.data.task_id) {
-                result.task_id = rawData.data.task_id;
-                console.log('Extracted task_id from nested data:', result.task_id);
-            } else if (rawData.data.id) {
-                result.task_id = rawData.data.id;
-                console.log('Using id as task_id from nested data:', result.task_id);
-            } else {
-                console.error('No task_id or id found in nested data structure:', rawData);
-                return res.status(400).json({
-                    error: 'API response missing task_id',
-                    details: 'The API response does not contain a task_id or id field in the expected nested structure',
-                    rawResponse: rawData
-                });
-            }
-            
-            // Copy other relevant fields
-            if (rawData.data.status) result.status = rawData.data.status;
-            if (rawData.data.output) result.output = rawData.data.output;
-            
-        } else {
-            // Use the raw data as is (fallback for other structures)
-            console.log('Using non-nested response structure');
-            result = rawData;
-            
-            // Check if task_id is present
-            if (!result.task_id && result.id) {
-                result.task_id = result.id;
-                console.log('Using id as task_id:', result.task_id);
-            }
-        }
+        await new Promise((resolve, reject) => {
+            modelFileWriter.on('finish', resolve);
+            modelFileWriter.on('error', reject);
+        });
         
-        // Double-check that we have a task_id
-        if (!result.task_id) {
-            console.error('No task_id found in any field of the response:', rawData);
-            
-            // Return the raw response for debugging
-            return res.status(400).json({ 
-                error: 'No task ID found in response',
-                details: 'The API response does not contain a task_id field in the expected structure',
-                rawResponse: rawData,
-                // Also send the original structure in case the client wants to process it differently
-                originalResponse: rawData
-            });
-        }
+        console.log('Model file downloaded to', modelFilePath);
         
-        console.log('Sending final response to client:', result);
-        res.json(result);
+        // Update the task status
+        tripoTasks[taskId].status = 'completed';
+        tripoTasks[taskId].output = {
+            model_file: `/tmp/tripo-${taskId}.glb`, // Relative URL for our own server
+            local_path: modelFilePath // Actual file path
+        };
+        
+        console.log(`TripoSG task ${taskId} completed successfully`);
+        
     } catch (error) {
-        console.error('Error generating model:', error);
-        res.status(500).json({ error: 'Server error', details: error.message });
+        console.error(`Error processing TripoSG model for task ${taskId}:`, error);
+        tripoTasks[taskId].status = 'failed';
+        tripoTasks[taskId].error = error.message;
+        throw error; // Re-throw to be caught by the caller
     }
-});
+}
 
+// Update the status endpoint to handle both Trellis and TripoSG models
 app.get('/api/status/:taskId', async (req, res) => {
+    const taskId = req.params.taskId;
+    console.log(`Checking status for task: ${taskId}`);
+    
+    // Check if this is a TripoSG task
+    if (taskId.startsWith('tripo-') && tripoTasks[taskId]) {
+        const taskInfo = tripoTasks[taskId];
+        console.log(`Found TripoSG task: ${JSON.stringify(taskInfo)}`);
+        
+        // Return the status of the TripoSG task
+        return res.json({
+            status: taskInfo.status,
+            output: taskInfo.output,
+            task_id: taskId,
+            model: 'tripo',
+            error: taskInfo.error
+        });
+    }
+    
+    // Proceed with Trellis status check
     try {
-        const taskId = req.params.taskId;
+        console.log(`Checking Trellis status for task: ${taskId}`);
         
-        if (!taskId) {
-            return res.status(400).json({ error: 'No task ID provided' });
-        }
-
-        console.log('Checking status for task:', taskId);
-        
-        // The API URL format appears to be different for status checks
-        // Let's try the correct URL format by appending the task_id to the path
-        const statusUrl = `${API_URL}/${taskId}`;
-        console.log('Status check URL:', statusUrl);
-        
-        const response = await fetch(statusUrl, {
-            method: 'GET',
+        // Call the Trellis API to check the status
+        const response = await axios.get(`${API_URL}/${taskId}`, {
             headers: {
-                'x-api-key': API_KEY
+                'x-api-key': API_KEY,
             }
         });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Status check API Error:', response.status, errorText);
+        
+        // Log response for debugging
+        console.log('Trellis Status Response:', response.status);
+        console.log('Trellis Status Response Type:', typeof response.data);
+        
+        // For debugging: Log a preview of the response data
+        if (typeof response.data === 'string') {
+            console.log('Trellis Status Response Data (first 100 chars):', response.data.substring(0, 100));
             
-            // Try to extract more detailed error information if possible
-            let errorDetails = errorText;
             try {
-                const errorJson = JSON.parse(errorText);
-                errorDetails = errorJson.error || errorJson.message || errorJson.details || errorText;
-                console.log('Extracted error details:', errorDetails);
-            } catch (e) {
-                console.log('Could not parse error as JSON, using raw text');
+                // Parse the response if it's a string
+                const parsedData = JSON.parse(response.data);
+                
+                // If the server didn't process the nested structure correctly, do it here
+                if (parsedData.code === 200 && parsedData.data) {
+                    console.log('Found nested response structure in status check');
+                    const responseToSend = {
+                        status: parsedData.data.status,
+                        output: parsedData.data.output,
+                        task_id: taskId,
+                        originalResponse: parsedData
+                    };
+                    
+                    console.log('Sending processed status response to client:', responseToSend);
+                    return res.json(responseToSend);
+                }
+                
+                // If it's already in the right format, send it directly
+                console.log('Sending parsed status response to client:', parsedData);
+                return res.json(parsedData);
+                
+            } catch (parseError) {
+                console.error('Error parsing status response:', parseError);
+                return res.status(500).json({ error: 'Failed to parse status response', details: parseError.message });
+            }
+        } else {
+            // Assume it's already an object
+            
+            // Check if we need to extract from a nested structure
+            if (response.data.code === 200 && response.data.data) {
+                console.log('Found nested response structure in status check');
+                const responseToSend = {
+                    status: response.data.data.status,
+                    output: response.data.data.output,
+                    task_id: taskId,
+                    originalResponse: response.data
+                };
+                
+                console.log('Sending processed status response to client:', responseToSend);
+                return res.json(responseToSend);
             }
             
-            return res.status(response.status).json({ 
-                error: `API Error: ${response.status}`,
-                details: errorDetails,
-                message: 'The Trellis API encountered an error checking your model status. This may be a temporary issue - try again later.'
-            });
-        }
-
-        const rawResponse = await response.text();
-        console.log('Status raw response (text):', rawResponse);
-        
-        // Parse the response
-        let rawData;
-        try {
-            rawData = JSON.parse(rawResponse);
-            console.log('Status raw response (parsed):', JSON.stringify(rawData, null, 2));
-        } catch (error) {
-            console.error('Error parsing status response as JSON:', error);
-            return res.status(500).json({
-                error: 'Failed to parse status API response',
-                details: error.message,
-                rawResponse: rawResponse
-            });
+            console.log('Sending status response to client:', response.data);
+            return res.json(response.data);
         }
         
-        // Extract data from the nested structure
-        let result = {};
-        
-        // Check for the nested structure pattern shown in the error
-        if (rawData.code === 200 && rawData.data) {
-            console.log('Found nested response structure in status check');
-            
-            // Copy relevant fields from the nested structure
-            if (rawData.data.status) result.status = rawData.data.status;
-            if (rawData.data.output) result.output = rawData.data.output;
-            if (rawData.data.task_id) result.task_id = rawData.data.task_id;
-        } else {
-            // Use the raw data as is
-            console.log('Using non-nested status response structure');
-            result = rawData;
-        }
-        
-        // Pass along the original response for potential client-side processing
-        result.originalResponse = rawData;
-        
-        console.log('Sending processed status response to client:', result);
-        res.json(result);
     } catch (error) {
-        console.error('Error checking status:', error);
-        res.status(500).json({ error: 'Server error', details: error.message });
+        console.error('Error checking task status:', error);
+        
+        // Create a structured error response
+        const errorResponse = {
+            error: 'API Error',
+            status: 'error',
+            details: {
+                message: error.message,
+                code: error.code || 'UNKNOWN'
+            }
+        };
+        
+        // If there's a response with error details, include them
+        if (error.response) {
+            errorResponse.details.statusCode = error.response.status;
+            errorResponse.details.statusText = error.response.statusText;
+            errorResponse.details.data = error.response.data;
+        }
+        
+        res.status(500).json(errorResponse);
     }
 });
 
-// For backwards compatibility, keep the old query parameter endpoint too
-app.get('/api/status', async (req, res) => {
-    try {
-        const taskId = req.query.taskId;
-        
-        if (!taskId) {
-            return res.status(400).json({ error: 'No task ID provided' });
-        }
-        
-        console.log('Using deprecated query parameter endpoint for task:', taskId);
-        // Redirect to the new endpoint format
-        res.redirect(`/api/status/${taskId}`);
-    } catch (error) {
-        console.error('Error in deprecated status endpoint:', error);
-        res.status(500).json({ error: 'Server error', details: error.message });
+// Add a new endpoint to serve the temporary files
+app.get('/tmp/:filename', (req, res) => {
+    const filename = req.params.filename;
+    const filePath = path.join(__dirname, 'tmp', filename);
+    
+    console.log(`Serving file: ${filePath}`);
+    
+    // Check if the file exists
+    if (!fs.existsSync(filePath)) {
+        console.error(`File not found: ${filePath}`);
+        return res.status(404).json({ error: 'File not found' });
     }
+    
+    // Serve the file
+    res.sendFile(filePath);
 });
 
 // Proxy endpoint to fetch model files - this prevents CORS issues

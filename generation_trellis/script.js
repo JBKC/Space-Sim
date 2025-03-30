@@ -19,6 +19,9 @@ const webcamCanvas = document.getElementById('webcamCanvas');
 const captureButton = document.getElementById('captureButton');
 const closeWebcamButton = document.querySelector('.close-webcam');
 
+// Model selection element - will be created dynamically
+let modelSelector = null;
+
 // Global variables
 let uploadedImage = null;
 let processedImage = null; // New: store the processed image
@@ -32,6 +35,7 @@ let isProcessingImage = false; // Flag to prevent multiple processing requests
 // Server API endpoints
 const SERVER_URL = 'http://localhost:3000';
 const GENERATE_ENDPOINT = '/api/generate';
+const GENERATE_MODEL_ENDPOINT = '/api/generate-model'; // New endpoint with model selection
 const STATUS_ENDPOINT = '/api/status';
 const PROCESS_IMAGE_ENDPOINT = '/api/process-image'; // New endpoint for image processing
 
@@ -40,6 +44,9 @@ initializeViewer();
 
 // Setup event listeners
 setupEventListeners();
+
+// Create and add model selector
+createModelSelector();
 
 function setupEventListeners() {
     // Drag and drop events
@@ -90,6 +97,73 @@ function setupEventListeners() {
     window.addEventListener('error', function(event) {
         console.error('Global error caught:', event.error);
         statusMessage.textContent = `Error: ${event.error.message}`;
+    });
+}
+
+// Create and add model selector to the UI
+function createModelSelector() {
+    // Create container for the model selector
+    const modelSelectorContainer = document.createElement('div');
+    modelSelectorContainer.className = 'model-selector-container';
+    modelSelectorContainer.style.marginBottom = '1rem';
+    modelSelectorContainer.style.textAlign = 'center';
+    
+    // Create label
+    const label = document.createElement('label');
+    label.htmlFor = 'modelSelector';
+    label.textContent = 'Select 3D Model Generator: ';
+    label.style.marginRight = '0.5rem';
+    
+    // Create select element
+    modelSelector = document.createElement('select');
+    modelSelector.id = 'modelSelector';
+    modelSelector.style.padding = '0.3rem';
+    modelSelector.style.borderRadius = '4px';
+    modelSelector.style.backgroundColor = '#2a2a2a';
+    modelSelector.style.color = '#f5f5f5';
+    modelSelector.style.border = '1px solid #444444';
+    
+    // Add options
+    const trellisOption = document.createElement('option');
+    trellisOption.value = 'trellis';
+    trellisOption.textContent = 'Trellis (Default)';
+    
+    const tripoOption = document.createElement('option');
+    tripoOption.value = 'tripo';
+    tripoOption.textContent = 'TripoSG (Experimental)';
+    
+    // Add options to select
+    modelSelector.appendChild(trellisOption);
+    modelSelector.appendChild(tripoOption);
+    
+    // Add elements to container
+    modelSelectorContainer.appendChild(label);
+    modelSelectorContainer.appendChild(modelSelector);
+    
+    // Add info about the models
+    const modelInfo = document.createElement('div');
+    modelInfo.className = 'model-info';
+    modelInfo.style.fontSize = '0.8rem';
+    modelInfo.style.color = '#bbbbbb';
+    modelInfo.style.marginTop = '0.5rem';
+    modelInfo.innerHTML = 'Trellis: Fast, reliable model generation<br>TripoSG: Alternative model with different style (may take longer)';
+    
+    modelSelectorContainer.appendChild(modelInfo);
+    
+    // Find a place to insert the selector (before the drop area)
+    const uploadSection = document.querySelector('.upload-section');
+    const dropAreaElement = document.querySelector('.drop-area');
+    
+    if (uploadSection && dropAreaElement) {
+        uploadSection.insertBefore(modelSelectorContainer, dropAreaElement);
+        console.log('Model selector added to UI');
+    } else {
+        console.error('Could not find upload section or drop area to insert model selector');
+    }
+    
+    // Add event listener for model change
+    modelSelector.addEventListener('change', function() {
+        console.log(`Model changed to: ${this.value}`);
     });
 }
 
@@ -214,10 +288,18 @@ async function generateModel() {
         const formData = new FormData();
         formData.append('image', uploadedImage);
         
-        console.log('Sending image to server...');
+        // Get the selected model
+        const selectedModel = modelSelector ? modelSelector.value : 'trellis';
+        formData.append('model', selectedModel); // Add the selected model to the form data
+        
+        console.log(`Sending image to server using ${selectedModel} model...`);
+        
+        // Use the model-specific endpoint
+        const endpoint = selectedModel === 'trellis' ? GENERATE_ENDPOINT : GENERATE_MODEL_ENDPOINT;
+        console.log(`Using endpoint: ${endpoint}`);
         
         // Send the image to the server endpoint
-        const response = await fetch(`${SERVER_URL}${GENERATE_ENDPOINT}`, {
+        const response = await fetch(`${SERVER_URL}${endpoint}`, {
             method: 'POST',
             body: formData
         });
@@ -260,7 +342,9 @@ async function generateModel() {
             taskId = responseData.task_id;
         }
         
-        console.log('Using task_id:', taskId);
+        // Store which model was used
+        window.currentModel = selectedModel;
+        console.log(`Using task_id: ${taskId} for model: ${window.currentModel}`);
         statusMessage.textContent = 'Processing...';
         
         // Start polling for status
@@ -295,6 +379,7 @@ async function checkTaskStatus() {
         }
         
         console.log('Checking status for task:', taskId);
+        console.log('Current model:', window.currentModel || 'unknown');
         
         // Call the server endpoint with the taskId
         const response = await fetch(`${SERVER_URL}${STATUS_ENDPOINT}/${taskId}`);
@@ -342,13 +427,22 @@ async function checkTaskStatus() {
             // Load the 3D model
             if (output && output.model_file) {
                 console.log('Original model URL:', output.model_file);
-                // Use the proxy endpoint for the model viewer to avoid CORS issues
-                const proxiedModelUrl = `${SERVER_URL}/api/proxy-model?url=${encodeURIComponent(output.model_file)}`;
-                console.log('Loading model using proxy URL:', proxiedModelUrl);
+                
+                // Handle model URL based on the model type
+                let modelUrl;
+                if (window.currentModel === 'tripo') {
+                    // For TripoSG, the URL is already relative to our server
+                    modelUrl = `${SERVER_URL}${output.model_file}`;
+                    console.log('Using local TripoSG model URL:', modelUrl);
+                } else {
+                    // For Trellis, use the proxy endpoint to avoid CORS issues
+                    modelUrl = `${SERVER_URL}/api/proxy-model?url=${encodeURIComponent(output.model_file)}`;
+                    console.log('Using proxied Trellis model URL:', modelUrl);
+                }
                 
                 // Use original URL for direct download link - browsers handle CORS differently for downloads
                 currentModelUrl = output.model_file; 
-                loadModel(proxiedModelUrl, output.model_file);
+                loadModel(modelUrl, output.model_file);
             } else {
                 console.error('No model file URL found in output:', output);
                 document.getElementById('processingText').textContent = 'Error: No model file';
