@@ -329,8 +329,8 @@ async function checkTaskStatus(modelTaskId) {
                 }
             }
             
-            // Check status
-            if (data.status === 'completed') {
+            // Check status - matches the v2 API status values
+            if (data.status === 'completed' || data.status === 'succeed') {
                 // Success! Stop polling and display the model
                 clearInterval(statusCheckInterval);
                 
@@ -343,7 +343,16 @@ async function checkTaskStatus(modelTaskId) {
                     
                     // Setup download button
                     downloadLink.href = data.modelUrl;
-                    downloadLink.download = 'tripo_3d_model.glb';
+                    
+                    // Determine file format from URL for download filename
+                    let fileExtension = 'glb';
+                    if (data.modelUrl.endsWith('.fbx')) {
+                        fileExtension = 'fbx';
+                    } else if (data.modelUrl.endsWith('.obj')) {
+                        fileExtension = 'obj';
+                    }
+                    downloadLink.download = `tripo_3d_model.${fileExtension}`;
+                    
                     downloadSection.style.display = 'block';
                     
                     // Update status
@@ -362,8 +371,16 @@ async function checkTaskStatus(modelTaskId) {
                 throw new Error(data.error || 'Model generation failed');
             }
             else {
-                // Still processing
-                document.getElementById('processingText').innerText = data.message || 'Model generation in progress...';
+                // Still processing - could be 'running', 'pending', etc. in v2 API
+                const message = data.message || 'Processing...';
+                document.getElementById('processingText').innerText = message;
+                
+                // Update progress display
+                if (data.progress) {
+                    const percent = Math.round(parseFloat(data.progress));
+                    document.getElementById('processingText').innerText = 
+                        `${message} (${percent}% complete)`;
+                }
             }
             
             // Reset error count on successful status check

@@ -12,10 +12,10 @@ const port = process.env.PORT || 8000;
 
 // API Key from .env file
 const API_KEY = process.env.TRIPO_API_KEY;
-const TRIPO_API_URL = 'https://platform.tripo3d.ai/api/v1/generation';
+const TRIPO_API_URL = 'https://api.tripo3d.ai/v2/openapi/task';
 
 console.log('-------------------------------------------');
-console.log('TRIPO3D MODEL GENERATOR SERVER');
+console.log('TRIPO3D MODEL GENERATOR SERVER (v2 API)');
 console.log('-------------------------------------------');
 console.log(`API Key loaded: ${API_KEY ? 'YES' : 'NO'}`);
 console.log(`API Endpoint: ${TRIPO_API_URL}`);
@@ -40,7 +40,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ 
     storage: storage,
-    limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+    limits: { fileSize: 20 * 1024 * 1024 } // 20MB limit as per API docs
 });
 
 // Static file serving - IMPORTANT: This must come after other middleware
@@ -53,6 +53,11 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Helper function to convert a file to base64
+function fileToBase64(filePath) {
+    return fs.readFileSync(filePath).toString('base64');
+}
+
 // API routes
 app.post('/api/generate', upload.single('image'), async (req, res) => {
     try {
@@ -64,31 +69,38 @@ app.post('/api/generate', upload.single('image'), async (req, res) => {
         console.log(`📤 TRIPO GENERATION: File received: ${req.file.originalname} (${req.file.size} bytes)`);
         
         try {
-            // Read file data and convert to base64
-            const fileData = fs.readFileSync(req.file.path);
-            const base64Image = fileData.toString('base64');
-            console.log(`📤 TRIPO GENERATION: Converted image to base64 (${base64Image.length} chars)`);
+            // Prepare the image URL - you can either encode as base64 or use a data URL
+            // Since we're using direct file upload in a single request, let's convert to base64
+            const imageData = fileToBase64(req.file.path);
+            const imageBase64 = `data:${req.file.mimetype};base64,${imageData}`;
             
-            // Log the API key (first few characters only)
+            // Log masking some of the API key for security
             const maskedKey = API_KEY ? `${API_KEY.substring(0, 8)}...` : 'NOT FOUND';
             console.log(`📤 TRIPO GENERATION: Using Tripo3D API key: ${maskedKey}`);
             
-            // Create proper JSON payload according to Tripo3D API docs
+            // Create the request payload according to Tripo3D v2 API docs
             const payload = {
-                image: base64Image,
-                remove_background: true // Optional - remove background from image
+                type: "image_to_model",
+                model_version: "v2.5-20250123", // Latest version
+                file: {
+                    type: req.file.mimetype,
+                    url: imageBase64
+                },
+                texture: true,
+                pbr: true,
+                auto_size: true
             };
             
-            console.log(`📤 TRIPO GENERATION: Sending request directly to Tripo3D API: ${TRIPO_API_URL}`);
-            console.log(`📤 TRIPO GENERATION: Payload includes image of ${base64Image.length} chars and remove_background=${payload.remove_background}`);
+            console.log(`📤 TRIPO GENERATION: Sending request to Tripo3D API v2: ${TRIPO_API_URL}`);
+            console.log(`📤 TRIPO GENERATION: Request type: ${payload.type}, model_version: ${payload.model_version}`);
             
-            // Send the request with JSON payload
+            // Send the request with Bearer token authentication
             const response = await axios.post(TRIPO_API_URL, 
                 payload,
                 {
                     headers: {
                         'Content-Type': 'application/json',
-                        'x-api-key': API_KEY
+                        'Authorization': `Bearer ${API_KEY}`
                     },
                     timeout: 60000 // 60 second timeout
                 }
@@ -97,26 +109,26 @@ app.post('/api/generate', upload.single('image'), async (req, res) => {
             // Log response details for debugging
             console.log(`📥 TRIPO RESPONSE: Status: ${response.status}`);
             
-            if (response.status === 200 || response.status === 201 || response.status === 202) {
+            if (response.status === 200) {
                 // Success! Get the task ID from the response
                 const data = response.data;
                 console.log(`📥 TRIPO RESPONSE: Data: ${JSON.stringify(data, null, 2)}`);
                 
-                // Extract task ID or job ID from response
-                const taskId = data.task_id || data.job_id || data.id;
-                
-                if (taskId) {
+                // Extract task ID from response according to v2 API
+                if (data.code === 0 && data.data && data.data.task_id) {
+                    const taskId = data.data.task_id;
                     console.log(`📥 TRIPO RESPONSE: Task ID: ${taskId}`);
+                    
                     res.json({ 
                         success: true, 
                         message: 'Model generation started', 
                         taskId: taskId 
                     });
                 } else {
-                    console.error('📥 TRIPO RESPONSE ERROR: No task ID found in response');
+                    console.error('📥 TRIPO RESPONSE ERROR: No task ID found in response or error code:', data.code);
                     res.status(500).json({ 
                         success: false, 
-                        error: 'No task ID found in response', 
+                        error: data.message || 'No task ID found in response', 
                         details: data 
                     });
                 }
@@ -161,7 +173,7 @@ app.post('/api/generate', upload.single('image'), async (req, res) => {
     }
 });
 
-// Status check endpoint
+// Status check endpoint - updated for v2 API
 app.get('/api/status/:taskId', async (req, res) => {
     try {
         const taskId = req.params.taskId;
@@ -172,64 +184,91 @@ app.get('/api/status/:taskId', async (req, res) => {
         
         console.log(`📊 TRIPO STATUS CHECK: Checking status for task: ${taskId}`);
         
-        // Call Tripo3D API to check status
-        const response = await axios.get(`${TRIPO_API_URL}/status/${taskId}`, {
+        // Call Tripo3D API v2 to check status
+        const statusUrl = `https://api.tripo3d.ai/v2/openapi/task/${taskId}`;
+        const response = await axios.get(statusUrl, {
             headers: {
-                'x-api-key': API_KEY
+                'Authorization': `Bearer ${API_KEY}`
             }
         });
         
         console.log(`📊 TRIPO STATUS CHECK: Response status: ${response.status}`);
         console.log(`📊 TRIPO STATUS CHECK: Response data: ${JSON.stringify(response.data, null, 2)}`);
         
-        // Parse response based on documented API structure
-        const data = response.data;
-        let status = data.status || 'unknown';
-        let modelUrl = null;
-        let message = data.message || '';
+        // Parse response based on v2 API structure
+        const apiResponse = response.data;
         
-        // Check if model is done and extract model URL
-        if (status === 'completed' || status === 'done' || status === 'success') {
-            modelUrl = data.model_url || data.url || null;
+        if (apiResponse.code === 0 && apiResponse.data) {
+            const data = apiResponse.data;
+            const status = data.status || 'unknown';
+            let modelUrl = null;
+            const message = data.status_message || '';
             
-            if (!modelUrl && data.result) {
-                modelUrl = data.result.model_url || data.result.url || null;
-            }
-            
-            if (modelUrl) {
-                console.log(`📊 TRIPO STATUS CHECK: Model completed. URL: ${modelUrl}`);
+            // Check if model is done and extract model URL
+            if (status === 'succeed') {
+                if (data.url && data.url.fbx) {
+                    modelUrl = data.url.fbx;
+                } else if (data.url && data.url.glb) {
+                    modelUrl = data.url.glb;
+                } else if (data.urls && data.urls.length > 0) {
+                    // Try to find a 3D model URL in the urls array
+                    const modelFile = data.urls.find(url => 
+                        url.endsWith('.glb') || url.endsWith('.fbx') || url.endsWith('.obj'));
+                    if (modelFile) {
+                        modelUrl = modelFile;
+                    }
+                }
                 
-                // Return success with model URL
+                if (modelUrl) {
+                    console.log(`📊 TRIPO STATUS CHECK: Model completed. URL: ${modelUrl}`);
+                    
+                    // Return success with model URL
+                    return res.json({
+                        success: true,
+                        status: 'completed',
+                        modelUrl: modelUrl
+                    });
+                } else {
+                    console.error('📊 TRIPO STATUS CHECK: Model completed but no URL found in response');
+                    return res.json({
+                        success: true,
+                        status: 'error',
+                        error: 'Model URL not found in completed response'
+                    });
+                }
+            } 
+            // Check for failure states
+            else if (status === 'failed') {
+                console.error(`📊 TRIPO STATUS CHECK: Model generation failed: ${message}`);
                 return res.json({
-                    success: true,
-                    status: 'completed',
-                    modelUrl: modelUrl
-                });
-            } else {
-                console.error('📊 TRIPO STATUS CHECK: Model completed but no URL found in response');
-                return res.json({
-                    success: true,
-                    status: 'error',
-                    error: 'Model URL not found in completed response'
+                    success: false,
+                    status: 'failed',
+                    error: message || 'Model generation failed'
                 });
             }
-        } 
-        // Check for failure states
-        else if (status === 'failed' || status === 'error') {
-            console.error(`📊 TRIPO STATUS CHECK: Model generation failed: ${message}`);
+            // Still processing
+            else {
+                console.log(`📊 TRIPO STATUS CHECK: Model generation in progress. Status: ${status}`);
+                // Calculate progress if available
+                let progress = 0;
+                if (data.progress) {
+                    progress = parseFloat(data.progress) * 100; // Convert to percentage
+                }
+                
+                return res.json({
+                    success: true,
+                    status: status,
+                    message: message || 'Processing',
+                    progress: progress
+                });
+            }
+        } else {
+            // API returned an error
+            console.error(`📊 TRIPO STATUS CHECK: API returned error code: ${apiResponse.code}`);
             return res.json({
                 success: false,
-                status: 'failed',
-                error: message || 'Model generation failed'
-            });
-        }
-        // Still processing
-        else {
-            console.log(`📊 TRIPO STATUS CHECK: Model generation in progress. Status: ${status}`);
-            return res.json({
-                success: true,
-                status: status,
-                message: message || 'Processing'
+                status: 'error',
+                error: apiResponse.message || 'API returned an error'
             });
         }
     } catch (error) {
