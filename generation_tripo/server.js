@@ -22,6 +22,8 @@ console.log('-------------------------------------------');
 console.log(`API Key loaded: ${API_KEY ? 'YES' : 'NO'}`);
 console.log(`API Endpoint: ${TRIPO_API_URL}`);
 console.log(`Server Port: ${port}`);
+console.log(`Current directory: ${process.cwd()}`);
+console.log(`Script directory: ${__dirname}`);
 console.log('-------------------------------------------');
 
 // CORS middleware with more specific configuration
@@ -35,8 +37,10 @@ app.use(cors({
 // Other middleware
 app.use(express.json({ limit: '50mb' }));
 
-// Serve static files from current directory
-app.use(express.static(__dirname));
+// Serve static files from current directory - fix the path issue
+const staticDir = path.resolve(__dirname);
+console.log(`📂 Serving static files from: ${staticDir}`);
+app.use(express.static(staticDir));
 
 // Set up multer for file upload
 const storage = multer.diskStorage({
@@ -58,9 +62,16 @@ const upload = multer({
     limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-// Root route handler - serve the index.html file
+// Root route handler - serve the index.html file with absolute path
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    const indexPath = path.join(__dirname, 'index.html');
+    console.log(`📄 Serving index.html from: ${indexPath}`);
+    if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        console.error(`❌ ERROR: index.html not found at ${indexPath}`);
+        res.status(404).send('index.html not found');
+    }
 });
 
 // Create endpoint for 3D model generation
@@ -368,6 +379,22 @@ app.listen(port, () => {
         console.log('✅ API Key: Found in environment variables');
     } else {
         console.log('⚠️ WARNING: Tripo3D API Key not found! Set TRIPO_API_KEY in your .env file');
+    }
+    
+    // List files in the directory to check if everything is in place
+    console.log('📁 Files in directory:');
+    try {
+        const files = fs.readdirSync(__dirname);
+        files.forEach(file => {
+            const stats = fs.statSync(path.join(__dirname, file));
+            if (stats.isFile()) {
+                console.log(`📄 ${file}`);
+            } else if (stats.isDirectory()) {
+                console.log(`📁 ${file}/`);
+            }
+        });
+    } catch (err) {
+        console.error('❌ Error listing files:', err);
     }
     
     console.log(`🚀 Server running at http://localhost:${port}`);
