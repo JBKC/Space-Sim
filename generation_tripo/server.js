@@ -13,7 +13,8 @@ const port = process.env.PORT || 8000;
 
 // API Key from .env file
 const API_KEY = process.env.TRIPO_API_KEY;
-const TRIPO_API_URL = 'https://platform.tripo3d.ai/api/v1/generation';
+// Updated API endpoint based on documentation
+const TRIPO_API_URL = 'https://platform.tripo3d.ai/api/v1';
 
 console.log('-------------------------------------------');
 console.log('TRIPO3D MODEL GENERATOR SERVER');
@@ -82,26 +83,27 @@ app.post('/api/generate', upload.single('image'), async (req, res) => {
             const maskedKey = API_KEY ? `${API_KEY.substring(0, 8)}...` : 'NOT FOUND';
             console.log(`📤 TRIPO GENERATION: Using Tripo3D API key: ${maskedKey}`);
             
-            // Create proper JSON payload according to Tripo3D API docs
-            const payload = {
-                image: base64Image,
-                remove_background: true // Optional - remove background from image
-            };
+            // Create FormData object and append file instead of using JSON
+            const formData = new FormData();
+            formData.append('file', fs.createReadStream(req.file.path));
             
-            console.log(`📤 TRIPO GENERATION: Sending request directly to Tripo3D API: ${TRIPO_API_URL}`);
-            console.log(`📤 TRIPO GENERATION: Payload includes image of ${base64Image.length} chars and remove_background=${payload.remove_background}`);
+            // For testing with multipart form data
+            console.log(`📤 TRIPO GENERATION: Sending request to Tripo3D API with formData`);
             
-            // Send the request with JSON payload
-            const response = await axios.post(TRIPO_API_URL, 
-                payload,
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-api-key': API_KEY
-                    },
-                    timeout: 60000 // 60 second timeout
-                }
-            );
+            // Send the request with FormData
+            const generationEndpoint = `${TRIPO_API_URL}/image-to-model`;
+            console.log(`📤 TRIPO GENERATION: Using endpoint: ${generationEndpoint}`);
+            
+            const response = await axios({
+                method: 'post',
+                url: generationEndpoint,
+                headers: {
+                    'x-api-key': API_KEY,
+                    ...formData.getHeaders()
+                },
+                data: formData,
+                timeout: 60000 // 60 second timeout
+            });
             
             // Log response details for debugging
             console.log(`📥 TRIPO RESPONSE: Status: ${response.status}`);
@@ -112,7 +114,7 @@ app.post('/api/generate', upload.single('image'), async (req, res) => {
                 console.log(`📥 TRIPO RESPONSE: Data: ${JSON.stringify(data, null, 2)}`);
                 
                 // Extract task ID or job ID from response
-                const taskId = data.task_id || data.job_id || data.id;
+                const taskId = data.task_id || data.job_id || data.id || data.requestId;
                 
                 if (taskId) {
                     console.log(`📥 TRIPO RESPONSE: Task ID: ${taskId}`);
@@ -182,7 +184,10 @@ app.get('/api/status/:taskId', async (req, res) => {
         console.log(`📊 TRIPO STATUS CHECK: Checking status for task: ${taskId}`);
         
         // Call Tripo3D API to check status
-        const response = await axios.get(`${TRIPO_API_URL}/status/${taskId}`, {
+        const statusEndpoint = `${TRIPO_API_URL}/image-to-model/status/${taskId}`;
+        console.log(`📊 TRIPO STATUS CHECK: Using endpoint: ${statusEndpoint}`);
+        
+        const response = await axios.get(statusEndpoint, {
             headers: {
                 'x-api-key': API_KEY
             }

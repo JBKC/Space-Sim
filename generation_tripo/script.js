@@ -209,12 +209,19 @@ async function generateModel() {
             }
         } else {
             // Handle HTTP errors
+            let errorText = 'Server error';
             if (response) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `Server error: ${response.status}`);
+                try {
+                    const errorData = await response.json();
+                    console.error('Error response:', errorData);
+                    errorText = errorData.error || `Server error: ${response.status}`;
+                } catch (e) {
+                    errorText = `Server error: ${response.status}`;
+                }
             } else {
-                throw new Error('No response from server');
+                errorText = 'No response from server';
             }
+            throw new Error(errorText);
         }
     } catch (error) {
         // Handle errors in a user-friendly way
