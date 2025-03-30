@@ -404,8 +404,8 @@ function startStatusPolling(modelTaskId) {
     // Reset error count
     statusCheckErrorCount = 0;
     
-    // Start polling
-    statusCheckInterval = setInterval(() => checkTaskStatus(modelTaskId), 5000);
+    // Start polling (changed from 5000ms to 10000ms)
+    statusCheckInterval = setInterval(() => checkTaskStatus(modelTaskId), 10000);
 }
 
 async function checkTaskStatus(modelTaskId) {
