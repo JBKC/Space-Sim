@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Model Generator</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="left-panel">
+            <div class="upload-section">
+                <h2>Upload Image</h2>
+                
+                <div class="drop-area" id="dropArea">
+                    <p>Drag & drop an image here or</p>
+                    <div class="input-options">
+                        <label for="fileInput" class="file-input-label" onclick="event.stopPropagation();">Choose a File</label>
+                        <button id="webcamButton" class="webcam-button" onclick="event.stopPropagation();">Use Webcam</button>
+                    </div>
+                    <input type="file" id="fileInput" accept="image/*" hidden>
+                    <div class="preview-container">
+                        <div id="preview"></div>
+                    </div>
+                </div>
+                
+                <div class="button-container">
+                    <button id="generateBtn" class="action-button" disabled>Generate 3D Model</button>
+                </div>
+            </div>
+            
+            <div class="download-section" id="downloadSection" style="display:none;">
+                <a id="downloadLink" href="#" class="download-button" download>Download 3D Model</a>
+            </div>
+        </div>
+        
+        <div class="right-panel">
+            <div id="modelViewer" class="model-viewer-section"></div>
+            
+            <!-- Status overlay for model viewer -->
+            <div id="modelViewerStatus" class="model-viewer-status" style="display:none;">
+                <div class="spinner"></div>
+                <div id="processingText">Initializing...</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Webcam Modal (hidden by default) -->
+    <div id="webcamModal" class="webcam-modal" style="display:none;">
+        <div class="webcam-modal-content">
+            <button id="closeWebcamButton" class="close-button">&times;</button>
+            <div class="webcam-container">
+                <video id="webcamVideo" autoplay playsinline></video>
+                <canvas id="webcamCanvas" style="display:none;"></canvas>
+            </div>
+            <button id="captureButton" class="action-button">Capture Photo</button>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html> 
