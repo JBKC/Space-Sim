@@ -6,6 +6,8 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const FormData = require('form-data');
+const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require("@google/generative-ai");
+const fsPromises = require('fs').promises; // Use promises version of fs
 
 const app = express();
 const port = process.env.PORT || 8000;
@@ -27,6 +29,21 @@ if (!API_KEY) {
         console.warn('⚠️ WARNING: API Key starts with \'tsk_\', which is usually a v1 format key. The v2 endpoint may require a different key format.');
     }
 }
+
+// Initialize Google Generative AI Client (place after dotenv config)
+const googleApiKey = process.env.GOOGLE_API_KEY;
+if (!googleApiKey) {
+    console.warn("⚠️ WARNING: GOOGLE_API_KEY not found in .env file. Background removal will default to returning the original image.");
+} else {
+    console.log(`🔑 Using Google API key starting with: ${googleApiKey.substring(0, 4)}...${googleApiKey.substring(googleApiKey.length - 4)}`);
+}
+const genAI = googleApiKey ? new GoogleGenerativeAI(googleApiKey) : null;
+// Use the specific experimental model alias or a known stable one
+// Using gemini-1.5-flash-latest for text tasks and gemini-2.0-flash-exp-image-generation for image editing
+const geminiModelName = "gemini-1.5-flash-latest";
+const geminiImageModelName = "gemini-2.0-flash-exp-image-generation";
+console.log(`✨ Using Gemini Text Model: ${geminiModelName}`);
+console.log(`✨ Using Gemini Image Model: ${geminiImageModelName}`);
 
 console.log('-------------------------------------------');
 console.log('TRIPO3D MODEL GENERATOR SERVER (v2 API via /openapi/task)');
@@ -86,19 +103,25 @@ const fileFilter = (req, file, cb) => {
     }
 };
 
-// Log multer errors
-const multerUpload = multer({
-    storage: storage,
+// Configure multer for background removal endpoint
+const upload = multer({
+    storage: multer.diskStorage({
+        destination: (req, file, cb) => {
+            console.log(`📤 File upload - destination handler called for file: ${file.originalname}`);
+            cb(null, uploadDir);
+        },
+        filename: (req, file, cb) => {
+            const newFilename = `gemini-${Date.now()}-${file.originalname}`;
+            console.log(`📤 File upload - filename handler called: ${newFilename}`);
+            cb(null, newFilename);
+        }
+    }),
     fileFilter: fileFilter,
-    limits: { 
-        fileSize: 20 * 1024 * 1024, // 20MB limit as per API docs
-        files: 1  // Only allow 1 file to be uploaded
-    },
-    onError: function(err, next) {
-        console.error('⚠️ Multer error:', err);
-        next(err);
+    limits: {
+        fileSize: 20 * 1024 * 1024, // 20MB limit
+        files: 1
     }
-}).single('image');
+});
 
 // Static file serving - IMPORTANT: This must come after other middleware
 // Explicitly serve static files from the current directory
@@ -522,19 +545,195 @@ setTimeout(async () => {
     }
 }, 12000);
 
+// Helper function to convert file buffer to Gemini Part object
+function fileToGenerativePart(buffer, mimeType) {
+  return {
+    inlineData: {
+      data: buffer.toString("base64"),
+      mimeType
+    },
+  };
+}
+
+// Helper function to call Gemini Vision API
+async function callGeminiVision(imagePath, prompt) {
+  if (!genAI) {
+    throw new Error('Gemini not configured (no API key?)');
+  }
+
+  // Use image generation model for transformations
+  console.log(`📡 Using Gemini model: ${geminiImageModelName} for image processing`);
+  
+  const model = genAI.getGenerativeModel({ model: geminiImageModelName });
+  const imageBuffer = await fsPromises.readFile(imagePath);
+  const imagePart = fileToGenerativePart(imageBuffer, 'image/png');
+
+  const generationConfig = {
+    temperature: 0.4,
+    topP: 1.0,
+    topK: 32,
+    maxOutputTokens: 4096,
+    responseModalities: ['Text', 'Image'] // Explicitly request image output
+  };
+
+  const safetySettings = [
+    { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+    { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+    { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+    { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+  ];
+
+  const result = await model.generateContent({
+    contents: [{ role: "user", parts: [imagePart, { text: prompt }] }],
+    generationConfig,
+    safetySettings
+  });
+
+  const response = result.response;
+  
+  if (!response || !response.candidates || response.candidates.length === 0) {
+    throw new Error("Invalid or empty response received from Gemini API");
+  }
+
+  const candidate = response.candidates[0];
+  if (candidate.finishReason === 'SAFETY' || (candidate.safetyRatings && candidate.safetyRatings.some(r => r.blocked))) {
+    throw new Error("Image processing blocked by safety filters");
+  }
+
+  return response;
+}
+
+// --- Gemini Addition: NEW Background Removal Endpoint ---
+// Place this *before* the '/api/generate' route
+app.post('/api/remove-background', upload.single('image'), async (req, res) => {
+  try {
+    console.log('✨ Processing new image pipeline request');
+    
+    if (!req.file) {
+      throw new Error('No file uploaded');
+    }
+
+    const imagePath = req.file.path;
+    console.log(`📤 File received: ${req.file.originalname} (${req.file.size} bytes) at ${imagePath}`);
+
+    // Step 1: Determine if main focus is person or object
+    console.log('🔍 Step 1: Analyzing image content...');
+    const classificationPrompt = "i want you to focus on the MAIN FOCUS of the picture - there might be people AND objects - but i want you to focus on what is the MOST PROMINENT / MAIN FOCUS OF THE IMAGE. please answer whether you see a person or object, in one word only.";
+    
+    // For classification, we can use a different model
+    const genAI = new GoogleGenerativeAI(googleApiKey);
+    const classificationModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+    
+    // Prepare image for classification
+    const imageBuffer = await fsPromises.readFile(imagePath);
+    const imagePart = fileToGenerativePart(imageBuffer, 'image/png');
+    
+    const classificationResult = await classificationModel.generateContent({
+      contents: [{ role: "user", parts: [imagePart, { text: classificationPrompt }] }],
+      generationConfig: { temperature: 0.2 }
+    });
+    
+    const classificationResponse = classificationResult.response;
+    const mainFocus = classificationResponse.candidates[0].content.parts[0].text.trim().toLowerCase();
+    console.log(`📝 Gemini Classification Response: "${mainFocus}"`);
+
+    // Step 2: Apply appropriate transformation based on classification
+    console.log(`🎨 Step 2: Applying ${mainFocus}-specific transformation...`);
+    let transformationPrompt;
+    
+    if (mainFocus === 'person') {
+      transformationPrompt = "Remove background";
+      console.log('👤 Using person-specific background removal prompt');
+    } else if (mainFocus === 'object') {
+      transformationPrompt = "Remove background from this object. Make it a minimalist 3D illustration, soft shadows, smooth plastic textures, soft lighting. Isometric view, with subtle perspective. Cute and friendly style, modern digital render.
+";
+      console.log('🎯 Using object-specific creative transformation prompt');
+    } else {
+      console.log(`⚠️ Unexpected classification "${mainFocus}" - defaulting to simple background removal`);
+      transformationPrompt = "Remove background";
+    }
+
+    console.log('📞 Calling Gemini API for transformation...');
+    const transformationResponse = await callGeminiVision(imagePath, transformationPrompt);
+    console.log('🔍 Gemini Transformation Raw Response:', JSON.stringify(transformationResponse, null, 2));
+
+    // Look for image data in the response
+    let processedImageData = null;
+    const candidate = transformationResponse.candidates[0];
+    
+    if (candidate && candidate.content && candidate.content.parts) {
+      console.log(`📦 Response contains ${candidate.content.parts.length} parts`);
+      
+      // Look through all parts for image data
+      for (const part of candidate.content.parts) {
+        console.log(`📦 Examining part type: ${part.inlineData ? 'inlineData' : (part.text ? 'text' : 'unknown')}`);
+        
+        if (part.inlineData && part.inlineData.data) {
+          console.log('✅ Found inline image data!');
+          processedImageData = part.inlineData.data;
+          // Set content type from inline data if available
+          const mimeType = part.inlineData.mimeType || 'image/png';
+          console.log(`✅ Using MIME type: ${mimeType}`);
+          break;
+        } else if (part.text) {
+          console.log(`📝 Text part content: "${part.text.substring(0, 100)}..."`);
+          // Try to extract URL from text as fallback
+          const urlMatch = part.text.match(/(?:!\[.*?\]\()?https?:\/\/[^\s\)]+\.(?:png|jpe?g|gif|webp|bmp)(?:\)?)/i);
+          if (urlMatch) {
+            console.log('🔗 Found image URL in text, attempting to fetch...');
+            const imageUrl = urlMatch[0].replace(/[!\[\]()]/g, '');
+            try {
+              const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+              processedImageData = Buffer.from(imageResponse.data).toString('base64');
+              console.log('✅ Successfully fetched and processed image from URL');
+              break;
+            } catch (fetchError) {
+              console.error('❌ Failed to fetch image from URL:', fetchError.message);
+            }
+          }
+        }
+      }
+    }
+
+    if (!processedImageData) {
+      throw new Error('Could not find image data in Gemini response');
+    }
+
+    // Send processed image back to client as binary data
+    const processedImageBuffer = Buffer.from(processedImageData, 'base64');
+    res.set('Content-Type', 'image/png');
+    res.send(processedImageBuffer);
+
+  } catch (error) {
+    console.error('❌ Error in image pipeline:', error.message);
+    // Send original image as fallback
+    console.log('-> Attempting to send original image due to error');
+    const originalImageBuffer = fs.readFileSync(req.file.path);
+    res.set('Content-Type', req.file.mimetype || 'image/png');
+    res.send(originalImageBuffer);
+  } finally {
+    // Cleanup
+    if (req.file) {
+      console.log(`🧹 Cleaned up temp file: ${req.file.path}`);
+      fs.unlinkSync(req.file.path);
+    }
+  }
+});
+// --- End Gemini Addition ---
+
 // Custom file upload handler with error logging
 app.post('/api/generate', (req, res, next) => {
-    console.log('📤 Processing file upload request');
+    console.log('📤 Processing file upload request for Tripo3D');
     console.log('📤 Request headers:', req.headers);
     
     // Log when the upload starts processing
-    console.log('📤 About to process multer upload...');
+    console.log('📤 About to process Tripo multer upload...');
     
-    multerUpload(req, res, function (err) {
-        console.log('📤 Multer processing completed');
+    tripoUpload(req, res, function (err) {
+        console.log('📤 Tripo Multer processing completed');
         
         if (err) {
-            console.error('⚠️ File upload error:', err);
+            console.error('⚠️ Tripo File upload error:', err);
             
             // Handle multer errors specifically
             if (err instanceof multer.MulterError) {

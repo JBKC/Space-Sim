@@ -23,6 +23,16 @@ const captureButton = document.getElementById('captureButton');
 const closeWebcamButton = document.getElementById('closeWebcamButton');
 const webcamCanvas = document.getElementById('webcamCanvas');
 
+// --- Gemini Addition: Add elements for background removal status ---
+const uploadStatusText = document.createElement('div'); // Create a new div for upload status
+uploadStatusText.id = 'uploadStatusText';
+uploadStatusText.style.marginTop = '10px';
+uploadStatusText.style.fontSize = '14px';
+uploadStatusText.style.color = '#aaa';
+uploadStatusText.style.textAlign = 'center';
+dropArea.parentNode.insertBefore(uploadStatusText, generateBtn.parentNode); // Insert before generate button container
+// --- End Gemini Addition ---
+
 // Global variables
 let uploadedImage = null;
 let scene, camera, renderer, controls, model;
@@ -35,7 +45,6 @@ let isAnimating = false;
 let lastRenderLog = 0;
 let webcamStream = null;
 let imageBlobUrl = null; // Store the blob URL for cleanup
-let currentModel = null;
 
 // Server API endpoints
 const SERVER_URL = 'http://localhost:8000';
@@ -96,7 +105,7 @@ function checkServerHealth() {
         console.error('Server connection error:', error);
         const statusMessage = document.getElementById('statusMessage');
         if (statusMessage) {
-            statusMessage.textContent = 'Error: Cannot connect to server';
+        statusMessage.textContent = 'Error: Cannot connect to server';
         }
         // Add a retry button
         addServerRetryButton();
@@ -249,47 +258,25 @@ function captureImage() {
         return;
     }
     
-    try {
-        // Set canvas dimensions to match video
-        webcamCanvas.width = webcamVideo.videoWidth;
-        webcamCanvas.height = webcamVideo.videoHeight;
-        
-        // Draw the current video frame to the canvas
-        const context = webcamCanvas.getContext('2d');
-        context.drawImage(webcamVideo, 0, 0, webcamCanvas.width, webcamCanvas.height);
-        
-        // Convert canvas to blob
-        webcamCanvas.toBlob(blob => {
-            // Clean up any previous blob URL
-            if (imageBlobUrl) {
-                URL.revokeObjectURL(imageBlobUrl);
-            }
-            
-            // Create a new blob URL
-            imageBlobUrl = URL.createObjectURL(blob);
-            
-            // Create a File object from the blob (for API compatibility)
-            const filename = `webcam_${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`;
-            uploadedImage = new File([blob], filename, { type: 'image/jpeg' });
-            
-            // Display the captured image
-            displayCapturedImage(imageBlobUrl);
-            
-            // Close webcam modal
-            closeWebcamModal();
-            
-            // Enable generate button
-            generateBtn.disabled = false;
-            
-        }, 'image/jpeg', 0.95); // High quality JPEG
-        
-    } catch (error) {
-        console.error('Error capturing image:', error);
-        const statusMessage = document.getElementById('statusMessage');
-        if (statusMessage) {
-            statusMessage.textContent = 'Failed to capture image';
+    const context = webcamCanvas.getContext('2d');
+    webcamCanvas.width = webcamVideo.videoWidth;
+    webcamCanvas.height = webcamVideo.videoHeight;
+    context.drawImage(webcamVideo, 0, 0, webcamCanvas.width, webcamCanvas.height);
+
+    // Convert canvas to blob, then to file
+    webcamCanvas.toBlob(blob => {
+        if (blob) {
+            const capturedFile = new File([blob], 'webcam-capture.png', { type: 'image/png' });
+            closeWebcamModal(); // Close modal after capture
+
+            // --- Gemini Modification: Process captured image ---
+            processImageForBackgroundRemoval(capturedFile);
+            // --- End Gemini Modification ---
+        } else {
+            console.error('Failed to create blob from webcam canvas');
+             displayUserFriendlyError('Could not capture photo.', 'uploadStatusText');
         }
-    }
+    }, 'image/png');
 }
 
 // Display the captured image in the preview
@@ -309,12 +296,12 @@ function displayCapturedImage(imageSrc) {
     img.src = imageSrc;
     img.alt = 'Captured image';
     preview.appendChild(img);
-    
-    // Update status
+                
+                // Update status
     const statusMessage = document.getElementById('statusMessage');
     if (statusMessage) {
         statusMessage.textContent = 'Image captured successfully.';
-    } else {
+            } else {
         console.warn('Status message element not found');
     }
 }
@@ -393,7 +380,12 @@ function handleDrop(e) {
 
 function handleFileSelect(e) {
     const files = e.target.files;
-    handleFiles(files);
+    if (files.length > 0) {
+        const file = files[0];
+        // --- Gemini Modification: Process image before display ---
+        processImageForBackgroundRemoval(file);
+        // --- End Gemini Modification ---
+    }
 }
 
 function handleFiles(files) {
@@ -402,7 +394,7 @@ function handleFiles(files) {
         if (file.type.match('image.*')) {
             // Process the image
             validateAndProcessImage(file);
-        } else {
+                } else {
             const statusMessage = document.getElementById('statusMessage');
             if (statusMessage) {
                 statusMessage.textContent = 'Please upload an image file.';
@@ -653,48 +645,70 @@ function loadModel(modelUrl, originalUrl) {
 }
 
 function onModelLoaded(gltf) {
-    try {
-        // Clear any loading UI
-        setModelViewerStatus(false);
+    console.log('Model loaded successfully', gltf);
+    
+    // Remove any existing model first
+    if (model) {
+        scene.remove(model);
+        model = null;
+    }
+    
+    // Set up the new model
+    model = gltf.scene || gltf.scenes[0];
+    
+    if (!model) {
+        console.error('No valid scene in GLTF data');
+        return;
+    }
+    
+    // Apply initial 2x scale (zoom)
+    model.scale.set(2, 2, 2);
+    
+    // Check if model is empty
+    let hasVisibleObjects = false;
+    model.traverse(function(node) {
+        if (node.isMesh) {
+            hasVisibleObjects = true;
         
-        // Remove any existing model
-        if (currentModel) {
-            scene.remove(currentModel);
-            currentModel = null;
+        // Enhance materials
+            if (node.material) {
+                if (Array.isArray(node.material)) {
+                    node.material.forEach(enhanceMaterial);
+                } else {
+                    enhanceMaterial(node.material);
+                }
+            }
+            
+            // Enable shadows
+            node.castShadow = true;
+            node.receiveShadow = true;
         }
+    });
+    
+    if (!hasVisibleObjects) {
+        console.error('Model has no visible meshes');
+        return;
+    }
+    
+    // Set model userData to identify it as the main model
+    model.userData = {
+        type: 'importedModel',
+        source: 'gltf'
+    };
+    
+    // Add model to scene
+    scene.add(model);
+    
+    // Apply post-processing
+    applyModelPostProcessing(model);
+    
+    // Update model viewer status
+        modelViewerStatus.style.display = 'none';
         
-        // Get the loaded model
-        const model = gltf.scene || gltf;
-        console.log('Model loaded successfully:', model);
-        
-        // Apply post-processing
-        applyModelPostProcessing(model);
-        
-        // Store the model
-        currentModel = model;
-        
-        // Add the model to the scene
-        scene.add(model);
-        
-        // Fit camera to object with 2x zoom (use 0.6 instead of default 1.25)
-        fitCameraToObject(model, 0.6);
-        
-        // Create download link if supported
-        createDownloadLink(gltf);
-        
-        // Add slow rotation animation to the model
-        model.userData.autoRotate = true;
-        model.userData.rotationSpeed = 0.005; // Slow rotation speed
-        
-        // Ensure the animation loop is running
-        if (!isAnimating) {
-            isAnimating = true;
-            animate();
-        }
-        
-    } catch (error) {
-        console.error('Error processing loaded model:', error);
-        displayUserFriendlyError(error);
+    // Start animation loop if not already running
+    if (!isAnimating) {
+        isAnimating = true;
+        animate();
     }
 }
 
@@ -831,70 +845,47 @@ function enhanceMaterial(material) {
 }
 
 function applyModelPostProcessing(model) {
-    console.log('Applying post-processing to model');
-    
-    // Check if model is empty
-    let hasVisibleObjects = false;
-    model.traverse(function(node) {
-        if (node.isMesh) {
-            hasVisibleObjects = true;
-            
-            // Enhance materials
-            if (node.material) {
-                if (Array.isArray(node.material)) {
-                    node.material.forEach(enhanceMaterial);
-                } else {
-                    enhanceMaterial(node.material);
-                }
-            }
-            
-            // Enable shadows
-            node.castShadow = true;
-            node.receiveShadow = true;
-        }
-    });
-    
-    if (!hasVisibleObjects) {
-        console.warn('Model has no visible meshes');
+    if (!model) {
+        console.error('No model provided for post-processing');
+        return;
     }
     
-    // Set model userData to identify it as the main model
-    model.userData = {
-        type: 'importedModel',
-        source: 'gltf',
-        autoRotate: true,
-        rotationSpeed: 0.005
-    };
-    
-    // Calculate bounding box of model
-    const box = new THREE.Box3().setFromObject(model);
-    
-    // Reset position to center of the model at (0,0,0)
-    const center = box.getCenter(new THREE.Vector3());
-    model.position.sub(center); // Center model at origin
-    
-    // Add a slight rotation for better initial view
-    model.rotation.y = Math.PI / 6;
-    
-    // Get model size for potential scaling
-    const size = box.getSize(new THREE.Vector3());
+    // Create a temporary box to measure object dimensions
+    const boundingBox = new THREE.Box3().setFromObject(model);
+    const size = boundingBox.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
     
-    // Scale model if needed to a reasonable size
-    if (maxDim > 5) {
-        // Model is too large, scale it down
-        const scale = 5 / maxDim;
-        model.scale.multiplyScalar(scale);
-        console.log(`Model was too large (${maxDim}), scaled down by factor of ${scale}`);
-    } else if (maxDim < 1) {
-        // Model is too small, scale it up
-        const scale = 1 / maxDim;
-        model.scale.multiplyScalar(scale);
-        console.log(`Model was too small (${maxDim}), scaled up by factor of ${scale}`);
+    // Check if the model is unusually small or large
+    if (maxDim > 0) {
+        if (maxDim > 10) {
+            // Model is too large, scale it down
+            const scaleFactor = 2 / maxDim;
+            model.scale.multiplyScalar(scaleFactor);
+            console.log(`Model scaled down by factor of ${scaleFactor}`);
+        } else if (maxDim < 0.1) {
+            // Model is too small, scale it up
+            const scaleFactor = 2 / maxDim;
+            model.scale.multiplyScalar(scaleFactor);
+            console.log(`Model scaled up by factor of ${scaleFactor}`);
+        }
     }
     
-    // Fit camera to object
-    fitCameraToObject(model, 0.6); // Use 0.6 instead of 1.25 for 2x zoom
+    // Recalculate the bounding box after potential scaling
+    boundingBox.setFromObject(model);
+    const center = boundingBox.getCenter(new THREE.Vector3());
+    
+    // Center the model at origin
+    model.position.x = -center.x;
+    model.position.y = -center.y;
+    model.position.z = -center.z;
+    
+    // Add a bit of rotation for a better viewing angle
+    model.rotation.y = Math.PI / 8; // Rotate slightly for better viewing
+    
+    // Adjust camera to fit the model
+    fitCameraToObject(model);
+    
+    console.log('Model post-processing complete');
 }
 
 function onWindowResize() {
@@ -908,20 +899,46 @@ function animate() {
     
     requestAnimationFrame(animate);
     
-    // Rotate model if it exists and has autoRotate enabled
-    if (currentModel && currentModel.userData.autoRotate) {
-        currentModel.rotation.y += currentModel.userData.rotationSpeed || 0.005;
-    }
-    
     // Update controls
     if (controls) {
-        controls.update();
+    controls.update();
+    }
+    
+    // Add slow rotation to the loaded model
+    if (model) {
+        model.rotation.y += 0.005; // Adjust speed as needed
     }
     
     // Render the scene
+    if (renderer && scene && camera) {
     renderer.render(scene, camera);
-    
-    console.log('Rendering frame', {model: currentModel ? 'loaded' : 'none', modelType: currentModel ? currentModel.type : 'missing', camera: camera});
+        
+        // Log rendering state for debugging (but limit frequency)
+        const now = Date.now();
+        if (now - lastRenderLog > 1000) { // Log once per second at most
+            lastRenderLog = now;
+            
+            // Identify what type of model we're rendering
+            let modelType = 'none';
+            let modelStatus = 'missing';
+            
+            if (model) {
+                modelStatus = model.type || 'unknown';
+                
+                if (model.userData && model.userData.type) {
+                    if (model.userData.type === 'importedModel') {
+                        modelType = 'imported';
+                    }
+                } else if (model.isGroup) {
+                    modelType = 'group';
+                } else if (model.isMesh) {
+                    modelType = 'mesh';
+                }
+            }
+            
+            // console.log('Rendering frame', { model: modelType, modelType: modelStatus, camera: camera });
+        }
+    }
 }
 
 // Helper function to manage loading UI state
@@ -991,7 +1008,11 @@ function displayUserFriendlyError(error, location = 'processingText') {
         .trim();
         
     // Update the appropriate element with the error message
-    if (location === 'statusMessage') {
+    if (location === 'uploadStatusText') {
+        uploadStatusText.textContent = cleanMessage;
+        // Optionally hide after a delay
+        // setTimeout(() => { uploadStatusText.textContent = ''; }, 5000);
+    } else if (location === 'statusMessage') {
         statusMessage.textContent = cleanMessage;
     } else {
         const processingTextEl = document.getElementById('processingText');
@@ -1137,7 +1158,7 @@ function extractModelUrlFromResponse(data) {
     return null;
 }
 
-// Show/hide model viewer status with simplified message
+// Show/hide model viewer status
 function setModelViewerStatus(isVisible, message = '') {
     const overlay = document.getElementById('modelViewerStatus');
     
@@ -1153,9 +1174,8 @@ function setModelViewerStatus(isVisible, message = '') {
         overlay.style.zIndex = '1000'; // Extremely high z-index
         
         const text = document.getElementById('processingText');
-        if (text) {
-            // Always just show "Generating 3D model..." without percentages
-            text.textContent = 'Generating 3D model...';
+        if (text && message) {
+            text.textContent = message;
             text.style.fontSize = '24px'; // Larger text
         }
         
@@ -1337,76 +1357,106 @@ function startStatusPolling(modelTaskId) {
 
 async function checkTaskStatus(modelTaskId) {
     try {
-        // Show status update (without percentage)
-        setModelViewerStatus(true, 'Generating 3D model...');
+        const response = await fetch(`${SERVER_URL}${STATUS_ENDPOINT}/${modelTaskId}`);
         
-        const response = await fetch(`${SERVER_URL}/api/status/${modelTaskId}`, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json'
-            }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Server returned ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log(`Status check for task ${modelTaskId}:`, data);
-        
-        if (data.success) {
-            const status = data.status.toLowerCase();
+        if (response.ok) {
+            const data = await response.json();
+            console.log('Status update:', data);
             
-            // Handle completed model generation
-            if (status === 'completed' || status === 'success') {
-                setModelViewerStatus(true, 'Loading 3D model...');
+            // Check status
+            if (data.status === 'completed' || data.status === 'succeed' || data.status === 'success') {
+                // Success! Stop polling and display the model
+                clearInterval(statusCheckInterval);
                 
-                // Extract model URL
-                const modelUrl = extractModelUrlFromResponse(data);
-                if (!modelUrl) {
-                    throw new Error('Could not find model URL in response');
+                // Extract model URL from the API response structure
+                let modelUrl = extractModelUrlFromResponse(data);
+                
+                if (modelUrl) {
+                    // Store the model URL for download
+                    currentModelUrl = modelUrl;
+                    
+                    // Create a proxy URL to avoid CORS issues
+                    const modelFilename = extractFilenameFromUrl(modelUrl);
+                    console.log(`Model filename: ${modelFilename}`);
+                    
+                    // For download we'll use the direct URL (which works for downloads)
+                    downloadLink.href = modelUrl;
+                    downloadLink.download = `3d_model.glb`;
+                    
+                    // For viewer loading we'll use a local proxy URL through the server API
+                    // This expects the server to have a proxy endpoint that can fetch the model
+                    const proxyUrl = createProxyUrl(modelUrl);
+                    
+                    // Load the model through the proxy
+                    loadModel(proxyUrl, modelUrl);
+                    
+                    // Show download button and hide loading spinner
+                    downloadSection.style.display = 'block';
+                    modelViewerStatus.style.display = 'none';
+                    
+                    // Update status
+                    statusMessage.textContent = 'Model generated successfully!';
+                    
+                    // Re-enable generate button
+                    generateBtn.disabled = false;
+                } else {
+                    // No model URL - show error
+                    clearInterval(statusCheckInterval);
+                    modelViewerStatus.style.display = 'none';
+                    statusMessage.textContent = 'Error: No model URL returned';
+                    generateBtn.disabled = false;
                 }
+            } 
+            else if (data.status === 'failed' || data.status === 'error') {
+                // Failure
+                clearInterval(statusCheckInterval);
+                modelViewerStatus.style.display = 'none';
+                statusMessage.textContent = 'Error: ' + (data.error || 'Model generation failed');
+                generateBtn.disabled = false;
+            }
+            else {
+                // Still processing - could be 'running', 'pending', etc.
+                const message = data.message || 'Processing...';
+                processingText.textContent = message;
                 
-                // Create a proxy URL to avoid CORS issues
-                const proxiedUrl = createProxyUrl(modelUrl);
-                
-                // Load the model
-                loadModel(proxiedUrl, modelUrl);
-                
-                // Create download link
-                if (data.downloadUrl) {
-                    createDownloadLink(data.downloadUrl);
+                // Update progress display if available
+                if (data.progress) {
+                    const percent = Math.round(parseFloat(data.progress));
+                    processingText.textContent = `${message} (${percent}%)`;
                 }
-                
-                // End status polling
-                return true;
             }
-            // Handle pending model generation (don't show percentage)
-            else if (status === 'pending' || status === 'processing' || status === 'running') {
-                // Continue polling
-                return false;
-            }
-            // Handle failed model generation
-            else if (status === 'failed' || status === 'error') {
-                throw new Error(`Model generation failed: ${data.error || 'Unknown error'}`);
-            }
+            
+            // Reset error count on successful status check
+            statusCheckErrorCount = 0;
         } else {
-            throw new Error(data.error || 'Unknown error checking model status');
+            // Handle HTTP errors
+            console.error('Status check error:', response.status);
+            
+            // Keep track of consecutive errors
+            statusCheckErrorCount++;
+            
+            // If we've had too many errors, stop checking
+            if (statusCheckErrorCount >= 5) {
+                clearInterval(statusCheckInterval);
+                statusMessage.textContent = 'Error: Too many status check errors';
+                modelViewerStatus.style.display = 'none';
+                generateBtn.disabled = false;
+            }
         }
     } catch (error) {
-        console.error(`Error checking status for task ${modelTaskId}:`, error);
-        setModelViewerStatus(false);
+        console.error('Error checking status:', error);
         
-        // Show error to user
-        const statusMessage = document.getElementById('statusMessage');
-        if (statusMessage) {
-            statusMessage.textContent = `Error: ${error.message}`;
+        // Keep track of consecutive errors
+        statusCheckErrorCount++;
+        
+        // If we've had too many errors, stop checking
+        if (statusCheckErrorCount >= 5) {
+            clearInterval(statusCheckInterval);
+            statusMessage.textContent = 'Error: ' + error.message;
+            modelViewerStatus.style.display = 'none';
+            generateBtn.disabled = false;
         }
-        
-        return true; // End polling
     }
-    
-    return false; // Continue polling by default
 }
 
 // Clean up resources on page unload
@@ -1425,4 +1475,85 @@ function loadExampleImage() {
     } catch (error) {
         console.error('Error loading example image:', error);
     }
+}
+
+// --- Gemini Addition: Function to call background removal API ---
+async function processImageForBackgroundRemoval(imageFile) {
+    if (!imageFile || !imageFile.type.startsWith('image/')) {
+        console.error('Invalid file provided for background removal:', imageFile);
+        displayUserFriendlyError('Please select a valid image file.', 'uploadStatusText');
+        return;
+    }
+
+    console.log(`✨ Starting background removal process for: ${imageFile.name}`);
+    setUploadStatus('⏳ Removing background...'); // Show status
+    generateBtn.disabled = true; // Disable generate button during processing
+
+    const formData = new FormData();
+    formData.append('image', imageFile, imageFile.name); // Updated field name from 'imageFile' to 'image'
+
+    try {
+        const response = await fetch(`${SERVER_URL}/api/remove-background`, {
+            method: 'POST',
+            body: formData,
+            // No Content-Type header needed for FormData, browser sets it with boundary
+        });
+
+        if (!response.ok) {
+            let errorMsg = `Background removal failed: ${response.status} ${response.statusText}`;
+            try {
+                const errorData = await response.json();
+                errorMsg = errorData.error || errorData.message || errorMsg;
+            } catch (e) { /* Ignore if response is not JSON */ }
+            throw new Error(errorMsg);
+        }
+
+        console.log('✅ Background removal API call successful');
+        const processedImageBlob = await response.blob();
+        console.log(`✅ Received processed image blob: ${processedImageBlob.size} bytes, type: ${processedImageBlob.type}`);
+
+        // Create a new File object from the processed blob
+        // Preserve original filename but use the mime type from the response
+        const processedFile = new File([processedImageBlob], imageFile.name, { type: processedImageBlob.type });
+
+        setUploadStatus(''); // Clear status message
+        displayPreviewAndEnableButton(processedFile); // Use the processed file
+
+    } catch (error) {
+        console.error('❌ Error during background removal:', error);
+        displayUserFriendlyError(`Background removal error: ${error.message}. Using original image.`, 'uploadStatusText');
+        // Fallback: Use the original image if background removal fails
+        displayPreviewAndEnableButton(imageFile);
+         setUploadStatus(''); // Clear status on error too
+    }
+}
+
+// Helper to set status message in the upload area
+function setUploadStatus(message) {
+    uploadStatusText.textContent = message;
+}
+// --- End Gemini Addition ---
+
+function displayPreviewAndEnableButton(file) {
+    if (!file || !file.type.startsWith('image/')) {
+        console.error('Invalid file format for display');
+        return;
+    }
+
+    // Clear previous content
+    preview.innerHTML = '';
+    
+    // Create and append image
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(file);
+    img.alt = 'Processed image';
+    preview.appendChild(img);
+    
+    // Enable generate button
+    generateBtn.disabled = false;
+    
+    // Update status
+    setUploadStatus('Image ready for generation.'); // Use the helper function for consistency
+    // Optionally clear after a delay
+    setTimeout(() => { setUploadStatus(''); }, 3000);
 } 
