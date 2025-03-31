@@ -525,7 +525,7 @@ function loadModel(modelUrl, originalUrl) {
     console.log(`Loading model from: ${modelUrl}`);
     
     // Always ensure the loading overlay is visible with consistent message
-    setModelViewerStatus(true, 'Generating 3D model');
+    setModelViewerStatus(true, 'Model generating...');
     
     // Make sure the loader overlay is visible
     modelViewerStatus.style.display = 'flex';
@@ -722,7 +722,7 @@ function onProgress(xhr) {
         // Maintain consistent message regardless of progress
         const processingTextEl = document.getElementById('processingText');
         if (processingTextEl) {
-            processingTextEl.innerText = 'Generating 3D model';
+            processingTextEl.innerText = 'Model generating...';
         }
     } else {
         console.log('Model loading in progress, but progress percentage not available');
@@ -1224,19 +1224,20 @@ async function generateModel() {
         console.log('STEP 1: Processing image with Gemini');
         
         // Show "Processing image" with spinner
-        setModelViewerStatus(true, 'Processing image');
+        setModelViewerStatus(true, 'Processing image...');
         
         // Process the image through Gemini
         const processedImage = await processImageWithGemini(uploadedImage);
         
-        // Display the processed image in the preview
-        displayProcessedImage(processedImage);
+        // NOTE: No longer displaying the processed image - going straight to 3D generation
+        // Instead, we're keeping the original image in the preview
+        // But still using the processed image for the 3D generation
         
         // STEP 2: Generate 3D model with the processed image
         console.log('STEP 2: Generating 3D model with processed image');
         
         // Update status message to "Generating 3D model"
-        setModelViewerStatus(true, 'Generating 3D model');
+        setModelViewerStatus(true, 'Model generating...');
         
         // Continue with 3D model generation
         await generate3DModel(processedImage);
@@ -1379,7 +1380,7 @@ async function generate3DModel(imageFile) {
                 
                 // Update processing status
                 if (processingText) {
-                    processingText.textContent = `Generating 3D model`;
+                    processingText.textContent = 'Model generating...';
                 }
                 
                 // Wait before retrying (exponential backoff)
@@ -1400,7 +1401,7 @@ async function generate3DModel(imageFile) {
                 
                 // Update status
                 if (processingText) {
-                    processingText.textContent = 'Generating 3D model';
+                    processingText.textContent = 'Model generating...';
                 }
                 if (statusMessage) {
                     statusMessage.textContent = '';
@@ -1500,7 +1501,7 @@ async function checkTaskStatus(modelTaskId) {
             }
             else {
                 // Still processing - always show "Generating 3D model" with no progress percentage
-                processingText.textContent = "Generating 3D model";
+                processingText.textContent = "Model generating...";
             }
             
             // Reset error count on successful status check

@@ -1,0 +1,29 @@
+🔑 Using Tripo3D API key starting with: tsk_IMEb...
+⚠️ WARNING: API Key starts with 'tsk_', which is usually a v1 format key. The v2 endpoint may require a different key format.
+🔑 Using Google API key starting with: AIza...s3eA
+✨ Using Gemini Model: gemini-1.5-flash-latest
+-------------------------------------------
+TRIPO3D MODEL GENERATOR SERVER (v2 API via /openapi/task)
+-------------------------------------------
+API Key loaded: YES
+🔑 API Generation URL: https://api.tripo3d.ai/v2/openapi/task
+🔑 API Status URL base: https://api.tripo3d.ai/v2/openapi/task
+Server Port: 8000
+-------------------------------------------
+📂 Upload directory exists: /Users/jb/Documents/PYTHON/space_sim/generation_tripo/uploads
+/Users/jb/Documents/PYTHON/space_sim/generation_tripo/server.js:599
+app.post('/api/remove-background', upload.single('image'), async (req, res) => {
+                                   ^
+
+ReferenceError: upload is not defined
+    at Object.<anonymous> (/Users/jb/Documents/PYTHON/space_sim/generation_tripo/server.js:599:36)
+    at Module._compile (node:internal/modules/cjs/loader:1723:14)
+    at Object..js (node:internal/modules/cjs/loader:1888:10)
+    at Module.load (node:internal/modules/cjs/loader:1458:32)
+    at Function._load (node:internal/modules/cjs/loader:1275:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:234:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:151:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v23.7.0
