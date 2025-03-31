@@ -123,6 +123,42 @@ button:disabled {
     margin: 0 auto;
 }
 
+/* Style selector styles */
+.style-selector {
+    width: 100%;
+    margin: 20px 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.style-selector label {
+    margin-bottom: 8px;
+    color: #e0e0e0;
+    font-size: 16px;
+}
+
+.style-dropdown {
+    padding: 10px;
+    background-color: #252525;
+    color: #e0e0e0;
+    border: 1px solid #454545;
+    border-radius: 4px;
+    font-size: 16px;
+    width: 100%;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.3s ease;
+}
+
+.style-dropdown:hover, .style-dropdown:focus {
+    border-color: #2196F3;
+}
+
+.style-dropdown option {
+    background-color: #252525;
+    color: #e0e0e0;
+}
+
 .status-section {
     margin-bottom: 20px;
 }

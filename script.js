@@ -1352,6 +1352,13 @@ async function generate3DModel(imageFile) {
                 const formData = new FormData();
                 formData.append('image', imageFile);
                 
+                // Get the selected style from the dropdown
+                const styleDropdown = document.getElementById('styleDropdown');
+                if (styleDropdown && styleDropdown.value) {
+                    formData.append('style', styleDropdown.value);
+                    console.log(`Selected style: ${styleDropdown.value}`);
+                }
+                
                 // This is important - don't set the Content-Type header manually
                 // The browser will set it automatically with the correct boundary for multipart/form-data
                 response = await fetch(`${SERVER_URL}${GENERATE_ENDPOINT}`, {

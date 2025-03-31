@@ -910,6 +910,12 @@ async function handleImage(req, res) {
             }
         };
         
+        // Check if style parameter is provided and add it to payload
+        if (req.body && req.body.style && req.body.style.trim() !== '') {
+            taskPayload.style = req.body.style.trim();
+            console.log(`📤 TRIPO GENERATION: Adding style parameter: "${taskPayload.style}"`);
+        }
+        
         console.log(`📤 TRIPO GENERATION: POST to ${TRIPO_API_URL}`);
         console.log(`📤 TRIPO GENERATION: Payload Structure (using received token): ${JSON.stringify(taskPayload, null, 2)}`);
         console.log(`📤 TRIPO GENERATION: Authorization: Bearer ${maskedKey}`);
