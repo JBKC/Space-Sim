@@ -526,8 +526,8 @@ function loadModel(modelUrl, originalUrl) {
     
     console.log(`Loading model from: ${modelUrl}`);
     
-    // Always ensure the loading overlay is visible
-    setModelViewerStatus(true, 'Loading 3D model...');
+    // Always ensure the loading overlay is visible with consistent message
+    setModelViewerStatus(true, 'Generating 3D model');
     
     // Make sure the loader overlay is visible
     modelViewerStatus.style.display = 'flex';
@@ -661,7 +661,7 @@ function onModelLoaded(gltf) {
         return;
     }
     
-    // Apply initial 2x scale (zoom)
+    // Apply initial 2x scale
     model.scale.set(2, 2, 2);
     
     // Check if model is empty
@@ -703,7 +703,7 @@ function onModelLoaded(gltf) {
     applyModelPostProcessing(model);
     
     // Update model viewer status
-        modelViewerStatus.style.display = 'none';
+    modelViewerStatus.style.display = 'none';
         
     // Start animation loop if not already running
     if (!isAnimating) {
@@ -716,14 +716,15 @@ function onProgress(xhr) {
     if (xhr.lengthComputable) {
         const percentComplete = xhr.loaded / xhr.total * 100;
         
-        // Log progress every 10%
+        // Log progress every 10% (useful for debugging in console)
         if (Math.floor(percentComplete) % 10 === 0) {
             console.log(`Model loading progress: ${Math.round(percentComplete)}%`);
         }
         
+        // Maintain consistent message regardless of progress
         const processingTextEl = document.getElementById('processingText');
         if (processingTextEl) {
-            processingTextEl.innerText = `Loading: ${Math.round(percentComplete)}%`;
+            processingTextEl.innerText = 'Generating 3D model';
         }
     } else {
         console.log('Model loading in progress, but progress percentage not available');
@@ -858,15 +859,19 @@ function applyModelPostProcessing(model) {
     // Check if the model is unusually small or large
     if (maxDim > 0) {
         if (maxDim > 10) {
-            // Model is too large, scale it down
+            // Model is too large, scale it down but maintain 2x size effect
             const scaleFactor = 2 / maxDim;
             model.scale.multiplyScalar(scaleFactor);
             console.log(`Model scaled down by factor of ${scaleFactor}`);
         } else if (maxDim < 0.1) {
-            // Model is too small, scale it up
+            // Model is too small, scale it up but maintain 2x size effect
             const scaleFactor = 2 / maxDim;
             model.scale.multiplyScalar(scaleFactor);
             console.log(`Model scaled up by factor of ${scaleFactor}`);
+        } else {
+            // Model has reasonable dimensions, but ensure it's at 2x scale
+            // We already set scale in onModelLoaded, so no need to change here
+            console.log('Model has good dimensions, maintaining 2x scale');
         }
     }
     
@@ -901,17 +906,17 @@ function animate() {
     
     // Update controls
     if (controls) {
-    controls.update();
+        controls.update();
     }
     
-    // Add slow rotation to the loaded model
+    // Add slow rotation to the loaded model (half as fast)
     if (model) {
-        model.rotation.y += 0.005; // Adjust speed as needed
+        model.rotation.y += 0.0025; // Reduced from 0.005 to 0.0025 (half speed)
     }
     
     // Render the scene
     if (renderer && scene && camera) {
-    renderer.render(scene, camera);
+        renderer.render(scene, camera);
         
         // Log rendering state for debugging (but limit frequency)
         const now = Date.now();
@@ -1209,16 +1214,16 @@ async function generateModel() {
     
     // Update UI state
     if (statusMessage) {
-        statusMessage.textContent = 'Processing image...';
+        statusMessage.textContent = '';
     }
     
     if (generateBtn) {
         generateBtn.disabled = true;
     }
     
-    // Always show the loading overlay with high visibility
+    // Always show the loading overlay with consistent "Generating 3D model" message
     try {
-        setModelViewerStatus(true, 'Generating 3D model...');
+        setModelViewerStatus(true, 'Generating 3D model');
     } catch (error) {
         console.warn('Could not update model viewer status:', error);
     }
@@ -1391,11 +1396,7 @@ async function checkTaskStatus(modelTaskId) {
                     loadModel(proxyUrl, modelUrl);
                     
                     // Show download button and hide loading spinner
-                    downloadSection.style.display = 'block';
-                    modelViewerStatus.style.display = 'none';
-                    
-                    // Update status
-                    statusMessage.textContent = 'Model generated successfully!';
+                    downloadSection.style.display = 'flex';
                     
                     // Re-enable generate button
                     generateBtn.disabled = false;
@@ -1415,15 +1416,8 @@ async function checkTaskStatus(modelTaskId) {
                 generateBtn.disabled = false;
             }
             else {
-                // Still processing - could be 'running', 'pending', etc.
-                const message = data.message || 'Processing...';
-                processingText.textContent = message;
-                
-                // Update progress display if available
-                if (data.progress) {
-                    const percent = Math.round(parseFloat(data.progress));
-                    processingText.textContent = `${message} (${percent}%)`;
-                }
+                // Still processing - always show "Generating 3D model" with no progress percentage
+                processingText.textContent = "Generating 3D model";
             }
             
             // Reset error count on successful status check
@@ -1486,11 +1480,15 @@ async function processImageForBackgroundRemoval(imageFile) {
     }
 
     console.log(`✨ Starting background removal process for: ${imageFile.name}`);
-    setUploadStatus('⏳ Removing background...'); // Show status
-    generateBtn.disabled = true; // Disable generate button during processing
+    
+    // Show "Processing image" with spinner in the model viewer
+    setModelViewerStatus(true, 'Processing image');
+    
+    // Disable generate button during processing
+    generateBtn.disabled = true;
 
     const formData = new FormData();
-    formData.append('image', imageFile, imageFile.name); // Updated field name from 'imageFile' to 'image'
+    formData.append('image', imageFile, imageFile.name);
 
     try {
         const response = await fetch(`${SERVER_URL}/api/remove-background`, {
@@ -1516,15 +1514,19 @@ async function processImageForBackgroundRemoval(imageFile) {
         // Preserve original filename but use the mime type from the response
         const processedFile = new File([processedImageBlob], imageFile.name, { type: processedImageBlob.type });
 
-        setUploadStatus(''); // Clear status message
+        // Hide the processing message and spinner
+        setModelViewerStatus(false);
+        
+        // Display the processed image
         displayPreviewAndEnableButton(processedFile); // Use the processed file
 
     } catch (error) {
         console.error('❌ Error during background removal:', error);
+        // Hide the processing message and spinner
+        setModelViewerStatus(false);
         displayUserFriendlyError(`Background removal error: ${error.message}. Using original image.`, 'uploadStatusText');
         // Fallback: Use the original image if background removal fails
         displayPreviewAndEnableButton(imageFile);
-         setUploadStatus(''); // Clear status on error too
     }
 }
 
@@ -1548,6 +1550,10 @@ function displayPreviewAndEnableButton(file) {
     img.src = URL.createObjectURL(file);
     img.alt = 'Processed image';
     preview.appendChild(img);
+    
+    // Store the processed file as the uploaded image
+    uploadedImage = file;
+    console.log('Updated uploadedImage with processed file:', file.name, file.size, 'bytes');
     
     // Enable generate button
     generateBtn.disabled = false;

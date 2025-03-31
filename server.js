@@ -123,6 +123,26 @@ const upload = multer({
     }
 });
 
+// Configure multer for Tripo3D model generation
+const tripoUpload = multer({
+    storage: multer.diskStorage({
+        destination: (req, file, cb) => {
+            console.log(`📤 Tripo3D upload - destination handler called for file: ${file.originalname}`);
+            cb(null, uploadDir);
+        },
+        filename: (req, file, cb) => {
+            const newFilename = `tripo-${Date.now()}-${file.originalname}`;
+            console.log(`📤 Tripo3D upload - filename handler called: ${newFilename}`);
+            cb(null, newFilename);
+        }
+    }),
+    fileFilter: fileFilter,
+    limits: {
+        fileSize: 20 * 1024 * 1024, // 20MB limit
+        files: 1
+    }
+}).single('image'); // Use 'image' as field name for Tripo3D uploads
+
 // Static file serving - IMPORTANT: This must come after other middleware
 // Explicitly serve static files from the current directory
 app.use(express.static(path.join(__dirname)));
@@ -645,8 +665,7 @@ app.post('/api/remove-background', upload.single('image'), async (req, res) => {
       transformationPrompt = "Remove background";
       console.log('👤 Using person-specific background removal prompt');
     } else if (mainFocus === 'object') {
-      transformationPrompt = "Remove background from this object. Make it a minimalist 3D illustration, soft shadows, smooth plastic textures, soft lighting. Isometric view, with subtle perspective. Cute and friendly style, modern digital render.
-";
+      transformationPrompt = "Remove background from this object. Make it a minimalist 3D illustration, soft shadows, smooth plastic textures, soft lighting. Isometric view, with subtle perspective. Cute and friendly style, modern digital render.";
       console.log('🎯 Using object-specific creative transformation prompt');
     } else {
       console.log(`⚠️ Unexpected classification "${mainFocus}" - defaulting to simple background removal`);
