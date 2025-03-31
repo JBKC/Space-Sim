@@ -659,8 +659,8 @@ function onModelLoaded(gltf) {
         return;
     }
     
-    // Apply initial 2x scale
-    model.scale.set(2, 2, 2);
+    // Apply initial 6.4x scale (2x larger than previous 3.2x)
+    model.scale.set(6.4, 6.4, 6.4);
     
     // Check if model is empty
     let hasVisibleObjects = false;
@@ -755,7 +755,7 @@ function onError(error, modelUrl, originalUrl) {
     }, 5000);
 }
 
-function fitCameraToObject(object, offset = 1.25) {
+function fitCameraToObject(object, offset = 1.0) {
     if (!object) {
         console.error('No object provided to fit camera to');
         return;
@@ -857,19 +857,19 @@ function applyModelPostProcessing(model) {
     // Check if the model is unusually small or large
     if (maxDim > 0) {
         if (maxDim > 10) {
-            // Model is too large, scale it down but maintain 2x size effect
-            const scaleFactor = 2 / maxDim;
+            // Model is too large, scale it down but maintain 6.4x size effect
+            const scaleFactor = 6.4 / maxDim;
             model.scale.multiplyScalar(scaleFactor);
             console.log(`Model scaled down by factor of ${scaleFactor}`);
         } else if (maxDim < 0.1) {
-            // Model is too small, scale it up but maintain 2x size effect
-            const scaleFactor = 2 / maxDim;
+            // Model is too small, scale it up but maintain 6.4x size effect
+            const scaleFactor = 6.4 / maxDim;
             model.scale.multiplyScalar(scaleFactor);
             console.log(`Model scaled up by factor of ${scaleFactor}`);
         } else {
-            // Model has reasonable dimensions, but ensure it's at 2x scale
+            // Model has reasonable dimensions, but ensure it's at 6.4x scale
             // We already set scale in onModelLoaded, so no need to change here
-            console.log('Model has good dimensions, maintaining 2x scale');
+            console.log('Model has good dimensions, maintaining 6.4x scale');
         }
     }
     
