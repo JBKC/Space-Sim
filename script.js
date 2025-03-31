@@ -269,12 +269,11 @@ function captureImage() {
             const capturedFile = new File([blob], 'webcam-capture.png', { type: 'image/png' });
             closeWebcamModal(); // Close modal after capture
 
-            // --- Gemini Modification: Process captured image ---
-            processImageForBackgroundRemoval(capturedFile);
-            // --- End Gemini Modification ---
+            // Display the original image immediately
+            displayPreviewAndEnableButton(capturedFile);
         } else {
             console.error('Failed to create blob from webcam canvas');
-             displayUserFriendlyError('Could not capture photo.', 'uploadStatusText');
+            displayUserFriendlyError('Could not capture photo.', 'uploadStatusText');
         }
     }, 'image/png');
 }
@@ -382,9 +381,8 @@ function handleFileSelect(e) {
     const files = e.target.files;
     if (files.length > 0) {
         const file = files[0];
-        // --- Gemini Modification: Process image before display ---
-        processImageForBackgroundRemoval(file);
-        // --- End Gemini Modification ---
+        // Display the original image immediately
+        displayPreviewAndEnableButton(file);
     }
 }
 
@@ -392,9 +390,9 @@ function handleFiles(files) {
     if (files.length > 0) {
         const file = files[0];
         if (file.type.match('image.*')) {
-            // Process the image
-            validateAndProcessImage(file);
-                } else {
+            // Display the original image immediately
+            displayPreviewAndEnableButton(file);
+        } else {
             const statusMessage = document.getElementById('statusMessage');
             if (statusMessage) {
                 statusMessage.textContent = 'Please upload an image file.';
@@ -1221,25 +1219,123 @@ async function generateModel() {
         generateBtn.disabled = true;
     }
     
-    // Always show the loading overlay with consistent "Generating 3D model" message
     try {
+        // STEP 1: Process the image with Gemini
+        console.log('STEP 1: Processing image with Gemini');
+        
+        // Show "Processing image" with spinner
+        setModelViewerStatus(true, 'Processing image');
+        
+        // Process the image through Gemini
+        const processedImage = await processImageWithGemini(uploadedImage);
+        
+        // Display the processed image in the preview
+        displayProcessedImage(processedImage);
+        
+        // STEP 2: Generate 3D model with the processed image
+        console.log('STEP 2: Generating 3D model with processed image');
+        
+        // Update status message to "Generating 3D model"
         setModelViewerStatus(true, 'Generating 3D model');
+        
+        // Continue with 3D model generation
+        await generate3DModel(processedImage);
+        
     } catch (error) {
-        console.warn('Could not update model viewer status:', error);
+        console.error('Error in pipeline:', error);
+        
+        if (statusMessage) {
+            statusMessage.textContent = 'Error: ' + error.message;
+        }
+        
+        if (generateBtn) {
+            generateBtn.disabled = false;
+        }
+        
+        try {
+            setModelViewerStatus(false);
+        } catch (e) {
+            console.warn('Could not hide model viewer status:', e);
+        }
     }
+}
+
+// Process image with Gemini (returns a promise that resolves to the processed file)
+async function processImageWithGemini(imageFile) {
+    return new Promise((resolve, reject) => {
+        if (!imageFile || !imageFile.type.startsWith('image/')) {
+            reject(new Error('Invalid file provided for background removal'));
+            return;
+        }
+
+        console.log(`✨ Starting background removal process for: ${imageFile.name}`);
+        
+        const formData = new FormData();
+        formData.append('image', imageFile, imageFile.name);
+
+        fetch(`${SERVER_URL}/api/remove-background`, {
+            method: 'POST',
+            body: formData,
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(errorData => {
+                    throw new Error(errorData.error || `Background removal failed: ${response.status}`);
+                }).catch(e => {
+                    throw new Error(`Background removal failed: ${response.status}`);
+                });
+            }
+            return response.blob();
+        })
+        .then(processedImageBlob => {
+            console.log(`✅ Received processed image blob: ${processedImageBlob.size} bytes`);
+            // Create a new File object from the processed blob
+            const processedFile = new File([processedImageBlob], imageFile.name, { type: processedImageBlob.type });
+            resolve(processedFile);
+        })
+        .catch(error => {
+            console.error('❌ Error during background removal:', error);
+            // If there's an error, just use the original image
+            resolve(imageFile);
+        });
+    });
+}
+
+// Display processed image in the preview
+function displayProcessedImage(file) {
+    if (!file || !file.type.startsWith('image/')) {
+        console.error('Invalid file format for display');
+        return;
+    }
+
+    // Clear previous content
+    preview.innerHTML = '';
     
+    // Create and append image
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(file);
+    img.alt = 'Processed image';
+    preview.appendChild(img);
+    
+    // Store the processed file as the uploaded image for 3D generation
+    uploadedImage = file;
+    console.log('Updated uploadedImage with processed file:', file.name, file.size, 'bytes');
+}
+
+// Function to handle the actual 3D model generation
+async function generate3DModel(imageFile) {
     try {
         // Check if the file is valid
-        if (!(uploadedImage instanceof File)) {
+        if (!(imageFile instanceof File)) {
             throw new Error('Invalid file object. Please try uploading again.');
         }
         
         // Log the file details for debugging
-        console.log('File details:', {
-            name: uploadedImage.name,
-            type: uploadedImage.type,
-            size: uploadedImage.size,
-            lastModified: new Date(uploadedImage.lastModified).toISOString()
+        console.log('File details for 3D generation:', {
+            name: imageFile.name,
+            type: imageFile.type,
+            size: imageFile.size,
+            lastModified: new Date(imageFile.lastModified).toISOString()
         });
         
         // Make the API call with retry logic
@@ -1253,7 +1349,7 @@ async function generateModel() {
                 
                 // Create a fresh FormData for each attempt to avoid any potential issues
                 const formData = new FormData();
-                formData.append('image', uploadedImage);
+                formData.append('image', imageFile);
                 
                 // This is important - don't set the Content-Type header manually
                 // The browser will set it automatically with the correct boundary for multipart/form-data
@@ -1283,7 +1379,7 @@ async function generateModel() {
                 
                 // Update processing status
                 if (processingText) {
-                    processingText.textContent = `Retrying (${retries}/${maxRetries})...`;
+                    processingText.textContent = `Generating 3D model`;
                 }
                 
                 // Wait before retrying (exponential backoff)
@@ -1304,10 +1400,10 @@ async function generateModel() {
                 
                 // Update status
                 if (processingText) {
-                    processingText.textContent = 'Processing in progress...';
+                    processingText.textContent = 'Generating 3D model';
                 }
                 if (statusMessage) {
-                    statusMessage.textContent = 'Generation started';
+                    statusMessage.textContent = '';
                 }
             } else {
                 throw new Error(data.error || 'Failed to start generation');
@@ -1330,20 +1426,7 @@ async function generateModel() {
         }
     } catch (error) {
         console.error('Error generating model:', error);
-        
-        if (statusMessage) {
-            statusMessage.textContent = 'Error: ' + error.message;
-        }
-        
-        if (generateBtn) {
-            generateBtn.disabled = false;
-        }
-        
-        try {
-            setModelViewerStatus(false);
-        } catch (e) {
-            console.warn('Could not hide model viewer status:', e);
-        }
+        throw error; // Propagate the error to the main handler
     }
 }
 
@@ -1471,71 +1554,12 @@ function loadExampleImage() {
     }
 }
 
-// --- Gemini Addition: Function to call background removal API ---
-async function processImageForBackgroundRemoval(imageFile) {
-    if (!imageFile || !imageFile.type.startsWith('image/')) {
-        console.error('Invalid file provided for background removal:', imageFile);
-        displayUserFriendlyError('Please select a valid image file.', 'uploadStatusText');
-        return;
-    }
-
-    console.log(`✨ Starting background removal process for: ${imageFile.name}`);
-    
-    // Show "Processing image" with spinner in the model viewer
-    setModelViewerStatus(true, 'Processing image');
-    
-    // Disable generate button during processing
-    generateBtn.disabled = true;
-
-    const formData = new FormData();
-    formData.append('image', imageFile, imageFile.name);
-
-    try {
-        const response = await fetch(`${SERVER_URL}/api/remove-background`, {
-            method: 'POST',
-            body: formData,
-            // No Content-Type header needed for FormData, browser sets it with boundary
-        });
-
-        if (!response.ok) {
-            let errorMsg = `Background removal failed: ${response.status} ${response.statusText}`;
-            try {
-                const errorData = await response.json();
-                errorMsg = errorData.error || errorData.message || errorMsg;
-            } catch (e) { /* Ignore if response is not JSON */ }
-            throw new Error(errorMsg);
-        }
-
-        console.log('✅ Background removal API call successful');
-        const processedImageBlob = await response.blob();
-        console.log(`✅ Received processed image blob: ${processedImageBlob.size} bytes, type: ${processedImageBlob.type}`);
-
-        // Create a new File object from the processed blob
-        // Preserve original filename but use the mime type from the response
-        const processedFile = new File([processedImageBlob], imageFile.name, { type: processedImageBlob.type });
-
-        // Hide the processing message and spinner
-        setModelViewerStatus(false);
-        
-        // Display the processed image
-        displayPreviewAndEnableButton(processedFile); // Use the processed file
-
-    } catch (error) {
-        console.error('❌ Error during background removal:', error);
-        // Hide the processing message and spinner
-        setModelViewerStatus(false);
-        displayUserFriendlyError(`Background removal error: ${error.message}. Using original image.`, 'uploadStatusText');
-        // Fallback: Use the original image if background removal fails
-        displayPreviewAndEnableButton(imageFile);
-    }
-}
-
 // Helper to set status message in the upload area
 function setUploadStatus(message) {
     uploadStatusText.textContent = message;
-}
-// --- End Gemini Addition ---
+} 
 
+// Display the uploaded image in the preview and enable the generate button
 function displayPreviewAndEnableButton(file) {
     if (!file || !file.type.startsWith('image/')) {
         console.error('Invalid file format for display');
@@ -1548,18 +1572,13 @@ function displayPreviewAndEnableButton(file) {
     // Create and append image
     const img = document.createElement('img');
     img.src = URL.createObjectURL(file);
-    img.alt = 'Processed image';
+    img.alt = 'Uploaded image';
     preview.appendChild(img);
     
-    // Store the processed file as the uploaded image
+    // Store the file as the uploaded image
     uploadedImage = file;
-    console.log('Updated uploadedImage with processed file:', file.name, file.size, 'bytes');
+    console.log('Updated uploadedImage:', file.name, file.size, 'bytes');
     
     // Enable generate button
     generateBtn.disabled = false;
-    
-    // Update status
-    setUploadStatus('Image ready for generation.'); // Use the helper function for consistency
-    // Optionally clear after a delay
-    setTimeout(() => { setUploadStatus(''); }, 3000);
 } 
