@@ -27,6 +27,10 @@
                     </div>
                 </div>
                 
+                <div class="button-container">
+                    <button id="generateBtn" class="action-button" disabled>Generate 3D Model</button>
+                </div>
+                
                 <div class="style-selector">
                     <label for="styleDropdown">Design:</label>
                     <select id="styleDropdown" class="style-dropdown">
@@ -41,14 +45,23 @@
                         <option value="ancient_bronze">Ancient Bronze</option>
                     </select>
                 </div>
-                
-                <div class="button-container">
-                    <button id="generateBtn" class="action-button" disabled>Generate 3D Model</button>
-                </div>
             </div>
             
             <div class="download-section" id="downloadSection" style="display:none;">
                 <a id="downloadLink" href="#" class="download-button" download>Download 3D Model</a>
+            </div>
+            
+            <div class="post-processing-section" id="postProcessingSection" style="display:none;">
+                <div class="style-selector">
+                    <label for="postProcessingDropdown">Style:</label>
+                    <select id="postProcessingDropdown" class="style-dropdown">
+                        <option value="lego">Lego</option>
+                        <option value="voxel">Voxel</option>
+                        <option value="voronoi">Voronoi</option>
+                        <option value="minecraft">Minecraft</option>
+                    </select>
+                </div>
+                <button id="applyStyleBtn" class="action-button">Apply Style</button>
             </div>
         </div>
         

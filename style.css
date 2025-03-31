@@ -129,25 +129,31 @@ button:disabled {
     margin: 20px 0;
     display: flex;
     flex-direction: column;
+    align-items: center;
 }
 
 .style-selector label {
     margin-bottom: 8px;
     color: #e0e0e0;
     font-size: 16px;
+    font-weight: 700;
+    display: none; /* Hide the label to match the button style */
 }
 
 .style-dropdown {
-    padding: 10px;
-    background-color: #252525;
+    padding: 12px 20px;
+    background-color: #121212;
     color: #e0e0e0;
     border: 1px solid #454545;
     border-radius: 4px;
     font-size: 16px;
     width: 100%;
+    max-width: 200px;
     cursor: pointer;
     outline: none;
     transition: border-color 0.3s ease;
+    margin: 0 auto;
+    display: block;
 }
 
 .style-dropdown:hover, .style-dropdown:focus {
@@ -196,6 +202,27 @@ button:disabled {
 
 .download-button {
     width: 100%;
+}
+
+/* Post-processing section styles */
+.post-processing-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #454545;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.post-processing-section .style-selector {
+    margin-bottom: 15px;
+    width: 100%;
+}
+
+.post-processing-section #applyStyleBtn {
+    display: block;
+    margin: 0 auto;
+    min-width: 180px;
 }
 
 /* Right panel styles */

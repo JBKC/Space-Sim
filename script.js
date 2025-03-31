@@ -22,6 +22,9 @@ const webcamVideo = document.getElementById('webcamVideo');
 const captureButton = document.getElementById('captureButton');
 const closeWebcamButton = document.getElementById('closeWebcamButton');
 const webcamCanvas = document.getElementById('webcamCanvas');
+const postProcessingSection = document.getElementById('postProcessingSection');
+const postProcessingDropdown = document.getElementById('postProcessingDropdown');
+const applyStyleBtn = document.getElementById('applyStyleBtn');
 
 // --- Gemini Addition: Add elements for background removal status ---
 const uploadStatusText = document.createElement('div'); // Create a new div for upload status
@@ -50,6 +53,7 @@ let imageBlobUrl = null; // Store the blob URL for cleanup
 const SERVER_URL = 'http://localhost:8000';
 const GENERATE_ENDPOINT = '/api/generate';
 const STATUS_ENDPOINT = '/api/status';
+const STYLIZE_ENDPOINT = '/api/stylize';
 
 // Check server connectivity
 checkServerHealth();
@@ -175,6 +179,10 @@ function setupEventListeners() {
     // Generate button
     const generateBtn = document.getElementById('generateBtn');
     generateBtn.addEventListener('click', generateModel);
+    
+    // Apply style button
+    const applyStyleBtn = document.getElementById('applyStyleBtn');
+    applyStyleBtn.addEventListener('click', applyModelStyle);
     
     // Webcam button
     const webcamButton = document.getElementById('webcamButton');
@@ -951,6 +959,7 @@ function loadingUI(isLoading) {
         loadingSpinner.style.display = 'flex';
         modelViewerStatus.style.display = 'flex';
         downloadSection.style.display = 'none';
+        postProcessingSection.style.display = 'none';
     } else {
         generateBtn.disabled = false;
         loadingSpinner.style.display = 'none';
@@ -1195,31 +1204,30 @@ function setModelViewerStatus(isVisible, message = '') {
     }
 }
 
-// Generate model function with null checks
+// Main function to generate the 3D model
 async function generateModel() {
-    // Get necessary elements
-    const generateBtn = document.getElementById('generateBtn');
-    const statusMessage = document.getElementById('statusMessage');
-    const modelViewerStatus = document.getElementById('modelViewerStatus');
-    const processingText = document.getElementById('processingText');
-    
+    // Verify that an image has been uploaded
     if (!uploadedImage) {
-        if (statusMessage) {
-            statusMessage.textContent = 'Please upload an image first.';
-        }
+        console.error('No image uploaded');
         return;
     }
     
-    // Update UI state
-    if (statusMessage) {
-        statusMessage.textContent = '';
-    }
-    
-    if (generateBtn) {
-        generateBtn.disabled = true;
-    }
-    
     try {
+        console.log('Starting 3D generation with image:', uploadedImage.name);
+        
+        // Hide download section and post-processing
+        downloadSection.style.display = 'none';
+        postProcessingSection.style.display = 'none';
+        
+        // Update UI state
+        if (statusMessage) {
+            statusMessage.textContent = '';
+        }
+        
+        if (generateBtn) {
+            generateBtn.disabled = true;
+        }
+        
         // STEP 1: Process the image with Gemini
         console.log('STEP 1: Processing image with Gemini');
         
@@ -1489,6 +1497,9 @@ async function checkTaskStatus(modelTaskId) {
                     // Show download button and hide loading spinner
                     downloadSection.style.display = 'flex';
                     
+                    // Show post-processing options
+                    postProcessingSection.style.display = 'flex';
+                    
                     // Re-enable generate button
                     generateBtn.disabled = false;
                 } else {
@@ -1589,4 +1600,180 @@ function displayPreviewAndEnableButton(file) {
     
     // Enable generate button
     generateBtn.disabled = false;
+} 
+
+// Function to apply post-processing style to the model
+async function applyModelStyle() {
+    // Check if we have a valid task ID
+    if (!taskId) {
+        console.error('No valid task ID available');
+        statusMessage.textContent = 'Error: No model available for styling';
+        return;
+    }
+    
+    // Get selected style
+    const selectedStyle = postProcessingDropdown.value;
+    if (!selectedStyle) {
+        console.error('No style selected');
+        statusMessage.textContent = 'Please select a style to apply';
+        return;
+    }
+    
+    // Disable the apply style button and update status
+    applyStyleBtn.disabled = true;
+    setModelViewerStatus(true, 'Applying style...');
+    
+    try {
+        console.log(`Applying style: ${selectedStyle} to model with task ID: ${taskId}`);
+        
+        // Create the request payload
+        const stylePayload = {
+            type: "stylize_model",
+            style: selectedStyle,
+            original_model_task_id: taskId
+        };
+        
+        // Make the API call
+        const response = await fetch(`${SERVER_URL}${STYLIZE_ENDPOINT}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(stylePayload),
+            timeout: 60000 // 60 seconds
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('Style application initiated:', data);
+            
+            if (data.success && data.taskId) {
+                // Store the new task ID for status checking
+                const styleTaskId = data.taskId;
+                
+                // Start checking status for the style task
+                startStyleStatusPolling(styleTaskId);
+            } else {
+                throw new Error(data.error || 'Failed to apply style');
+            }
+        } else {
+            // Handle HTTP errors
+            let errorText = `Server error: ${response.status}`;
+            try {
+                const errorData = await response.json();
+                console.error('Error response body:', errorData);
+                errorText = errorData.error || errorText;
+            } catch (e) {
+                console.error('Error parsing error response:', e);
+            }
+            throw new Error(errorText);
+        }
+    } catch (error) {
+        console.error('Error applying style:', error);
+        statusMessage.textContent = `Error: ${error.message}`;
+        setModelViewerStatus(false);
+        applyStyleBtn.disabled = false;
+    }
+}
+
+// Start polling for style status
+function startStyleStatusPolling(styleTaskId) {
+    // Clear any existing interval
+    if (statusCheckInterval) {
+        clearInterval(statusCheckInterval);
+    }
+    
+    // Reset error count
+    statusCheckErrorCount = 0;
+    
+    // Start polling
+    statusCheckInterval = setInterval(() => checkStyleTaskStatus(styleTaskId), 5000);
+}
+
+// Check status of the style application task
+async function checkStyleTaskStatus(styleTaskId) {
+    try {
+        const response = await fetch(`${SERVER_URL}${STATUS_ENDPOINT}/${styleTaskId}`);
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('Style status update:', data);
+            
+            // Check status
+            if (data.status === 'completed' || data.status === 'succeed' || data.status === 'success') {
+                // Success! Stop polling and display the model
+                clearInterval(statusCheckInterval);
+                
+                // Extract model URL from the API response structure
+                let modelUrl = extractModelUrlFromResponse(data);
+                
+                if (modelUrl) {
+                    // Store the model URL for download
+                    currentModelUrl = modelUrl;
+                    
+                    // Update download link
+                    downloadLink.href = modelUrl;
+                    
+                    // For viewer loading we'll use a local proxy URL through the server API
+                    const proxyUrl = createProxyUrl(modelUrl);
+                    
+                    // Load the model through the proxy
+                    loadModel(proxyUrl, modelUrl);
+                    
+                    // Re-enable apply style button
+                    applyStyleBtn.disabled = false;
+                    
+                    // Hide processing status
+                    setModelViewerStatus(false);
+                } else {
+                    // No model URL - show error
+                    clearInterval(statusCheckInterval);
+                    setModelViewerStatus(false);
+                    statusMessage.textContent = 'Error: No styled model URL returned';
+                    applyStyleBtn.disabled = false;
+                }
+            } 
+            else if (data.status === 'failed' || data.status === 'error') {
+                // Failure
+                clearInterval(statusCheckInterval);
+                setModelViewerStatus(false);
+                statusMessage.textContent = 'Error: ' + (data.error || 'Style application failed');
+                applyStyleBtn.disabled = false;
+            }
+            else {
+                // Still processing
+                processingText.textContent = "Applying style...";
+            }
+            
+            // Reset error count on successful status check
+            statusCheckErrorCount = 0;
+        } else {
+            // Handle HTTP errors
+            console.error('Style status check error:', response.status);
+            
+            // Keep track of consecutive errors
+            statusCheckErrorCount++;
+            
+            // If we've had too many errors, stop checking
+            if (statusCheckErrorCount >= 5) {
+                clearInterval(statusCheckInterval);
+                statusMessage.textContent = 'Error: Too many status check errors';
+                setModelViewerStatus(false);
+                applyStyleBtn.disabled = false;
+            }
+        }
+    } catch (error) {
+        console.error('Error checking style status:', error);
+        
+        // Keep track of consecutive errors
+        statusCheckErrorCount++;
+        
+        // If we've had too many errors, stop checking
+        if (statusCheckErrorCount >= 5) {
+            clearInterval(statusCheckInterval);
+            statusMessage.textContent = 'Error: ' + error.message;
+            setModelViewerStatus(false);
+            applyStyleBtn.disabled = false;
+        }
+    }
 } 

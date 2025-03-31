@@ -1382,10 +1382,103 @@ app.get('/api/status/:taskId', async (req, res) => {
     }
 });
 
-
-// Special route to check server health
+// Add routes for API testing
+// Health check endpoint
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', message: 'Tripo3D server is running' });
+    console.log('Health check request received');
+    const healthStatus = {
+        status: 'UP',
+        version: '1.0',
+        timestamp: new Date().toISOString()
+    };
+    res.json(healthStatus);
+});
+
+// Endpoint for model stylizing (post-processing)
+app.post('/api/stylize', async (req, res) => {
+    console.log('📤 Received style application request');
+    
+    try {
+        if (!req.body || !req.body.type || req.body.type !== 'stylize_model' || 
+            !req.body.style || !req.body.original_model_task_id) {
+            console.error('❌ Missing required parameters for style application');
+            return res.status(400).json({
+                success: false,
+                error: 'Missing required parameters',
+                details: 'Must include type, style, and original_model_task_id'
+            });
+        }
+        
+        // Log masking some of the API key for security
+        const maskedKey = API_KEY ? `${API_KEY.substring(0, 8)}...` : 'NOT FOUND';
+        console.log(`📤 STYLE APPLICATION: Using API Key: ${maskedKey}`);
+        
+        // Prepare the payload for the Tripo3D API
+        const stylePayload = {
+            type: "stylize_model",
+            style: req.body.style,
+            original_model_task_id: req.body.original_model_task_id
+        };
+        
+        // Optional block_size parameter for minecraft style
+        if (req.body.style === 'minecraft' && req.body.block_size) {
+            stylePayload.block_size = req.body.block_size;
+        }
+        
+        console.log(`📤 STYLE APPLICATION: POST to ${TRIPO_API_URL}`);
+        console.log(`📤 STYLE APPLICATION: Payload: ${JSON.stringify(stylePayload, null, 2)}`);
+        
+        // Make the API call to Tripo3D
+        const styleResponse = await axios.post(TRIPO_API_URL, 
+            stylePayload,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${API_KEY}`
+                },
+                timeout: 60000,
+                validateStatus: () => true
+            }
+        );
+        
+        console.log('📥 STYLE APPLICATION: RESPONSE RECEIVED');
+        console.log(`- Status: ${styleResponse.status} ${styleResponse.statusText}`);
+        console.log(`- Body: ${JSON.stringify(styleResponse.data, null, 2)}`);
+        
+        // Check for success and task_id
+        if (styleResponse.status === 200 && styleResponse.data && 
+            styleResponse.data.code === 0 && styleResponse.data.data && 
+            styleResponse.data.data.task_id) {
+            
+            const taskId = styleResponse.data.data.task_id;
+            console.log(`✅ STYLE APPLICATION: Success! task_id = ${taskId}`);
+            return res.json({
+                success: true,
+                message: 'Style application task started',
+                taskId: taskId
+            });
+        } else {
+            console.error(`❌ STYLE APPLICATION: Error response from API`);
+            return res.status(styleResponse.status >= 400 ? styleResponse.status : 500).json({
+                success: false,
+                error: 'Style application failed',
+                details: styleResponse.data || 'Unknown error'
+            });
+        }
+    } catch (error) {
+        console.error('❌ STYLE APPLICATION: Exception during request:', error.message);
+        if (error.response) {
+            console.error(`- Response Status: ${error.response.status}`);
+            console.error(`- Response Data: ${JSON.stringify(error.response.data)}`);
+        } else if (error.request) {
+            console.error('- No response received from style server.');
+        }
+        return res.status(500).json({
+            success: false,
+            error: 'Style application request failed',
+            details: error.message
+        });
+    }
 });
 
 // Start the server
