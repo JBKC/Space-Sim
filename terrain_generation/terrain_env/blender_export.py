@@ -37,6 +37,7 @@ bpy.ops.object.mode_set(mode='OBJECT')
 # === BAKE HEIGHTMAP ===
 try:
     height_img = bpy.data.images.new("HeightBake", width=2048, height=2048)
+    # TRY NOT TO INCREASE THIS RESOLUTION ^^ - it will take forever to bake
     mat = obj.active_material
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -88,12 +89,15 @@ try:
     disp_mod.strength = 2.0
 
     subdiv = obj.modifiers.new(name="Subdiv", type='SUBSURF')
-    subdiv.levels = 6
-    subdiv.render_levels = 6
+    subdiv.levels = 10
+    subdiv.render_levels = 10
     subdiv.subdivision_type = 'SIMPLE'
 
     bpy.ops.object.modifier_apply(modifier="Subdiv")
     bpy.ops.object.modifier_apply(modifier="ShaderDisplace")
+
+    # Apply smooth shading to make the surface look smoother
+    bpy.ops.object.shade_smooth()
 
     print("✅ Displacement applied.")
 except Exception as e:
@@ -109,29 +113,6 @@ try:
 except Exception as e:
     print(f"Error during alignment: {e}")
 
-# === BAKE FINAL COLOR TEXTURE ===
-try:
-    color_img = bpy.data.images.new("ColorBake", width=2048, height=2048)
-    color_tex_node = nodes.new("ShaderNodeTexImage")
-    color_tex_node.image = color_img
-    color_tex_node.select = True
-    nodes.active = color_tex_node
-
-    bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}, use_clear=True)
-
-    colormap_path = os.path.join(OUTPUT_DIR, COLORMAP_NAME)
-    color_img.filepath_raw = colormap_path
-    color_img.file_format = 'PNG'
-    color_img.save()
-    color_img.pack()
-    print(f"✅ Final color map saved to: {colormap_path}")
-
-    # Now connect the baked color to the Principled BSDF for export
-    bsdf = next(n for n in nodes if n.type == 'BSDF_PRINCIPLED')
-    links.new(color_tex_node.outputs['Color'], bsdf.inputs['Base Color'])
-
-except Exception as e:
-    print(f"Error baking final color: {e}")
 
 # === EXPORT GLB ===
 try:
@@ -153,3 +134,4 @@ try:
     print(f"✅ GLB file exported to: {glb_path}")
 except Exception as e:
     print(f"Error exporting GLB: {e}")
+ 

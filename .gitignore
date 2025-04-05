@@ -27,4 +27,7 @@ yarn-error.log*
 *.ntvs*
 *.njsproj
 *.sln
-*.sw? 
+*.sw?
+
+# Large generated files
+terrain_generation/terrain_env/blender_templates/*.glb 
