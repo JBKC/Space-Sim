@@ -1,4 +1,4 @@
-// src/main.js
+// MAIN ANIMATION FILE
 
 // Main setup imports
 import { 
@@ -43,8 +43,8 @@ import {
     resetPosition as resetEarthPosition,  // Import the generic reset position function
     resetSanFranInitialized,  // Import the new function to reset the San Fran initialization flag
     resetKeys as resetEarthKeys  // Import function to reset Earth surface key states
-// } from './washington3D.js';
-} from './sanFran3D.js';
+// } from './planetEnvs/washington3D.js';
+} from './planetEnvs/sanFran3D.js';
 // 
 import { 
     init as initMoonSurface, 
@@ -57,7 +57,7 @@ import {
     resetPosition as resetMoonPosition,  // Import the generic reset position function
     resetMoonInitialized,  // Import the new function to reset the Moon initialization flag
     resetKeys as resetMoonKeys  // Import function to reset Moon surface key states
-} from './moon3D.js';
+} from './planetEnvs/moon3D.js';
 
 
 import { setGameMode, resetMovementInputs, keys } from './movement.js'; // Added keys import
@@ -65,9 +65,6 @@ import {
     setupUIElements, 
     setupDirectionalIndicator, 
     updateDirectionalIndicator, 
-    showRaceModeUI, 
-    hideRaceModeUI, 
-    updateUI,
     showControlsPrompt,
     updateControlsDropdown
 } from './ui.js';

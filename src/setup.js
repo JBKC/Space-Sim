@@ -1,10 +1,11 @@
-// src/setup.js
+
+// file for space scene setup
+
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { updateMovement, keys } from './movement.js';
 import { createSpacecraft } from './spacecraft.js';
 import { createReticle, setReticleVisibility } from './reticle.js';
-import { fireLaser, updateLasers, clearAllLasers } from './laser.js';
 import { updateControlsDropdown } from './ui.js';
 import { 
     spaceCamera, 
@@ -535,7 +536,6 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         // Handle laser firing if spacebar is pressed
         if (keys.space && spacecraft) {
             // LASER FIRING DISABLED
-            // fireLaser(spacecraft, scene, 'space', isBoosting);
         }
 
         // Use the passed isBoosting and isHyperspace parameters
@@ -543,7 +543,7 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         updateCamera(camera, isHyperspace);
         
         // Handle laser updates
-        if (typeof updateLasers === 'function') {
+        if (typeof updateLasers === "function") {
             updateLasers(deltaTime);
         }
 
