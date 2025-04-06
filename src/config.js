@@ -1,15 +1,15 @@
 /**
  * Application configuration
  * This file centralizes all environment-specific variables
- * It will automatically use the correct values based on the current environment (development or production)
+ * Simplified for direct browser usage without Vite
  */
 
-// Get environment variables from Vite
-const ENV = import.meta.env.VITE_APP_ENV || 'development';
-const ASSETS_PATH = import.meta.env.VITE_ASSETS_PATH || 'src/assets';
-const DRACO_PATH = import.meta.env.VITE_DRACO_PATH || 'src/assets/draco/';
-const APP_TITLE = import.meta.env.VITE_APP_TITLE || 'PLANETARY - Development';
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// Define environment variables directly for browser usage
+const ENV = 'development';
+const ASSETS_PATH = '/src/assets';
+const DRACO_PATH = '/src/assets/draco/';
+const APP_TITLE = 'PLANETARY - Development';
+const API_URL = 'http://localhost:3000/api';
 
 // Function to ensure paths have correct format (no double slashes, etc.)
 const formatPath = (path) => {

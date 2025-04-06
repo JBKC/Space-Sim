@@ -1,9 +1,9 @@
 import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
-import { createReticle } from './reticle.js';
+import { createReticle } from './terrain_reticle.js';
 import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/loaders/GLTFLoader.js';
-import config from './config.js';
+import config from './terrain_config.js';
 // Import loading managers
-import { loadingManager, textureLoadingManager } from './loaders.js';
+import { loadingManager, textureLoadingManager } from './terrain_loaders.js';
 
 // AXES: x = yaw, y = pitch, z = roll
 

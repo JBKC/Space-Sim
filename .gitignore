@@ -30,4 +30,21 @@ yarn-error.log*
 *.sw?
 
 # Large generated files
-terrain_generation/terrain_env/blender_templates/*.glb 
+terrain_generation/terrain_env/blender_templates/*.glb
+
+# IDE files
+.vscode/
+.idea/
+
+# Logs
+logs/
+*.log
+
+# Large binary files
+*.glb
+*.blend
+*.blend1
+
+# OS-specific files
+.DS_Store
+Thumbs.db 

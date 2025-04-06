@@ -3,8 +3,8 @@
 import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
 import { OrbitControls } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/controls/OrbitControls.js';
 import { GUI } from 'https://cdn.jsdelivr.net/npm/dat.gui@0.7.9/build/dat.gui.module.js';
-import { updateMovement, keys } from '../../../src/movement.js';
-import { createSpacecraft } from '../../../src/spacecraft.js';
+import { updateMovement, keys } from './terrain_movement.js';
+import { createSpacecraft } from './terrain_spacecraft.js';
 import { 
     spaceCamera, 
     cockpitCamera,
@@ -12,10 +12,11 @@ import {
     updateTargetOffsets,
     updateCameraOffsets,
     createForwardRotation
-} from '../../../src/camera.js';
-import config from './config.js';
+} from './terrain_camera.js';
 // Import loading managers for tracking asset loading
-import { loadingManager, textureLoadingManager } from '../../../src/loaders.js';
+import { loadingManager, textureLoadingManager } from './terrain_loaders.js';
+import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/loaders/GLTFLoader.js';
+import config from './terrain_config.js';
 
 // General initialization - scene, camera, renderer
 // do outside of init function as scene is required by multiple other files
@@ -31,10 +32,28 @@ const smoothFactor = 0.1; // Exactly the same as SanFran3D
 // set up renderer for default space view
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
-document.getElementById('space-container').appendChild(renderer.domElement);
+// Don't append to DOM yet, will do in init function
 let spaceInitialized = false;
 let isBoosting = false;
 let isHyperspace = false;
+
+export { 
+    renderer, 
+    scene, 
+    camera, 
+    rotation,
+    cameraState
+};
+
+// Rotation configuration for camera
+const rotation = {
+    pitch: new THREE.Quaternion(),
+    yaw: new THREE.Quaternion(),
+    roll: new THREE.Quaternion(),
+    pitchAxis: new THREE.Vector3(1, 0, 0),
+    yawAxis: new THREE.Vector3(0, 1, 0),
+    rollAxis: new THREE.Vector3(0, 0, 1)
+};
 
 
 function updateCamera(camera, isHyperspace) {
@@ -142,8 +161,15 @@ scene.add(directionalLight);
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 
-scene.background = new THREE.Color(0x000000);
+scene.background = new THREE.Color(0xffffff);
 
+// Add a test sphere at the origin
+const testSphere = new THREE.Mesh(
+  new THREE.SphereGeometry(100, 32, 32),
+  new THREE.MeshBasicMaterial({ color: 0xffffff })
+);
+testSphere.position.set(0, 0, 0);
+scene.add(testSphere);
 
 export function renderScene() {
     // just the single procedural scene to render
@@ -208,7 +234,7 @@ function initSpacecraft() {
         console.warn("Reticle not found in spacecraft components");
     }
 
-    spacecraft.position.set(40000, 40000, 40000);
+    spacecraft.position.set(1000, 1000, 1000);
     const centerPoint = new THREE.Vector3(0, 0, 10000);
     spacecraft.lookAt(centerPoint);
     spacecraft.name = 'spacecraft'; // Add a name for easier lookup
@@ -273,6 +299,9 @@ export function init() {
 
     spaceInitialized = true;
     console.log("Space initialization complete");
+    
+    // Append the renderer to the DOM
+    document.body.appendChild(renderer.domElement);
     
     return { 
         scene: scene, 
@@ -485,12 +514,3 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
-
-// Animate
-function animate() {
-  requestAnimationFrame(animate);
-  controls.update();
-  uniforms.uTime.value += 0.01;
-  renderer.render(scene, camera);
-}
-animate();

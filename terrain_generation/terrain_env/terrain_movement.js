@@ -1,7 +1,5 @@
 // movement.js
 
-// Called by various setup files
-
 import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
 import { 
     spacecraft, 
@@ -13,10 +11,8 @@ import {
     bottomLeftWing, 
     updateEngineEffects,
     scene as spaceScene,
-    PLANET_RADIUS,
-    PLANET_POSITION,
     rotation
-} from './setup.js';
+} from './terrain_setup.js';
 
 // Movement and boost variables
 export const baseSpeed = 5;
@@ -190,27 +186,6 @@ export function updateMovement(isBoosting, isHyperspace) {
     const nextPosition = spacecraft.position.clone().add(
         forward.multiplyScalar(currentSpeed)
     );
-
-    // Check distance to planet for next position
-    const distanceToPlanet = nextPosition.distanceTo(PLANET_POSITION);
-    const minDistance = PLANET_RADIUS + COLLISION_THRESHOLD;
-
-    if (distanceToPlanet < minDistance) {
-        const toSpacecraft = new THREE.Vector3().subVectors(spacecraft.position, PLANET_POSITION).normalize();
-        spacecraft.position.copy(PLANET_POSITION).add(
-            toSpacecraft.multiplyScalar(minDistance + COLLISION_PUSHBACK)
-        );
-        const normal = toSpacecraft;
-        const incidentDir = forward.normalize();
-        const reflectDir = new THREE.Vector3();
-        reflectDir.copy(incidentDir).reflect(normal);
-        const bounceQuaternion = new THREE.Quaternion();
-        bounceQuaternion.setFromUnitVectors(forward, reflectDir);
-        spacecraft.quaternion.premultiply(bounceQuaternion);
-        currentSpeed *= BOUNCE_FACTOR;
-    } else {
-        spacecraft.position.copy(nextPosition);
-    }
 
     // The manual wing animation code has been removed as it's now handled
     // by the Three.js animation system in spacecraft.js
