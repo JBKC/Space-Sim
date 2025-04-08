@@ -116,3 +116,4 @@ These variables are defined in the `.env.development` and `.env.production` file
 ## License
 
 [Add your license information here]
+# Additional note about large files
