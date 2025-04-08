@@ -1,5 +1,4 @@
-
-// file for space scene setup
+// Defines and initializes the space scene
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -15,230 +14,32 @@ import {
     updateCameraOffsets,
     createForwardRotation
 } from './camera.js';
-// Import configuration
 import config from './config.js';
-// Import loading managers for tracking asset loading
 import { loadingManager, textureLoadingManager } from './loaders.js';
 
-// General initialization - scene, camera, renderer
-// do outside of init function as scene is required by multiple other files
+// General initialization - scene + renderer
 const scene = new THREE.Scene();
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.getElementById('space-container').appendChild(renderer.domElement);
+// Renderer settings
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.autoClear = true;
+renderer.sortObjects = false;
+renderer.physicallyCorrectLights = false;
+
+let isBoosting = false;
+let isHyperspace = false;
+
+
+// Camera setup
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
 camera.position.set(100, 100, -100);
 camera.lookAt(0, 0, 0);
 
 // Create camera state for the space scene
 const cameraState = createCameraState('space');
-const smoothFactor = 0.1; // Exactly the same as SanFran3D
-
-// set up renderer for default space view
-const renderer = new THREE.WebGLRenderer();
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.getElementById('space-container').appendChild(renderer.domElement);
-let spaceInitialized = false;
-let isBoosting = false;
-let isHyperspace = false;
-
-// Create a raycaster for planet detection
-const raycaster = new THREE.Raycaster();
-let lastHoveredPlanet = null;
-
-// Create planet info data
-const planetInfo = {
-    'mercury': {
-        composition: 'Metallic core, silicate crust',
-        atmosphere: 'Thin exosphere',
-        gravity: '38% of Earth'
-    },
-    'venus': {
-        composition: 'Rocky, iron core',
-        atmosphere: 'Thick CO₂, sulfuric acid',
-        gravity: '90% of Earth'
-    },
-    'earth': {
-        composition: 'Iron core, silicate mantle',
-        atmosphere: 'Nitrogen, oxygen',
-        gravity: '9.81 m/s²'
-    },
-    'moon': {
-        composition: 'Rocky, silicate crust',
-        atmosphere: 'Thin exosphere',
-        gravity: '16% of Earth'
-    },
-    'mars': {
-        composition: 'Rocky, iron-nickel core',
-        atmosphere: 'Thin CO₂',
-        gravity: '38% of Earth'
-    },
-    'asteroid belt': {
-        composition: 'Silicate rock, metals, carbon',
-        atmosphere: 'None (vacuum of space)',
-        gravity: 'Negligible'
-    },
-    'jupiter': {
-        composition: 'Hydrogen, helium',
-        atmosphere: 'Dynamic storms',
-        gravity: '250% of Earth'
-    },
-    'saturn': {
-        composition: 'Hydrogen, helium',
-        atmosphere: 'Fast winds, methane',
-        gravity: '107% of Earth'
-    },
-    'uranus': {
-        composition: 'Icy, hydrogen, helium',
-        atmosphere: 'Methane haze',
-        gravity: '89% of Earth'
-    },
-    'neptune': {
-        composition: 'Icy, rocky core',
-        atmosphere: 'Methane clouds',
-        gravity: '114% of Earth'
-    },
-    'imperial star destroyer': {
-        affiliation: 'Empire',
-        manufacturer: 'Kuat Drive Yards',
-        crew: '40,000'
-    },
-    'lucrehulk': {
-        affiliation: 'Confederacy of Independent Systems',
-        manufacturer: 'Hoersch-Kessel Drive',
-        crew: '200,000'
-    }
-};
-
-// Create a planet info box
-const planetInfoBox = document.createElement('div');
-planetInfoBox.className = 'planet-info-box';
-planetInfoBox.style.position = 'absolute';
-planetInfoBox.style.fontFamily = 'Orbitron, sans-serif';
-planetInfoBox.style.fontSize = '16px';
-planetInfoBox.style.color = 'white';
-planetInfoBox.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-planetInfoBox.style.border = '2px solid #4fc3f7';
-planetInfoBox.style.borderRadius = '5px';
-planetInfoBox.style.padding = '15px';
-planetInfoBox.style.width = '320px';
-planetInfoBox.style.pointerEvents = 'none';
-planetInfoBox.style.zIndex = '1000';
-planetInfoBox.style.display = 'none'; // Hidden by default
-// Ensure the box isn't positioned off-screen initially
-planetInfoBox.style.right = '';
-planetInfoBox.style.left = '';
-planetInfoBox.style.top = '';
-document.body.appendChild(planetInfoBox);
-
-// Add after planetInfoBox declaration (around line 134)
-// Create exploration counter
-const explorationCounter = document.createElement('div');
-explorationCounter.className = 'exploration-counter';
-explorationCounter.style.position = 'fixed';
-explorationCounter.style.top = '20px';
-explorationCounter.style.right = '20px';
-explorationCounter.style.padding = '10px 15px';
-explorationCounter.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-explorationCounter.style.color = '#4fc3f7';
-explorationCounter.style.fontFamily = 'Orbitron, sans-serif';
-explorationCounter.style.fontSize = '16px';
-explorationCounter.style.borderRadius = '5px';
-explorationCounter.style.border = '1px solid #4fc3f7';
-explorationCounter.style.zIndex = '1000';
-explorationCounter.style.display = 'none'; // Initially hidden until game starts
-document.body.appendChild(explorationCounter);
-
-// Array of all celestial objects that can be explored (11 total as requested)
-const celestialObjects = [
-    'mercury',
-    'venus',
-    'earth',
-    'moon',
-    'mars',
-    // 'asteroid belt', // Removed as requested
-    'jupiter',
-    'saturn',
-    'uranus',
-    'neptune',
-    'imperial star destroyer', // Counts as one object total
-    'lucrehulk'
-];
-
-// Initialize explored objects - reset every time
-let exploredObjects = {};
-
-// Initialize with all objects unexplored
-function resetExploredObjects() {
-    celestialObjects.forEach(object => {
-        exploredObjects[object] = false;
-    });
-    updateExplorationCounter();
-}
-
-// Update the counter display
-function updateExplorationCounter() {
-    const count = Object.values(exploredObjects).filter(Boolean).length;
-    const total = Object.keys(exploredObjects).length;
-    explorationCounter.innerHTML = `Celestial Objects Discovered: <span style="color: white; font-weight: bold;">${count}/${total}</span>`;
-    
-    // Check if all objects have been explored
-    if (count === total) {
-        // All objects explored - permanent blue glow effect
-        explorationCounter.style.boxShadow = '0 0 15px 5px #4fc3f7';
-        explorationCounter.style.border = '2px solid #4fc3f7';
-        explorationCounter.style.backgroundColor = 'rgba(0, 20, 40, 0.8)';
-        // Add a congratulatory message
-        explorationCounter.innerHTML = `<span style="color: #4fc3f7; font-weight: bold;">ALL CELESTIAL OBJECTS DISCOVERED</span>`;
-    } 
-    // Otherwise, add temporary visual flourish when a new object is discovered
-    else if (count > 0) {
-        explorationCounter.style.boxShadow = '0 0 10px #4fc3f7';
-        setTimeout(() => {
-            // Only remove the glow if we haven't completed everything
-            if (Object.values(exploredObjects).filter(Boolean).length !== total) {
-                explorationCounter.style.boxShadow = 'none';
-            }
-        }, 2000);
-    }
-}
-
-// Function to mark an object as explored
-function markAsExplored(objectName) {
-    if (objectName && !exploredObjects[objectName]) {
-        exploredObjects[objectName] = true;
-        updateExplorationCounter();
-        // Discovery notification popup removed as requested
-    }
-}
-
-// Reset explored objects on startup - no persistence
-resetExploredObjects();
-
-// Load explored objects on startup
-// loadExploredObjects(); // Removing this line as the function no longer exists
-
-// Add a debug click event to help troubleshoot
-document.addEventListener('keydown', (event) => {
-    if (event.key === 'i') {
-        // Test the info box display on 'i' key press
-        console.log('Manual info box test triggered');
-        showStarDestroyerInfo();
-    }
-    if (event.key === 'l') {
-        // Test the Lucrehulk info box display on 'l' key press
-        console.log('Manual Lucrehulk info box test triggered');
-        showLucrehulkInfo();
-    }
-});
-
-// Variable to track if Earth surface is active
-export let isEarthSurfaceActive = false;
-
-export { 
-    renderer, 
-    scene, 
-    camera, 
-    rotation,
-    cameraState
-};
+const smoothFactor = 0.1;
 
 // Rotation configuration for camera
 const rotation = {
@@ -250,7 +51,7 @@ const rotation = {
     rollAxis: new THREE.Vector3(0, 0, 1)
 };
 
-// Camera update function exactly matching SanFran3D's implementation
+// Camera update function
 function updateCamera(camera, isHyperspace) {
     if (!spacecraft) {
         console.warn("Spacecraft not initialized yet, skipping updateCamera");
@@ -265,15 +66,6 @@ function updateCamera(camera, isHyperspace) {
     // Check if we're in first-person view
     const isFirstPerson = spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? spacecraft.isFirstPersonView() : false;
     
-    // Debug log - only log 1% of the time to avoid spam
-    // if (Math.random() < 0.01) {
-    //     console.log(
-    //         "🎥 CAMERA DEBUG: isFirstPerson =", isFirstPerson, 
-    //         "| isFirstPersonView() =", spacecraft.isFirstPersonView(), 
-    //         "| isFirstPersonView exists:", typeof spacecraft.isFirstPersonView === 'function'
-    //     );
-    // }
-
     // Update target offsets based on keys, hyperspace state and view mode
     const viewMode = isFirstPerson ? 'cockpit' : 'space';
     updateTargetOffsets(cameraState, keys, viewMode, isHyperspace);
@@ -339,58 +131,232 @@ function updateCamera(camera, isHyperspace) {
     spacecraft.remove(spacecraftCenter);
 }
 
-// Renderer settings
-renderer.setPixelRatio(window.devicePixelRatio);
-renderer.autoClear = true;
-renderer.sortObjects = false;
-renderer.physicallyCorrectLights = false;
+// Export key objects
+export { 
+    renderer, 
+    scene, 
+    camera, 
+    rotation,
+    cameraState
+};
 
 
-// LIGHTING
+/// SCENE SETUP ///
 
-
-const directionalLight = new THREE.DirectionalLight(0xffffff, 10);
-directionalLight.position.set(-1, -1, -1,);
-scene.add(directionalLight);
-
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-scene.add(ambientLight);
-
-scene.background = new THREE.Color(0x000000);
-
-
-// Flag to track which scene is active
+// Delegate render to each surface scene
+let spaceInitialized = false;
+export let isEarthSurfaceActive = false;
 export let isMoonSurfaceActive = false;
 
-// Render function that delegates to each surface scene
-// Update the renderScene function to avoid initializing earth3D multiple times
 export function renderScene() {
     if (isMoonSurfaceActive) {
-        // nothing to do here
+        // nothing to do here - space scene is not active
         console.log("Moon surface active, deferring rendering");
     } else {
         // Render space scene
         renderer.render(scene, camera);
     }
-    
     if (isEarthSurfaceActive) {
-        // nothing to do here
+        // nothing to do here - space scene is not active
         console.log("Earth surface active, deferring rendering");
     } else {
         // Render space scene
-        // console.log("Rendering space scene");
         renderer.render(scene, camera);
     }
 }
-// Define spacecraft
+
+// Array of all celestial objects that can be explored
+const celestialObjects = [
+    'mercury',
+    'venus',
+    'earth',
+    'moon',
+    'mars',
+    // 'asteroid belt',
+    'jupiter',
+    'saturn',
+    'uranus',
+    'neptune',
+    'imperial star destroyer', // Counts as one object total
+    'lucrehulk'
+];
+
+// Create a raycaster for planet detection
+const raycaster = new THREE.Raycaster();
+let lastHoveredPlanet = null;
+
+// Create data for popups on all celestial objects
+const planetInfo = {
+    'mercury': {
+        composition: 'Metallic core, silicate crust',
+        atmosphere: 'Thin exosphere',
+        gravity: '38% of Earth'
+    },
+    'venus': {
+        composition: 'Rocky, iron core',
+        atmosphere: 'Thick CO₂, sulfuric acid',
+        gravity: '90% of Earth'
+    },
+    'earth': {
+        composition: 'Iron core, silicate mantle',
+        atmosphere: 'Nitrogen, oxygen',
+        gravity: '9.81 m/s²'
+    },
+    'moon': {
+        composition: 'Rocky, silicate crust',
+        atmosphere: 'Thin exosphere',
+        gravity: '16% of Earth'
+    },
+    'mars': {
+        composition: 'Rocky, iron-nickel core',
+        atmosphere: 'Thin CO₂',
+        gravity: '38% of Earth'
+    },
+    'asteroid belt': {
+        composition: 'Silicate rock, metals, carbon',
+        atmosphere: 'None (vacuum of space)',
+        gravity: 'Negligible'
+    },
+    'jupiter': {
+        composition: 'Hydrogen, helium',
+        atmosphere: 'Dynamic storms',
+        gravity: '250% of Earth'
+    },
+    'saturn': {
+        composition: 'Hydrogen, helium',
+        atmosphere: 'Fast winds, methane',
+        gravity: '107% of Earth'
+    },
+    'uranus': {
+        composition: 'Icy, hydrogen, helium',
+        atmosphere: 'Methane haze',
+        gravity: '89% of Earth'
+    },
+    'neptune': {
+        composition: 'Icy, rocky core',
+        atmosphere: 'Methane clouds',
+        gravity: '114% of Earth'
+    },
+    'imperial star destroyer': {
+        affiliation: 'Empire',
+        manufacturer: 'Kuat Drive Yards',
+        crew: '40,000'
+    },
+    'lucrehulk': {
+        affiliation: 'Confederacy of Independent Systems',
+        manufacturer: 'Hoersch-Kessel Drive',
+        crew: '200,000'
+    }
+};
+
+// Create the popup UI
+const planetInfoBox = document.createElement('div');
+planetInfoBox.className = 'planet-info-box';
+planetInfoBox.style.position = 'absolute';
+planetInfoBox.style.fontFamily = 'Orbitron, sans-serif';
+planetInfoBox.style.fontSize = '16px';
+planetInfoBox.style.color = 'white';
+planetInfoBox.style.backgroundColor = 'rgba(1, 8, 36, 0.8)';
+planetInfoBox.style.border = '2px solid #4fc3f7';
+planetInfoBox.style.borderRadius = '5px';
+planetInfoBox.style.padding = '15px';
+planetInfoBox.style.width = '320px';
+planetInfoBox.style.pointerEvents = 'none';
+planetInfoBox.style.zIndex = '1000';
+planetInfoBox.style.display = 'none'; // Hidden by default
+// Ensure the box isn't positioned off-screen initially
+planetInfoBox.style.right = '';
+planetInfoBox.style.left = '';
+planetInfoBox.style.top = '';
+document.body.appendChild(planetInfoBox);
+
+// Create exploration counter (number of celestial objects discovered)
+const explorationCounter = document.createElement('div');
+explorationCounter.className = 'exploration-counter';
+explorationCounter.style.position = 'fixed';
+explorationCounter.style.top = '20px';
+explorationCounter.style.right = '20px';
+explorationCounter.style.padding = '10px 15px';
+explorationCounter.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+explorationCounter.style.color = '#4fc3f7';
+explorationCounter.style.fontFamily = 'Orbitron, sans-serif';
+explorationCounter.style.fontSize = '16px';
+explorationCounter.style.borderRadius = '5px';
+explorationCounter.style.border = '1px solid #4fc3f7';
+explorationCounter.style.zIndex = '1000';
+explorationCounter.style.display = 'none'; // Initially hidden until game starts
+document.body.appendChild(explorationCounter);
+
+
+
+// Initialize explored objects - reset every time
+let exploredObjects = {};
+// Initialize with all objects unexplored
+function resetExploredObjects() {
+    celestialObjects.forEach(object => {
+        exploredObjects[object] = false;
+    });
+    updateExplorationCounter();
+}
+// Function to mark an object as explored
+function markAsExplored(objectName) {
+    if (objectName && !exploredObjects[objectName]) {
+        exploredObjects[objectName] = true;
+        updateExplorationCounter();
+        // Discovery notification popup removed as requested
+    }
+}
+// Update the counter display
+function updateExplorationCounter() {
+    const count = Object.values(exploredObjects).filter(Boolean).length;
+    const total = Object.keys(exploredObjects).length;
+    explorationCounter.innerHTML = `Celestial Objects Discovered: <span style="color: white; font-weight: bold;">${count}/${total}</span>`;
+    
+    // Check if all objects have been explored
+    if (count === total) {
+        // All objects explored - permanent blue glow effect
+        explorationCounter.style.boxShadow = '0 0 15px 5px #4fc3f7';
+        explorationCounter.style.border = '2px solid #4fc3f7';
+        explorationCounter.style.backgroundColor = 'rgba(0, 20, 40, 0.8)';
+        // Add a congratulatory message
+        explorationCounter.innerHTML = `<span style="color: #4fc3f7; font-weight: bold;">ALL CELESTIAL OBJECTS DISCOVERED</span>`;
+    } 
+    // Otherwise, add temporary visual flourish when a new object is discovered
+    else if (count > 0) {
+        explorationCounter.style.boxShadow = '0 0 10px #4fc3f7';
+        setTimeout(() => {
+            // Only remove the glow if we haven't completed everything
+            if (Object.values(exploredObjects).filter(Boolean).length !== total) {
+                explorationCounter.style.boxShadow = 'none';
+            }
+        }, 2000);
+    }
+}
+// Reset explored objects on startup
+resetExploredObjects();
+
+
+
+// Lighting
+
+const directionalLight = new THREE.DirectionalLight(0xffffff, 10);
+directionalLight.position.set(-1, -1, -1,);
+scene.add(directionalLight);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambientLight);
+scene.background = new THREE.Color(0x000000);
+
+
+
+// Add spacecraft to scene
+
 let spacecraft, engineGlowMaterial, lightMaterial;
 let topRightWing, bottomRightWing, topLeftWing, bottomLeftWing;
 let wingsOpen = true;
 let wingAnimation = 0;
 let updateEngineEffects;
 const wingTransitionFrames = 30;
-
-// Export spacecraft variables for other modules
+// Export spacecraft variables for main.js
 export { spacecraft, engineGlowMaterial, lightMaterial, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, wingsOpen, wingAnimation, updateEngineEffects };
 
 // Track if controls have been initialized
@@ -425,7 +391,7 @@ function initSpacecraft() {
     // Store a direct reference to the spacecraftComponents
     spacecraft._spacecraftComponents = spacecraftComponents;
 
-    // Make sure wings are open by default (set timeout to ensure model is loaded)
+    // Make sure wings are open by defaul (attack position)
     setTimeout(() => {
         if (spacecraft && spacecraft.setWingsOpen) {
             // console.log("Setting wings to OPEN position in setup.js");
@@ -449,8 +415,9 @@ function initSpacecraft() {
     updateEngineEffects = spacecraftComponents.updateEngineEffects;
 }
 
+// Initialize keyboard controls
 function initControls() {
-    // Only set up event listeners once
+
     if (controlsInitialized) {
         console.log("Controls already initialized, skipping");
         return;
@@ -458,8 +425,9 @@ function initControls() {
     
     console.log("Initializing controls with keys object:", keys);
     
+    // Track when keys are pressed (keydown)
     document.addEventListener('keydown', (event) => {
-        if (!keys) return; // Guard against keys not being defined
+        if (!keys) return;
         switch (event.key) {
             case 'w': keys.w = true; break;
             case 's': keys.s = true; break;
@@ -469,10 +437,12 @@ function initControls() {
             case 'ArrowRight': keys.right = true; break;
             case 'ArrowUp': keys.up = true; break;
         }
+        
     });
 
+    // Track when keys are released (keyp)
     document.addEventListener('keyup', (event) => {
-        if (!keys) return; // Guard against keys not being defined
+        if (!keys) return; 
         switch (event.key) {
             case 'w': keys.w = false; break;
             case 's': keys.s = false; break;
@@ -487,7 +457,7 @@ function initControls() {
     controlsInitialized = true;
 }
 
-/// MASTER FUNCTION called by main.js
+/// STATE / ANIMATION FUNCTIONS ///
 export function init() {
     console.log("Space initialization started");
     
@@ -519,7 +489,8 @@ export function init() {
     };
 }
 
-// Performs the state update for the spacecraft / environment
+// Performs the animation update for the spacecraft / environment (called from main.js)
+// currently set to make updates at around 60fps
 export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
     try {
         if (!spaceInitialized) {
@@ -533,19 +504,9 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         // Check if reticle is hovering over a planet (only in space mode)
         checkReticleHover();
 
-        // Handle laser firing if spacebar is pressed
-        if (keys.space && spacecraft) {
-            // LASER FIRING DISABLED
-        }
-
         // Use the passed isBoosting and isHyperspace parameters
         updateMovement(isBoosting, isHyperspace);
         updateCamera(camera, isHyperspace);
-        
-        // Handle laser updates
-        if (typeof updateLasers === "function") {
-            updateLasers(deltaTime);
-        }
 
         // Update spacecraft effects
         if (updateEngineEffects) {
@@ -555,11 +516,6 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         // Wing position control - check if conditions changed
         if (spacecraft && spacecraft.setWingsOpen) {
             const shouldWingsBeOpen = !isBoosting && !isHyperspace;
-            
-            // // Log wing state changes at a low frequency to avoid console spam
-            // if (Math.random() < 0.01) {
-            //     console.log(`Wing state check: boosting=${isBoosting}, hyperspace=${isHyperspace}, shouldBeOpen=${shouldWingsBeOpen}`);
-            // }
             
             // The setWingsOpen function now has smooth animations and handles state management internally
             // It will only trigger an animation if the target state is different from the current state
@@ -592,13 +548,14 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         updatePlanetLabels();
         
         return true;
+
     } catch (error) {
         console.error("Error in space update:", error);
         return false;
     }
 }
 
-// Modify the checkPlanetProximity function
+// Check if we're approaching enterable planets
 export function checkPlanetProximity() {
     // Get spacecraft position
     const position = spacecraft.position.clone();
@@ -657,9 +614,6 @@ export function checkPlanetProximity() {
         isEarthSurfaceActive = false;
         console.log("Exiting Earth surface - distance:", distanceToEarth.toFixed(2));
     }
-    
-    // Debug distances
-    // console.log(`Distances - Moon: ${distanceToMoon.toFixed(2)}, Earth: ${distanceToEarth.toFixed(2)}`);
 }
 
 export function exitEarthSurface() {
@@ -737,7 +691,7 @@ export function exitEarthSurface() {
     // Reset both initialization flags for Earth surface using main.js reset function
     if (typeof window.resetEarthInitialized === 'function') {
         window.resetEarthInitialized();
-        console.log('Both Earth and Washington initialization flags have been reset');
+        console.log('Both Earth and washington mountains initialization flags have been reset');
     } else {
         console.warn('resetEarthInitialized function not found on window object');
     }
@@ -813,7 +767,7 @@ export function exitMoonSurface() {
     // Reset the moonInitialized flag in main.js
     if (typeof window.resetMoonInitialized === 'function') {
         window.resetMoonInitialized();
-        console.log('Both Moon and Moon3D initialization flags have been reset');
+        console.log('Both Moon and moonCesium initialization flags have been reset');
     } else {
         console.warn('resetMoonInitialized function not found on window object');
     }
@@ -827,7 +781,7 @@ export function exitMoonSurface() {
 }
 
 
-///////////////////// Solar System Setup /////////////////////
+///////////////////// ENCLOSED Solar System Setup /////////////////////
 
 const textureLoader = new THREE.TextureLoader(textureLoadingManager);
 
@@ -1782,7 +1736,7 @@ earthDistanceIndicator.style.textAlign = 'center';
 earthDistanceIndicator.style.position = 'absolute';
 earthDistanceIndicator.style.display = 'none'; // Initially hidden
 // Add background and padding for better visibility
-earthDistanceIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+earthDistanceIndicator.style.backgroundColor = 'rgba(1, 8, 36, 0.6)';
 earthDistanceIndicator.style.padding = '5px 10px';
 earthDistanceIndicator.style.borderRadius = '5px';
 // Remove border
@@ -1799,7 +1753,7 @@ moonDistanceIndicator.style.textAlign = 'center';
 moonDistanceIndicator.style.position = 'absolute';
 moonDistanceIndicator.style.display = 'none'; // Initially hidden
 // Add background and padding for better visibility
-moonDistanceIndicator.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+moonDistanceIndicator.style.backgroundColor = 'rgba(1, 8, 36, 0.6)';
 moonDistanceIndicator.style.padding = '5px 10px';
 moonDistanceIndicator.style.borderRadius = '5px';
 // Remove border
@@ -2094,6 +2048,9 @@ export function updateStars() {
 
 export const PLANET_RADIUS = earthRadius;
 export const PLANET_POSITION = earthGroup.position;
+
+///////////////////// ENCLOSED Solar System Setup /////////////////////
+
 
 // Hyperspace
 let isHyperspaceActive = false;

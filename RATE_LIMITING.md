@@ -131,10 +131,10 @@ const planetTexture = await rateLimitedLoadTexture('planet_texture1.jpg');
 import { createThrottledEventListener } from './src/rateLimit.js';
 
 // Instead of:
-// document.addEventListener('keydown', (event) => { ... });
+// document.addEventListener('keyPress', (event) => { ... });
 
 // Use:
-createThrottledEventListener('keydown', document, (event) => {
+createThrottledEventListener('keyPress', document, (event) => {
   // Your existing event handler logic
 }, 'light');
 ```

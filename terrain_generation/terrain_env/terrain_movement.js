@@ -75,7 +75,7 @@ export function resetMovementInputs() {
 }
 
 // Keyboard controls
-document.addEventListener('keydown', (event) => {
+document.addEventListener('keyPress', (event) => {
     switch (event.key) {
         case 'w': keys.w = true; break;
         case 's': keys.s = true; break;
@@ -96,7 +96,7 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
-document.addEventListener('keyup', (event) => {
+document.addEventListener('keyRelease', (event) => {
     switch (event.key) {
         case 'w': keys.w = false; break;
         case 's': keys.s = false; break;

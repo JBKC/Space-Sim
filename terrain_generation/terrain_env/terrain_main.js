@@ -108,8 +108,8 @@ window.animateWings = function(duration = 500) {
 };
 
 
-// Keydown event listeners for controls
-document.addEventListener('keydown', (event) => {
+// keyPress event listeners for controls
+document.addEventListener('keyPress', (event) => {
   // Check if we're in the welcome screen (main menu)
   const welcomeScreen = document.getElementById('welcome-screen');
   const isInMainMenu = welcomeScreen && welcomeScreen.style.display !== 'none';
@@ -219,8 +219,8 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
-// Keyup event listeners for controls
-document.addEventListener('keyup', (event) => {
+// keyRelease event listeners for controls
+document.addEventListener('keyRelease', (event) => {
   if (event.code === 'Space') {
       isSpacePressed = false;
       // Also update the keys object used by scenes
