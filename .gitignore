@@ -47,4 +47,4 @@ logs/
 
 # OS-specific files
 .DS_Store
-Thumbs.db 
+Thumbs.db terrain_generation/terrain_env/blender_templates/mars_terrain_export.glb
