@@ -132,7 +132,7 @@ class FirstPersonControls {
 
 		};
 
-		this.onkeyPress = function ( event ) {
+		this.onKeyDown = function ( event ) {
 
 			switch ( event.code ) {
 
@@ -155,7 +155,7 @@ class FirstPersonControls {
 
 		};
 
-		this.onkeyRelease = function ( event ) {
+		this.onKeyUp = function ( event ) {
 
 			switch ( event.code ) {
 
@@ -277,24 +277,24 @@ class FirstPersonControls {
 			this.domElement.removeEventListener( 'pointermove', _onPointerMove );
 			this.domElement.removeEventListener( 'pointerup', _onPointerUp );
 
-			window.removeEventListener( 'keyPress', _onkeyPress );
-			window.removeEventListener( 'keyRelease', _onkeyRelease );
+			window.removeEventListener( 'keydown', _onKeyDown );
+			window.removeEventListener( 'keyup', _onKeyUp );
 
 		};
 
 		const _onPointerMove = this.onPointerMove.bind( this );
 		const _onPointerDown = this.onPointerDown.bind( this );
 		const _onPointerUp = this.onPointerUp.bind( this );
-		const _onkeyPress = this.onkeyPress.bind( this );
-		const _onkeyRelease = this.onkeyRelease.bind( this );
+		const _onKeyDown = this.onKeyDown.bind( this );
+		const _onKeyUp = this.onKeyUp.bind( this );
 
 		this.domElement.addEventListener( 'contextmenu', contextmenu );
 		this.domElement.addEventListener( 'pointerdown', _onPointerDown );
 		this.domElement.addEventListener( 'pointermove', _onPointerMove );
 		this.domElement.addEventListener( 'pointerup', _onPointerUp );
 
-		window.addEventListener( 'keyPress', _onkeyPress );
-		window.addEventListener( 'keyRelease', _onkeyRelease );
+		window.addEventListener( 'keydown', _onKeyDown );
+		window.addEventListener( 'keyup', _onKeyUp );
 
 		function setOrientation( controls ) {
 

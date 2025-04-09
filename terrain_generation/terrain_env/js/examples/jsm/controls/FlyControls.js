@@ -45,7 +45,7 @@ class FlyControls extends EventDispatcher {
 		this.moveVector = new Vector3( 0, 0, 0 );
 		this.rotationVector = new Vector3( 0, 0, 0 );
 
-		this.keyPress = function ( event ) {
+		this.keydown = function ( event ) {
 
 			if ( event.altKey || this.enabled === false ) {
 
@@ -83,7 +83,7 @@ class FlyControls extends EventDispatcher {
 
 		};
 
-		this.keyRelease = function ( event ) {
+		this.keyup = function ( event ) {
 
 			if ( this.enabled === false ) return;
 
@@ -294,8 +294,8 @@ class FlyControls extends EventDispatcher {
 			this.domElement.removeEventListener( 'pointerup', _pointerup );
 			this.domElement.removeEventListener( 'pointercancel', _pointercancel );
 
-			window.removeEventListener( 'keyPress', _keyPress );
-			window.removeEventListener( 'keyRelease', _keyRelease );
+			window.removeEventListener( 'keydown', _keydown );
+			window.removeEventListener( 'keyup', _keyup );
 
 		};
 
@@ -304,8 +304,8 @@ class FlyControls extends EventDispatcher {
 		const _pointerdown = this.pointerdown.bind( this );
 		const _pointerup = this.pointerup.bind( this );
 		const _pointercancel = this.pointercancel.bind( this );
-		const _keyPress = this.keyPress.bind( this );
-		const _keyRelease = this.keyRelease.bind( this );
+		const _keydown = this.keydown.bind( this );
+		const _keyup = this.keyup.bind( this );
 
 		this.domElement.addEventListener( 'contextmenu', _contextmenu );
 		this.domElement.addEventListener( 'pointerdown', _pointerdown );
@@ -313,8 +313,8 @@ class FlyControls extends EventDispatcher {
 		this.domElement.addEventListener( 'pointerup', _pointerup );
 		this.domElement.addEventListener( 'pointercancel', _pointercancel );
 
-		window.addEventListener( 'keyPress', _keyPress );
-		window.addEventListener( 'keyRelease', _keyRelease );
+		window.addEventListener( 'keydown', _keydown );
+		window.addEventListener( 'keyup', _keyup );
 
 		this.updateMovementVector();
 		this.updateRotationVector();

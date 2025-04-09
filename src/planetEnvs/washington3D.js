@@ -1090,7 +1090,7 @@ function reinstantiateTiles() {
 }
 
 function initControls() {
-    document.addEventListener('keyPress', (event) => {
+    document.addEventListener('keydown', (event) => {
         switch (event.key) {
             case 'w': keys.w = true; break;
             case 's': keys.s = true; break;
@@ -1104,7 +1104,7 @@ function initControls() {
         }
     });
 
-    document.addEventListener('keyRelease', (event) => {
+    document.addEventListener('keyup', (event) => {
         switch (event.key) {
             case 'w': keys.w = false; break;
             case 's': keys.s = false; break;

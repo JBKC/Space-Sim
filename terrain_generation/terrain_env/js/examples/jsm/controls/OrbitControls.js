@@ -133,14 +133,14 @@ class OrbitControls extends EventDispatcher {
 
 		this.listenToKeyEvents = function ( domElement ) {
 
-			domElement.addEventListener( 'keyPress', onkeyPress );
+			domElement.addEventListener( 'keydown', onKeyDown );
 			this._domElementKeyEvents = domElement;
 
 		};
 
 		this.stopListenToKeyEvents = function () {
 
-			this._domElementKeyEvents.removeEventListener( 'keyPress', onkeyPress );
+			this._domElementKeyEvents.removeEventListener( 'keydown', onKeyDown );
 			this._domElementKeyEvents = null;
 
 		};
@@ -422,7 +422,7 @@ class OrbitControls extends EventDispatcher {
 
 			if ( scope._domElementKeyEvents !== null ) {
 
-				scope._domElementKeyEvents.removeEventListener( 'keyPress', onkeyPress );
+				scope._domElementKeyEvents.removeEventListener( 'keydown', onKeyDown );
 				scope._domElementKeyEvents = null;
 
 			}
@@ -748,7 +748,7 @@ class OrbitControls extends EventDispatcher {
 
 		}
 
-		function handlekeyPress( event ) {
+		function handleKeyDown( event ) {
 
 			let needsUpdate = false;
 
@@ -1240,7 +1240,7 @@ class OrbitControls extends EventDispatcher {
 
 				controlActive = true;
 				
-				document.addEventListener('keyRelease', interceptControlUp, { passive: true, capture: true });
+				document.addEventListener('keyup', interceptControlUp, { passive: true, capture: true });
 
 			}
 
@@ -1252,17 +1252,17 @@ class OrbitControls extends EventDispatcher {
 
 				controlActive = false;
 				
-				document.removeEventListener('keyRelease', interceptControlUp, { passive: true, capture: true });
+				document.removeEventListener('keyup', interceptControlUp, { passive: true, capture: true });
 
 			}
 
 		}
 
-		function onkeyPress( event ) {
+		function onKeyDown( event ) {
 
 			if ( scope.enabled === false || scope.enablePan === false ) return;
 
-			handlekeyPress( event );
+			handleKeyDown( event );
 
 		}
 
@@ -1466,7 +1466,7 @@ class OrbitControls extends EventDispatcher {
 		scope.domElement.addEventListener( 'pointercancel', onPointerUp );
 		scope.domElement.addEventListener( 'wheel', onMouseWheel, { passive: false } );
 
-		document.addEventListener( 'keyPress', interceptControlDown, { passive: true, capture: true } );
+		document.addEventListener( 'keydown', interceptControlDown, { passive: true, capture: true } );
 
 		// force an update at start
 

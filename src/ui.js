@@ -68,7 +68,7 @@ function setupControlsDropdown() {
     }
     
     // Toggle dropdown on Enter key
-    document.addEventListener('keyPress', (event) => {
+    document.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
             toggleControlsDropdown();
         }

@@ -252,7 +252,7 @@ function initControls() {
     
     console.log("Initializing controls with keys object:", keys);
     
-    document.addEventListener('keyPress', (event) => {
+    document.addEventListener('keydown', (event) => {
         if (!keys) return; // Guard against keys not being defined
         switch (event.key) {
             case 'w': keys.w = true; break;
@@ -265,7 +265,7 @@ function initControls() {
         }
     });
 
-    document.addEventListener('keyRelease', (event) => {
+    document.addEventListener('keyup', (event) => {
         if (!keys) return; // Guard against keys not being defined
         switch (event.key) {
             case 'w': keys.w = false; break;

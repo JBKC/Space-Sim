@@ -16,10 +16,15 @@ import {
 } from './camera.js';
 import config from './config.js';
 import { loadingManager, textureLoadingManager } from './loaders.js';
+import { stars, starCount, starRange, starPositions, starColors, starSizes } from './solarSystemEnv';
 
-// General initialization - scene + renderer
+
+// General initialization
 const scene = new THREE.Scene();
 const renderer = new THREE.WebGLRenderer();
+const textureLoader = new THREE.TextureLoader(textureLoadingManager);
+const loader = new GLTFLoader();
+
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('space-container').appendChild(renderer.domElement);
 // Renderer settings
@@ -359,6 +364,34 @@ const wingTransitionFrames = 30;
 // Export spacecraft variables for main.js
 export { spacecraft, engineGlowMaterial, lightMaterial, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, wingsOpen, wingAnimation, updateEngineEffects };
 
+
+// Hyperspace functionality
+
+let isHyperspaceActive = false;
+function activateHyperspace() {
+    // Don't activate hyperspace on planet surfaces
+    if (!isHyperspaceActive && !isEarthSurfaceActive && !isMoonSurfaceActive) {
+        isHyperspaceActive = true;
+        console.log("Hyperspace activated!");
+        setTimeout(deactivateHyperspace, 2000);
+    }
+}
+
+function deactivateHyperspace() {
+    if (isHyperspaceActive) {
+        isHyperspaceActive = false;
+    }
+}
+
+window.addEventListener('keydown', (event) => {
+    // Only activate hyperspace if not on Earth's surface
+    if (event.key === 'Shift' && !isEarthSurfaceActive) activateHyperspace();
+});
+window.addEventListener('keyup', (event) => {
+    if (event.key === 'Shift') deactivateHyperspace();
+});
+
+
 // Track if controls have been initialized
 let controlsInitialized = false;
 
@@ -436,6 +469,8 @@ function initControls() {
             case 'ArrowLeft': keys.left = true; break;
             case 'ArrowRight': keys.right = true; break;
             case 'ArrowUp': keys.up = true; break;
+            case 'ArrowDown': keys.down = false; break;
+            case 'Shift': keys.shift = false; break;
         }
         
     });
@@ -451,9 +486,11 @@ function initControls() {
             case 'ArrowLeft': keys.left = false; break;
             case 'ArrowRight': keys.right = false; break;
             case 'ArrowUp': keys.up = false; break;
+            case 'ArrowDown': keys.down = false; break;
+            case 'Shift': keys.shift = false; break;
         }
     });
-    
+
     controlsInitialized = true;
 }
 
@@ -781,102 +818,33 @@ export function exitMoonSurface() {
 }
 
 
-///////////////////// ENCLOSED Solar System Setup /////////////////////
+///////////////////// Solar System Setup /////////////////////
 
-const textureLoader = new THREE.TextureLoader(textureLoadingManager);
 
-// Skybox setup
-const skyboxTexture = textureLoader.load(`${config.textures.skybox}/galaxy5.jpeg`);
-const skyboxGeometry = new THREE.BoxGeometry(250000, 250000, 250000);
-const skyboxMaterial = new THREE.MeshBasicMaterial({
-    map: skyboxTexture,
-    side: THREE.BackSide,
-    depthWrite: false, // Prevent depth interference
-    depthTest: false,  // Avoid rendering issues
-    color: 0x555555    // Add darker color tint to make the skybox darker (was previously white/0xffffff by default)
-});
-const skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
-skybox.position.set(0, 0, 0); // Ensure centered at origin
+import { skybox, cloudTexture } from './solarSystemEnv';
+import { sunGroup, blazingMaterial, blazingEffect } from './solarSystemEnv';
+
+import { planetGroups } from './solarSystemEnv';
+import { mercuryGroup, mercuryCollisionSphere } from './solarSystemEnv';
+import { venusGroup, venusCollisionSphere, venusCloudMesh } from './solarSystemEnv';
+import { earthGroup, earthCollisionSphere, earthCloudMesh, earthRadius } from './solarSystemEnv';
+import { moonGroup, moon, moonCollisionSphere, moonRadius, moonAngle, moonOrbitRadius } from './solarSystemEnv';
+import { marsGroup, marsCollisionSphere, marsCloudMesh } from './solarSystemEnv';
+// For defining when the reticle intersects with the planet
+const collisionMaterialInvisible = new THREE.MeshBasicMaterial({ visible: false });
+
+// Add all elements to scene
 scene.add(skybox);
-
-// Initialize loader for 3D models (moved here to be available for all model loading)
-const loader = new GLTFLoader();
-
-// --- Sun Setup ---
-const sunGroup = new THREE.Group();
 scene.add(sunGroup);
+scene.add(mercuryGroup);
+scene.add(venusGroup);
+scene.add(earthGroup);
+scene.add(moonGroup);
+scene.add(marsGroup);
 
-const sunRadius = 10000;
-const sunGeometry = new THREE.SphereGeometry(sunRadius, 64, 64);
-const sunTexture = textureLoader.load(`${config.textures.path}/2k_sun.jpg`);
-const sunMaterial = new THREE.MeshStandardMaterial({
-    map: sunTexture,
-    emissive: 0xffffff,
-    emissiveIntensity: 0.3, // Reduced from 0.4 to 0.3
-    side: THREE.FrontSide
-});
-export const sun = new THREE.Mesh(sunGeometry, sunMaterial);
-sunGroup.add(sun);
 
-// Blazing effect
-const blazingMaterial = new THREE.ShaderMaterial({
-    uniforms: {
-        time: { value: 0 },
-        intensity: { value: 0.4 }, // Reduced from 0.5 to 0.4
-        baseColor: { value: new THREE.Vector3(1.0, 0.5, 0.0) },
-        noiseScale: { value: 2.0 }
-    },
-    vertexShader: `
-        varying vec3 vNormal;
-        varying vec3 vPosition;
-        void main() {
-            vNormal = normalize(normal);
-            vPosition = position;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-    `,
-    fragmentShader: `
-        uniform float time;
-        uniform float intensity;
-        uniform vec3 baseColor;
-        uniform float noiseScale;
-        varying vec3 vNormal;
-        varying vec3 vPosition;
-        float noise(vec3 p) {
-            return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
-        }
-        void main() {
-            vec3 pos = vPosition * noiseScale;
-            float n = noise(pos + time * 0.5);
-            float glow = sin(time * 5.0 + length(vPosition) * 2.0) * 0.5 + 0.5;
-            float pulse = (n * 0.5 + glow * 0.5) * intensity * 0.5;
-            vec3 color = baseColor * (1.0 + pulse * 0.5);
-            float alpha = clamp(pulse * 0.8, 0.2, 0.9);
-            gl_FragColor = vec4(color, alpha);
-        }
-    `,
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending
-});
-const blazingGeometry = new THREE.SphereGeometry(sunRadius * 1.2, 64, 64);
-const blazingEffect = new THREE.Mesh(blazingGeometry, blazingMaterial);
-sunGroup.add(blazingEffect);
 
-// Halo
-const haloGeometry = new THREE.SphereGeometry(sunRadius * 1.2, 32, 32);
-const haloMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.5 });
-const halo = new THREE.Mesh(haloGeometry, haloMaterial);
-sunGroup.add(halo);
-
-// Sun light
-const sunLight = new THREE.PointLight(0xffffdd, 1.2, 35000); // Slightly more focused with a warmer color
-sunLight.castShadow = true; // Enable shadow casting
-sunLight.shadow.bias = -0.0001; // Reduce shadow acne
-sunGroup.add(sunLight);
-
-sunGroup.position.set(0, 0, 0);
-
+// Celestial body animations
 function animateSun() {
     blazingMaterial.uniforms.time.value += 0.02;
     blazingEffect.scale.setScalar(0.9 + Math.sin(blazingMaterial.uniforms.time.value * 1.0) * 0.05);
@@ -885,124 +853,12 @@ function animateSun() {
 animateSun();
 
 
-// Planet definitions and randomization
-const planetGroups = [];
-const positionRange = 100000; // Not used directly, kept for reference
-
-// --- Mercury Setup ---
-const mercuryGroup = new THREE.Group();
-scene.add(mercuryGroup);
-const mercuryRadius = 1000;
-const mercuryGeometry = new THREE.SphereGeometry(mercuryRadius, 32, 32);
-const mercuryTexture = textureLoader.load(`${config.textures.path}/2k_mercury.jpg`);
-const mercuryMaterial = new THREE.MeshStandardMaterial({
-    map: mercuryTexture,
-    side: THREE.FrontSide,
-    metalness: 0.2,
-    roughness: 0.8
-});
-const mercury = new THREE.Mesh(mercuryGeometry, mercuryMaterial);
-mercuryGroup.add(mercury);
-
-// Add collision sphere for Mercury (50% larger)
-const mercuryCollisionGeometry = new THREE.SphereGeometry(mercuryRadius * 1.5, 16, 16);
-const collisionMaterialInvisible = new THREE.MeshBasicMaterial({ visible: false });
-const mercuryCollisionSphere = new THREE.Mesh(mercuryCollisionGeometry, collisionMaterialInvisible);
-mercuryGroup.add(mercuryCollisionSphere);
-
-planetGroups.push({ group: mercuryGroup, z: 20000 });
-
-// --- Venus Setup ---
-const venusGroup = new THREE.Group();
-scene.add(venusGroup);
-const venusRadius = 2000;
-const venusGeometry = new THREE.SphereGeometry(venusRadius, 32, 32);
-const venusTexture = textureLoader.load(`${config.textures.path}/2k_venus_surface.jpg`);
-const venusMaterial = new THREE.MeshStandardMaterial({
-    map: venusTexture,
-    side: THREE.FrontSide,
-    metalness: 0.2,
-    roughness: 0.8
-});
-const venus = new THREE.Mesh(venusGeometry, venusMaterial);
-venusGroup.add(venus);
-
-// Add collision sphere for Venus (50% larger)
-const venusCollisionGeometry = new THREE.SphereGeometry(venusRadius * 1.5, 16, 16);
-const venusCollisionSphere = new THREE.Mesh(venusCollisionGeometry, collisionMaterialInvisible);
-venusGroup.add(venusCollisionSphere);
-
-const venusAtmosphereThickness = 50;
-const venusAtmosphereRadius = venusRadius + venusAtmosphereThickness;
-const venusAtmosphereGeometry = new THREE.SphereGeometry(venusAtmosphereRadius, 64, 64);
-const venusAtmosphereMaterial = new THREE.MeshStandardMaterial({
-    color: 0xffff00,
-    transparent: true,
-    opacity: 0.2,
-    side: THREE.DoubleSide
-});
-const venusAtmosphere = new THREE.Mesh(venusAtmosphereGeometry, venusAtmosphereMaterial);
-venusGroup.add(venusAtmosphere);
-const cloudTexture = textureLoader.load(`${config.textures.path}/Earth-clouds.png`);
-const venusCloudMaterial = new THREE.MeshStandardMaterial({
-    map: cloudTexture,
-    transparent: true,
-    opacity: 0.5,
-    side: THREE.DoubleSide,
-    color: 0x8B8000
-});
-const venusCloudGeometry = new THREE.SphereGeometry(venusAtmosphereRadius + 5, 64, 64);
-const venusCloudMesh = new THREE.Mesh(venusCloudGeometry, venusCloudMaterial);
-venusGroup.add(venusCloudMesh);
-planetGroups.push({ group: venusGroup, z: 27000 });
-
 function animateVenusClouds() {
     venusCloudMesh.rotation.y += 0.0005;
     requestAnimationFrame(animateVenusClouds);
 }
 animateVenusClouds();
 
-// --- Earth Setup ---
-const earthGroup = new THREE.Group();
-scene.add(earthGroup);
-const earthRadius = 2000;
-const earthGeometry = new THREE.SphereGeometry(earthRadius, 64, 64);
-const earthTexture = textureLoader.load(`${config.textures.path}/2k_earth_daymap.jpg`);
-const earthMaterial = new THREE.MeshStandardMaterial({
-    map: earthTexture,
-    side: THREE.FrontSide,
-    metalness: 0.2,
-    roughness: 0.8
-});
-export const planet = new THREE.Mesh(earthGeometry, earthMaterial);
-earthGroup.add(planet);
-
-// Add collision sphere for Earth (50% larger)
-const earthCollisionGeometry = new THREE.SphereGeometry(earthRadius * 1.5, 16, 16);
-const earthCollisionSphere = new THREE.Mesh(earthCollisionGeometry, collisionMaterialInvisible);
-earthGroup.add(earthCollisionSphere);
-
-const atmosphereThickness = 50;
-const atmosphereRadius = earthRadius + atmosphereThickness;
-const atmosphereGeometry = new THREE.SphereGeometry(atmosphereRadius, 64, 64);
-const atmosphereMaterial = new THREE.MeshStandardMaterial({
-    color: 0x00aaff,
-    transparent: true,
-    opacity: 0.2,
-    side: THREE.DoubleSide
-});
-const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
-earthGroup.add(atmosphere);
-const earthCloudMaterial = new THREE.MeshStandardMaterial({
-    map: cloudTexture,
-    transparent: true,
-    opacity: 0.5,
-    side: THREE.DoubleSide
-});
-const earthCloudGeometry = new THREE.SphereGeometry(atmosphereRadius + 5, 64, 64);
-const earthCloudMesh = new THREE.Mesh(earthCloudGeometry, earthCloudMaterial);
-earthGroup.add(earthCloudMesh);
-planetGroups.push({ group: earthGroup, z: 40000 });
 
 function animateEarthClouds() {
     earthCloudMesh.rotation.y += 0.0005;
@@ -1010,43 +866,9 @@ function animateEarthClouds() {
 }
 animateEarthClouds();
 
-// --- Moon Setup ---
-const moonGroup = new THREE.Group();
-scene.add(moonGroup); // Add Moon directly to the scene instead of as a child of Earth
-const moonRadius = 500;
-const moonGeometry = new THREE.SphereGeometry(moonRadius, 32, 32);
-const moonTexture = textureLoader.load(`${config.textures.path}/2k_moon.jpg`);
-const moonMaterial = new THREE.MeshStandardMaterial({
-    map: moonTexture,
-    side: THREE.FrontSide,
-    metalness: 0.2,
-    roughness: 0.8
-});
-export const moon = new THREE.Mesh(moonGeometry, moonMaterial);
-moonGroup.add(moon);
 
-// Add collision sphere for Moon (50% larger)
-const moonCollisionGeometry = new THREE.SphereGeometry(moonRadius * 1.5, 16, 16);
-const moonCollisionSphere = new THREE.Mesh(moonCollisionGeometry, collisionMaterialInvisible);
-moonGroup.add(moonCollisionSphere);
 
-// Position the Moon globally, but still relative to Earth's orbit
-const moonOrbitRadius = 5000;
-const moonAngle = Math.random() * Math.PI * 2; // Random angle in radians
-
-// Get Earth's global position
-const earthGlobalX = earthGroup.position.x;
-const earthGlobalY = earthGroup.position.y;
-const earthGlobalZ = earthGroup.position.z;
-
-// Set moon position globally, but at the correct distance from Earth
-moonGroup.position.set(
-    earthGlobalX + Math.cos(moonAngle) * moonOrbitRadius, // Global X position
-    earthGlobalY + Math.sin(moonAngle) * moonOrbitRadius, // Global Y position
-    earthGlobalZ                                          // Same Z plane as Earth
-);
-
-// Create a function to update Moon's position if Earth moves
+// Update Moon's position if Earth moves
 function updateMoonPosition() {
     // Only update if both Earth and Moon exist
     if (earthGroup && moonGroup) {
@@ -1063,7 +885,7 @@ function updateMoonPosition() {
     }
 }
 
-// Call this in the animation loop somewhere
+// Call this in main.js
 export { updateMoonPosition };
 
 // Animate Moon's rotation
@@ -1073,44 +895,7 @@ function animateMoon() {
 }
 animateMoon();
 
-// --- Mars Setup ---
-const marsGroup = new THREE.Group();
-scene.add(marsGroup);
-const marsRadius = 1500;
-const marsGeometry = new THREE.SphereGeometry(marsRadius, 32, 32);
-const marsTexture = textureLoader.load(`${config.textures.path}/2k_mars.jpg`);
-const marsMaterial = new THREE.MeshStandardMaterial({
-    map: marsTexture,
-    side: THREE.FrontSide,
-    metalness: 0.2,
-    roughness: 0.8
-});
-const mars = new THREE.Mesh(marsGeometry, marsMaterial);
-marsGroup.add(mars);
 
-// Add collision sphere for Mars (50% larger)
-const marsCollisionGeometry = new THREE.SphereGeometry(marsRadius * 1.5, 16, 16);
-const marsCollisionSphere = new THREE.Mesh(marsCollisionGeometry, collisionMaterialInvisible);
-marsGroup.add(marsCollisionSphere);
-
-const redCloudTexture = textureLoader.load(`${config.textures.path}/Earth-clouds.png`);
-const marsCloudMaterial = new THREE.MeshStandardMaterial({
-    map: redCloudTexture,
-    transparent: true,
-    opacity: 0.5,
-    side: THREE.DoubleSide,
-    color: 0x3B2A2A
-});
-const marsCloudGeometry = new THREE.SphereGeometry(marsRadius + 5, 64, 64);
-const marsCloudMesh = new THREE.Mesh(marsCloudGeometry, marsCloudMaterial);
-marsGroup.add(marsCloudMesh);
-planetGroups.push({ group: marsGroup, z: 50000 });
-
-function animateMarsClouds() {
-    marsCloudMesh.rotation.y += 0.0005;
-    requestAnimationFrame(animateMarsClouds);
-}
-animateMarsClouds();
 
 // --- Asteroid Belt Setup ---
 const asteroidBeltGroup = new THREE.Group();
@@ -1647,444 +1432,6 @@ loadModelWithFallback(
 // Add to planet groups with orbit radius of 35000 (between Venus at 27000 and Earth at 40000)
 planetGroups.push({ group: lucrehulkGroup, z: 35000 });
 
-// Randomize planet positions
-planetGroups.forEach(planet => {
-    const angle = Math.random() * Math.PI * 2; // Random angle in radians
-    const radius = planet.z; // Use original Z as radius
-    planet.group.position.set(
-        Math.cos(angle) * radius, // X
-        Math.sin(angle) * radius, // Y
-        0                         // Z = 0, XY plane
-    );
-    console.log(`${planet.group.name || 'Planet'} position:`, planet.group.position); // Debug
-});
-
-
-// Concentric circles (already updated to remove radial lines)
-function createConcentricCircles() {
-    const sunPosition = sunGroup.position; // (0, 0, 0)
-    planetGroups.forEach(planet => {
-        const planetPos = planet.group.position;
-        const distance = sunPosition.distanceTo(planetPos);
-        const angle = Math.atan2(planetPos.y, planetPos.x);
-
-        const circleGeometry = new THREE.CircleGeometry(distance, 64);
-        const vertices = circleGeometry.attributes.position.array;
-        const ringVertices = new Float32Array(vertices.length - 3);
-        for (let i = 3; i < vertices.length; i++) {
-            ringVertices[i - 3] = vertices[i];
-        }
-        const ringGeometry = new THREE.BufferGeometry();
-        ringGeometry.setAttribute('position', new THREE.BufferAttribute(ringVertices, 3));
-        const circleMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
-        const circle = new THREE.LineLoop(ringGeometry, circleMaterial);
-
-        circle.position.copy(sunPosition);
-        circle.rotation.x = Math.PI / 2;
-        circle.rotation.y = angle;
-        scene.add(circle);
-    });
-}
-
-// createConcentricCircles(); // ** TOGGLE ORBITAL LINES ON AND OFF **
-
-// Planet labels
-const labelData = [
-    { group: mercuryGroup, name: 'Mercury', radius: 1000 },
-    { group: venusGroup, name: 'Venus', radius: 2000 },
-    { group: earthGroup, name: 'Earth', radius: 2000 },
-    { group: moonGroup, name: 'Moon', radius: 500 },
-    { group: marsGroup, name: 'Mars', radius: 1500 },
-    // Asteroid Belt removed from labels
-    { group: jupiterGroup, name: 'Jupiter', radius: 5000 },
-    // Star Destroyer removed from labels but will still be hoverable
-    { group: saturnGroup, name: 'Saturn', radius: 4000 },
-    { group: uranusGroup, name: 'Uranus', radius: 3000 },
-    { group: neptuneGroup, name: 'Neptune', radius: 3000 },
-    { group: starDestroyerGroup, name: 'Imperial Star Destroyer', radius: 5000 },
-    { group: lucrehulkGroup, name: 'Lucrehulk', radius: 5000 }
-];
-
-// Create and store label elements
-const labels = [];
-labelData.forEach(planet => {
-    const label = document.createElement('div');
-    label.className = 'planet-label';
-    label.textContent = planet.name;
-    
-    // Hide Star Destroyer and Lucrehulk labels visually while keeping them in the DOM
-    if (planet.name === 'Imperial Star Destroyer' || planet.name === 'Lucrehulk') {
-        label.style.opacity = '0'; // Make invisible but keep it in the DOM for positioning
-        label.style.pointerEvents = 'none'; // Ensure it doesn't interfere with interaction
-    }
-    
-    document.body.appendChild(label); // Add to DOM
-    labels.push({
-        element: label,
-        planetGroup: planet.group,
-        radius: planet.radius
-    });
-});
-
-// Create a special distance indicator for Earth
-const earthDistanceIndicator = document.createElement('div');
-earthDistanceIndicator.className = 'distance-indicator';
-earthDistanceIndicator.style.color = 'white';
-earthDistanceIndicator.style.fontFamily = 'Orbitron, sans-serif';
-earthDistanceIndicator.style.fontSize = '18px';
-earthDistanceIndicator.style.textAlign = 'center';
-earthDistanceIndicator.style.position = 'absolute';
-earthDistanceIndicator.style.display = 'none'; // Initially hidden
-// Add background and padding for better visibility
-earthDistanceIndicator.style.backgroundColor = 'rgba(1, 8, 36, 0.6)';
-earthDistanceIndicator.style.padding = '5px 10px';
-earthDistanceIndicator.style.borderRadius = '5px';
-// Remove border
-earthDistanceIndicator.style.zIndex = '9999'; // Ensure it's on top of other elements
-document.body.appendChild(earthDistanceIndicator);
-
-// Create a distance indicator for the Moon
-const moonDistanceIndicator = document.createElement('div');
-moonDistanceIndicator.className = 'distance-indicator';
-moonDistanceIndicator.style.color = 'white';
-moonDistanceIndicator.style.fontFamily = 'Orbitron, sans-serif';
-moonDistanceIndicator.style.fontSize = '18px';
-moonDistanceIndicator.style.textAlign = 'center';
-moonDistanceIndicator.style.position = 'absolute';
-moonDistanceIndicator.style.display = 'none'; // Initially hidden
-// Add background and padding for better visibility
-moonDistanceIndicator.style.backgroundColor = 'rgba(1, 8, 36, 0.6)';
-moonDistanceIndicator.style.padding = '5px 10px';
-moonDistanceIndicator.style.borderRadius = '5px';
-// Remove border
-moonDistanceIndicator.style.zIndex = '9999'; // Ensure it's on top of other elements
-document.body.appendChild(moonDistanceIndicator);
-
-// Function to update label positions
-export function updatePlanetLabels() {
-    // If on surface, hide all planet labels
-    if (isEarthSurfaceActive || isMoonSurfaceActive) {
-        labels.forEach(label => {
-            label.element.style.display = 'none';
-        });
-        
-        // Also hide distance indicators when on surface
-        earthDistanceIndicator.style.display = 'none';
-        moonDistanceIndicator.style.display = 'none';
-        
-        // Hide planet info box as well
-        planetInfoBox.style.display = 'none';
-        
-        return;
-    }
-
-    const vector = new THREE.Vector3();
-    const cameraPosition = new THREE.Vector3();
-    camera.getWorldPosition(cameraPosition); // Get camera's world position
-
-    // Calculate distance to Earth for the indicator
-    const earthPosition = earthGroup.position.clone();
-    const spacecraftPosition = spacecraft.position.clone();
-    const distanceToEarth = earthPosition.distanceTo(spacecraftPosition);
-    const distanceToEntry = Math.max(0, distanceToEarth - (earthRadius + 500)); // 500 is the entry threshold
-    
-    // Update the Earth distance indicator text with simplified formatting
-    if (distanceToEntry <= 10000) {
-        // Format the text with more prominent styling
-        if (distanceToEntry <= 1000) {
-            // Imminent entry - show in red
-            earthDistanceIndicator.style.color = '#ff0000';
-            earthDistanceIndicator.style.fontSize = '24px';
-            earthDistanceIndicator.style.fontWeight = 'bold';
-            earthDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 0, 0, 1.0), 0 0 25px rgba(255, 0, 0, 1.0)';
-            earthDistanceIndicator.textContent = `EARTH ENTRY: ${Math.round(distanceToEntry)}`;
-            // Add urgent animation
-            earthDistanceIndicator.classList.remove('distance-indicator-pulse');
-            earthDistanceIndicator.classList.add('distance-indicator-urgent');
-        } else {
-            // Standard display - white
-            earthDistanceIndicator.style.color = 'white';
-            earthDistanceIndicator.style.fontSize = '20px';
-            earthDistanceIndicator.style.fontWeight = 'normal';
-            earthDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px rgba(79, 195, 247, 1.0)';
-            earthDistanceIndicator.textContent = `EARTH ENTRY: ${Math.round(distanceToEntry)}`;
-            // Remove animations
-            earthDistanceIndicator.classList.remove('distance-indicator-pulse');
-            earthDistanceIndicator.classList.remove('distance-indicator-urgent');
-        }
-    } else {
-        // Reset styling for normal display
-        earthDistanceIndicator.style.color = 'white';
-        earthDistanceIndicator.style.fontSize = '18px';
-        earthDistanceIndicator.style.fontWeight = 'normal';
-        earthDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px rgba(79, 195, 247, 1.0)';
-        earthDistanceIndicator.textContent = `EARTH ENTRY: ${Math.round(distanceToEntry)}`;
-        // Remove animations
-        earthDistanceIndicator.classList.remove('distance-indicator-pulse');
-        earthDistanceIndicator.classList.remove('distance-indicator-urgent');
-    }
-
-    // Calculate distance to Moon for the indicator - using direct position since Moon is now in global coordinates
-    const moonPosition = moonGroup.position.clone();
-    const distanceToMoon = moonPosition.distanceTo(spacecraftPosition);
-    const moonEntryDistance = Math.max(0, distanceToMoon - (moonRadius + 500));
-    
-    // Update the Moon distance indicator text with simplified formatting
-    if (moonEntryDistance <= 10000) {
-        // Format the text with more prominent styling
-        if (moonEntryDistance <= 1000) {
-            // Imminent entry - show in red
-            moonDistanceIndicator.style.color = '#ff0000';
-            moonDistanceIndicator.style.fontSize = '24px';
-            moonDistanceIndicator.style.fontWeight = 'bold';
-            moonDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 0, 0, 1.0), 0 0 25px rgba(255, 0, 0, 1.0)';
-            moonDistanceIndicator.textContent = `MOON ENTRY: ${Math.round(moonEntryDistance)}`;
-            // Add urgent animation
-            moonDistanceIndicator.classList.remove('distance-indicator-pulse');
-            moonDistanceIndicator.classList.add('distance-indicator-urgent');
-        } else {
-            // Standard display - white
-            moonDistanceIndicator.style.color = 'white';
-            moonDistanceIndicator.style.fontSize = '20px';
-            moonDistanceIndicator.style.fontWeight = 'normal';
-            moonDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px rgba(79, 195, 247, 1.0)';
-            moonDistanceIndicator.textContent = `MOON ENTRY: ${Math.round(moonEntryDistance)}`;
-            // Remove animations
-            moonDistanceIndicator.classList.remove('distance-indicator-pulse');
-            moonDistanceIndicator.classList.remove('distance-indicator-urgent');
-        }
-    } else {
-        // Reset styling for normal display
-        moonDistanceIndicator.style.color = 'white';
-        moonDistanceIndicator.style.fontSize = '18px';
-        moonDistanceIndicator.style.fontWeight = 'normal';
-        moonDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px rgba(79, 195, 247, 1.0)';
-        moonDistanceIndicator.textContent = `MOON ENTRY: ${Math.round(moonEntryDistance)}`;
-        // Remove animations
-        moonDistanceIndicator.classList.remove('distance-indicator-pulse');
-        moonDistanceIndicator.classList.remove('distance-indicator-urgent');
-    }
-
-    // To track if the currently hovered planet is visible
-    let hoveredPlanetVisible = false;
-
-    labels.forEach(label => {
-        // Get planet's world position
-        label.planetGroup.getWorldPosition(vector);
-        
-        // Offset above the planet's surface
-        vector.y += label.radius * 1.2;
-
-        // Check if the planet is in front of the camera
-        const directionToPlanet = vector.clone().sub(cameraPosition);
-        const cameraForward = new THREE.Vector3(0, 0, -1); // Camera looks along negative Z
-        cameraForward.applyQuaternion(camera.quaternion); // Align with camera rotation
-        const dot = directionToPlanet.dot(cameraForward);
-
-        if (dot > 0) { // Planet is in front of the camera
-            // Project 3D position to 2D screen coordinates
-            vector.project(camera);
-
-            // Convert to screen space
-            const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
-            const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
-
-            // Position the label
-            label.element.style.left = `${x}px`;
-            label.element.style.top = `${y}px`;
-            label.element.style.transform = 'translateX(-50%)';
-            label.element.style.display = 'block'; // Show the label
-            
-            // If this is Earth, position the distance indicator below it
-            if (label.planetGroup === earthGroup) {
-                earthDistanceIndicator.style.left = `${x}px`;
-                earthDistanceIndicator.style.top = `${y + 35}px`; // Increased from 20px to 35px for more spacing
-                earthDistanceIndicator.style.transform = 'translateX(-50%)';
-                earthDistanceIndicator.style.display = 'block'; // Show the distance indicator
-            }
-            
-            // If this is Moon, position the distance indicator below it
-            if (label.planetGroup === moonGroup) {
-                moonDistanceIndicator.style.left = `${x}px`;
-                moonDistanceIndicator.style.top = `${y + 35}px`; // 35px spacing just like Earth
-                moonDistanceIndicator.style.transform = 'translateX(-50%)';
-                moonDistanceIndicator.style.display = 'block'; // Show the distance indicator
-            }
-            
-            // Update the info box position if we're currently hovering over this planet
-            if (lastHoveredPlanet && lastHoveredPlanet === label.element.textContent.toLowerCase()) {
-                hoveredPlanetVisible = true;
-                if (planetInfoBox.style.display === 'block') {
-                    planetInfoBox.style.left = `${x + 170}px`; // Adjusted for larger box
-                    planetInfoBox.style.top = `${y}px`;
-                    planetInfoBox.style.transform = 'translateY(-50%)';
-                }
-            }
-        } else {
-            // Hide the label if the planet is behind the camera
-            label.element.style.display = 'none';
-            
-            // If this is Earth, also hide the distance indicator
-            if (label.planetGroup === earthGroup) {
-                earthDistanceIndicator.style.display = 'none';
-            }
-            
-            // If this is Moon, also hide the distance indicator
-            if (label.planetGroup === moonGroup) {
-                moonDistanceIndicator.style.display = 'none';
-            }
-        }
-    });
-
-    // If the hovered planet is not visible, hide the info box
-    if (lastHoveredPlanet && !hoveredPlanetVisible) {
-        planetInfoBox.style.display = 'none';
-    }
-}
-
-// Stars
-const starGeometry = new THREE.BufferGeometry();
-const starCount = 1000000; // Keep the doubled number of stars
-const starRange = 500000;
-const starPositions = new Float32Array(starCount * 3);
-const starColors = new Float32Array(starCount * 3);
-const starSizes = new Float32Array(starCount);
-
-// Create stars with varying distances and initial brightness
-for (let i = 0; i < starCount; i++) {
-    const i3 = i * 3;
-    
-    // Random position in a large sphere around the origin
-    const theta = Math.random() * Math.PI * 2;
-    const phi = Math.acos(2 * Math.random() - 1);
-    const radius = starRange * Math.pow(Math.random(), 1/3); // Cube root for even volumetric distribution
-    
-    starPositions[i3] = radius * Math.sin(phi) * Math.cos(theta);
-    starPositions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-    starPositions[i3 + 2] = radius * Math.cos(phi);
-    
-    // Store initial bright white color (will be attenuated based on distance)
-    starColors[i3] = 1.0;     // R
-    starColors[i3 + 1] = 1.0; // G
-    starColors[i3 + 2] = 1.0; // B
-    
-    // Vary star sizes slightly (between 1 and 3)
-    starSizes[i] = 1 + Math.random() * 2;
-}
-
-starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-starGeometry.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
-starGeometry.setAttribute('size', new THREE.BufferAttribute(starSizes, 1));
-
-const starMaterial = new THREE.PointsMaterial({ 
-    color: 0xffffff,
-    size: 25,
-    vertexColors: true, // Use the color attribute
-    sizeAttenuation: true, // Make distant stars smaller
-    transparent: true,
-    opacity: 1.0 // Full opacity
-});
-
-export const stars = new THREE.Points(starGeometry, starMaterial);
-scene.add(stars);
-
-// Modified updateStars function with more extreme brightness interpolation and even distribution
-export function updateStars() {
-    const spacecraftPosition = spacecraft.position.clone();
-    const positions = stars.geometry.attributes.position.array;
-    const colors = stars.geometry.attributes.color.array;
-    
-    // First update star positions
-    for (let i = 0; i < starCount * 3; i += 3) {
-        // Calculate distance from spacecraft to this star
-        const dx = positions[i] - spacecraftPosition.x;
-        const dy = positions[i + 1] - spacecraftPosition.y;
-        const dz = positions[i + 2] - spacecraftPosition.z;
-        const distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
-        
-        // Check if star is too far from the spacecraft (beyond view range)
-        if (distance > starRange * 0.8) {
-            // Respawn the star in a new random position in a full sphere around the spacecraft
-            // This maintains even distribution everywhere
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.acos(2 * Math.random() - 1);
-            // Use cube root for even volumetric distribution, and ensure some stars are closer
-            const radius = starRange * 0.4 * Math.pow(Math.random(), 1/3);
-            
-            // Position relative to spacecraft
-            positions[i] = spacecraftPosition.x + radius * Math.sin(phi) * Math.cos(theta);
-            positions[i + 1] = spacecraftPosition.y + radius * Math.sin(phi) * Math.sin(theta);
-            positions[i + 2] = spacecraftPosition.z + radius * Math.cos(phi);
-        }
-        
-        // Recalculate distance after possible respawn
-        const newDx = positions[i] - spacecraftPosition.x;
-        const newDy = positions[i + 1] - spacecraftPosition.y;
-        const newDz = positions[i + 2] - spacecraftPosition.z;
-        const newDistance = Math.sqrt(newDx*newDx + newDy*newDy + newDz*newDz);
-        
-        // More extreme interpolation based on distance
-        // Stars closer than 8% of range are at full brightness
-        // Stars further than 25% of range are at minimum brightness (much less visible)
-        const minDistance = starRange * 0.08;
-        const maxDistance = starRange * 0.25;
-        let brightness = 1.0;
-        
-        if (newDistance > minDistance) {
-            // More dramatic falloff - distant stars are barely visible (only 5% brightness)
-            brightness = 1.0 - Math.min(1.0, (newDistance - minDistance) / (maxDistance - minDistance)) * 0.95;
-        }
-        
-        // Apply brightness to RGB values
-        colors[i] = brightness; // R
-        colors[i + 1] = brightness; // G
-        colors[i + 2] = brightness; // B
-    }
-    
-    // Update the geometry attributes
-    stars.geometry.attributes.position.needsUpdate = true;
-    stars.geometry.attributes.color.needsUpdate = true;
-}
-
-export const PLANET_RADIUS = earthRadius;
-export const PLANET_POSITION = earthGroup.position;
-
-///////////////////// ENCLOSED Solar System Setup /////////////////////
-
-
-// Hyperspace
-let isHyperspaceActive = false;
-function activateHyperspace() {
-    // Don't activate hyperspace if on Earth's surface
-    if (!isHyperspaceActive && !isEarthSurfaceActive) {
-        isHyperspaceActive = true;
-        console.log("Hyperspace activated!");
-        setTimeout(deactivateHyperspace, 2000);
-    }
-}
-
-function deactivateHyperspace() {
-    if (isHyperspaceActive) {
-        isHyperspaceActive = false;
-        // console.log("Hyperspace deactivated!");
-    }
-}
-
-window.addEventListener('keydown', (event) => {
-    // Only activate hyperspace if not on Earth's surface
-    if (event.key === 'Shift' && !isEarthSurfaceActive) activateHyperspace();
-});
-window.addEventListener('keyup', (event) => {
-    if (event.key === 'Shift') deactivateHyperspace();
-});
-
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-}
-
 // Create a function to display the Star Destroyer info box
 let starDestroyerInfoTimer = null;
 function showStarDestroyerInfo() {
@@ -2558,4 +1905,374 @@ function loadModelWithFallback(modelName, primaryPath, onSuccess, onProgress, on
             }
         );
     }
+}
+
+// Randomize planet positions
+planetGroups.forEach(planet => {
+    const angle = Math.random() * Math.PI * 2; // Random angle in radians
+    const radius = planet.z; // Use original Z as radius
+    planet.group.position.set(
+        Math.cos(angle) * radius, // X
+        Math.sin(angle) * radius, // Y
+        0                         // Z = 0, XY plane
+    );
+    console.log(`${planet.group.name || 'Planet'} position:`, planet.group.position); // Debug
+});
+
+
+// Planet labels
+const labelData = [
+    { group: mercuryGroup, name: 'Mercury', radius: 1000 },
+    { group: venusGroup, name: 'Venus', radius: 2000 },
+    { group: earthGroup, name: 'Earth', radius: 2000 },
+    { group: moonGroup, name: 'Moon', radius: 500 },
+    { group: marsGroup, name: 'Mars', radius: 1500 },
+    // Asteroid Belt removed from labels
+    { group: jupiterGroup, name: 'Jupiter', radius: 5000 },
+    // Star Destroyer removed from labels but will still be hoverable
+    { group: saturnGroup, name: 'Saturn', radius: 4000 },
+    { group: uranusGroup, name: 'Uranus', radius: 3000 },
+    { group: neptuneGroup, name: 'Neptune', radius: 3000 },
+    { group: starDestroyerGroup, name: 'Imperial Star Destroyer', radius: 5000 },
+    { group: lucrehulkGroup, name: 'Lucrehulk', radius: 5000 }
+];
+
+
+
+// Concentric circles (already updated to remove radial lines)
+function createConcentricCircles() {
+    const sunPosition = sunGroup.position; // (0, 0, 0)
+    planetGroups.forEach(planet => {
+        const planetPos = planet.group.position;
+        const distance = sunPosition.distanceTo(planetPos);
+        const angle = Math.atan2(planetPos.y, planetPos.x);
+
+        const circleGeometry = new THREE.CircleGeometry(distance, 64);
+        const vertices = circleGeometry.attributes.position.array;
+        const ringVertices = new Float32Array(vertices.length - 3);
+        for (let i = 3; i < vertices.length; i++) {
+            ringVertices[i - 3] = vertices[i];
+        }
+        const ringGeometry = new THREE.BufferGeometry();
+        ringGeometry.setAttribute('position', new THREE.BufferAttribute(ringVertices, 3));
+        const circleMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+        const circle = new THREE.LineLoop(ringGeometry, circleMaterial);
+
+        circle.position.copy(sunPosition);
+        circle.rotation.x = Math.PI / 2;
+        circle.rotation.y = angle;
+        scene.add(circle);
+    });
+}
+createConcentricCircles(); // ** TOGGLE ORBITAL LINES ON AND OFF **
+
+
+// Create and store label elements
+const labels = [];
+labelData.forEach(planet => {
+    const label = document.createElement('div');
+    label.className = 'planet-label';
+    label.textContent = planet.name;
+    
+    // Hide Star Destroyer and Lucrehulk labels visually while keeping them in the DOM
+    if (planet.name === 'Imperial Star Destroyer' || planet.name === 'Lucrehulk') {
+        label.style.opacity = '0'; // Make invisible but keep it in the DOM for positioning
+        label.style.pointerEvents = 'none'; // Ensure it doesn't interfere with interaction
+    }
+    
+    document.body.appendChild(label); // Add to DOM
+    labels.push({
+        element: label,
+        planetGroup: planet.group,
+        radius: planet.radius
+    });
+});
+
+// Function to update label positions
+export function updatePlanetLabels() {
+    // If on surface, hide all planet labels
+    if (isEarthSurfaceActive || isMoonSurfaceActive) {
+        labels.forEach(label => {
+            label.element.style.display = 'none';
+        });
+        
+        // Also hide distance indicators when on surface
+        earthDistanceIndicator.style.display = 'none';
+        moonDistanceIndicator.style.display = 'none';
+        
+        // Hide planet info box as well
+        planetInfoBox.style.display = 'none';
+        
+        return;
+    }
+
+    const vector = new THREE.Vector3();
+    const cameraPosition = new THREE.Vector3();
+    camera.getWorldPosition(cameraPosition); // Get camera's world position
+
+    // Calculate distance to Earth for the indicator
+    const earthPosition = earthGroup.position.clone();
+    const spacecraftPosition = spacecraft.position.clone();
+    const distanceToEarth = earthPosition.distanceTo(spacecraftPosition);
+    const distanceToEntry = Math.max(0, distanceToEarth - (earthRadius + 500)); // 500 is the entry threshold
+    
+    // Update the Earth distance indicator text with simplified formatting
+    if (distanceToEntry <= 10000) {
+        // Format the text with more prominent styling
+        if (distanceToEntry <= 1000) {
+            // Imminent entry - show in red
+            earthDistanceIndicator.style.color = '#ff0000';
+            earthDistanceIndicator.style.fontSize = '24px';
+            earthDistanceIndicator.style.fontWeight = 'bold';
+            earthDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 0, 0, 1.0), 0 0 25px rgba(255, 0, 0, 1.0)';
+            earthDistanceIndicator.textContent = `EARTH ENTRY: ${Math.round(distanceToEntry)}`;
+            // Add urgent animation
+            earthDistanceIndicator.classList.remove('distance-indicator-pulse');
+            earthDistanceIndicator.classList.add('distance-indicator-urgent');
+        } else {
+            // Standard display - white
+            earthDistanceIndicator.style.color = 'white';
+            earthDistanceIndicator.style.fontSize = '20px';
+            earthDistanceIndicator.style.fontWeight = 'normal';
+            earthDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px rgba(79, 195, 247, 1.0)';
+            earthDistanceIndicator.textContent = `EARTH ENTRY: ${Math.round(distanceToEntry)}`;
+            // Remove animations
+            earthDistanceIndicator.classList.remove('distance-indicator-pulse');
+            earthDistanceIndicator.classList.remove('distance-indicator-urgent');
+        }
+    } else {
+        // Reset styling for normal display
+        earthDistanceIndicator.style.color = 'white';
+        earthDistanceIndicator.style.fontSize = '18px';
+        earthDistanceIndicator.style.fontWeight = 'normal';
+        earthDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px rgba(79, 195, 247, 1.0)';
+        earthDistanceIndicator.textContent = `EARTH ENTRY: ${Math.round(distanceToEntry)}`;
+        // Remove animations
+        earthDistanceIndicator.classList.remove('distance-indicator-pulse');
+        earthDistanceIndicator.classList.remove('distance-indicator-urgent');
+    }
+
+    // Calculate distance to Moon for the indicator - using direct position since Moon is now in global coordinates
+    const moonPosition = moonGroup.position.clone();
+    const distanceToMoon = moonPosition.distanceTo(spacecraftPosition);
+    const moonEntryDistance = Math.max(0, distanceToMoon - (moonRadius + 500));
+    
+    // Update the Moon distance indicator text with simplified formatting
+    if (moonEntryDistance <= 10000) {
+        // Format the text with more prominent styling
+        if (moonEntryDistance <= 1000) {
+            // Imminent entry - show in red
+            moonDistanceIndicator.style.color = '#ff0000';
+            moonDistanceIndicator.style.fontSize = '24px';
+            moonDistanceIndicator.style.fontWeight = 'bold';
+            moonDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 0, 0, 1.0), 0 0 25px rgba(255, 0, 0, 1.0)';
+            moonDistanceIndicator.textContent = `MOON ENTRY: ${Math.round(moonEntryDistance)}`;
+            // Add urgent animation
+            moonDistanceIndicator.classList.remove('distance-indicator-pulse');
+            moonDistanceIndicator.classList.add('distance-indicator-urgent');
+        } else {
+            // Standard display - white
+            moonDistanceIndicator.style.color = 'white';
+            moonDistanceIndicator.style.fontSize = '20px';
+            moonDistanceIndicator.style.fontWeight = 'normal';
+            moonDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px rgba(79, 195, 247, 1.0)';
+            moonDistanceIndicator.textContent = `MOON ENTRY: ${Math.round(moonEntryDistance)}`;
+            // Remove animations
+            moonDistanceIndicator.classList.remove('distance-indicator-pulse');
+            moonDistanceIndicator.classList.remove('distance-indicator-urgent');
+        }
+    } else {
+        // Reset styling for normal display
+        moonDistanceIndicator.style.color = 'white';
+        moonDistanceIndicator.style.fontSize = '18px';
+        moonDistanceIndicator.style.fontWeight = 'normal';
+        moonDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px rgba(79, 195, 247, 1.0)';
+        moonDistanceIndicator.textContent = `MOON ENTRY: ${Math.round(moonEntryDistance)}`;
+        // Remove animations
+        moonDistanceIndicator.classList.remove('distance-indicator-pulse');
+        moonDistanceIndicator.classList.remove('distance-indicator-urgent');
+    }
+
+    // To track if the currently hovered planet is visible
+    let hoveredPlanetVisible = false;
+
+    labels.forEach(label => {
+        // Get planet's world position
+        label.planetGroup.getWorldPosition(vector);
+        
+        // Offset above the planet's surface
+        vector.y += label.radius * 1.2;
+
+        // Check if the planet is in front of the camera
+        const directionToPlanet = vector.clone().sub(cameraPosition);
+        const cameraForward = new THREE.Vector3(0, 0, -1); // Camera looks along negative Z
+        cameraForward.applyQuaternion(camera.quaternion); // Align with camera rotation
+        const dot = directionToPlanet.dot(cameraForward);
+
+        if (dot > 0) { // Planet is in front of the camera
+            // Project 3D position to 2D screen coordinates
+            vector.project(camera);
+
+            // Convert to screen space
+            const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+            const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
+
+            // Position the label
+            label.element.style.left = `${x}px`;
+            label.element.style.top = `${y}px`;
+            label.element.style.transform = 'translateX(-50%)';
+            label.element.style.display = 'block'; // Show the label
+            
+            // If this is Earth, position the distance indicator below it
+            if (label.planetGroup === earthGroup) {
+                earthDistanceIndicator.style.left = `${x}px`;
+                earthDistanceIndicator.style.top = `${y + 35}px`; // Increased from 20px to 35px for more spacing
+                earthDistanceIndicator.style.transform = 'translateX(-50%)';
+                earthDistanceIndicator.style.display = 'block'; // Show the distance indicator
+            }
+            
+            // If this is Moon, position the distance indicator below it
+            if (label.planetGroup === moonGroup) {
+                moonDistanceIndicator.style.left = `${x}px`;
+                moonDistanceIndicator.style.top = `${y + 35}px`; // 35px spacing just like Earth
+                moonDistanceIndicator.style.transform = 'translateX(-50%)';
+                moonDistanceIndicator.style.display = 'block'; // Show the distance indicator
+            }
+            
+            // Update the info box position if we're currently hovering over this planet
+            if (lastHoveredPlanet && lastHoveredPlanet === label.element.textContent.toLowerCase()) {
+                hoveredPlanetVisible = true;
+                if (planetInfoBox.style.display === 'block') {
+                    planetInfoBox.style.left = `${x + 170}px`; // Adjusted for larger box
+                    planetInfoBox.style.top = `${y}px`;
+                    planetInfoBox.style.transform = 'translateY(-50%)';
+                }
+            }
+        } else {
+            // Hide the label if the planet is behind the camera
+            label.element.style.display = 'none';
+            
+            // If this is Earth, also hide the distance indicator
+            if (label.planetGroup === earthGroup) {
+                earthDistanceIndicator.style.display = 'none';
+            }
+            
+            // If this is Moon, also hide the distance indicator
+            if (label.planetGroup === moonGroup) {
+                moonDistanceIndicator.style.display = 'none';
+            }
+        }
+    });
+
+    // If the hovered planet is not visible, hide the info box
+    if (lastHoveredPlanet && !hoveredPlanetVisible) {
+        planetInfoBox.style.display = 'none';
+    }
+}
+
+export const PLANET_RADIUS = earthRadius;
+export const PLANET_POSITION = earthGroup.position;
+
+// Create a distance countdown indicator for Earth
+const earthDistanceIndicator = document.createElement('div');
+earthDistanceIndicator.className = 'distance-indicator';
+earthDistanceIndicator.style.color = 'white';
+earthDistanceIndicator.style.fontFamily = 'Orbitron, sans-serif';
+earthDistanceIndicator.style.fontSize = '18px';
+earthDistanceIndicator.style.textAlign = 'center';
+earthDistanceIndicator.style.position = 'absolute';
+earthDistanceIndicator.style.display = 'none'; // Initially hidden
+earthDistanceIndicator.style.backgroundColor = 'rgba(1, 8, 36, 0.6)';
+earthDistanceIndicator.style.padding = '5px 10px';
+earthDistanceIndicator.style.borderRadius = '5px';
+earthDistanceIndicator.style.zIndex = '9999'; // Ensure it's on top of other elements
+document.body.appendChild(earthDistanceIndicator);
+
+// Create a distance countdown indicator for Moon
+const moonDistanceIndicator = document.createElement('div');
+moonDistanceIndicator.className = 'distance-indicator';
+moonDistanceIndicator.style.color = 'white';
+moonDistanceIndicator.style.fontFamily = 'Orbitron, sans-serif';
+moonDistanceIndicator.style.fontSize = '18px';
+moonDistanceIndicator.style.textAlign = 'center';
+moonDistanceIndicator.style.position = 'absolute';
+moonDistanceIndicator.style.display = 'none'; // Initially hidden
+moonDistanceIndicator.style.backgroundColor = 'rgba(1, 8, 36, 0.6)';
+moonDistanceIndicator.style.padding = '5px 10px';
+moonDistanceIndicator.style.borderRadius = '5px';
+moonDistanceIndicator.style.zIndex = '9998'; // Ensure it's always just below the earth distance indicator
+document.body.appendChild(moonDistanceIndicator);
+
+
+
+// Stars
+
+scene.add(stars);
+
+// Update stars with brightness interpolation and even distribution
+function updateStars() {
+    const spacecraftPosition = spacecraft.position.clone();
+    const positions = stars.geometry.attributes.position.array;
+    const colors = stars.geometry.attributes.color.array;
+    
+    // First update star positions
+    for (let i = 0; i < starCount * 3; i += 3) {
+        // Calculate distance from spacecraft to this star
+        const dx = positions[i] - spacecraftPosition.x;
+        const dy = positions[i + 1] - spacecraftPosition.y;
+        const dz = positions[i + 2] - spacecraftPosition.z;
+        const distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+        
+        // Check if star is too far from the spacecraft (beyond view range)
+        if (distance > starRange * 0.8) {
+            // Respawn the star in a new random position in a full sphere around the spacecraft
+            // This maintains even distribution everywhere
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            // Use cube root for even volumetric distribution, and ensure some stars are closer
+            const radius = starRange * 0.4 * Math.pow(Math.random(), 1/3);
+            
+            // Position relative to spacecraft
+            positions[i] = spacecraftPosition.x + radius * Math.sin(phi) * Math.cos(theta);
+            positions[i + 1] = spacecraftPosition.y + radius * Math.sin(phi) * Math.sin(theta);
+            positions[i + 2] = spacecraftPosition.z + radius * Math.cos(phi);
+        }
+        
+        // Recalculate distance after possible respawn
+        const newDx = positions[i] - spacecraftPosition.x;
+        const newDy = positions[i + 1] - spacecraftPosition.y;
+        const newDz = positions[i + 2] - spacecraftPosition.z;
+        const newDistance = Math.sqrt(newDx*newDx + newDy*newDy + newDz*newDz);
+        
+        // More extreme interpolation based on distance
+        // Stars closer than 8% of range are at full brightness
+        // Stars further than 25% of range are at minimum brightness (much less visible)
+        const minDistance = starRange * 0.08;
+        const maxDistance = starRange * 0.25;
+        let brightness = 1.0;
+        
+        if (newDistance > minDistance) {
+            // More dramatic falloff - distant stars are barely visible (only 5% brightness)
+            brightness = 1.0 - Math.min(1.0, (newDistance - minDistance) / (maxDistance - minDistance)) * 0.95;
+        }
+        
+        // Apply brightness to RGB values
+        colors[i] = brightness; // R
+        colors[i + 1] = brightness; // G
+        colors[i + 2] = brightness; // B
+    }
+    
+    // Update the geometry attributes
+    stars.geometry.attributes.position.needsUpdate = true;
+    stars.geometry.attributes.color.needsUpdate = true;
+}
+
+/////////////////////
+
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
 }

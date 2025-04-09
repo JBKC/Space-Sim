@@ -498,11 +498,11 @@ class TrackballControls extends EventDispatcher {
 
 		}
 
-		function keyPress( event ) {
+		function keydown( event ) {
 
 			if ( scope.enabled === false ) return;
 
-			window.removeEventListener( 'keyPress', keyPress );
+			window.removeEventListener( 'keydown', keydown );
 
 			if ( _keyState !== STATE.NONE ) {
 
@@ -524,13 +524,13 @@ class TrackballControls extends EventDispatcher {
 
 		}
 
-		function keyRelease() {
+		function keyup() {
 
 			if ( scope.enabled === false ) return;
 
 			_keyState = STATE.NONE;
 
-			window.addEventListener( 'keyPress', keyPress );
+			window.addEventListener( 'keydown', keydown );
 
 		}
 
@@ -801,8 +801,8 @@ class TrackballControls extends EventDispatcher {
 			scope.domElement.removeEventListener( 'pointermove', onPointerMove );
 			scope.domElement.removeEventListener( 'pointerup', onPointerUp );
 
-			window.removeEventListener( 'keyPress', keyPress );
-			window.removeEventListener( 'keyRelease', keyRelease );
+			window.removeEventListener( 'keydown', keydown );
+			window.removeEventListener( 'keyup', keyup );
 
 		};
 
@@ -813,8 +813,8 @@ class TrackballControls extends EventDispatcher {
 		this.domElement.addEventListener( 'wheel', onMouseWheel, { passive: false } );
 
 
-		window.addEventListener( 'keyPress', keyPress );
-		window.addEventListener( 'keyRelease', keyRelease );
+		window.addEventListener( 'keydown', keydown );
+		window.addEventListener( 'keyup', keyup );
 
 		this.handleResize();
 
