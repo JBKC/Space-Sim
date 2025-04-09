@@ -4,6 +4,7 @@ import { TilesRenderer } from '3d-tiles-renderer/src/three/TilesRenderer.js';
 import { CesiumIonAuthPlugin } from '3d-tiles-renderer/src/plugins/three/CesiumIonAuthPlugin.js';
 import { GLTFExtensionsPlugin } from '3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { updateMoonMovement } from '../movement.js';
 import { createSpacecraft } from '../spacecraft.js';
 import { 
     moonCamera,
@@ -91,6 +92,9 @@ let topRightWing, bottomRightWing, topLeftWing, bottomLeftWing;
 let wingsOpen = true;
 let wingAnimation = 0;
 const wingTransitionFrames = 30;
+
+
+
 
 // Movement settings
 export const baseSpeed = 20;

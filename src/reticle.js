@@ -1,7 +1,7 @@
 import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
 
 /**
- * Configuration for the reticle
+ * Configuration for the reticle using javascript config object
  * @type {Object}
  * @property {number} size - Overall size of the reticle
  * @property {number} color - Color of the reticle in hex format
@@ -9,9 +9,9 @@ import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
  * @property {number} distance - Distance from spacecraft in local Z direction
  * @property {number} yOffset - Vertical offset from spacecraft center
  * @property {number} lineThickness - Thickness of lines in the reticle
- * @property {number} crosshairSize - Size of the central crosshair
- * @property {number} triangleSize - Size of the triangle (replacing ringRadius)
- * @property {number} triangleThickness - Thickness of the triangle border
+ * @property {number} crosshairSize - Size of the central crosshair (+)
+ * @property {number} triangleSize - Size of the triangle surrounding the crosshair
+ * @property {number} triangleThickness - Thickness of the triangle
  * @property {number} scale - Normal scale value when not boosting
  * @property {number} boostScale - Reduced scale value when boosting
  * @property {number} slowScale - Larger scale value when in slow mode
@@ -23,7 +23,7 @@ import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
  */
 const config = {
     size: 0.3,             // Increased size for better visibility
-    color: 0xFF5349,       // Sci-fi blue color that matches UI
+    color: 0xFF5349,       // Orange-red color
     opacity: 1.0,          // Fully opaque
     distance: -500,        // Distance from spacecraft in local Z direction
     yOffset: 0,            // No vertical offset
