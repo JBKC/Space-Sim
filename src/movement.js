@@ -1,6 +1,4 @@
-// movement.js
-
-// Called by various setup files
+// Contains all movement variables and movement-based state updates
 
 import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
 import { 
@@ -18,19 +16,35 @@ import {
     rotation
 } from './setup.js';
 
-// Movement and boost variables
+
+///// Movement Variables /////
+
+// Space scene
 export const baseSpeed = 5;
 export const boostSpeed = baseSpeed * 5;
 export const slowSpeed = baseSpeed * 0.5; // Half of base speed for slow mode
+export const hyperspaceSpeed = baseSpeed * 50;
 export let currentSpeed = baseSpeed;
 
-// Turn speed variables for space environment
 export const baseTurnSpeed = 0.02;     // Regular turn speed
 export const slowTurnSpeed = 0.025;     // More precise turning when moving slowly
 export const boostTurnSpeed = 0.015;   // Less sensitive turning when boosting
 export let currentTurnSpeed = baseTurnSpeed; // Current active turn speed
 
-// Add sensitivity multipliers for each rotation axis
+
+// Moon scene
+export const moonBaseSpeed = 20;
+export const moonBoostSpeed = moonBaseSpeed * 5;
+export const moonSlowSpeed = moonBaseSpeed * 0.5; // Half of base speed for slow mode
+export let moonCurrentSpeed = moonBaseSpeed;
+
+export const moonBaseTurnSpeed = 0.02;     // Regular turn speed
+export const moonSlowTurnSpeed = 0.025;     // More precise turning when moving slowly
+export const moonBoostTurnSpeed = 0.015;   // Less sensitive turning when boosting
+export let moonCurrentTurnSpeed = moonBaseTurnSpeed; // Current active turn speed
+
+
+// General
 export const pitchSensitivity = 0.6; // Lower value = less sensitive
 export const rollSensitivity = 1;  // Lower value = less sensitive
 export const yawSensitivity = 0.5;   // Lower value = less sensitive
@@ -121,18 +135,25 @@ document.addEventListener('keyup', (event) => {
     }
 });
 
-export function updateMovement(isBoosting, isHyperspace) {
+
+
+/**
+ * Core movement function to reuse across all scenes
+ * Handles basic spacecraft movement including pitch, roll, yaw, speed adjustments
+ * 
+ * @param {boolean} isBoosting - Whether boost is active
+ * @returns {Object|null} - The movement vectors or null if spacecraft not initialized
+ */
+
+export function updateCoreMovement(isBoosting) {
     // Check if spacecraft is initialized
     if (!spacecraft) {
-        console.warn("Spacecraft not initialized yet, skipping updateMovement");
-            return;
+        console.warn("Spacecraft not initialized yet, skipping updateCoreMovement");
+        return null;
     }
     
-    // Original space movement behavior
-    if (isHyperspace) {
-        currentSpeed = baseSpeed * 50;
-        currentTurnSpeed = boostTurnSpeed; // Use boost turn speed during hyperspace
-    } else if (isBoosting || keys.up) {
+    // Determine current speed based on movement state
+    if (isBoosting || keys.up) {
         currentSpeed = boostSpeed;
         currentTurnSpeed = boostTurnSpeed; // Less sensitive turns at high speed
     } else if (keys.down) {
@@ -146,13 +167,7 @@ export function updateMovement(isBoosting, isHyperspace) {
     // Update engine effects
     if (typeof updateEngineEffects === 'function') {
         updateEngineEffects(isBoosting || keys.up, keys.down);
-        // Debug to confirm function call
-        // console.log(`Engine effects updated - Boosting: ${isBoosting || keys.up}, Slowing: ${keys.down}`);
     }
-
-    // NOTE: The wing animation logic has been moved to the spacecraft.js animation system
-    // and is controlled via the setWingsOpen function. It responds to the same conditions,
-    // but uses the built-in glTF animations instead of manual rotations.
 
     // Store current state
     lastValidPosition.copy(spacecraft.position);
@@ -163,8 +178,7 @@ export function updateMovement(isBoosting, isHyperspace) {
     rotation.yaw.identity();
     rotation.roll.identity();
 
-    // Apply rotations with very low sensitivity, only if not in hyperspace
-    if (!isHyperspace) {
+    // Apply rotations with normal sensitivity
         // Use currentTurnSpeed for pitch and yaw, but always use slowTurnSpeed for roll
         if (keys.w) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, currentTurnSpeed * pitchSensitivity);
         if (keys.s) rotation.pitch.setFromAxisAngle(rotation.pitchAxis, -currentTurnSpeed * pitchSensitivity);
@@ -173,7 +187,6 @@ export function updateMovement(isBoosting, isHyperspace) {
         if (keys.d) rotation.roll.setFromAxisAngle(rotation.rollAxis, slowTurnSpeed * rollSensitivity);
         if (keys.left) rotation.yaw.setFromAxisAngle(rotation.yawAxis, currentTurnSpeed * yawSensitivity);
         if (keys.right) rotation.yaw.setFromAxisAngle(rotation.yawAxis, -currentTurnSpeed * yawSensitivity);
-    }
 
     const combinedRotation = new THREE.Quaternion()
         .copy(rotation.roll)
@@ -191,11 +204,58 @@ export function updateMovement(isBoosting, isHyperspace) {
         forward.multiplyScalar(currentSpeed)
     );
 
-    // Check distance to planet for next position
+    return { forward, nextPosition };
+}
+
+
+///// SCENE-SPECIFIC MOVEMENT FUNCTIONS /////
+
+/**
+ * Updates spacecraft movement in the space environment
+ * Combines core movement with space-specific features like hyperspace and planet collisions
+ * 
+ * @param {boolean} isBoosting - Whether boost is active
+ * @param {boolean} isHyperspace - Whether hyperspace is active
+ */
+export function updateSpaceMovement(isBoosting, isHyperspace) {
+    // Handle hyperspace-specific speed settings first (space-specific feature)
+    if (isHyperspace) {
+        currentSpeed = hyperspaceSpeed;
+        currentTurnSpeed = boostTurnSpeed; // Use boost turn speed during hyperspace
+        
+        // Apply core movement without rotation in hyperspace
+        // Store current state
+        lastValidPosition.copy(spacecraft.position);
+        lastValidQuaternion.copy(spacecraft.quaternion);
+        
+        // Get current forward direction
+        const forward = new THREE.Vector3(0, 0, 1);
+        forward.applyQuaternion(spacecraft.quaternion);
+        
+        // Calculate next position with hyperspace speed
+        const nextPosition = spacecraft.position.clone().add(
+            forward.multiplyScalar(currentSpeed)
+        );
+        
+        // Move spacecraft forward in hyperspace
+        spacecraft.position.copy(nextPosition);
+        return;
+    }
+    
+    // For normal space movement, apply the core movement
+    const result = updateCoreMovement(isBoosting);
+    
+    // If core movement failed (e.g. spacecraft not initialized), exit early
+    if (!result) return;
+    
+    const { forward, nextPosition } = result;
+    
+    // Space-specific logic: Check for planet collision
     const distanceToPlanet = nextPosition.distanceTo(EARTH_POSITION);
     const minDistance = EARTH_RADIUS + COLLISION_THRESHOLD;
 
     if (distanceToPlanet < minDistance) {
+        // Handle planet collision with bounce
         const toSpacecraft = new THREE.Vector3().subVectors(spacecraft.position, EARTH_POSITION).normalize();
         spacecraft.position.copy(EARTH_POSITION).add(
             toSpacecraft.multiplyScalar(minDistance + COLLISION_PUSHBACK)
@@ -209,9 +269,163 @@ export function updateMovement(isBoosting, isHyperspace) {
         spacecraft.quaternion.premultiply(bounceQuaternion);
         currentSpeed *= BOUNCE_FACTOR;
     } else {
+        // No collision, apply the calculated next position
         spacecraft.position.copy(nextPosition);
     }
+} 
 
-    // The manual wing animation code has been removed as it's now handled
-    // by the Three.js animation system in spacecraft.js
+
+/**
+ * Updates spacecraft movement in the moon environment
+ * Uses core movement mechanics but adds moon-specific terrain features
+ */
+export function updateMoonMovement() {
+    // Check if spacecraft is initialized
+    if (!spacecraft) {
+        console.warn("Spacecraft not initialized yet");
+        return;
+    }
+
+    // Handle wing animation for boost mode - moon specific handling
+    const isInHyperspace = window.isHyperspace || false;
+    
+    // Use the proper setWingsOpen method instead of manual animation
+    if (spacecraft && spacecraft.setWingsOpen) {
+        const shouldWingsBeOpen = !keys.up && !isInHyperspace;
+        spacecraft.setWingsOpen(shouldWingsBeOpen);
+    } 
+    // Fallback to manual animation if setWingsOpen is not available
+    else if ((keys.up || isInHyperspace) && wingsOpen) {
+        console.log(`moon: Closing wings due to ${isInHyperspace ? 'hyperspace' : 'boost'} mode`);
+        wingsOpen = false;
+        wingAnimation = wingTransitionFrames;
+    } else if (!keys.up && !isInHyperspace && !wingsOpen) {
+        console.log('moon: Opening wings for normal flight');
+        wingsOpen = true;
+        wingAnimation = wingTransitionFrames;
+    }
+
+    // Use core movement for basic spacecraft control
+    const isBoosting = keys.up;
+    const result = updateCoreMovement(isBoosting);
+    
+    // If core movement failed, exit early
+    if (!result) return;
+    
+    const originalPosition = spacecraft.position.clone();
+    const { forward } = result;
+    
+    // Moon-specific terrain handling
+    if (tiles && tiles.group && tiles.group.children.length > 0) {
+        try {
+            const terrainMeshes = [];
+            tiles.group.traverse((object) => {
+                if (object.isMesh && object.geometry) {
+                    terrainMeshes.push(object);
+                }
+            });
+            
+            if (terrainMeshes.length > 0) {
+                const downDirection = new THREE.Vector3(0, -1, 0);
+                raycaster.set(spacecraft.position, downDirection);
+                raycaster.near = 0;
+                raycaster.far = 1000;
+                
+                const groundHits = raycaster.intersectObjects(terrainMeshes, false);
+                if (groundHits.length > 0) {
+                    const groundDistance = groundHits[0].distance;
+                    let groundNormal = groundHits[0].normal || 
+                        (groundHits[0].point ? new THREE.Vector3().subVectors(groundHits[0].point, new THREE.Vector3(0, 0, 0)).normalize() : null);
+                    
+                    if (groundNormal) {
+                        const upVector = new THREE.Vector3(0, 1, 0);
+                        const slopeAngle = Math.acos(groundNormal.dot(upVector)) * (180 / Math.PI);
+                        if (slopeAngle > MAX_SLOPE_ANGLE) {
+                            const rightVector = new THREE.Vector3().crossVectors(forward, upVector).normalize();
+                            const adjustedForward = new THREE.Vector3().crossVectors(rightVector, groundNormal).normalize();
+                            forward.lerp(adjustedForward, 0.5);
+                        }
+                    }
+                    
+                    // Hover height adjustment - moon specific
+                    if (groundDistance < HOVER_HEIGHT) {
+                        spacecraft.position.y += (HOVER_HEIGHT - groundDistance) * 0.2;
+                    } else if (groundDistance > HOVER_HEIGHT * 1.5) {
+                        spacecraft.position.y -= (groundDistance - HOVER_HEIGHT) * 0.015;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("Error in hover adjustment:", error);
+        }
+    }
+    
+    // Apply forward motion - adjusted by terrain interaction above
+    spacecraft.position.add(forward.multiplyScalar(currentSpeed));
+
+    // Moon-specific collision detection
+    try {
+        if (tiles && tiles.group && tiles.group.children.length > 0) {
+            if (checkTerrainCollision()) {
+                console.log("Collision detected and resolved");
+                // Handle collision by using the appropriate camera offset
+                const isFirstPerson = spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? 
+                    spacecraft.isFirstPersonView() : false;
+                const viewMode = isFirstPerson ? 'moonCockpit' : 'moon';
+                
+                // Force the camera state to use collision offsets
+                cameraState.targetOffset = isFirstPerson ? 
+                    moonCockpitCamera.collision.clone() : 
+                    moonCamera.collision.clone();
+                
+                if (checkTerrainCollision()) {
+                    console.log("Multiple collisions detected, reverting to original position");
+                    spacecraft.position.copy(originalPosition);
+                }
+            }
+        }
+    } catch (error) {
+        console.error("Error during collision detection:", error);
+        spacecraft.position.copy(originalPosition);
+    }
+
+    // Handle manual wing animation if needed - will be deprecated once all models use built-in animations
+    if (wingAnimation > 0 && topRightWing && bottomRightWing && topLeftWing && bottomLeftWing) {
+        // Calculate progress percentage for animation smoothing (1.0 = start, 0.0 = end)
+        const progress = wingAnimation / wingTransitionFrames;
+        
+        // Use easing function for smoother animation (ease in/out)
+        const easedProgress = 0.5 - 0.5 * Math.cos(progress * Math.PI);
+        
+        // Log animation progress occasionally
+        if (wingAnimation % 10 === 0) {
+            console.log(`moon wing animation: ${Math.round(progress * 100)}% complete, ${wingsOpen ? 'opening' : 'closing'}`);
+        }
+        
+        // Define the angles for open and closed positions
+        const openAngle = Math.PI / 8;
+        const closedAngle = 0;
+        
+        if (wingsOpen) {
+            // Animating to open position (X shape)
+            // Right wings
+            topRightWing.rotation.z = THREE.MathUtils.lerp(closedAngle, -openAngle, easedProgress);
+            bottomRightWing.rotation.z = THREE.MathUtils.lerp(closedAngle, openAngle, easedProgress);
+            
+            // Left wings
+            topLeftWing.rotation.z = THREE.MathUtils.lerp(Math.PI, Math.PI + openAngle, easedProgress);
+            bottomLeftWing.rotation.z = THREE.MathUtils.lerp(Math.PI, Math.PI - openAngle, easedProgress);
+        } else {
+            // Animating to closed position (flat)
+            // Right wings
+            topRightWing.rotation.z = THREE.MathUtils.lerp(-openAngle, closedAngle, easedProgress);
+            bottomRightWing.rotation.z = THREE.MathUtils.lerp(openAngle, closedAngle, easedProgress);
+            
+            // Left wings
+            topLeftWing.rotation.z = THREE.MathUtils.lerp(Math.PI + openAngle, Math.PI, easedProgress);
+            bottomLeftWing.rotation.z = THREE.MathUtils.lerp(Math.PI - openAngle, Math.PI, easedProgress);
+        }
+        
+        wingAnimation--;
+    }
 }

@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { updateMovement, keys } from './movement.js';
+import { updateSpaceMovement, keys } from './movement.js';
 import { createSpacecraft } from './spacecraft.js';
 import { createReticle, setReticleVisibility } from './reticle.js';
 import { updateControlsDropdown } from './ui.js';
@@ -542,7 +542,7 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         checkReticleHover();
 
         // Use the passed isBoosting and isHyperspace parameters
-        updateMovement(isBoosting, isHyperspace);
+        updateSpaceMovement(isBoosting, isHyperspace);
         updateCamera(camera, isHyperspace);
 
         // Update spacecraft effects
@@ -820,9 +820,6 @@ export function exitMoonSurface() {
 
 ///////////////////// Solar System Setup /////////////////////
 
-// For defining when the reticle intersects with the planet
-const collisionMaterialInvisible = new THREE.MeshBasicMaterial({ visible: false });
-
 import { skybox } from './solarSystemEnv';
 import { sunGroup, blazingMaterial, blazingEffect } from './solarSystemEnv';
 import { planetGroups } from './solarSystemEnv';
@@ -1079,9 +1076,9 @@ export function updatePlanetLabels() {
         // Hide planet info box as well
         planetInfoBox.style.display = 'none';
         
-            return;
-        }
-        
+        return;
+    }
+
     const vector = new THREE.Vector3();
     const cameraPosition = new THREE.Vector3();
     camera.getWorldPosition(cameraPosition); // Get camera's world position
@@ -1310,20 +1307,20 @@ export function checkReticleHover() {
                     // Dynamic selector for info box based on celestial object type
                     if (info.composition && info.atmosphere && info.gravity) {
                         // Planet format
-                        planetInfoBox.innerHTML = `
-                            <div style="text-align: center; margin-bottom: 10px; font-size: 20px; color: #4fc3f7;">
-                                ${planetObj.name.toUpperCase()}
-                            </div>
-                            <div style="margin-bottom: 8px;">
-                                <span style="color: #4fc3f7;">Composition:</span> ${info.composition}
-                            </div>
-                            <div style="margin-bottom: 8px;">
-                                <span style="color: #4fc3f7;">Atmosphere:</span> ${info.atmosphere}
-                            </div>
-                            <div>
-                                <span style="color: #4fc3f7;">Gravity:</span> ${info.gravity}
-                            </div>
-                        `;
+                    planetInfoBox.innerHTML = `
+                        <div style="text-align: center; margin-bottom: 10px; font-size: 20px; color: #4fc3f7;">
+                            ${planetObj.name.toUpperCase()}
+                        </div>
+                        <div style="margin-bottom: 8px;">
+                            <span style="color: #4fc3f7;">Composition:</span> ${info.composition}
+                        </div>
+                        <div style="margin-bottom: 8px;">
+                            <span style="color: #4fc3f7;">Atmosphere:</span> ${info.atmosphere}
+                        </div>
+                        <div>
+                            <span style="color: #4fc3f7;">Gravity:</span> ${info.gravity}
+                        </div>
+                    `;
                     } else {
                         // Star Wars format
                         planetInfoBox.innerHTML = `
@@ -1341,7 +1338,7 @@ export function checkReticleHover() {
                             </div>
                         `;
                     }
-
+                    
                     // Find the corresponding label to position the info box
                     let labelFound = false;
                     for (const label of labels) {
