@@ -20,13 +20,17 @@ export function createSpacecraft(scene) {
     let isFirstPersonView = false;
     let cockpitLoaded = false;
     
-    // Animation system
+    // Wing animation system
     let mixer = null;
     let animations = [];
     let wingsOpenAction = null;
     let wingsCloseAction = null;
     let currentAnimation = null;
     let animationState = 'open'; // 'open' or 'closed'
+
+    // Wing animation constants
+    const OPEN_ANGLE = Math.PI / 16;    // Angle of wings when open
+    const DEFAULT_DURATION = 350;       // Time taken for wings to open/close in milliseconds
     
     // Materials
     const lightMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.0, transparent: true, opacity: 0.7 });
@@ -145,14 +149,12 @@ export function createSpacecraft(scene) {
                 // Explicitly set wings to open position after model is loaded
                 if (wings.topLeft && wings.topRight && wings.bottomLeft && wings.bottomRight) {
                     console.log("Setting initial wing position to OPEN");
-                    // Define the open angle
-                    const openAngle = Math.PI / 16;
                     
                     // Set to open position (X shape)
-                    wings.topRight.rotation.y = openAngle;
-                    wings.bottomRight.rotation.y = -openAngle;
-                    wings.topLeft.rotation.y = -openAngle;
-                    wings.bottomLeft.rotation.y = openAngle;
+                    wings.topRight.rotation.y = OPEN_ANGLE;
+                    wings.bottomRight.rotation.y = -OPEN_ANGLE;
+                    wings.topLeft.rotation.y = -OPEN_ANGLE;
+                    wings.bottomLeft.rotation.y = OPEN_ANGLE;
                     
                     // Set the animation state to open
                     animationState = 'open';
@@ -438,12 +440,13 @@ export function createSpacecraft(scene) {
 
     /////// WING ANIMATION SYSTEM ///////
 
-    // Unified wing animation control system
+    // Master controller for wing open / close animation
     const wingAnimationController = (() => {
-        // Constants
-        const OPEN_ANGLE = Math.PI / 16;
-        const DEFAULT_DURATION = 350; // Animation duration in milliseconds
-        
+        // Track the current animation frame request
+        let currentAnimationFrame = null;
+        // Track the current position for interrupted animations
+        let currentWingPosition = 1; // Start with wings open
+
         // Get wing references
         const getWings = () => {
             const wings = xWingModel?.userData?.wings || {};
@@ -471,6 +474,9 @@ export function createSpacecraft(scene) {
             // Clamp position between 0 and 1
             const normalizedPosition = Math.max(0, Math.min(1, position));
             
+            // Store the current position for interrupted animations
+            currentWingPosition = normalizedPosition;
+            
             // Calculate the target angles based on position
             const topRightAngle = OPEN_ANGLE * normalizedPosition;
             const bottomRightAngle = -OPEN_ANGLE * normalizedPosition;
@@ -494,14 +500,28 @@ export function createSpacecraft(scene) {
         };
         
         // Animate wings between positions
-        const animateWings = (startPos, endPos, duration = DEFAULT_DURATION) => {
+        const animateWings = (endPos, duration = DEFAULT_DURATION) => {
+            // Cancel any ongoing animation
+            if (currentAnimationFrame !== null) {
+                cancelAnimationFrame(currentAnimationFrame);
+                currentAnimationFrame = null;
+            }
+            
+            // Use the current position as starting point
+            const startPos = currentWingPosition;
+            
+            // If already at target position, no need to animate
+            if (Math.abs(startPos - endPos) < 0.01) {
+                return;
+            }
+            
             const startTime = performance.now();
             
-            function animate(time) {
+            const animate = (time) => {
                 const elapsed = time - startTime;
                 const progress = Math.min(1, elapsed / duration);
                 
-                // Use an easing function for smoother animation
+                // Use a smooth easing function
                 const easedProgress = 0.5 - 0.5 * Math.cos(progress * Math.PI);
                 const currentPos = startPos + (endPos - startPos) * easedProgress;
                 
@@ -510,12 +530,17 @@ export function createSpacecraft(scene) {
                 
                 // Continue animation if not complete
                 if (progress < 1) {
-                    requestAnimationFrame(animate);
+                    currentAnimationFrame = requestAnimationFrame(animate);
+                } else {
+                    // Animation complete
+                    currentAnimationFrame = null;
+                    // Ensure we're exactly at the target position
+                    setWingPositions(endPos);
                 }
-            }
+            };
             
             // Start the animation
-            requestAnimationFrame(animate);
+            currentAnimationFrame = requestAnimationFrame(animate);
         };
         
         // Public API
@@ -523,16 +548,10 @@ export function createSpacecraft(scene) {
             // Set wings to open or closed position with animation
             setWingsOpen: (open) => {
                 const targetState = open ? 'open' : 'closed';
-                
-                // Don't restart animation if already in correct state
-                if (animationState === targetState) return;
-                
-                // Calculate start and end positions
-                const startPos = animationState === 'open' ? 1 : 0;
                 const endPos = open ? 1 : 0;
                 
-                // Animate to target position
-                animateWings(startPos, endPos);
+                // Always animate from current position to target
+                animateWings(endPos);
                 
                 // Update animation state
                 animationState = targetState;
@@ -540,9 +559,9 @@ export function createSpacecraft(scene) {
             
             // Toggle wings between open and closed
             toggleWings: () => {
-                const newState = animationState !== 'open';
-                wingAnimationController.setWingsOpen(newState);
-                return `Wings now ${animationState}`;
+                const isCurrentlyOpen = animationState === 'open';
+                wingAnimationController.setWingsOpen(!isCurrentlyOpen);
+                return `Wings transitioning to ${!isCurrentlyOpen ? 'open' : 'closed'}`;
             },
             
             // Directly set wing position (0-1)
@@ -552,16 +571,25 @@ export function createSpacecraft(scene) {
                     return "Cannot set wing position - wings not available";
                 }
                 
+                // Cancel any ongoing animation
+                if (currentAnimationFrame !== null) {
+                    cancelAnimationFrame(currentAnimationFrame);
+                    currentAnimationFrame = null;
+                }
+                
                 setWingPositions(position);
                 return `Wings set to position ${position.toFixed(2)}`;
             },
             
             // Get current wing state
-            getWingState: () => animationState
+            getWingState: () => animationState,
+            
+            // Get current wing position (0-1)
+            getWingPosition: () => currentWingPosition
         };
     })();
 
-    // Animation mixer function (unchanged)
+    // Animation mixer == blends different animations together
     function updateAnimations(deltaTime) {
         // Skip if no mixer exists
         if (!mixer) {
