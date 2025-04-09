@@ -13,8 +13,8 @@ import {
     bottomLeftWing, 
     updateEngineEffects,
     scene as spaceScene,
-    PLANET_RADIUS,
-    PLANET_POSITION,
+    EARTH_RADIUS,
+    EARTH_POSITION,
     rotation
 } from './setup.js';
 
@@ -79,7 +79,7 @@ export function resetMovementInputs() {
 }
 
 // Keyboard controls
-document.addEventListener('keyPress', (event) => {
+document.addEventListener('keydown', (event) => {
     switch (event.key) {
         case 'w': keys.w = true; break;
         case 's': keys.s = true; break;
@@ -100,7 +100,7 @@ document.addEventListener('keyPress', (event) => {
     }
 });
 
-document.addEventListener('keyRelease', (event) => {
+document.addEventListener('keyup', (event) => {
     switch (event.key) {
         case 'w': keys.w = false; break;
         case 's': keys.s = false; break;
@@ -192,12 +192,12 @@ export function updateMovement(isBoosting, isHyperspace) {
     );
 
     // Check distance to planet for next position
-    const distanceToPlanet = nextPosition.distanceTo(PLANET_POSITION);
-    const minDistance = PLANET_RADIUS + COLLISION_THRESHOLD;
+    const distanceToPlanet = nextPosition.distanceTo(EARTH_POSITION);
+    const minDistance = EARTH_RADIUS + COLLISION_THRESHOLD;
 
     if (distanceToPlanet < minDistance) {
-        const toSpacecraft = new THREE.Vector3().subVectors(spacecraft.position, PLANET_POSITION).normalize();
-        spacecraft.position.copy(PLANET_POSITION).add(
+        const toSpacecraft = new THREE.Vector3().subVectors(spacecraft.position, EARTH_POSITION).normalize();
+        spacecraft.position.copy(EARTH_POSITION).add(
             toSpacecraft.multiplyScalar(minDistance + COLLISION_PUSHBACK)
         );
         const normal = toSpacecraft;

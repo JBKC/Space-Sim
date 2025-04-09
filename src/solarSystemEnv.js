@@ -1,5 +1,6 @@
 
-// Initializes solar system physical assets
+// Script that initializes solar system physical assets
+
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
@@ -483,8 +484,112 @@ neptuneGroup.add(neptuneCollisionSphere);
 planetGroups.push({ group: neptuneGroup, z: 110000 });
 
 
+/////// Star Wars elements are still part of the planetGroups array (as they have)
+
+// --- Imperial Star Destroyer Setup ---
+export const starDestroyerGroup = new THREE.Group();
+starDestroyerGroup.name = "imperialStarDestroyer"; // Add name for reference
+
+// Create the collision boxes that define the positions of the Star Destroyers (and then load the assets into them afterwards)
+const collisionGeometry = new THREE.BoxGeometry(10000, 3000, 8000);
+export const collisionBox1 = new THREE.Mesh(collisionGeometry, collisionMaterialInvisible);
+collisionBox1.position.set(0, 0, 0);
+collisionBox1.name = "starDestroyer1Collision";
+starDestroyerGroup.add(collisionBox1);
+
+export const collisionBox2 = new THREE.Mesh(collisionGeometry, collisionMaterialInvisible);
+collisionBox2.position.set(-7000, 2000, 0);
+collisionBox2.name = "starDestroyer2Collision";
+starDestroyerGroup.add(collisionBox2);
+
+// Load 2 Star Destroyer models using GLTFLoader
+
+// Load the first Star Destroyer
+const starDestroyerModelPath = `${config.models.path}/star_wars_imperial_ii_star_destroyer/scene.gltf`;
+console.log('Loading First Star Destroyer from:', starDestroyerModelPath);
+
+// Load first Star Destroyer
+loadModel(
+    'star_wars_imperial_ii_star_destroyer',
+    
+    // Success callback
+    (gltf) => {
+        const starDestroyer = gltf.scene;
+        starDestroyer.scale.set(8, 8, 8);
+        starDestroyer.rotation.y = Math.PI;
+        starDestroyer.position.copy(collisionBox1.position);
+        starDestroyerGroup.add(starDestroyer);
+        console.log('First Imperial Star Destroyer loaded successfully');
+    },
+    (xhr) => {
+        console.log(`Loading Star Destroyer: ${(xhr.loaded / xhr.total) * 100}% loaded`);
+    },
+    (error) => {
+        console.error('Error loading Star Destroyer:', error);
+    }
+);
+
+// Load second Star Destroyer
+loadModel(
+    'star_wars_imperial_ii_star_destroyer',
+    (gltf) => {
+        const secondStarDestroyer = gltf.scene;
+        secondStarDestroyer.scale.set(8, 8, 8);
+        secondStarDestroyer.rotation.y = Math.PI;
+        secondStarDestroyer.position.copy(collisionBox2.position);
+        starDestroyerGroup.add(secondStarDestroyer);
+        console.log('Second Imperial Star Destroyer loaded successfully');
+    },
+    (xhr) => {
+        console.log(`Loading Star Destroyer 2: ${(xhr.loaded / xhr.total) * 100}% loaded`);
+    },
+    (error) => {
+        console.error('Error loading Star Destroyer 2:', error);
+        starDestroyerGroup.add(placeholder);
+    }
+);
+
+// Add to planet groups between Jupiter and Saturn
+planetGroups.push({ group: starDestroyerGroup, z: 70000 });
 
 
+// --- Lucrehulk Setup ---
+export const lucrehulkGroup = new THREE.Group();
+lucrehulkGroup.name = "lucrehulk"; // Add name for reference
+
+// Create collision box for the Lucrehulk (for efficient raycast detection)
+const lucrehulkCollisionGeometry = new THREE.CylinderGeometry(5000, 5000, 2000, 32);
+export const lucrehulkCollisionBox = new THREE.Mesh(lucrehulkCollisionGeometry, collisionMaterialInvisible);
+lucrehulkCollisionBox.rotation.x = Math.PI / 2; // Rotate to make the circular face forward
+lucrehulkCollisionBox.name = "lucrehulkCollision";
+lucrehulkGroup.add(lucrehulkCollisionBox);
+
+// Load the Lucrehulk model using GLTFLoader
+const lucrehulkModelPath = `${config.models.path}/lucrehulk/scene.gltf`;
+
+console.log('Loading Lucrehulk from:', lucrehulkModelPath);
+
+// Load Lucrehulk
+loadModel(
+    'lucrehulk',
+    
+    // Success callback
+    (gltf) => {
+        const lucrehulkModel = gltf.scene;
+        lucrehulkModel.scale.set(100, 100, 100);
+        lucrehulkModel.rotation.y = Math.PI;
+        lucrehulkGroup.add(lucrehulkModel);
+        console.log('Lucrehulk battleship loaded successfully');
+    },
+    (xhr) => {
+        console.log(`Loading Star Destroyer: ${(xhr.loaded / xhr.total) * 100}% loaded`);
+    },
+    (error) => {
+        console.error('Error loading Star Destroyer:', error);
+    }
+);
+// Add to planet groups between Venus and Earth orbits
+planetGroups.push({ group: lucrehulkGroup, z: 35000 });
 
 
 
@@ -559,5 +664,7 @@ loadModel(
         console.error('Error loading asteroid model:', error);
     }
 );
+
+
 
 
