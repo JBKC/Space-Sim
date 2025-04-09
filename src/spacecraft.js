@@ -436,10 +436,132 @@ export function createSpacecraft(scene) {
     }
 
 
+    /////// WING ANIMATION SYSTEM ///////
 
-    /////// WING ANIMATION FUNCTIONS ///////
+    // Unified wing animation control system
+    const wingAnimationController = (() => {
+        // Constants
+        const OPEN_ANGLE = Math.PI / 16;
+        const DEFAULT_DURATION = 350; // Animation duration in milliseconds
+        
+        // Get wing references
+        const getWings = () => {
+            const wings = xWingModel?.userData?.wings || {};
+            return {
+                topLeft: wings.topLeft,
+                topRight: wings.topRight,
+                bottomLeft: wings.bottomLeft,
+                bottomRight: wings.bottomRight
+            };
+        };
+        
+        // Check if wing objects are available
+        const areWingsAvailable = () => {
+            const wings = getWings();
+            return wings.topLeft && wings.topRight && wings.bottomLeft && wings.bottomRight;
+        };
+        
+        // Internal function to set wing positions directly
+        const setWingPositions = (position) => {
+            const wings = getWings();
+            
+            // Skip if wing objects aren't available
+            if (!areWingsAvailable()) return false;
+            
+            // Clamp position between 0 and 1
+            const normalizedPosition = Math.max(0, Math.min(1, position));
+            
+            // Calculate the target angles based on position
+            const topRightAngle = OPEN_ANGLE * normalizedPosition;
+            const bottomRightAngle = -OPEN_ANGLE * normalizedPosition;
+            const topLeftAngle = -OPEN_ANGLE * normalizedPosition;
+            const bottomLeftAngle = OPEN_ANGLE * normalizedPosition;
+            
+            // Set the rotations 
+            wings.topRight.rotation.y = topRightAngle;
+            wings.bottomRight.rotation.y = bottomRightAngle;
+            wings.topLeft.rotation.y = topLeftAngle;
+            wings.bottomLeft.rotation.y = bottomLeftAngle;
+            
+            // Update animation state if at extremes
+            if (normalizedPosition >= 0.99) {
+                animationState = 'open';
+            } else if (normalizedPosition <= 0.01) {
+                animationState = 'closed';
+            }
+            
+            return true;
+        };
+        
+        // Animate wings between positions
+        const animateWings = (startPos, endPos, duration = DEFAULT_DURATION) => {
+            const startTime = performance.now();
+            
+            function animate(time) {
+                const elapsed = time - startTime;
+                const progress = Math.min(1, elapsed / duration);
+                
+                // Use an easing function for smoother animation
+                const easedProgress = 0.5 - 0.5 * Math.cos(progress * Math.PI);
+                const currentPos = startPos + (endPos - startPos) * easedProgress;
+                
+                // Update wing positions
+                setWingPositions(currentPos);
+                
+                // Continue animation if not complete
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                }
+            }
+            
+            // Start the animation
+            requestAnimationFrame(animate);
+        };
+        
+        // Public API
+        return {
+            // Set wings to open or closed position with animation
+            setWingsOpen: (open) => {
+                const targetState = open ? 'open' : 'closed';
+                
+                // Don't restart animation if already in correct state
+                if (animationState === targetState) return;
+                
+                // Calculate start and end positions
+                const startPos = animationState === 'open' ? 1 : 0;
+                const endPos = open ? 1 : 0;
+                
+                // Animate to target position
+                animateWings(startPos, endPos);
+                
+                // Update animation state
+                animationState = targetState;
+            },
+            
+            // Toggle wings between open and closed
+            toggleWings: () => {
+                const newState = animationState !== 'open';
+                wingAnimationController.setWingsOpen(newState);
+                return `Wings now ${animationState}`;
+            },
+            
+            // Directly set wing position (0-1)
+            setWingsPosition: (position) => {
+                if (!areWingsAvailable()) {
+                    console.log("Wing objects not available - cannot set wing position directly");
+                    return "Cannot set wing position - wings not available";
+                }
+                
+                setWingPositions(position);
+                return `Wings set to position ${position.toFixed(2)}`;
+            },
+            
+            // Get current wing state
+            getWingState: () => animationState
+        };
+    })();
 
-    // Animation mixer == blends different animations together
+    // Animation mixer function (unchanged)
     function updateAnimations(deltaTime) {
         // Skip if no mixer exists
         if (!mixer) {
@@ -450,99 +572,7 @@ export function createSpacecraft(scene) {
         // Update the animation mixer
         mixer.update(clampedDelta);
     }
-    
-    // Function to control wing animations
-    function setWingsOpen(open) {
-        // Get the target state name for logs
-        const targetState = open ? 'open' : 'closed';
-        
-        // Don't restart the same animation if already in the correct state
-        if (animationState === targetState) {
-            // Already in the target state
-            return;
-        }
-                
-        // Get wing references
-        const wings = xWingModel?.userData?.wings || {};
-        const topLeft = wings.topLeft;
-        const topRight = wings.topRight;
-        const bottomLeft = wings.bottomLeft;
-        const bottomRight = wings.bottomRight;
-            
-        // Calculate start and end positions
-        const startPos = animationState === 'open' ? 1 : 0;
-        const endPos = open ? 1 : 0;
-        
-        // Set animation duration (in milliseconds)
-        const duration = 350; 
-        
-        // Start the animation
-        animateWingTransition(startPos, endPos, duration);
-        
-        
-        // Update animation state
-        animationState = targetState;
-    }
-    
-    // Internal function to animate wing transitions
-    function animateWingTransition(startPos, endPos, duration) {
-        const startTime = performance.now();
-        
-        function animate(time) {
-            const elapsed = time - startTime;
-            const progress = Math.min(1, elapsed / duration);
-            
-            // Use an easing function for smoother animation
-            const easedProgress = 0.5 - 0.5 * Math.cos(progress * Math.PI);
-            const currentPos = startPos + (endPos - startPos) * easedProgress;
-            
-            // Use the existing setWingsPosition function to update wing positions
-            updateWingPosition(currentPos);
-            
-            // Continue animation if not complete
-            if (progress < 1) {
-                requestAnimationFrame(animate);
-            }
-        }
-        
-        // Start the animation
-        requestAnimationFrame(animate);
-    }
-    
 
-
-    // Internal function to update wing positions without changing the animation state
-    function updateWingPosition(position) {
-        // Get wing references
-        const wings = xWingModel?.userData?.wings || {};
-        const topLeft = wings.topLeft;
-        const topRight = wings.topRight;
-        const bottomLeft = wings.bottomLeft;
-        const bottomRight = wings.bottomRight;
-        
-        // Skip if wing objects aren't available
-        if (!topLeft || !topRight || !bottomLeft || !bottomRight) {
-            return;
-        }
-        
-        // Clamp position between 0 and 1
-        const normalizedPosition = Math.max(0, Math.min(1, position));
-        
-        // Define the open and closed angles
-        const openAngle = Math.PI / 16;
-        
-        // Calculate the target angles based on position
-        const topRightAngle = openAngle * normalizedPosition;
-        const bottomRightAngle = -openAngle * normalizedPosition;
-        const topLeftAngle = -openAngle * normalizedPosition;
-        const bottomLeftAngle = openAngle * normalizedPosition;
-        
-        // Set the rotations 
-        topRight.rotation.y = topRightAngle;
-        bottomRight.rotation.y = bottomRightAngle;
-        topLeft.rotation.y = topLeftAngle;
-        bottomLeft.rotation.y = bottomLeftAngle;
-    }
 
     // Return an object containing the spacecraft and all necessary methods and attributes
     return {
@@ -554,7 +584,9 @@ export function createSpacecraft(scene) {
         
         // Add animation functions
         updateAnimations,
-        setWingsOpen,
+        setWingsOpen: wingAnimationController.setWingsOpen,
+        toggleWings: wingAnimationController.toggleWings,
+        setWingsPosition: wingAnimationController.setWingsPosition,
         
         // Add contrails system
         createContrails: function() {
@@ -663,46 +695,6 @@ export function createSpacecraft(scene) {
             if (Math.random() < 0.01) { // Limit logging to avoid console spam
                 console.log(`Engine effects updated: boosting=${isBoosting}`);
             }
-        },
-        
-        // Direct wing toggle function for debugging
-        toggleWings: function() {
-            console.log("Manually toggling wings from current state:", animationState);
-            setWingsOpen(animationState !== 'open');
-            return `Wings now ${animationState}`;
-        },
-        
-        // Direct wing position control for debugging (0 = closed, 1 = fully open)
-        setWingsPosition: function(position) {
-            // console.log(`Setting wings to position: ${position} (0=closed, 1=open)`);
-            
-            // Get wing references
-            const wings = xWingModel?.userData?.wings || {};
-            const topLeft = wings.topLeft;
-            const topRight = wings.topRight;
-            const bottomLeft = wings.bottomLeft;
-            const bottomRight = wings.bottomRight;
-            
-            // Check if we have the wing objects
-            if (!topLeft || !topRight || !bottomLeft || !bottomRight) {
-                console.log("Wing objects not available - cannot set wing position directly");
-                return "Cannot set wing position - wings not available";
-            }
-            
-            // Clamp position between 0 and 1
-            const normalizedPosition = Math.max(0, Math.min(1, position));
-            
-            // Use the internal function to update wing positions
-            updateWingPosition(normalizedPosition);
-            
-            // Update animation state if at extremes
-            if (normalizedPosition >= 0.99) {
-                animationState = 'open';
-            } else if (normalizedPosition <= 0.01) {
-                animationState = 'closed';
-            }
-            
-            return `Wings set to position ${normalizedPosition.toFixed(2)}`;
         },
         
         // Export current state of isFirstPersonView
