@@ -9,9 +9,28 @@ import config from './config.js';
 const textureLoader = new THREE.TextureLoader(textureLoadingManager);
 const loader = new GLTFLoader();
 
-export const cloudTexture = textureLoader.load(`${config.textures.path}/Earth-clouds.png`);
-const collisionMaterialInvisible = new THREE.MeshBasicMaterial({ visible: false });
 export const planetGroups = [];
+const cloudTexture = textureLoader.load(`${config.textures.path}/Earth-clouds.png`);
+const collisionMaterialInvisible = new THREE.MeshBasicMaterial({ visible: false });
+
+// General asset loading function
+function loadModel(modelName, onSuccess, onProgress, onError) {
+    const path = `src/assets/models/${modelName}/scene.gltf`;
+    console.log(`Loading model: ${modelName} from ${path}`);
+
+    loader.load(
+        path,
+        onSuccess,
+        onProgress,
+        (error) => {
+            console.error(`Failed to load model ${modelName} from ${path}:`, error);
+            if (onError) onError(error);
+        }
+    );
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 ///// Skybox
@@ -322,8 +341,223 @@ export const marsCloudMesh = new THREE.Mesh(marsCloudGeometry, marsCloudMaterial
 marsGroup.add(marsCloudMesh);
 planetGroups.push({ group: marsGroup, z: 50000 });
 
-function animateMarsClouds() {
-    marsCloudMesh.rotation.y += 0.0005;
-    requestAnimationFrame(animateMarsClouds);
-}
-animateMarsClouds();
+
+// --- Jupiter Setup ---
+export const jupiterGroup = new THREE.Group();
+const jupiterRadius = 4500;
+const jupiterGeometry = new THREE.SphereGeometry(jupiterRadius, 32, 32);
+const jupiterTexture = textureLoader.load(`${config.textures.path}/2k_jupiter.jpg`);
+const jupiterMaterial = new THREE.MeshStandardMaterial({
+    map: jupiterTexture,
+    side: THREE.FrontSide,
+    metalness: 0.2,
+    roughness: 0.8
+});
+const jupiter = new THREE.Mesh(jupiterGeometry, jupiterMaterial);
+jupiterGroup.add(jupiter);
+
+// Add collision sphere for Jupiter (50% larger)
+const jupiterCollisionGeometry = new THREE.SphereGeometry(jupiterRadius * 1.5, 16, 16);
+export const jupiterCollisionSphere = new THREE.Mesh(jupiterCollisionGeometry, collisionMaterialInvisible);
+jupiterGroup.add(jupiterCollisionSphere);
+
+planetGroups.push({ group: jupiterGroup, z: 60000 });
+
+
+// --- Saturn Setup ---
+export const saturnGroup = new THREE.Group();
+const saturnRadius = 4000;
+const saturnGeometry = new THREE.SphereGeometry(saturnRadius, 32, 32);
+const saturnTexture = textureLoader.load(`${config.textures.path}/2k_saturn.jpg`);
+const saturnMaterial = new THREE.MeshStandardMaterial({
+    map: saturnTexture,
+    side: THREE.FrontSide,
+    metalness: 0.2,
+    roughness: 0.8
+});
+const saturn = new THREE.Mesh(saturnGeometry, saturnMaterial);
+saturnGroup.add(saturn);
+
+// Add collision sphere for Saturn (50% larger)
+const saturnCollisionGeometry = new THREE.SphereGeometry(saturnRadius * 1.5, 16, 16);
+export const saturnCollisionSphere = new THREE.Mesh(saturnCollisionGeometry, collisionMaterialInvisible);
+saturnGroup.add(saturnCollisionSphere);
+
+
+// Create 2 concentric Saturn rings
+const ringTexture = textureLoader.load(`${config.textures.path}/2k_saturn_ring_alpha.png`);
+
+const ringOuterRadius = 8000;
+const ringInnerRadius = 6000;
+const tubeRadius = (ringOuterRadius - ringInnerRadius) / 2;
+const ringRadius = ringInnerRadius + tubeRadius;
+// Torus geometry
+const ringGeometry = new THREE.TorusGeometry(
+    ringRadius,      // radius of the entire torus
+    tubeRadius,      // thickness of the tube
+    2,               // radial segments
+    64               // tubular segments
+);
+
+// Create a material for the rings
+const ringMaterial = new THREE.MeshStandardMaterial({
+    map: ringTexture,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 1,
+    flatShading: true
+});
+
+// Create the ring mesh and position it correctly
+const saturnRings = new THREE.Mesh(ringGeometry, ringMaterial);
+saturnRings.rotation.x = Math.PI / 2;  // Align with Saturn's equator
+saturnGroup.add(saturnRings);
+
+// Add a second, smaller ring
+const ringOuterRadius2 = 5200;
+const ringInnerRadius2 = 4400;
+const tubeRadius2 = (ringOuterRadius2 - ringInnerRadius2) / 2;
+const ringRadius2 = ringInnerRadius2 + tubeRadius2;
+const ringGeometry2 = new THREE.TorusGeometry(
+    ringRadius2,     // radius of the entire torus
+    tubeRadius2,     // thickness of the tube
+    2,               // radial segments
+    64               // tubular segments
+);
+
+const ringMaterial2 = new THREE.MeshStandardMaterial({
+    map: ringTexture,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.6,
+    flatShading: true
+});
+
+const saturnRings2 = new THREE.Mesh(ringGeometry2, ringMaterial2);
+saturnRings2.rotation.x = Math.PI / 2;  // Align with Saturn's equator
+saturnGroup.add(saturnRings2);
+
+planetGroups.push({ group: saturnGroup, z: 80000 });
+
+
+// --- Uranus Setup ---
+export const uranusGroup = new THREE.Group();
+const uranusRadius = 3000;
+const uranusGeometry = new THREE.SphereGeometry(uranusRadius, 32, 32);
+const uranusTexture = textureLoader.load(`${config.textures.path}/2k_uranus.jpg`);
+const uranusMaterial = new THREE.MeshStandardMaterial({
+    map: uranusTexture,
+    side: THREE.FrontSide,
+    metalness: 0.2,
+    roughness: 0.8
+});
+const uranus = new THREE.Mesh(uranusGeometry, uranusMaterial);
+uranusGroup.add(uranus);
+
+// Add collision sphere for Uranus (50% larger)
+const uranusCollisionGeometry = new THREE.SphereGeometry(uranusRadius * 1.5, 16, 16);
+export const uranusCollisionSphere = new THREE.Mesh(uranusCollisionGeometry, collisionMaterialInvisible);
+uranusGroup.add(uranusCollisionSphere);
+
+planetGroups.push({ group: uranusGroup, z: 95000 });
+
+// --- Neptune Setup ---
+export const neptuneGroup = new THREE.Group();
+const neptuneRadius = 3000;
+const neptuneGeometry = new THREE.SphereGeometry(neptuneRadius, 32, 32);
+const neptuneTexture = textureLoader.load(`${config.textures.path}/2k_neptune.jpg`);
+const neptuneMaterial = new THREE.MeshStandardMaterial({
+    map: neptuneTexture,
+    side: THREE.FrontSide,
+    metalness: 0.2,
+    roughness: 0.8
+});
+const neptune = new THREE.Mesh(neptuneGeometry, neptuneMaterial);
+neptuneGroup.add(neptune);
+
+// Add collision sphere for Neptune (50% larger)
+const neptuneCollisionGeometry = new THREE.SphereGeometry(neptuneRadius * 1.5, 16, 16);
+export const neptuneCollisionSphere = new THREE.Mesh(neptuneCollisionGeometry, collisionMaterialInvisible);
+neptuneGroup.add(neptuneCollisionSphere);
+
+planetGroups.push({ group: neptuneGroup, z: 110000 });
+
+
+
+
+
+
+
+
+// --- Asteroid Belt Setup ---
+// NOTE - Asteroid NOT a part of the planetGroups array
+export const asteroidBeltGroup = new THREE.Group();
+asteroidBeltGroup.name = "asteroidBelt";
+
+// Create a collision box for the asteroid belt center for hover detection
+const asteroidCollisionGeometry = new THREE.SphereGeometry(3000, 32, 32);
+export const asteroidCollisionSphere = new THREE.Mesh(asteroidCollisionGeometry, collisionMaterialInvisible);
+asteroidBeltGroup.add(asteroidCollisionSphere);
+
+// Asteroid properties
+const asteroidCount = 100;
+const radius = 55000;           // Radius of the belt
+const asteroidScale = 200;
+asteroidBeltGroup.position.set(0, 0, 0);
+
+// Load asteroid models
+const asteroidsModelPath = `${config.models.path}/asteroids_pack_metallic_version/scene.gltf`;
+console.log('Loading asteroids from:', asteroidsModelPath);
+
+// Call the general asset loading function, applied to asteroids
+loadModel(
+    'asteroids_pack_metallic_version',
+    (gltf) => {
+        console.log('Asteroid pack loaded successfully');
+        const asteroidModel = gltf.scene;
+
+        // Apply random orientation to give impression of dense belt
+        const tiltX = (Math.random() * Math.PI * 2) - Math.PI;
+        const tiltZ = (Math.random() * Math.PI * 2) - Math.PI;
+
+        for (let i = 0; i < asteroidCount; i++) {
+
+            // Positon in a ring with slight random variation around a defined radius
+            const angle = (i / asteroidCount) * Math.PI * 2;
+            const randomRadius = radius * (0.9 + Math.random() * 0.2);
+
+            const xFlat = Math.cos(angle) * randomRadius;
+            const zFlat = Math.sin(angle) * randomRadius;
+            const yFlat = (Math.random() - 0.5) * 5000;
+
+            // Apply tilt around X
+            const yTiltX = yFlat * Math.cos(tiltX) - zFlat * Math.sin(tiltX);
+            const zTiltX = yFlat * Math.sin(tiltX) + zFlat * Math.cos(tiltX);
+
+            // Then tilt around Z
+            const xTilt = xFlat * Math.cos(tiltZ) - yTiltX * Math.sin(tiltZ);
+            const yTilt = xFlat * Math.sin(tiltZ) + yTiltX * Math.cos(tiltZ);
+            const zTilt = zTiltX;
+
+            const asteroid = asteroidModel.clone();
+            const scale = asteroidScale * (0.5 + Math.random());
+
+            asteroid.scale.set(scale, scale, scale);
+            asteroid.rotation.set(
+                Math.random() * Math.PI * 2,
+                Math.random() * Math.PI * 2,
+                Math.random() * Math.PI * 2
+            );
+            asteroid.position.set(xTilt, yTilt, zTilt);
+            asteroidBeltGroup.add(asteroid);
+        }
+    },
+    (xhr) => {
+        console.log(`Loading asteroids: ${(xhr.loaded / xhr.total) * 100}% loaded`);
+    },
+    (error) => {
+        console.error('Error loading asteroid model:', error);
+    }
+);
+
+

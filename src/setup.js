@@ -490,7 +490,7 @@ function initControls() {
             case 'Shift': keys.shift = false; break;
         }
     });
-
+    
     controlsInitialized = true;
 }
 
@@ -820,18 +820,25 @@ export function exitMoonSurface() {
 
 ///////////////////// Solar System Setup /////////////////////
 
+// For defining when the reticle intersects with the planet
+const collisionMaterialInvisible = new THREE.MeshBasicMaterial({ visible: false });
 
-import { skybox, cloudTexture } from './solarSystemEnv';
+import { skybox } from './solarSystemEnv';
 import { sunGroup, blazingMaterial, blazingEffect } from './solarSystemEnv';
-
 import { planetGroups } from './solarSystemEnv';
+
 import { mercuryGroup, mercuryCollisionSphere } from './solarSystemEnv';
 import { venusGroup, venusCollisionSphere, venusCloudMesh } from './solarSystemEnv';
 import { earthGroup, earthCollisionSphere, earthCloudMesh, earthRadius } from './solarSystemEnv';
 import { moonGroup, moon, moonCollisionSphere, moonRadius, moonAngle, moonOrbitRadius } from './solarSystemEnv';
 import { marsGroup, marsCollisionSphere, marsCloudMesh } from './solarSystemEnv';
-// For defining when the reticle intersects with the planet
-const collisionMaterialInvisible = new THREE.MeshBasicMaterial({ visible: false });
+import { jupiterGroup, jupiterCollisionSphere } from './solarSystemEnv';
+import { saturnGroup, saturnCollisionSphere } from './solarSystemEnv';
+import { uranusGroup, uranusCollisionSphere } from './solarSystemEnv';
+import { neptuneGroup, neptuneCollisionSphere } from './solarSystemEnv';
+
+import { asteroidBeltGroup, asteroidCollisionSphere } from './solarSystemEnv';
+
 
 // Add all elements to scene
 scene.add(skybox);
@@ -841,6 +848,14 @@ scene.add(venusGroup);
 scene.add(earthGroup);
 scene.add(moonGroup);
 scene.add(marsGroup);
+scene.add(jupiterGroup);
+scene.add(saturnGroup);
+scene.add(uranusGroup);
+scene.add(neptuneGroup);
+
+
+// Asteroid belt NOT a part of the planetGroups array
+scene.add(asteroidBeltGroup);
 
 
 
@@ -865,8 +880,6 @@ function animateEarthClouds() {
     requestAnimationFrame(animateEarthClouds);
 }
 animateEarthClouds();
-
-
 
 // Update Moon's position if Earth moves
 function updateMoonPosition() {
@@ -895,218 +908,17 @@ function animateMoon() {
 }
 animateMoon();
 
-
-
-// --- Asteroid Belt Setup ---
-const asteroidBeltGroup = new THREE.Group();
-asteroidBeltGroup.name = "asteroidBelt";
-scene.add(asteroidBeltGroup);
-
-// Create a collision box for the asteroid belt center for hover detection
-const asteroidCollisionGeometry = new THREE.SphereGeometry(3000, 32, 32);
-const asteroidCollisionMaterial = new THREE.MeshBasicMaterial({ 
-    visible: false // Invisible collision box
-});
-
-const asteroidCollisionSphere = new THREE.Mesh(asteroidCollisionGeometry, asteroidCollisionMaterial);
-asteroidCollisionSphere.name = "asteroidBeltCollision";
-asteroidBeltGroup.add(asteroidCollisionSphere);
-
-// Position the asteroid belt group to orbit around the sun (0,0,0)
-asteroidBeltGroup.position.set(0, 0, 0);
-
-// The number of asteroids to create
-const asteroidCount = 100;
-let asteroidModels = [];
-
-// Load asteroid models
-const asteroidsModelPath = `${config.models.path}/asteroids_pack_metallic_version/scene.gltf`;
-
-
-console.log('Loading asteroids from:', asteroidsModelPath);
-
-// Use the enhanced loader for asteroids
-loadModelWithFallback(
-    'asteroids_pack_metallic_version',
-    asteroidsModelPath,
-    // Success callback
-    (gltf) => {
-        console.log('Asteroid pack loaded successfully');
-        const asteroidModel = gltf.scene;
-        
-        // Create the main asteroid belt
-        const asteroidBelt = new THREE.Group();
-        asteroidBelt.name = "asteroidBelt"; // Add name for reference
-        scene.add(asteroidBelt);
-        
-        // Scale and multiply the asteroids to create a belt
-        const baseAsteroid = asteroidModel;
-        
-        // Create a ring of asteroids
-        const radius = 55000; // Distance from sun (between Mars and Jupiter)
-        const count = 100; // Number of asteroids
-        const asteroidScale = 200; // Size of the asteroids
-        
-        // Create a box to detect proximity to the entire belt (for efficiency)
-        const beltBoxGeometry = new THREE.BoxGeometry(radius * 2, 5000, radius * 2);
-        const beltBoxMaterial = new THREE.MeshBasicMaterial({ 
-            visible: false // Invisible collision box
-        });
-        const beltCollisionBox = new THREE.Mesh(beltBoxGeometry, beltBoxMaterial);
-        beltCollisionBox.name = "asteroidBeltCollision";
-        asteroidBelt.add(beltCollisionBox);
-        
-        // Generate random tilt angles for the belt's orbital plane
-        const tiltX = (Math.random() * Math.PI * 2) - Math.PI; // Random tilt in X from -π to π radians
-        const tiltZ = (Math.random() * Math.PI * 2) - Math.PI; // Random tilt in X from -π to π radians
-        
-        for (let i = 0; i < count; i++) {
-            const angle = (i / count) * Math.PI * 2; // Position around the circle
-            const randomRadius = radius * (0.9 + Math.random() * 0.2); // Vary the radius slightly
-            
-            // Calculate position on a flat circle first
-            const xFlat = Math.cos(angle) * randomRadius;
-            const zFlat = Math.sin(angle) * randomRadius;
-            const yFlat = (Math.random() - 0.5) * 5000; // Random height variation in belt
-            
-            // Apply tilt rotation to the position coordinates
-            // This rotates the point around the center (0,0,0)
-            // X-axis tilt (affects y and z)
-            const yTiltedX = yFlat * Math.cos(tiltX) - zFlat * Math.sin(tiltX);
-            const zTiltedX = yFlat * Math.sin(tiltX) + zFlat * Math.cos(tiltX);
-            
-            // Z-axis tilt (affects x and y)
-            const xTilted = xFlat * Math.cos(tiltZ) - yTiltedX * Math.sin(tiltZ);
-            const yTilted = xFlat * Math.sin(tiltZ) + yTiltedX * Math.cos(tiltZ);
-            const zTilted = zTiltedX;
-            
-            // Clone the asteroid model
-            const asteroidClone = baseAsteroid.clone();
-            
-            // Scale the asteroid randomly
-            const scale = asteroidScale * (0.5 + Math.random());
-            asteroidClone.scale.set(scale, scale, scale);
-            
-            // Randomize rotation
-            asteroidClone.rotation.x = Math.random() * Math.PI * 2;
-            asteroidClone.rotation.y = Math.random() * Math.PI * 2;
-            asteroidClone.rotation.z = Math.random() * Math.PI * 2;
-            
-            // Set position with tilted coordinates
-            asteroidClone.position.set(xTilted, yTilted, zTilted);
-            
-            // Add to the belt
-            asteroidBelt.add(asteroidClone);
-        }
-        
-        // Add the belt to the list of planet groups (for distance-based visibility)
-        planetGroups.push({ group: asteroidBelt, z: 48000 });
-    },
-    // Progress callback
-    (xhr) => {
-        console.log(`Loading asteroids: ${(xhr.loaded / xhr.total) * 100}% loaded`);
-    },
-    // Error callback
-    (error) => {
-        console.error('Error loading asteroids:', error);
-        // Create a fallback asteroid belt with basic shapes
-        createFallbackAsteroidBelt();
-    }
-);
-
-// Fallback asteroid belt creation using simple geometry
-function createFallbackAsteroidBelt() {
-    console.log('Creating fallback asteroid belt visualization');
-    
-    const orbitRadius = 55000;
-    const beltWidth = 10000;
-    const beltHeight = 3000;
-    
-    // Generate random tilt angles for the belt's orbital plane
-    const tiltX = (Math.random() * 0.3) - 0.15; // Random tilt in X from -0.15 to 0.15 radians (about ±8.6 degrees)
-    const tiltZ = (Math.random() * 0.3) - 0.15; // Random tilt in Z from -0.15 to 0.15 radians (about ±8.6 degrees)
-    
-    console.log(`Asteroid belt tilted by ${(tiltX * 180 / Math.PI).toFixed(2)}° in X and ${(tiltZ * 180 / Math.PI).toFixed(2)}° in Z`);
-    
-    for (let i = 0; i < asteroidCount; i++) {
-        // Create a simple asteroid with random geometry
-        const asteroidGeometry = new THREE.IcosahedronGeometry(1, 0); // Simple low-poly asteroid shape
-        const asteroidMaterial = new THREE.MeshStandardMaterial({
-            color: 0x888888, 
-            metalness: 0.7,
-            roughness: 0.6,
-            flatShading: true
-        });
-        
-        const asteroid = new THREE.Mesh(asteroidGeometry, asteroidMaterial);
-        
-        // Random position within the belt
-        const angle = Math.random() * Math.PI * 2;
-        const radiusVariation = (Math.random() - 0.5) * beltWidth;
-        const heightVariation = (Math.random() - 0.5) * beltHeight;
-        const asteroidRadius = orbitRadius + radiusVariation;
-        
-        // Position in a flat circular pattern first
-        const xFlat = Math.cos(angle) * asteroidRadius;
-        const zFlat = Math.sin(angle) * asteroidRadius;
-        const yFlat = heightVariation;
-        
-        // Apply tilt rotation to the position coordinates
-        // X-axis tilt (affects y and z)
-        const yTiltedX = yFlat * Math.cos(tiltX) - zFlat * Math.sin(tiltX);
-        const zTiltedX = yFlat * Math.sin(tiltX) + zFlat * Math.cos(tiltX);
-        
-        // Z-axis tilt (affects x and y)
-        const xTilted = xFlat * Math.cos(tiltZ) - yTiltedX * Math.sin(tiltZ);
-        const yTilted = xFlat * Math.sin(tiltZ) + yTiltedX * Math.cos(tiltZ);
-        const zTilted = zTiltedX;
-        
-        // Random scale between 200 and 600
-        const scale = 200 + Math.random() * 400;
-        asteroid.scale.set(scale, scale, scale);
-        
-        // Random rotation
-        asteroid.rotation.x = Math.random() * Math.PI * 2;
-        asteroid.rotation.y = Math.random() * Math.PI * 2;
-        asteroid.rotation.z = Math.random() * Math.PI * 2;
-        
-        // Set position with tilted coordinates
-        asteroid.position.set(xTilted, yTilted, zTilted);
-        
-        // Add to the group
-        asteroidBeltGroup.add(asteroid);
-    }
+function animateMarsClouds() {
+    marsCloudMesh.rotation.y += 0.0005;
+    requestAnimationFrame(animateMarsClouds);
 }
+animateMarsClouds();
 
-// Add to planet groups with orbit radius of 55000 (between Mars at 50000 and Jupiter at 60000)
-planetGroups.push({ group: asteroidBeltGroup, z: 55000 });
 
-// --- Jupiter Setup ---
-const jupiterGroup = new THREE.Group();
-scene.add(jupiterGroup);
-const jupiterRadius = 4500;
-const jupiterGeometry = new THREE.SphereGeometry(jupiterRadius, 32, 32);
-const jupiterTexture = textureLoader.load(`${config.textures.path}/2k_jupiter.jpg`);
-const jupiterMaterial = new THREE.MeshStandardMaterial({
-    map: jupiterTexture,
-    side: THREE.FrontSide,
-    metalness: 0.2,
-    roughness: 0.8
-});
-const jupiter = new THREE.Mesh(jupiterGeometry, jupiterMaterial);
-jupiterGroup.add(jupiter);
 
-// Add collision sphere for Jupiter (50% larger)
-const jupiterCollisionGeometry = new THREE.SphereGeometry(jupiterRadius * 1.5, 16, 16);
-const jupiterCollisionSphere = new THREE.Mesh(jupiterCollisionGeometry, collisionMaterialInvisible);
-jupiterGroup.add(jupiterCollisionSphere);
 
-planetGroups.push({ group: jupiterGroup, z: 60000 });
 
-function animateJupiterClouds() {
-    requestAnimationFrame(animateJupiterClouds);
-}
-animateJupiterClouds();
+
 
 // --- Imperial Star Destroyer Setup ---
 const starDestroyerGroup = new THREE.Group();
@@ -1140,7 +952,7 @@ const starDestroyerModelPath = `${config.models.path}/star_wars_imperial_ii_star
 console.log('Loading First Star Destroyer from:', starDestroyerModelPath);
 
 // Use the enhanced loader for the first Star Destroyer
-loadModelWithFallback(
+loadModel(
     'star_wars_imperial_ii_star_destroyer',
     starDestroyerModelPath,
     // Success callback
@@ -1197,7 +1009,7 @@ function loadSecondStarDestroyer() {
     console.log('Loading Second Star Destroyer from:', modelPath);
     
     // Use the enhanced loader for the second Star Destroyer
-    loadModelWithFallback(
+    loadModel(
         'star_wars_imperial_ii_star_destroyer',
         modelPath,
         // Success callback
@@ -1245,124 +1057,9 @@ function loadSecondStarDestroyer() {
 // Add to planet groups with orbit radius of 70000
 planetGroups.push({ group: starDestroyerGroup, z: 70000 });
 
-// --- Saturn Setup ---
-const saturnGroup = new THREE.Group();
-scene.add(saturnGroup);
-const saturnRadius = 4000;
-const saturnGeometry = new THREE.SphereGeometry(saturnRadius, 32, 32);
-const saturnTexture = textureLoader.load(`${config.textures.path}/2k_saturn.jpg`);
-const saturnMaterial = new THREE.MeshStandardMaterial({
-    map: saturnTexture,
-    side: THREE.FrontSide,
-    metalness: 0.2,
-    roughness: 0.8
-});
-const saturn = new THREE.Mesh(saturnGeometry, saturnMaterial);
-saturnGroup.add(saturn);
 
-// Add collision sphere for Saturn (50% larger)
-const saturnCollisionGeometry = new THREE.SphereGeometry(saturnRadius * 1.5, 16, 16);
-const saturnCollisionSphere = new THREE.Mesh(saturnCollisionGeometry, collisionMaterialInvisible);
-saturnGroup.add(saturnCollisionSphere);
 
-// Load the ring texture
-const ringTexture = textureLoader.load(`${config.textures.path}/2k_saturn_ring_alpha.png`);
 
-// Create the 3D rings using a torus geometry instead of a flat ring
-const ringOuterRadius = 8000;
-const ringInnerRadius = 6000;
-const tubeRadius = (ringOuterRadius - ringInnerRadius) / 2;
-const ringRadius = ringInnerRadius + tubeRadius;
-const ringGeometry = new THREE.TorusGeometry(
-    ringRadius,      // radius of the entire torus
-    tubeRadius,      // thickness of the tube
-    2,               // radial segments (lower for performance)
-    64               // tubular segments
-);
-
-// Create a material for the rings
-const ringMaterial = new THREE.MeshStandardMaterial({
-    map: ringTexture,
-    side: THREE.DoubleSide,
-    transparent: true,
-    opacity: 1,
-    flatShading: true
-});
-
-// Create the ring mesh and position it correctly
-const saturnRings = new THREE.Mesh(ringGeometry, ringMaterial);
-saturnRings.rotation.x = Math.PI / 2;  // Align with Saturn's equator
-saturnGroup.add(saturnRings);
-
-// Add a second ring with slightly different parameters for visual depth
-const ringOuterRadius2 = 5200;
-const ringInnerRadius2 = 4400;
-const tubeRadius2 = (ringOuterRadius2 - ringInnerRadius2) / 2;
-const ringRadius2 = ringInnerRadius2 + tubeRadius2;
-const ringGeometry2 = new THREE.TorusGeometry(
-    ringRadius2,     // radius of the entire torus
-    tubeRadius2,     // thickness of the tube
-    2,               // radial segments
-    64               // tubular segments
-);
-
-const ringMaterial2 = new THREE.MeshStandardMaterial({
-    map: ringTexture,
-    side: THREE.DoubleSide,
-    transparent: true,
-    opacity: 0.6,
-    flatShading: true
-});
-
-const saturnRings2 = new THREE.Mesh(ringGeometry2, ringMaterial2);
-saturnRings2.rotation.x = Math.PI / 2;  // Align with Saturn's equator
-saturnGroup.add(saturnRings2);
-
-planetGroups.push({ group: saturnGroup, z: 80000 });
-
-// --- Uranus Setup ---
-const uranusGroup = new THREE.Group();
-scene.add(uranusGroup);
-const uranusRadius = 3000;
-const uranusGeometry = new THREE.SphereGeometry(uranusRadius, 32, 32);
-const uranusTexture = textureLoader.load(`${config.textures.path}/2k_uranus.jpg`);
-const uranusMaterial = new THREE.MeshStandardMaterial({
-    map: uranusTexture,
-    side: THREE.FrontSide,
-    metalness: 0.2,
-    roughness: 0.8
-});
-const uranus = new THREE.Mesh(uranusGeometry, uranusMaterial);
-uranusGroup.add(uranus);
-
-// Add collision sphere for Uranus (50% larger)
-const uranusCollisionGeometry = new THREE.SphereGeometry(uranusRadius * 1.5, 16, 16);
-const uranusCollisionSphere = new THREE.Mesh(uranusCollisionGeometry, collisionMaterialInvisible);
-uranusGroup.add(uranusCollisionSphere);
-
-planetGroups.push({ group: uranusGroup, z: 95000 });
-
-// --- Neptune Setup ---
-const neptuneGroup = new THREE.Group();
-scene.add(neptuneGroup);
-const neptuneRadius = 3000;
-const neptuneGeometry = new THREE.SphereGeometry(neptuneRadius, 32, 32);
-const neptuneTexture = textureLoader.load(`${config.textures.path}/2k_neptune.jpg`);
-const neptuneMaterial = new THREE.MeshStandardMaterial({
-    map: neptuneTexture,
-    side: THREE.FrontSide,
-    metalness: 0.2,
-    roughness: 0.8
-});
-const neptune = new THREE.Mesh(neptuneGeometry, neptuneMaterial);
-neptuneGroup.add(neptune);
-
-// Add collision sphere for Neptune (50% larger)
-const neptuneCollisionGeometry = new THREE.SphereGeometry(neptuneRadius * 1.5, 16, 16);
-const neptuneCollisionSphere = new THREE.Mesh(neptuneCollisionGeometry, collisionMaterialInvisible);
-neptuneGroup.add(neptuneCollisionSphere);
-
-planetGroups.push({ group: neptuneGroup, z: 110000 });
 
 // --- Lucrehulk Setup ---
 const lucrehulkGroup = new THREE.Group();
@@ -1390,7 +1087,7 @@ const lucrehulkModelPath = `${config.models.path}/lucrehulk/scene.gltf`;
 console.log('Loading Lucrehulk from:', lucrehulkModelPath);
 
 // Use the enhanced loader for Lucrehulk
-loadModelWithFallback(
+loadModel(
     'lucrehulk',
     lucrehulkModelPath,
     // Success callback
@@ -1852,60 +1549,22 @@ export function checkReticleHover() {
     }
 }
 
-// Enhanced model loading function that tries multiple path formats
-function loadModelWithFallback(modelName, primaryPath, onSuccess, onProgress, onError) {
-    console.log(`Attempting to load ${modelName} from: ${primaryPath}`);
-    
-    // Define alternative paths to try if the primary path fails - consider environment
-    const alternativePaths = [
-        // First try based on environment variable
-        `${config.ASSETS_PATH}models/${modelName}/scene.gltf`,
-        // Try prod path format
-        `assets/models/${modelName}/scene.gltf`,
-        // Try with relative path as fallback
-        `src/assets/models/${modelName}/scene.gltf`,
-        // Try with complete path from config
-        `${config.models.path}/${modelName}/scene.gltf`,
-        // Try without starting slash
-        `${config.models.path}${modelName}/scene.gltf`
-    ];
-    
-    // Try the primary path first
+// General asset loading function
+function loadModel(modelName, onSuccess, onProgress, onError) {
+    const path = `src/assets/models/${modelName}/scene.gltf`;
+    console.log(`Loading model: ${modelName} from ${path}`);
+
     loader.load(
-        primaryPath,
+        path,
         onSuccess,
         onProgress,
         (error) => {
-            console.error(`Primary path failed for ${modelName}:`, error);
-            console.log(`Current environment: ${config.ENV}, using asset path: ${config.ASSETS_PATH}`);
-            // Try alternative paths in sequence
-            tryAlternativePaths(0);
+            console.error(`Failed to load model ${modelName} from ${path}:`, error);
+            if (onError) onError(error);
         }
     );
-    
-    // Function to try alternative paths in sequence
-    function tryAlternativePaths(index) {
-        if (index >= alternativePaths.length) {
-            console.error(`All paths failed for ${modelName}`);
-            if (onError) onError(new Error(`Failed to load ${modelName} after trying all paths`));
-            return;
-        }
-        
-        const path = alternativePaths[index];
-        console.log(`Trying alternative path ${index+1} for ${modelName}: ${path}`);
-        
-        loader.load(
-            path,
-            onSuccess,
-            onProgress,
-            (error) => {
-                console.error(`Alternative path ${index+1} failed for ${modelName}:`, error);
-                // Try the next path
-                tryAlternativePaths(index + 1);
-            }
-        );
-    }
 }
+
 
 // Randomize planet positions
 planetGroups.forEach(planet => {
@@ -1918,6 +1577,13 @@ planetGroups.forEach(planet => {
     );
     console.log(`${planet.group.name || 'Planet'} position:`, planet.group.position); // Debug
 });
+
+// Center the asteroid belt at the origin (0,0,0)
+const asteroidBelt = planetGroups.find(planet => planet.group.name === "asteroidBelt");
+if (asteroidBelt) {
+    asteroidBelt.group.position.set(0, 0, 0);
+    console.log("Asteroid belt centered at origin:", asteroidBelt.group.position);
+}
 
 
 // Planet labels
@@ -2003,9 +1669,9 @@ export function updatePlanetLabels() {
         // Hide planet info box as well
         planetInfoBox.style.display = 'none';
         
-        return;
-    }
-
+            return;
+        }
+        
     const vector = new THREE.Vector3();
     const cameraPosition = new THREE.Vector3();
     camera.getWorldPosition(cameraPosition); // Get camera's world position
