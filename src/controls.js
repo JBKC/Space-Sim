@@ -55,7 +55,7 @@ export function initControls(isEarthSurfaceActive, isMoonSurfaceActive) {
             case 'ArrowLeft': keys.left = true; break;
             case 'ArrowRight': keys.right = true; break;
             case 'ArrowUp': keys.up = true; break;
-            case 'ArrowDown': keys.down = false; break;
+            case 'ArrowDown': keys.down = true; break;
             case 'Shift': keys.shift = false; break;
         }
     });
