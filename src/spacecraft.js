@@ -3,6 +3,7 @@ import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/l
 import config from './config.js';
 import { loadingManager, textureLoadingManager } from './loaders.js';
 import { createReticle } from './reticle.js';
+import { keys } from './movement.js';
 
 // AXES: x = yaw, y = pitch, z = roll
 
@@ -45,6 +46,24 @@ export function createSpacecraft(scene) {
     const loader = new GLTFLoader(loadingManager);
     const xWingModel = new THREE.Group(); // This will hold the loaded model
     xWingModel.name = 'xWingModel'; // Set a name for the model
+    
+    // Debug object to track engine effects issues
+    window.engineEffectsDebug = {
+        xWingModel: xWingModel,
+        checkContrails: function() {
+            console.log("DEBUG CONTRAILS GLOBAL CHECK");
+            console.log("xWingModel exists:", !!this.xWingModel);
+            console.log("xWingModel userData:", this.xWingModel?.userData);
+            console.log("Contrails:", this.xWingModel?.userData?.contrails);
+            if (this.xWingModel?.userData?.contrails) {
+                Object.keys(this.xWingModel.userData.contrails).forEach(key => {
+                    const contrail = this.xWingModel.userData.contrails[key];
+                    console.log(`Contrail ${key}:`, contrail.mesh);
+                });
+            }
+            return "Check console for results";
+        }
+    };
     
     // Create a promise to load the model (async operation that will load the model when called - we don't want it to block)
     const loadModel = new Promise((resolve, reject) => {
@@ -198,58 +217,39 @@ export function createSpacecraft(scene) {
                 
                 ///// Create Engine Boost Effects /////
 
-                // Create solid contrail effects for exhausts (essentially attached to the model, but initially invisible)
-                console.log("Creating boost effects for exhausts...");
+                // Create material + shape
+                console.log("Creating simple red spheres for exhausts...");
                 const contrails = {};
                 
-                // Define contrail materials
-                const normalContrailMaterial = new THREE.MeshBasicMaterial({
+                const flameMaterial = new THREE.MeshBasicMaterial({
                     color: 0xff00ff,
-                    transparent: true, 
-                    opacity: 0.0, // Start invisible
-                    side: THREE.DoubleSide,
-                    blending: THREE.AdditiveBlending
+                    transparent: false,
+                    side: THREE.DoubleSide
                 });
                 
-                const boostContrailMaterial = new THREE.MeshBasicMaterial({
-                    color: 0xFF5349, // Orange-red for boost
-                    transparent: true, 
-                    opacity: 0.0, // Start invisible
-                    side: THREE.DoubleSide,
-                    blending: THREE.AdditiveBlending
-                });
-                
-                // Create contrail meshes for each exhaust
+                // Create a boost trail for each exhaust
                 Object.keys(exhaustAndTurretObjects).forEach(key => {
                     if (key.startsWith('exhaust_') && exhaustAndTurretObjects[key]) {
                         const exhaust = exhaustAndTurretObjects[key];
-                        console.log(`Creating contrail for ${key}`);
+                        console.log(`Creating flame trail for ${key}`);
                         
-                        // Create a tapered cylindrical geometry for the contrail
-                        // radiusTop, radiusBottom, height, radialSegments
-                        const contrailGeometry = new THREE.CylinderGeometry(0.05, 0.15, 2.0, 8, 1, true);
+
+                        const FLAME_SIZE = 6;
                         
-                        // Create two materials for normal and boost states
-                        const normalMaterial = normalContrailMaterial.clone();
-                        const boostMaterial = boostContrailMaterial.clone();
+                        // Create a simple flame effect
+                        const flameGeometry = new THREE.ConeGeometry(0.3, FLAME_SIZE, 16, 1);
+                        const flameMesh = new THREE.Mesh(flameGeometry, flameMaterial);
+                        flameMesh.rotation.x = -Math.PI / 2;
+
+                        // Position directly at exhaust
+                        flameMesh.position.set(0, 0, -FLAME_SIZE/2);
                         
-                        // Create the contrail mesh with the normal material initially
-                        const contrailMesh = new THREE.Mesh(contrailGeometry, normalMaterial);
+                        // Add to exhaust
+                        exhaust.add(flameMesh);
                         
-                        // Position the contrail behind the exhaust
-                        contrailMesh.position.set(0, 0, -1.0); // Z axis is backward
-                        
-                        // Rotate the cylinder to point backward
-                        contrailMesh.rotation.x = Math.PI / 2;
-                        
-                        // Add contrail to the exhaust
-                        exhaust.add(contrailMesh);
-                        
-                        // Store references to the contrail and its materials
+                        // Store reference
                         contrails[key] = {
-                            mesh: contrailMesh,
-                            normalMaterial: normalMaterial,
-                            boostMaterial: boostMaterial
+                            mesh: flameMesh
                         };
                     }
                 });
@@ -356,7 +356,9 @@ export function createSpacecraft(scene) {
             
             // Remove X-wing model from spacecraft
             const xWing = spacecraft.getObjectByName('xWingModel');
+            console.log("Found xWingModel in spacecraft:", xWing ? "Yes" : "No");
             if (xWing) {
+                console.log("Removing xWingModel from spacecraft. Contrails available:", xWing.userData?.contrails ? "Yes" : "No");
                 spacecraft.remove(xWing);
             }
             
@@ -386,7 +388,28 @@ export function createSpacecraft(scene) {
             
             // Add X-wing model back to spacecraft
             loadModel.then((model) => {
+                console.log("Adding xWingModel back to spacecraft. Contrails available:", model.userData?.contrails ? "Yes" : "No");
+                
+                // Log contrail details before adding the model back
+                if (model.userData?.contrails) {
+                    console.log("RED SPHERES:", Object.keys(model.userData.contrails).length, "found");
+                    
+                    // Don't automatically make spheres visible - will be controlled by boost state
+                    console.log("Red spheres will be shown/hidden based on boost state");
+                }
+                
                 spacecraft.add(model);
+                
+                // Trigger update of engine effects right after adding the model
+                // Pass the current boosting state to updateEngineEffects
+                setTimeout(() => {
+                    if (typeof updateEngineEffects === 'function') {
+                        // Use the imported keys object to determine boosting state
+                        const isCurrentlyBoosting = keys && keys.up;
+                        console.log("Forcing engine effects update after view switch, boosting state:", isCurrentlyBoosting, "keys.up:", keys?.up);
+                        updateEngineEffects(isCurrentlyBoosting);
+                    }
+                }, 100);
             });
             
         }
@@ -538,7 +561,7 @@ export function createSpacecraft(scene) {
 
     /////// ENGINE EFFECTS SYSTEM ///////
 
-    // Unified engine effects function for normal and boost states
+    // Engine effects function - shows red spheres only when boosting
     function updateEngineEffects(isBoosting, deltaTime) {
         // Skip if model isn't loaded or doesn't have contrails
         const contrails = xWingModel?.userData?.contrails || {};
@@ -546,55 +569,25 @@ export function createSpacecraft(scene) {
             return;
         }
         
-        // Iterate through each contrail
+        // Determine if we're boosting, either from parameter or directly from keys
+        const isBoostActive = isBoosting || (keys && keys.up);
+        
+        console.log("Engine effects update - boosting:", isBoostActive, 
+                    "param:", isBoosting, 
+                    "keys.up:", keys?.up);
+        
+        // Show/hide red spheres based on boosting state
         Object.keys(contrails).forEach(key => {
             const contrail = contrails[key];
-            
-            if (isBoosting) {
-                // When boosting:
-                // 1. Switch to boost material if not already using it
-                if (contrail.mesh.material !== contrail.boostMaterial) {
-                    contrail.mesh.material = contrail.boostMaterial;
-                }
-                
-                // 2. Make contrail visible with full opacity
-                contrail.mesh.material.opacity = 0.8;
-                
-                // 3. Stretch the contrail for more dramatic effect
-                if (contrail.mesh.scale.z < 1.5) {
-                    contrail.mesh.scale.z = 1.5;
-                }
-                
-                // 4. Light pulsing effect
-                const pulseFactor = 0.1 * Math.sin(performance.now() / 100) + 0.9;
-                contrail.mesh.scale.x = pulseFactor;
-                contrail.mesh.scale.y = pulseFactor;
-            } else {
-                // When not boosting, fade out the contrail
-                if (contrail.mesh.material.opacity > 0) {
-                    // Gradually fade out
-                    contrail.mesh.material.opacity -= 0.1;
-                    
-                    // If opacity reaches zero, switch back to normal material
-                    if (contrail.mesh.material.opacity <= 0) {
-                        contrail.mesh.material = contrail.normalMaterial;
-                        contrail.mesh.material.opacity = 0;
-                        
-                        // Reset scale
-                        contrail.mesh.scale.set(1, 1, 1);
-                    }
-                }
+            if (contrail && contrail.mesh) {
+                // Set visibility based on boosting state
+                contrail.mesh.visible = isBoostActive;
             }
         });
-        
-        // For debugging
-        if (Math.random() < 0.01) { // Limit logging to avoid console spam
-            console.log(`Engine effects updated: boosting=${isBoosting}`);
-        }
     }
 
 
-    // Add the spacecraft to the scene
+    // Add the spacecraft to the scene (fallback)
     scene.add(spacecraft);
 
     ///// RETURN SPACECRAFT OBJECT /////

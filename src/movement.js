@@ -3,12 +3,6 @@
 import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
 import { 
     spacecraft, 
-    engineGlowMaterial, 
-    lightMaterial, 
-    topRightWing, 
-    bottomRightWing, 
-    topLeftWing, 
-    bottomLeftWing, 
     updateEngineEffects,
     scene as spaceScene,
     EARTH_RADIUS,
@@ -389,43 +383,4 @@ export function updateMoonMovement() {
         spacecraft.position.copy(originalPosition);
     }
 
-    // Handle manual wing animation if needed - will be deprecated once all models use built-in animations
-    if (wingAnimation > 0 && topRightWing && bottomRightWing && topLeftWing && bottomLeftWing) {
-        // Calculate progress percentage for animation smoothing (1.0 = start, 0.0 = end)
-        const progress = wingAnimation / wingTransitionFrames;
-        
-        // Use easing function for smoother animation (ease in/out)
-        const easedProgress = 0.5 - 0.5 * Math.cos(progress * Math.PI);
-        
-        // Log animation progress occasionally
-        if (wingAnimation % 10 === 0) {
-            console.log(`moon wing animation: ${Math.round(progress * 100)}% complete, ${wingsOpen ? 'opening' : 'closing'}`);
-        }
-        
-        // Define the angles for open and closed positions
-        const openAngle = Math.PI / 8;
-        const closedAngle = 0;
-        
-        if (wingsOpen) {
-            // Animating to open position (X shape)
-            // Right wings
-            topRightWing.rotation.z = THREE.MathUtils.lerp(closedAngle, -openAngle, easedProgress);
-            bottomRightWing.rotation.z = THREE.MathUtils.lerp(closedAngle, openAngle, easedProgress);
-            
-            // Left wings
-            topLeftWing.rotation.z = THREE.MathUtils.lerp(Math.PI, Math.PI + openAngle, easedProgress);
-            bottomLeftWing.rotation.z = THREE.MathUtils.lerp(Math.PI, Math.PI - openAngle, easedProgress);
-        } else {
-            // Animating to closed position (flat)
-            // Right wings
-            topRightWing.rotation.z = THREE.MathUtils.lerp(-openAngle, closedAngle, easedProgress);
-            bottomRightWing.rotation.z = THREE.MathUtils.lerp(openAngle, closedAngle, easedProgress);
-            
-            // Left wings
-            topLeftWing.rotation.z = THREE.MathUtils.lerp(Math.PI + openAngle, Math.PI, easedProgress);
-            bottomLeftWing.rotation.z = THREE.MathUtils.lerp(Math.PI - openAngle, Math.PI, easedProgress);
-        }
-        
-        wingAnimation--;
-    }
 }

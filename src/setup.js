@@ -159,15 +159,11 @@ export function renderScene() {
     if (isMoonSurfaceActive) {
         // nothing to do here - space scene is not active
         console.log("Moon surface active, deferring rendering");
-    } else {
-        // Render space scene
-        renderer.render(scene, camera);
-    }
-    if (isEarthSurfaceActive) {
+    } else if (isEarthSurfaceActive) {
         // nothing to do here - space scene is not active
         console.log("Earth surface active, deferring rendering");
     } else {
-        // Render space scene
+        // Only render space scene if neither moon nor earth surfaces are active
         renderer.render(scene, camera);
     }
 }
@@ -179,7 +175,6 @@ const celestialObjects = [
     'earth',
     'moon',
     'mars',
-    // 'asteroid belt',
     'jupiter',
     'saturn',
     'uranus',
@@ -363,9 +358,60 @@ let wingsOpen = true;
 let wingAnimation = 0;
 let updateEngineEffects;
 const wingTransitionFrames = 30;
-// Export spacecraft variables for main.js
-export { spacecraft, engineGlowMaterial, lightMaterial, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, wingsOpen, wingAnimation, updateEngineEffects };
+export { spacecraft, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, wingsOpen, wingAnimation, updateEngineEffects };
 
+// Initialize spacecraft
+function initSpacecraft() {
+    const spacecraftComponents = createSpacecraft(scene);
+    spacecraft = spacecraftComponents.spacecraft;
+    engineGlowMaterial = spacecraftComponents.engineGlowMaterial;
+    lightMaterial = spacecraftComponents.lightMaterial;
+    topRightWing = spacecraftComponents.topRightWing;
+    bottomRightWing = spacecraftComponents.bottomRightWing;
+    topLeftWing = spacecraftComponents.topLeftWing;
+    bottomLeftWing = spacecraftComponents.bottomLeftWing;
+
+    // Expose the toggleView function for cockpit view
+    spacecraft.toggleView = spacecraftComponents.toggleView;
+    
+    // Store the isFirstPersonView state for camera logic
+    spacecraft.isFirstPersonView = function() {
+        // Add a direct reference to the spacecraftComponents object
+        return this._spacecraftComponents ? this._spacecraftComponents.isFirstPersonView : false;
+    };
+    
+    // Expose animation functions
+    spacecraft.updateAnimations = spacecraftComponents.updateAnimations;
+    spacecraft.setWingsOpen = spacecraftComponents.setWingsOpen;
+    spacecraft.toggleWings = spacecraftComponents.toggleWings;
+    spacecraft.setWingsPosition = spacecraftComponents.setWingsPosition;
+    
+    // Store a direct reference to the spacecraftComponents
+    spacecraft._spacecraftComponents = spacecraftComponents;
+
+    // Make sure wings are open by defaul (attack position)
+    setTimeout(() => {
+        if (spacecraft && spacecraft.setWingsOpen) {
+            // console.log("Setting wings to OPEN position in setup.js");
+            spacecraft.setWingsOpen(true);
+        }
+    }, 1000); // 1 second delay to ensure model is fully loaded and processed
+
+    // Verify reticle creation
+    if (spacecraftComponents.reticle) {
+        console.log("Reticle was successfully created with spacecraft in setup.js");
+    } else {
+        console.warn("Reticle not found in spacecraft components");
+    }
+
+    spacecraft.position.set(40000, 40000, 40000);
+    const centerPoint = new THREE.Vector3(0, 0, 10000);
+    spacecraft.lookAt(centerPoint);
+    spacecraft.name = 'spacecraft'; // Add a name for easier lookup
+    scene.add(spacecraft); // Make sure to add it to the scene
+
+    updateEngineEffects = spacecraftComponents.updateEngineEffects;
+}
 
 /// STATE / ANIMATION FUNCTIONS ///
 export function init() {
@@ -426,7 +472,10 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
 
         // Update spacecraft effects
         if (updateEngineEffects) {
-            updateEngineEffects(isBoosting);
+            console.log("Calling updateEngineEffects with isBoosting:", isBoosting, "keys.up:", keys.up, "keys.down:", keys.down);
+            updateEngineEffects(isBoosting || keys.up, keys.down);
+        } else {
+            console.warn("updateEngineEffects function is not available:", updateEngineEffects);
         }
         
         // Wing position control - check if conditions changed
@@ -1410,55 +1459,4 @@ function onWindowResize() {
     renderer.setPixelRatio(window.devicePixelRatio);
 }
 
-// Initialize spacecraft
-function initSpacecraft() {
-    const spacecraftComponents = createSpacecraft(scene);
-    spacecraft = spacecraftComponents.spacecraft;
-    engineGlowMaterial = spacecraftComponents.engineGlowMaterial;
-    lightMaterial = spacecraftComponents.lightMaterial;
-    topRightWing = spacecraftComponents.topRightWing;
-    bottomRightWing = spacecraftComponents.bottomRightWing;
-    topLeftWing = spacecraftComponents.topLeftWing;
-    bottomLeftWing = spacecraftComponents.bottomLeftWing;
 
-    // Expose the toggleView function for cockpit view
-    spacecraft.toggleView = spacecraftComponents.toggleView;
-    
-    // Store the isFirstPersonView state for camera logic
-    spacecraft.isFirstPersonView = function() {
-        // Add a direct reference to the spacecraftComponents object
-        return this._spacecraftComponents ? this._spacecraftComponents.isFirstPersonView : false;
-    };
-    
-    // Expose animation functions
-    spacecraft.updateAnimations = spacecraftComponents.updateAnimations;
-    spacecraft.setWingsOpen = spacecraftComponents.setWingsOpen;
-    spacecraft.toggleWings = spacecraftComponents.toggleWings;
-    spacecraft.setWingsPosition = spacecraftComponents.setWingsPosition;
-    
-    // Store a direct reference to the spacecraftComponents
-    spacecraft._spacecraftComponents = spacecraftComponents;
-
-    // Make sure wings are open by defaul (attack position)
-    setTimeout(() => {
-        if (spacecraft && spacecraft.setWingsOpen) {
-            // console.log("Setting wings to OPEN position in setup.js");
-            spacecraft.setWingsOpen(true);
-        }
-    }, 1000); // 1 second delay to ensure model is fully loaded and processed
-
-    // Verify reticle creation
-    if (spacecraftComponents.reticle) {
-        console.log("Reticle was successfully created with spacecraft in setup.js");
-    } else {
-        console.warn("Reticle not found in spacecraft components");
-    }
-
-    spacecraft.position.set(40000, 40000, 40000);
-    const centerPoint = new THREE.Vector3(0, 0, 10000);
-    spacecraft.lookAt(centerPoint);
-    spacecraft.name = 'spacecraft'; // Add a name for easier lookup
-    scene.add(spacecraft); // Make sure to add it to the scene
-
-    updateEngineEffects = spacecraftComponents.updateEngineEffects;
-}

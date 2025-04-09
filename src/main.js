@@ -653,28 +653,6 @@ function animate(currentTime = 0) {
         lastFpsUpdateTime = currentTime;
         frameCount = 0;
         
-        // Check if assets are fully loaded and hide asset display after a delay
-        const assetsComplete = 
-            loadingStats.assets.loaded === loadingStats.assets.total && 
-            loadingStats.assets.loaded > 0 &&
-            loadingStats.textures.loaded === loadingStats.textures.total && 
-            loadingStats.textures.loaded > 0;
-            
-        if (assetsComplete && !assetDisplay.dataset.hidePending) {
-            // Mark that we're planning to hide it
-            assetDisplay.dataset.hidePending = 'true';
-            
-            // After 5 seconds, fade out the asset display
-            setTimeout(() => {
-                assetDisplay.style.transition = 'opacity 1s ease-out';
-                assetDisplay.style.opacity = '0';
-                
-                // After fade out, hide it completely
-                setTimeout(() => {
-                    assetDisplay.style.display = 'none';
-                }, 1000);
-            }, 5000);
-        }
     }
 
     try {
