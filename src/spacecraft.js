@@ -32,9 +32,6 @@ export function createSpacecraft(scene) {
     const OPEN_ANGLE = Math.PI / 16;    // Angle of wings when open
     const DEFAULT_DURATION = 350;       // Time taken for wings to open/close in milliseconds
     
-    // Materials
-    const lightMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.0, transparent: true, opacity: 0.7 });
-
     // Create a purple/pink material for the engine greebles
     const purplePinkMaterial = new THREE.MeshStandardMaterial({
         color: 0xff00ff,         // Bright purple/pink
@@ -341,41 +338,7 @@ export function createSpacecraft(scene) {
         console.error("❌ Failed to create or attach reticle");
     }
     
-    // Add the spacecraft to the scene
-    scene.add(spacecraft);
-    
-
-
-    //// DELETE WINGTIP STUFF
-
-    // Define wingtip positions for lasers
-    const wingtipObjects = [
-        new THREE.Object3D(),
-        new THREE.Object3D(),
-        new THREE.Object3D(),
-        new THREE.Object3D()
-    ];
-    
-    // Add wingtip objects to the spacecraft
-    wingtipObjects.forEach((obj, index) => {
-        // Position will be adjusted when model is loaded
-        spacecraft.add(obj);
-        
-        // After model is loaded, position the wingtip objects at appropriate locations
-        loadModel.then(() => {
-            const positions = [
-                { x: 0.7, y: 0.15, z: 0.7 },   // top right
-                { x: 0.7, y: -0.15, z: 0.7 },  // bottom right
-                { x: -0.7, y: 0.15, z: 0.7 },  // top left
-                { x: -0.7, y: -0.15, z: 0.7 }  // bottom left
-            ];
-            
-            obj.position.set(positions[index].x, positions[index].y, positions[index].z);
-        });
-    });
-
-    
-    // Function to toggle between first-person and third-person views
+    // Function to toggle and track between first-person and third-person views
     function toggleView(camera, callback) {
         if (!cockpitLoaded) {
             console.warn("Cockpit model not yet loaded. Cannot switch to first-person view.");
@@ -442,10 +405,6 @@ export function createSpacecraft(scene) {
 
     // Master controller for wing open / close animation
     const wingAnimationController = (() => {
-        // Track the current animation frame request
-        let currentAnimationFrame = null;
-        // Track the current position for interrupted animations
-        let currentWingPosition = 1; // Start with wings open
 
         // Get wing references
         const getWings = () => {
@@ -474,9 +433,6 @@ export function createSpacecraft(scene) {
             // Clamp position between 0 and 1
             const normalizedPosition = Math.max(0, Math.min(1, position));
             
-            // Store the current position for interrupted animations
-            currentWingPosition = normalizedPosition;
-            
             // Calculate the target angles based on position
             const topRightAngle = OPEN_ANGLE * normalizedPosition;
             const bottomRightAngle = -OPEN_ANGLE * normalizedPosition;
@@ -500,28 +456,14 @@ export function createSpacecraft(scene) {
         };
         
         // Animate wings between positions
-        const animateWings = (endPos, duration = DEFAULT_DURATION) => {
-            // Cancel any ongoing animation
-            if (currentAnimationFrame !== null) {
-                cancelAnimationFrame(currentAnimationFrame);
-                currentAnimationFrame = null;
-            }
-            
-            // Use the current position as starting point
-            const startPos = currentWingPosition;
-            
-            // If already at target position, no need to animate
-            if (Math.abs(startPos - endPos) < 0.01) {
-                return;
-            }
-            
+        const animateWings = (startPos, endPos, duration = DEFAULT_DURATION) => {
             const startTime = performance.now();
             
-            const animate = (time) => {
+            function animate(time) {
                 const elapsed = time - startTime;
                 const progress = Math.min(1, elapsed / duration);
                 
-                // Use a smooth easing function
+                // Use an easing function for smoother animation
                 const easedProgress = 0.5 - 0.5 * Math.cos(progress * Math.PI);
                 const currentPos = startPos + (endPos - startPos) * easedProgress;
                 
@@ -530,17 +472,12 @@ export function createSpacecraft(scene) {
                 
                 // Continue animation if not complete
                 if (progress < 1) {
-                    currentAnimationFrame = requestAnimationFrame(animate);
-                } else {
-                    // Animation complete
-                    currentAnimationFrame = null;
-                    // Ensure we're exactly at the target position
-                    setWingPositions(endPos);
+                    requestAnimationFrame(animate);
                 }
-            };
+            }
             
             // Start the animation
-            currentAnimationFrame = requestAnimationFrame(animate);
+            requestAnimationFrame(animate);
         };
         
         // Public API
@@ -548,10 +485,16 @@ export function createSpacecraft(scene) {
             // Set wings to open or closed position with animation
             setWingsOpen: (open) => {
                 const targetState = open ? 'open' : 'closed';
+                
+                // Don't restart animation if already in correct state
+                if (animationState === targetState) return;
+                
+                // Calculate start and end positions
+                const startPos = animationState === 'open' ? 1 : 0;
                 const endPos = open ? 1 : 0;
                 
-                // Always animate from current position to target
-                animateWings(endPos);
+                // Animate to target position
+                animateWings(startPos, endPos);
                 
                 // Update animation state
                 animationState = targetState;
@@ -559,9 +502,9 @@ export function createSpacecraft(scene) {
             
             // Toggle wings between open and closed
             toggleWings: () => {
-                const isCurrentlyOpen = animationState === 'open';
-                wingAnimationController.setWingsOpen(!isCurrentlyOpen);
-                return `Wings transitioning to ${!isCurrentlyOpen ? 'open' : 'closed'}`;
+                const newState = animationState !== 'open';
+                wingAnimationController.setWingsOpen(newState);
+                return `Wings now ${animationState}`;
             },
             
             // Directly set wing position (0-1)
@@ -571,21 +514,12 @@ export function createSpacecraft(scene) {
                     return "Cannot set wing position - wings not available";
                 }
                 
-                // Cancel any ongoing animation
-                if (currentAnimationFrame !== null) {
-                    cancelAnimationFrame(currentAnimationFrame);
-                    currentAnimationFrame = null;
-                }
-                
                 setWingPositions(position);
                 return `Wings set to position ${position.toFixed(2)}`;
             },
             
             // Get current wing state
-            getWingState: () => animationState,
-            
-            // Get current wing position (0-1)
-            getWingPosition: () => currentWingPosition
+            getWingState: () => animationState
         };
     })();
 
@@ -602,150 +536,83 @@ export function createSpacecraft(scene) {
     }
 
 
+    /////// ENGINE EFFECTS SYSTEM ///////
+
+    // Unified engine effects function for normal and boost states
+    function updateEngineEffects(isBoosting, deltaTime) {
+        // Skip if model isn't loaded or doesn't have contrails
+        const contrails = xWingModel?.userData?.contrails || {};
+        if (!contrails || Object.keys(contrails).length === 0) {
+            return;
+        }
+        
+        // Iterate through each contrail
+        Object.keys(contrails).forEach(key => {
+            const contrail = contrails[key];
+            
+            if (isBoosting) {
+                // When boosting:
+                // 1. Switch to boost material if not already using it
+                if (contrail.mesh.material !== contrail.boostMaterial) {
+                    contrail.mesh.material = contrail.boostMaterial;
+                }
+                
+                // 2. Make contrail visible with full opacity
+                contrail.mesh.material.opacity = 0.8;
+                
+                // 3. Stretch the contrail for more dramatic effect
+                if (contrail.mesh.scale.z < 1.5) {
+                    contrail.mesh.scale.z = 1.5;
+                }
+                
+                // 4. Light pulsing effect
+                const pulseFactor = 0.1 * Math.sin(performance.now() / 100) + 0.9;
+                contrail.mesh.scale.x = pulseFactor;
+                contrail.mesh.scale.y = pulseFactor;
+            } else {
+                // When not boosting, fade out the contrail
+                if (contrail.mesh.material.opacity > 0) {
+                    // Gradually fade out
+                    contrail.mesh.material.opacity -= 0.1;
+                    
+                    // If opacity reaches zero, switch back to normal material
+                    if (contrail.mesh.material.opacity <= 0) {
+                        contrail.mesh.material = contrail.normalMaterial;
+                        contrail.mesh.material.opacity = 0;
+                        
+                        // Reset scale
+                        contrail.mesh.scale.set(1, 1, 1);
+                    }
+                }
+            }
+        });
+        
+        // For debugging
+        if (Math.random() < 0.01) { // Limit logging to avoid console spam
+            console.log(`Engine effects updated: boosting=${isBoosting}`);
+        }
+    }
+
+
+    // Add the spacecraft to the scene
+    scene.add(spacecraft);
+
+    ///// RETURN SPACECRAFT OBJECT /////
+
     // Return an object containing the spacecraft and all necessary methods and attributes
     return {
         spacecraft,
         cockpit,
-        lightMaterial,
-        wingtipObjects,
+        reticle: reticleComponent.reticle,
+        updateReticle: reticleComponent.update,
+        get isFirstPersonView() {return isFirstPersonView},
+
         toggleView,
-        
-        // Add animation functions
         updateAnimations,
         setWingsOpen: wingAnimationController.setWingsOpen,
         toggleWings: wingAnimationController.toggleWings,
         setWingsPosition: wingAnimationController.setWingsPosition,
         
-        // Add contrails system
-        createContrails: function() {
-            console.log("Creating solid contrail system");
-            return xWingModel?.userData?.contrails || {};
-        },
-        
-        updateContrails: function(isBoosting, deltaTime) {
-            // Skip if model or contrails aren't loaded
-    Object.keys(contrails).forEach(key => {
-        const contrail = contrails[key];
-        const exhaust = exhaustAndTurretObjects[key];
-        
-        // Update position history
-        const currentPosition = new THREE.Vector3();
-        exhaust.getWorldPosition(currentPosition);
-        contrail.positionHistory.push(currentPosition);
-        if (contrail.positionHistory.length > 10) {
-            contrail.positionHistory.shift();
-        }
-        
-        // Set path points from history
-        const points = contrail.positionHistory.slice().reverse(); // Most recent first
-        contrail.path.points = points;
-        
-        // Update geometry with tapering radius
-        const radii = points.map((_, i) => 0.1 - i * 0.01); // Taper from 0.1 to 0
-        const newGeometry = new THREE.TubeGeometry(
-            contrail.path,
-            points.length - 1,
-            radii,
-            8,
-            false
-        );
-        
-        // Update mesh
-        contrail.mesh.geometry.dispose();
-        contrail.mesh.geometry = newGeometry;
-        
-        // Handle material and opacity
-        if (isBoosting) {
-            contrail.mesh.material = contrail.boostMaterial;
-            contrail.mesh.material.opacity = Math.min(0.8, contrail.mesh.material.opacity + 0.1);
-        } else {
-            if (contrail.mesh.material.opacity > 0) {
-                contrail.mesh.material.opacity = Math.max(0, contrail.mesh.material.opacity - 0.1);
-            }
-            if (contrail.mesh.material.opacity <= 0) {
-                contrail.mesh.material = contrail.normalMaterial;
-                contrail.mesh.material.opacity = 0;
-                    }
-                }
-            });
-        },
-        
-        // Add engine effects function for compatibility with existing code
-        updateEngineEffects: function(isBoosting, deltaTime) {
-            // No need to call updateContrails here since we're handling it directly below
-            // This was causing a reference error
-            
-            // Update solid contrail effects based on boost state
-            const contrails = xWingModel?.userData?.contrails || {};
-            
-            // Iterate through each contrail
-            Object.keys(contrails).forEach(key => {
-                const contrail = contrails[key];
-                
-                if (isBoosting) {
-                    // When boosting:
-                    // 1. Switch to boost material if not already using it
-                    if (contrail.mesh.material !== contrail.boostMaterial) {
-                        contrail.mesh.material = contrail.boostMaterial;
-                    }
-                    
-                    // 2. Make contrail visible with full opacity
-                    contrail.mesh.material.opacity = 0.8;
-                    
-                    // 3. Stretch the contrail for more dramatic effect
-                    if (contrail.mesh.scale.z < 1.5) {
-                        contrail.mesh.scale.z = 1.5;
-                    }
-                    
-                    // 4. Light pulsing effect
-                    const pulseFactor = 0.1 * Math.sin(performance.now() / 100) + 0.9;
-                    contrail.mesh.scale.x = pulseFactor;
-                    contrail.mesh.scale.y = pulseFactor;
-                } else {
-                    // When not boosting, fade out the contrail
-                    if (contrail.mesh.material.opacity > 0) {
-                        // Gradually fade out
-                        contrail.mesh.material.opacity -= 0.1;
-                        
-                        // If opacity reaches zero, switch back to normal material
-                        if (contrail.mesh.material.opacity <= 0) {
-                            contrail.mesh.material = contrail.normalMaterial;
-                            contrail.mesh.material.opacity = 0;
-                            
-                            // Reset scale
-                            contrail.mesh.scale.set(1, 1, 1);
-                        }
-                    }
-                }
-            });
-            
-            // For debugging
-            if (Math.random() < 0.01) { // Limit logging to avoid console spam
-                console.log(`Engine effects updated: boosting=${isBoosting}`);
-            }
-        },
-        
-        // Export current state of isFirstPersonView
-        get isFirstPersonView() {
-            // console.log("DEBUG - Accessing isFirstPersonView property, value:", isFirstPersonView);
-            return isFirstPersonView;
-        },
-        
-        // Define wing objects for animation and other uses
-        // Use actual wing objects if available, otherwise fall back to wingtip objects
-        get topRightWing() {
-            return xWingModel.userData.wings?.topRight || wingtipObjects[0];
-        },
-        get bottomRightWing() {
-            return xWingModel.userData.wings?.bottomRight || wingtipObjects[1];
-        },
-        get topLeftWing() {
-            return xWingModel.userData.wings?.topLeft || wingtipObjects[2];
-        },
-        get bottomLeftWing() {
-            return xWingModel.userData.wings?.bottomLeft || wingtipObjects[3];
-        },
-        reticle: reticleComponent.reticle,
-        updateReticle: reticleComponent.update,
+        updateEngineEffects,
     };
 }

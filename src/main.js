@@ -69,9 +69,6 @@ import {
 // Import the reticle functions but we won't initialize them here
 import { setReticleVisibility } from './reticle.js';
 
-// Import laser functionality
-import { fireLaser, updateLasers, clearAllLasers } from './laser.js';
-
 let gameMode = null;
 let isAnimating = false;
 let isBoosting = false;
@@ -85,10 +82,6 @@ let moonInitialized = false;  // Move to top-level scope for exports
 let isFirstEarthEntry = true;
 // Add a flag to track first Moon entry in a session
 let isFirstMoonEntry = true;
-
-// Laser firing variables
-let lastFired = 0;
-const fireRate = 100; // 100ms interval (10 shots per second)
 
 // Hyperspace streak effect variables
 let streakLines = [];
@@ -685,38 +678,6 @@ function animate(currentTime = 0) {
     }
 
     try {
-        // Handle laser firing when spacebar is pressed
-        if (isSpacePressed) {
-            // Get the current active scene and spacecraft
-            let activeScene = spaceScene;
-            let activeSpacecraft = spacecraft;
-            let sceneType = 'space';
-            
-            /* Moon surface access disabled
-            if (isMoonSurfaceActive) {
-                activeScene = moonScene;
-                activeSpacecraft = moonSpacecraft || spacecraft;
-                sceneType = 'moon';
-            }
-            */
-            if (isEarthSurfaceActive) {
-                activeScene = earthScene;
-                activeSpacecraft = earthSpacecraft || spacecraft;
-                sceneType = 'sanFran';
-            }
-            
-            // Don't fire lasers if in space scene and hyperspace is active
-            if (!(sceneType === 'space' && isHyperspace)) {
-                // Get the key states
-                const slowMode = document.querySelector('[data-key="ArrowDown"]')?.classList.contains('active') || false;
-                // LASER FIRING DISABLED
-                // fireLaser(activeSpacecraft, activeScene, sceneType, isBoosting, keys.down);
-            }
-        }
-        
-        // Update laser positions and cleanup expired lasers
-        updateLasers(deltaTime);
-
         // CASE 0 = normal space view
         if (!isEarthSurfaceActive && !isMoonSurfaceActive) {
             // If we just exited a planet surface, make sure space container is visible
@@ -882,10 +843,6 @@ function animate(currentTime = 0) {
                                 spacecraft.userData.reticle.visible = false;
                             }
                             
-                            // Clear any active lasers
-                            if (typeof clearAllLasers === 'function') {
-                                clearAllLasers();
-                            }
                             
                             // Hide any other UI elements that should not be visible on moon surface
                             // Look for elements by class that might contain 'popup', 'tooltip', or 'notification'
@@ -1052,10 +1009,7 @@ function animate(currentTime = 0) {
                                 spacecraft.userData.reticle.visible = false;
                             }
                             
-                            // Clear any active lasers
-                            if (typeof clearAllLasers === 'function') {
-                                clearAllLasers();
-                            }
+
                             
                             // Hide any other UI elements that should not be visible on moon surface
                             // Look for elements by class that might contain 'popup', 'tooltip', or 'notification'
@@ -1144,11 +1098,7 @@ function animate(currentTime = 0) {
                 if (spacecraft && spacecraft.userData && spacecraft.userData.reticle) {
                     spacecraft.userData.reticle.visible = false;
                 }
-                
-                // Clear any active lasers
-                if (typeof clearAllLasers === 'function') {
-                    clearAllLasers();
-                }
+
                 
                 // Hide any coordinates display
                 const coordsDiv = document.getElementById('coordinates');
