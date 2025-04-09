@@ -17,6 +17,8 @@ import {
 import config from './config.js';
 import { loadingManager, textureLoadingManager } from './loaders.js';
 import { stars, starCount, starRange, starPositions, starColors, starSizes } from './solarSystemEnv';
+// Import the controls module
+import { initControls, getHyperspaceState } from './controls.js';
 
 
 // General initialization
@@ -365,135 +367,6 @@ const wingTransitionFrames = 30;
 export { spacecraft, engineGlowMaterial, lightMaterial, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, wingsOpen, wingAnimation, updateEngineEffects };
 
 
-// Hyperspace functionality
-
-let isHyperspaceActive = false;
-function activateHyperspace() {
-    // Don't activate hyperspace on planet surfaces
-    if (!isHyperspaceActive && !isEarthSurfaceActive && !isMoonSurfaceActive) {
-        isHyperspaceActive = true;
-        console.log("Hyperspace activated!");
-        setTimeout(deactivateHyperspace, 2000);
-    }
-}
-
-function deactivateHyperspace() {
-    if (isHyperspaceActive) {
-        isHyperspaceActive = false;
-    }
-}
-
-window.addEventListener('keydown', (event) => {
-    // Only activate hyperspace if not on Earth's surface
-    if (event.key === 'Shift' && !isEarthSurfaceActive) activateHyperspace();
-});
-window.addEventListener('keyup', (event) => {
-    if (event.key === 'Shift') deactivateHyperspace();
-});
-
-
-// Track if controls have been initialized
-let controlsInitialized = false;
-
-// Initialize spacecraft
-function initSpacecraft() {
-    const spacecraftComponents = createSpacecraft(scene);
-    spacecraft = spacecraftComponents.spacecraft;
-    engineGlowMaterial = spacecraftComponents.engineGlowMaterial;
-    lightMaterial = spacecraftComponents.lightMaterial;
-    topRightWing = spacecraftComponents.topRightWing;
-    bottomRightWing = spacecraftComponents.bottomRightWing;
-    topLeftWing = spacecraftComponents.topLeftWing;
-    bottomLeftWing = spacecraftComponents.bottomLeftWing;
-
-    // Expose the toggleView function for cockpit view
-    spacecraft.toggleView = spacecraftComponents.toggleView;
-    
-    // Store the isFirstPersonView state for camera logic
-    spacecraft.isFirstPersonView = function() {
-        // Add a direct reference to the spacecraftComponents object
-        return this._spacecraftComponents ? this._spacecraftComponents.isFirstPersonView : false;
-    };
-    
-    // Expose animation functions
-    spacecraft.updateAnimations = spacecraftComponents.updateAnimations;
-    spacecraft.setWingsOpen = spacecraftComponents.setWingsOpen;
-    spacecraft.toggleWings = spacecraftComponents.toggleWings;
-    spacecraft.setWingsPosition = spacecraftComponents.setWingsPosition;
-    
-    // Store a direct reference to the spacecraftComponents
-    spacecraft._spacecraftComponents = spacecraftComponents;
-
-    // Make sure wings are open by defaul (attack position)
-    setTimeout(() => {
-        if (spacecraft && spacecraft.setWingsOpen) {
-            // console.log("Setting wings to OPEN position in setup.js");
-            spacecraft.setWingsOpen(true);
-        }
-    }, 1000); // 1 second delay to ensure model is fully loaded and processed
-
-    // Verify reticle creation
-    if (spacecraftComponents.reticle) {
-        console.log("Reticle was successfully created with spacecraft in setup.js");
-    } else {
-        console.warn("Reticle not found in spacecraft components");
-    }
-
-    spacecraft.position.set(40000, 40000, 40000);
-    const centerPoint = new THREE.Vector3(0, 0, 10000);
-    spacecraft.lookAt(centerPoint);
-    spacecraft.name = 'spacecraft'; // Add a name for easier lookup
-    scene.add(spacecraft); // Make sure to add it to the scene
-
-    updateEngineEffects = spacecraftComponents.updateEngineEffects;
-}
-
-// Initialize keyboard controls
-function initControls() {
-
-    if (controlsInitialized) {
-        console.log("Controls already initialized, skipping");
-        return;
-    }
-    
-    console.log("Initializing controls with keys object:", keys);
-    
-    // Track when keys are pressed (keydown)
-    document.addEventListener('keydown', (event) => {
-        if (!keys) return;
-        switch (event.key) {
-            case 'w': keys.w = true; break;
-            case 's': keys.s = true; break;
-            case 'a': keys.a = true; break;
-            case 'd': keys.d = true; break;
-            case 'ArrowLeft': keys.left = true; break;
-            case 'ArrowRight': keys.right = true; break;
-            case 'ArrowUp': keys.up = true; break;
-            case 'ArrowDown': keys.down = false; break;
-            case 'Shift': keys.shift = false; break;
-        }
-        
-    });
-
-    // Track when keys are released (keyp)
-    document.addEventListener('keyup', (event) => {
-        if (!keys) return; 
-        switch (event.key) {
-            case 'w': keys.w = false; break;
-            case 's': keys.s = false; break;
-            case 'a': keys.a = false; break;
-            case 'd': keys.d = false; break;
-            case 'ArrowLeft': keys.left = false; break;
-            case 'ArrowRight': keys.right = false; break;
-            case 'ArrowUp': keys.up = false; break;
-            case 'ArrowDown': keys.down = false; break;
-            case 'Shift': keys.shift = false; break;
-        }
-    });
-    
-    controlsInitialized = true;
-}
-
 /// STATE / ANIMATION FUNCTIONS ///
 export function init() {
     console.log("Space initialization started");
@@ -508,7 +381,8 @@ export function init() {
     onWindowResize();
     window.addEventListener('resize', onWindowResize, false);
 
-    initControls();
+    // Initialize controls passing the surface states
+    initControls(isEarthSurfaceActive, isMoonSurfaceActive);
 
     // Show exploration counter when game starts
     explorationCounter.style.display = 'block';
@@ -541,9 +415,14 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         // Check if reticle is hovering over a planet (only in space mode)
         checkReticleHover();
 
-        // Use the passed isBoosting and isHyperspace parameters
-        updateSpaceMovement(isBoosting, isHyperspace);
-        updateCamera(camera, isHyperspace);
+        // Check if hyperspace is active from the controls module
+        const isHyperspaceFromControls = getHyperspaceState();
+        // Use either passed hyperspace flag or hyperspace state from controls module
+        const combinedHyperspaceState = isHyperspace || isHyperspaceFromControls;
+
+        // Use the passed isBoosting and the combined hyperspace state
+        updateSpaceMovement(isBoosting, combinedHyperspaceState);
+        updateCamera(camera, combinedHyperspaceState);
 
         // Update spacecraft effects
         if (updateEngineEffects) {
@@ -552,7 +431,7 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         
         // Wing position control - check if conditions changed
         if (spacecraft && spacecraft.setWingsOpen) {
-            const shouldWingsBeOpen = !isBoosting && !isHyperspace;
+            const shouldWingsBeOpen = !isBoosting && !combinedHyperspaceState;
             
             // The setWingsOpen function now has smooth animations and handles state management internally
             // It will only trigger an animation if the target state is different from the current state
@@ -1529,4 +1408,57 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
+}
+
+// Initialize spacecraft
+function initSpacecraft() {
+    const spacecraftComponents = createSpacecraft(scene);
+    spacecraft = spacecraftComponents.spacecraft;
+    engineGlowMaterial = spacecraftComponents.engineGlowMaterial;
+    lightMaterial = spacecraftComponents.lightMaterial;
+    topRightWing = spacecraftComponents.topRightWing;
+    bottomRightWing = spacecraftComponents.bottomRightWing;
+    topLeftWing = spacecraftComponents.topLeftWing;
+    bottomLeftWing = spacecraftComponents.bottomLeftWing;
+
+    // Expose the toggleView function for cockpit view
+    spacecraft.toggleView = spacecraftComponents.toggleView;
+    
+    // Store the isFirstPersonView state for camera logic
+    spacecraft.isFirstPersonView = function() {
+        // Add a direct reference to the spacecraftComponents object
+        return this._spacecraftComponents ? this._spacecraftComponents.isFirstPersonView : false;
+    };
+    
+    // Expose animation functions
+    spacecraft.updateAnimations = spacecraftComponents.updateAnimations;
+    spacecraft.setWingsOpen = spacecraftComponents.setWingsOpen;
+    spacecraft.toggleWings = spacecraftComponents.toggleWings;
+    spacecraft.setWingsPosition = spacecraftComponents.setWingsPosition;
+    
+    // Store a direct reference to the spacecraftComponents
+    spacecraft._spacecraftComponents = spacecraftComponents;
+
+    // Make sure wings are open by defaul (attack position)
+    setTimeout(() => {
+        if (spacecraft && spacecraft.setWingsOpen) {
+            // console.log("Setting wings to OPEN position in setup.js");
+            spacecraft.setWingsOpen(true);
+        }
+    }, 1000); // 1 second delay to ensure model is fully loaded and processed
+
+    // Verify reticle creation
+    if (spacecraftComponents.reticle) {
+        console.log("Reticle was successfully created with spacecraft in setup.js");
+    } else {
+        console.warn("Reticle not found in spacecraft components");
+    }
+
+    spacecraft.position.set(40000, 40000, 40000);
+    const centerPoint = new THREE.Vector3(0, 0, 10000);
+    spacecraft.lookAt(centerPoint);
+    spacecraft.name = 'spacecraft'; // Add a name for easier lookup
+    scene.add(spacecraft); // Make sure to add it to the scene
+
+    updateEngineEffects = spacecraftComponents.updateEngineEffects;
 }
