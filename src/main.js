@@ -40,8 +40,8 @@ import {
     resetPosition as resetEarthPosition,  // Import the generic reset position function
     resetSanFranInitialized,  // Import the new function to reset the San Fran initialization flag
     resetKeys as resetEarthKeys  // Import function to reset Earth surface key states
-// } from './planetEnvs/washington3D.js';
-} from './planetEnvs/sanFran3D.js';
+// } from './planetEnvs/washingtonCesium.js';
+} from './planetEnvs/sanFranCesium.js';
 // 
 import { 
     init as initMoonSurface, 
@@ -54,7 +54,7 @@ import {
     resetPosition as resetMoonPosition,  // Import the generic reset position function
     resetMoonInitialized,  // Import the new function to reset the Moon initialization flag
     resetKeys as resetMoonKeys  // Import function to reset Moon surface key states
-} from './planetEnvs/moon3D.js';
+} from './planetEnvs/moonCesium.js';
 
 
 import { setGameMode, resetMovementInputs, keys } from './movement.js'; // Added keys import
@@ -543,7 +543,7 @@ window.resetMoonInitialized = function() {
     moonInitialized = false;
     console.log('Reset Moon surface initialization state');
     
-    // Also reset the Moon3D initialization flag
+    // Also reset the moonCesium initialization flag
     resetMoonInitialized();
 };
 

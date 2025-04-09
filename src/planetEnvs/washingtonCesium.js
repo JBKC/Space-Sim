@@ -1,34 +1,33 @@
 import * as THREE from 'three';
-import { TilesRenderer } from '3d-tiles-renderer/src/three/TilesRenderer.js';
+import { TilesRenderer } from '3d-tiles-renderer';
 import { CesiumIonAuthPlugin } from '3d-tiles-renderer/src/plugins/three/CesiumIonAuthPlugin.js';
 import { GLTFExtensionsPlugin } from '3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
-import { Water } from 'three/examples/jsm/objects/Water.js'; // Correct import for ocean
 import { createSpacecraft } from '../spacecraft.js';
 import { 
-    sanFranCamera, 
-    sanFranCockpitCamera,
-    createCameraState, 
-    updateTargetOffsets, 
-    updateCameraOffsets, 
-    createForwardRotation, 
+    washingtonCamera,
+    washingtonCockpitCamera,
+    createCameraState,
+    updateTargetOffsets,
+    updateCameraOffsets,
+    createForwardRotation,
 } from '../camera.js';
 // Import Cesium rate limiting utilities
 import { configureCesiumRequestScheduler, optimizeTerrainLoading } from '../cesiumRateLimit.js';
 // Import the config
 import config from '../config.js';
-// Import loading managers
+// Import loading managers at the top of the file
 import { loadingManager, textureLoadingManager } from '../loaders.js';
 
 let camera, scene, renderer, tiles, cameraTarget;
-let sanFranInitialized = false;
+let washingtonInitialized = false;
 
 // DEFINE local coordinate system (align to the 3D tile rendering)
 const coordConfig = {
  scale: 2,
  position: {
- lat: 37.7749,
- lon: -122.4194,
+ lat: 38.8895,
+ lon: -77.0352,
  height: -100
  },
  orientation: {
@@ -43,22 +42,19 @@ const coordConfig = {
 };
 let coordinateSystem;
 let localOrigin; // Local origin point for coordinate system
-
-// Add a variable to track initialization time for collision safety
-let initializationTime = 0;
-const COLLISION_SAFETY_PERIOD = 5000; // 5 seconds of safety after initialization
-let isInitialEarthEntry = true; // Flag to track first entry
+let referenceSphere; // Reference sphere object
 
 export { 
  scene, 
  camera, 
  renderer, 
-    tiles, 
+ tiles, 
  cameraTarget,
  spacecraft,
  localOrigin,  // Export local origin for other modules to use
  worldToLocal,  // Export conversion functions
  localToWorld,
+ referenceSphere, // Export reference sphere for other modules
 };
 
 // Define spacecraft
@@ -69,15 +65,15 @@ let wingAnimation = 0;
 const wingTransitionFrames = 30;
 
 // Movement settings
-const baseSpeed = 1.5;
-const boostSpeed = baseSpeed * 3;
+const baseSpeed = 5;
+const boostSpeed = baseSpeed * 5;
 const slowSpeed = baseSpeed * 0.5; // Half of base speed
 let currentSpeed = baseSpeed;
 
-// Turn speed variables for San Francisco environment
-const baseTurnSpeed = 0.025;     // Regular turn speed
+// Turn speed variables for Washington mountains environment
+const baseTurnSpeed = 0.03;     // Regular turn speed
 const slowTurnSpeed = 0.03;     // More sensitive turning when moving slowly (urban precision)
-const boostTurnSpeed = 0.02;   // Much less sensitive turning when boosting (stability at high speed)
+const boostTurnSpeed = 0.025;   // Much less sensitive turning when boosting (stability at high speed)
 let currentTurnSpeed = baseTurnSpeed; // Current active turn speed
 
 // Add sensitivity multipliers for each rotation axis
@@ -86,28 +82,7 @@ const rollSensitivity = 1;  // Lower value = less sensitive
 const yawSensitivity = 0.5;   // Lower value = less sensitive
 let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false, down: false, space: false };
 
-// Camera settings
-const baseCameraOffset = new THREE.Vector3(0, 2, -10);
-const boostCameraOffset = new THREE.Vector3(0, 3, -20);
-const slowCameraOffset = new THREE.Vector3(0, 1.5, -7); // Closer camera for slow mode
-const collisionCameraOffset = new THREE.Vector3(0, 2, -10);
-let currentCameraOffset = baseCameraOffset.clone();
-let targetCameraOffset = baseCameraOffset.clone();
-const cameraTransitionSpeed = 0.2;
-const MAX_PITCH_OFFSET = 0.1;
-const MAX_YAW_OFFSET = 0.15;
-const CAMERA_LAG_FACTOR = 0.1;
-let currentPitchOffset = 0;
-let currentYawOffset = 0;
-let targetPitchOffset = 0;
-let targetYawOffset = 0;
-const MAX_LOCAL_PITCH_ROTATION = 0.06;
-const MAX_LOCAL_YAW_ROTATION = 0.08;
-const LOCAL_ROTATION_SPEED = 0.08;
-let currentLocalPitchRotation = 0;
-let currentLocalYawRotation = 0;
-let targetLocalPitchRotation = 0;
-let targetLocalYawRotation = 0;
+// Camera settings are now imported from camera.js
 
 // Collision detection
 const spacecraftBoundingSphere = new THREE.Sphere();
@@ -115,16 +90,16 @@ const raycaster = new THREE.Raycaster();
 const collisionOffset = new THREE.Vector3();
 
 // Sun objects and materials
-let earthSun, sunGroup, sunMesh, sunHalo, sunFlare;
-let playerSun, playerSunTarget; // Add variables for player sun
+let washingtonSun, sunGroup, sunMesh, sunHalo, sunFlare;
+let playerSun, playerSunTarget; // Add new variables for player sun
 let textureLoader = new THREE.TextureLoader(textureLoadingManager);
 
 // Add player sun configuration options
 const playerSunConfig = {
-    // Position the sun using lat/lon/height in global coordinates
+    // Position the sun using lat/lon/height in global coordinates instead of relative height
     position: {
-        lat: 37.7749,  // San Francisco latitude
-        lon: -122.4194, // San Francisco longitude
+        lat: 46.8529,  // Mount Rainier latitude
+        lon: -121.7604, // Mount Rainier longitude
         height: 500000  // Very high altitude for sun
     },
     intensity: 10,     
@@ -135,6 +110,22 @@ const playerSunConfig = {
         y: 0,
         z: 0
     }
+};
+
+// Distant Earth image configuration
+const sphereConfig = {
+    distance: 200000,         // Distance in front of player
+    radius: 80000,            // Size in radius
+    rotation: {              // Rotation angles in degrees
+        x: 0,
+        y: 0,
+        z: 180
+    },
+    polar: {                 // Polar coordinates around player
+        angle: 0,            // Horizontal angle in degrees (0 = directly in front)
+        pitch: 20             // Vertical angle in degrees (0 = same height as player)
+    },
+    visible: true            // Whether the sphere is visible
 };
 
 // Orientation widget variables
@@ -152,41 +143,35 @@ const rotation = {
 
 // Load environment variables
 if (typeof process !== 'undefined' && process.versions && process.versions.node) {
-    const dotenv = await import('dotenv');
-    dotenv.config();
+  const dotenv = await import('dotenv');
+  dotenv.config();
 }
 
 // Pull CESIUM API key from environment variables or localStorage
-let apiKey = localStorage.getItem('ionApiKey') || import.meta.env.VITE_CESIUM_ACCESS_TOKEN || 'YOUR_CESIUM_TOKEN_HERE';
+let apiKey = localStorage.getItem('ionApiKey') || process.env.CESIUM_ACCESS_TOKEN || 'YOUR_CESIUM_TOKEN_HERE';
 
 // Fallback for local development if no .env variable is found
-if (!apiKey && typeof process !== 'undefined' && process.versions && process.versions.node) {
-    try {
-        // Only attempt to import fs in a Node.js environment
-        const fs = await import('fs/promises').catch(() => {
-            console.warn('fs/promises module not available');
-            return { readFile: () => Promise.reject(new Error('fs not available')) };
-        });
-        
-        const configData = await fs.readFile('./config.json', 'utf8');
-        const config = JSON.parse(configData);
-        apiKey = config.cesiumAccessToken || apiKey;
-    } catch (error) {
-        console.warn('Failed to load config.json, using localStorage or default token:', error);
-    }
+if (!apiKey) {
+  if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+      const fs = await import('fs/promises');
+      try {
+          const configData = await fs.readFile('./config.json', 'utf8');
+          const config = JSON.parse(configData);
+          apiKey = config.cesiumAccessToken || apiKey;
+      } catch (error) {
+          console.warn('Failed to load config.json, using localStorage or default token:', error);
+      }
+  }
 }
 
-console.log("Using API Key:", apiKey ? '✅ Loaded' : '❌ Not Found');
-
-
-// Parameters for San Francisco 3D tileset only
+// Parameters for Washington mountains 3D tileset
 const params = {
-    ionAssetId: '1415196',
+    ionAssetId: '57590', // Washington mountains tileset ID
     ionAccessToken: apiKey,
     reload: reinstantiateTiles,
 };
 
-const HOVER_HEIGHT = 40;
+const HOVER_HEIGHT = 60; // Increased from 40 to 60
 const MAX_SLOPE_ANGLE = 45;
 
 // Add the declaration at the top of the file, near other global variables
@@ -201,19 +186,19 @@ const basePlaneConfig = {
   rotation: { x: 0, y: 0, z: 30 }
 };
 
-// Create camera state for sanFran scene
-const cameraState = createCameraState('sanFran');
+// Create camera state for Washington scene
+const cameraState = createCameraState('washington');
 const smoothFactor = 0.1;
 
 // Export the initialized flag and a function to reset it
-export function resetSanFranInitialized() {
-    sanFranInitialized = false;
-    console.log('Reset San Fran surface initialization state');
+export function resetWashingtonInitialized() {
+  washingtonInitialized = false;
+  console.log('Reset Washington surface initialization state');
 }
 
 // Export the initialized state
-export function isSanFranInitialized() {
-    return sanFranInitialized;
+export function isWashingtonInitialized() {
+  return washingtonInitialized;
 }
 
 // Function to reset all key states to prevent stuck movement
@@ -228,11 +213,11 @@ export function resetKeys() {
   keys.up = false;
   keys.down = false;
   keys.space = false;
-  console.log('San Francisco: Reset all key states');
+  console.log('Washington: Reset all key states');
 }
 
 function initSpacecraft() {
- const spacecraftComponents = createSpacecraft(scene);
+    const spacecraftComponents = createSpacecraft(scene);
     spacecraft = spacecraftComponents.spacecraft;
     engineGlowMaterial = spacecraftComponents.engineGlowMaterial;
     lightMaterial = spacecraftComponents.lightMaterial;
@@ -265,16 +250,16 @@ function initSpacecraft() {
 
  // Verify reticle creation
  if (spacecraftComponents.reticle) {
-   console.log("Reticle was successfully created with spacecraft in sanFran3D.js");
+   console.log("Reticle was successfully created with spacecraft in washingtonCesium.js");
  } else {
    console.warn("Reticle not found in spacecraft components");
  }
 
- // Set initial position of craft above San Francisco
- const sfLat = 37.7749;
- const sfLon = -122.4194;
- const initialHeight = 1000;
- const position = latLonHeightToEcef(sfLat, sfLon, initialHeight);
+ // Set initial position of craft above Mount Rainier
+ const mtRainierLat = 46.8529;
+ const mtRainierLon = -121.7604;
+ const initialHeight = 5000;
+ const position = latLonHeightToEcef(mtRainierLat, mtRainierLon, initialHeight);
     spacecraft.position.copy(position);
 
  spacecraft.quaternion.setFromEuler(new THREE.Euler(
@@ -292,7 +277,7 @@ function initSpacecraft() {
 }
 
 /**
- * Resets the spacecraft to its initial position over San Francisco
+ * Resets the spacecraft to its initial position over Washington mountains
  */
 export function resetPosition() {
     if (!spacecraft) {
@@ -300,13 +285,13 @@ export function resetPosition() {
         return;
     }
 
-    console.log("Resetting spacecraft position to San Francisco starting point");
+    console.log("Resetting spacecraft position to Mount Rainier starting point");
     
-    // Set initial position of craft above San Francisco (same coordinates as in initialization)
-    const sfLat = 37.7749;
-    const sfLon = -122.4194;
-    const initialHeight = 1000;
-    const position = latLonHeightToEcef(sfLat, sfLon, initialHeight);
+    // Set initial position of craft above Mount Rainier
+    const mtRainierLat = 46.8529;
+    const mtRainierLon = -121.7604;
+    const initialHeight = 5000;
+    const position = latLonHeightToEcef(mtRainierLat, mtRainierLon, initialHeight);
     spacecraft.position.copy(position);
 
     // Reset orientation
@@ -316,11 +301,6 @@ export function resetPosition() {
         THREE.MathUtils.degToRad(150),
         'XYZ'
     ));
-    
-    // Reset any velocity
-    if (spacecraft.userData && spacecraft.userData.velocity) {
-        spacecraft.userData.velocity.set(0, 0, 0);
-    }
 }
 
 // Helper function to create text sprites
@@ -468,7 +448,7 @@ function checkCollisionInDirection(direction, terrainMeshes) {
     const rayDirection = direction.clone().normalize();
     raycaster.set(spacecraft.position, rayDirection);
     raycaster.near = 0;
-    raycaster.far = 0.5; // Increased from 0.1 to 0.5 to better detect building collisions
+    raycaster.far = spacecraftBoundingSphere.radius * 3; // Increased from 2 to 3 for better collision detection
     
     const intersects = raycaster.intersectObjects(terrainMeshes, false);
     if (intersects.length > 0) {
@@ -485,7 +465,8 @@ function checkTerrainCollision() {
     }
 
     spacecraftBoundingSphere.center.copy(spacecraft.position);
-    spacecraftBoundingSphere.radius = 0.5; // Slightly larger radius to detect buildings better
+    // Increase collision radius when boosting for better detection at high speeds
+    spacecraftBoundingSphere.radius = keys.up ? 5.0 : 3.5; // Larger radius when boosting
 
     const terrainMeshes = [];
     tiles.group.traverse((object) => {
@@ -512,63 +493,165 @@ function checkTerrainCollision() {
         return false;
     }
 
-    // Create a helper function to check if we're colliding with the base plane
-    // to avoid confusing building collisions with base plane collisions
-    const isBasePlaneCollision = (object) => {
-        return object === basePlane || (object.name && object.name === "basePlane");
-    };
-
     try {
-        // Check multiple directions to better detect collisions
         const directions = [
-            new THREE.Vector3(0, 0, 1),   // Forward
-            new THREE.Vector3(0, 0, -1),  // Backward
-            new THREE.Vector3(1, 0, 0),   // Right
-            new THREE.Vector3(-1, 0, 0),  // Left
-            new THREE.Vector3(0, -1, 0),  // Down
+            new THREE.Vector3(0, -1, 0),    // Down
+            new THREE.Vector3(0, 0, 1),     // Forward
+            new THREE.Vector3(1, 0, 0),     // Right
+            new THREE.Vector3(-1, 0, 0),    // Left
+            new THREE.Vector3(0, 0, -1),    // Back
+            new THREE.Vector3(0, -1, 1).normalize(),  // Down-Forward
+            new THREE.Vector3(0, -1, -1).normalize(), // Down-Back
+            new THREE.Vector3(1, -1, 0).normalize(),  // Down-Right
+            new THREE.Vector3(-1, -1, 0).normalize(), // Down-Left
+            new THREE.Vector3(0, -0.5, 0).normalize() // Slight down
         ];
+        
+        // Add more direction checks when boosting for better detection
+        if (keys.up) {
+            directions.push(
+                new THREE.Vector3(1, 0, 1).normalize(),   // Forward-Right
+                new THREE.Vector3(-1, 0, 1).normalize(),  // Forward-Left
+                new THREE.Vector3(0.5, -0.5, 1).normalize() // Down-Forward-Slight Right
+            );
+        }
         
         directions.forEach(dir => dir.applyQuaternion(spacecraft.quaternion));
         
         let collisionDetected = false;
+        let collisionPoint = null;
+        let collisionNormal = null;
         
         for (const direction of directions) {
             const intersection = checkCollisionInDirection(direction, terrainMeshes);
             if (intersection && intersection.distance) {
                 const distanceToSurface = intersection.distance;
                 
-                // Make sure we're not colliding with the base plane
-                if (intersection.object && isBasePlaneCollision(intersection.object)) {
-                    continue; // Skip base plane collisions
-                }
-                
-                // Debug output
-                console.log(`Terrain collision check: distance=${distanceToSurface.toFixed(3)}, direction=${direction.toArray().map(v => v.toFixed(2))}, object=${intersection.object.uuid.substring(0,8)}`);
-                
-                if (distanceToSurface < 0.1) { // Slightly larger threshold for building detection
+                if (distanceToSurface < spacecraftBoundingSphere.radius) {
                     let normal = intersection.normal || 
                         (intersection.point ? new THREE.Vector3().subVectors(intersection.point, new THREE.Vector3(0, 0, 0)).normalize() : 
                         direction.clone().negate().normalize());
                     
-                    const pushFactor = 1; 
-                    collisionOffset.copy(normal).multiplyScalar(0.2 * pushFactor);
+                    const pushFactor = keys.up ? 2.0 : 1.5; // Stronger push when boosting
+                    collisionOffset.copy(normal).multiplyScalar((spacecraftBoundingSphere.radius - distanceToSurface) * pushFactor);
                     spacecraft.position.add(collisionOffset);
                     
-                    // Show collision warning message but don't reset position
-                    showCollisionWarning("BUILDING COLLISION");
-                    
-                    console.log("Building collision detected, showing warning but not resetting position");
+                    // Store collision information for respawn
                     collisionDetected = true;
-                    break; // Exit after first collision is handled
+                    collisionPoint = intersection.point ? intersection.point.clone() : spacecraft.position.clone();
+                    collisionNormal = normal.clone();
+                    
+                    // Reduce velocity on collision to prevent momentum carrying through surfaces
+                    currentSpeed *= 0.5; // Reduce speed by 50% on collision
+                    
+                    // Show WASTED message
+                    showCollisionWarning("WASTED");
+                    
+                    // Reset position to 2000m above the crash point with original orientation
+                    resetToCollisionPoint(collisionPoint, collisionNormal);
+                    
+                    return true;
                 }
             }
         }
-        
-        return collisionDetected;
     } catch (error) {
         console.error("Error in terrain collision detection:", error);
         return false;
     }
+
+    return false;
+}
+
+/**
+ * Resets the spacecraft position to 2000m above the point of collision
+ * @param {THREE.Vector3} collisionPoint - The point where collision occurred
+ * @param {THREE.Vector3} collisionNormal - The normal vector at collision point
+ */
+function resetToCollisionPoint(collisionPoint, collisionNormal) {
+    if (!spacecraft || !collisionPoint) {
+        console.warn("Cannot reset position: spacecraft or collision point not available");
+        return;
+    }
+
+    console.log("Resetting spacecraft 2000m above crash point with original orientation");
+    
+    // Default up vector if normal not available
+    const upVector = collisionNormal || new THREE.Vector3(0, 1, 0);
+    
+    // Set position 2000m above the collision point
+    const resetPosition = collisionPoint.clone().add(upVector.normalize().multiplyScalar(2000));
+    spacecraft.position.copy(resetPosition);
+
+    // Reset to the original orientation (same as at initialization)
+    spacecraft.quaternion.setFromEuler(new THREE.Euler(
+        THREE.MathUtils.degToRad(-20),
+        THREE.MathUtils.degToRad(75),
+        THREE.MathUtils.degToRad(150),
+        'XYZ'
+    ));
+    
+    // Reset speed to avoid continuing at high speed
+    currentSpeed = baseSpeed;
+}
+
+// Function to display a temporary collision warning message
+function showCollisionWarning(message = "COLLISION") {
+  // Check if a warning message already exists and remove it
+  const existingWarning = document.getElementById('collision-warning');
+  if (existingWarning) {
+    document.body.removeChild(existingWarning);
+  }
+  
+  // Create warning element
+  const warningElement = document.createElement('div');
+  warningElement.id = 'collision-warning';
+  warningElement.textContent = message;
+  
+  // Style the warning
+  warningElement.style.position = 'fixed';
+  warningElement.style.top = '40%'; // Moved up from 50% to 40% to appear higher on screen
+  warningElement.style.left = '50%';
+  warningElement.style.transform = 'translate(-50%, -50%)';
+  warningElement.style.color = '#ff0000';
+  warningElement.style.fontFamily = 'Orbitron, sans-serif';
+  warningElement.style.fontSize = '32px';
+  warningElement.style.fontWeight = 'bold';
+  warningElement.style.zIndex = '10000';
+  warningElement.style.textShadow = '0 0 10px rgba(255, 0, 0, 0.7)';
+  warningElement.style.padding = '20px';
+  warningElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+  warningElement.style.borderRadius = '5px';
+  warningElement.style.opacity = '1';
+  warningElement.style.transition = 'opacity 0.5s ease-out';
+  
+  // Add to DOM
+  document.body.appendChild(warningElement);
+  
+  // Flash the warning by changing opacity
+  let flashCount = 0;
+  const maxFlashes = 3;
+  
+  const flashWarning = () => {
+    if (flashCount >= maxFlashes) {
+      // After flashing, fade out and remove
+      warningElement.style.opacity = '0';
+      // Remove element after fade out completes
+      setTimeout(() => {
+        if (warningElement.parentNode) {
+          warningElement.parentNode.removeChild(warningElement);
+        }
+      }, 500);
+      return;
+    }
+    
+    // Toggle opacity
+    warningElement.style.opacity = warningElement.style.opacity === '1' ? '0.3' : '1';
+    flashCount++;
+    setTimeout(flashWarning, 200);
+  };
+  
+  // Start flashing
+  flashWarning();
 }
 
 export function updateMovement() {
@@ -580,10 +663,10 @@ export function updateMovement() {
     // Set speed based on movement mode
     if (keys.up) {
         currentSpeed = boostSpeed;
-        currentTurnSpeed = boostTurnSpeed; // Less sensitive turning at high speed
+        currentTurnSpeed = boostTurnSpeed; // Less sensitive turning at high speed for stability
     } else if (keys.down) {
         currentSpeed = slowSpeed;
-        currentTurnSpeed = slowTurnSpeed; // More sensitive turning at low speed for precision
+        currentTurnSpeed = slowTurnSpeed; // More sensitive turning at low speed for urban precision
     } else {
         currentSpeed = baseSpeed;
         currentTurnSpeed = baseTurnSpeed; // Normal turn sensitivity
@@ -607,11 +690,11 @@ export function updateMovement() {
     } 
     // Fallback to manual animation if setWingsOpen is not available
     else if ((keys.up || isInHyperspace) && wingsOpen) {
-        console.log(`SanFran: Closing wings due to ${isInHyperspace ? 'hyperspace' : 'boost'} mode`);
+        console.log(`Washington: Closing wings due to ${isInHyperspace ? 'hyperspace' : 'boost'} mode`);
         wingsOpen = false;
         wingAnimation = wingTransitionFrames;
     } else if (!keys.up && !isInHyperspace && !wingsOpen) {
-        console.log('SanFran: Opening wings for normal flight');
+        console.log('Washington: Opening wings for normal flight');
         wingsOpen = true;
         wingAnimation = wingTransitionFrames;
     }
@@ -671,9 +754,9 @@ export function updateMovement() {
                     }
                     
                     if (groundDistance < HOVER_HEIGHT) {
-                        spacecraft.position.y += (HOVER_HEIGHT - groundDistance) * 0.1;
-                    } else if (groundDistance > HOVER_HEIGHT * 2) {
-                        spacecraft.position.y -= (groundDistance - HOVER_HEIGHT) * 0.01;
+                        spacecraft.position.y += (HOVER_HEIGHT - groundDistance) * 0.2; // Increased from 0.1 to 0.2 for faster response
+                    } else if (groundDistance > HOVER_HEIGHT * 1.5) { // Changed from HOVER_HEIGHT * 2 to HOVER_HEIGHT * 1.5
+                        spacecraft.position.y -= (groundDistance - HOVER_HEIGHT) * 0.015; // Adjusted from 0.01 to 0.015
                     }
                 }
             }
@@ -694,19 +777,22 @@ export function updateMovement() {
         if (tiles && tiles.group && tiles.group.children.length > 0) {
             if (checkTerrainCollision()) {
                 console.log("Collision detected and resolved");
-                targetCameraOffset = collisionCameraOffset.clone();
+                // Handle collision by using the appropriate camera offset
+                const isFirstPerson = spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? 
+                    spacecraft.isFirstPersonView() : false;
+                const viewMode = isFirstPerson ? 'washingtonCockpit' : 'washington';
+                
+                // Force the camera state to use collision offsets
+                cameraState.targetOffset = isFirstPerson ? 
+                    washingtonCockpitCamera.collision.clone() : 
+                    washingtonCamera.collision.clone();
                 
                 if (checkTerrainCollision()) {
                     console.log("Multiple collisions detected, reverting to original position");
                     spacecraft.position.copy(originalPosition);
                 }
-            } else {
-                if (keys.up) {
-                    targetCameraOffset = boostCameraOffset.clone();
-                } else {
-                    targetCameraOffset = baseCameraOffset.clone();
-                }
             }
+            // Camera offset updates are now handled by updateCamera() using camera.js
         }
     } catch (error) {
         console.error("Error during collision detection:", error);
@@ -722,7 +808,7 @@ export function updateMovement() {
         
         // Log animation progress occasionally
         if (wingAnimation % 10 === 0) {
-            // console.log(`SanFran wing animation: ${Math.round(progress * 100)}% complete, ${wingsOpen ? 'opening' : 'closing'}`);
+            console.log(`Washington wing animation: ${Math.round(progress * 100)}% complete, ${wingsOpen ? 'opening' : 'closing'}`);
         }
         
         // Define the angles for open and closed positions
@@ -761,32 +847,24 @@ export function updateCamera() {
 
     // Check if we're in first-person view
     const isFirstPerson = spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? spacecraft.isFirstPersonView() : false;
-    
-    // Debug log - only log 1% of the time to avoid spam
-    // if (Math.random() < 0.01) {
-    //     console.log(
-    //         "🎥 SAN FRAN CAMERA DEBUG: isFirstPerson =", isFirstPerson, 
-    //         "| isFirstPersonView() =", spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? spacecraft.isFirstPersonView() : false
-    //     );
-    // }
 
     // Update target offsets based on keys - use appropriate view mode
-    const viewMode = isFirstPerson ? 'sanFranCockpit' : 'sanFran';
+    const viewMode = isFirstPerson ? 'washingtonCockpit' : 'washington';
     updateTargetOffsets(cameraState, keys, viewMode);
     
     // Update current offsets by interpolating toward targets
     updateCameraOffsets(cameraState, rotation);
     
-    // For sanFran3D we'll use a simpler camera approach without all the cinematic effects
+    // For washingtonCesium we'll use a simpler camera approach without all the cinematic effects
     // This maintains compatibility with the existing code while using the new camera module
     let localOffset;
     
     if (keys.up) {
-        localOffset = isFirstPerson ? sanFranCockpitCamera.boost.clone() : sanFranCamera.boost.clone();
+        localOffset = isFirstPerson ? washingtonCockpitCamera.boost.clone() : washingtonCamera.boost.clone();
     } else if (keys.down) {
-        localOffset = isFirstPerson ? sanFranCockpitCamera.slow.clone() : sanFranCamera.slow.clone();
+        localOffset = isFirstPerson ? washingtonCockpitCamera.slow.clone() : washingtonCamera.slow.clone();
     } else {
-        localOffset = isFirstPerson ? sanFranCockpitCamera.base.clone() : sanFranCamera.base.clone();
+        localOffset = isFirstPerson ? washingtonCockpitCamera.base.clone() : washingtonCamera.base.clone();
     }
     
     const cameraPosition = localOffset.applyMatrix4(spacecraft.matrixWorld);
@@ -804,15 +882,15 @@ let updateEngineEffects;
 function setupTiles() {
     tiles.fetchOptions.mode = 'cors';
     tiles.registerPlugin(new GLTFExtensionsPlugin({
-        dracoLoader: new DRACOLoader().setDecoderPath(config.DRACO_PATH)
+        dracoLoader: new DRACOLoader().setDecoderPath('./draco/')
     }));
     
     // Configure Cesium's request scheduler for optimal tile loading performance
     const requestController = configureCesiumRequestScheduler({
-        maximumRequestsPerServer: 8,  // Limit concurrent requests to prevent server overload
+        maximumRequestsPerServer: 6,  // Slightly lower limit for Washington mountains's more detailed tileset
         throttleRequestsByServer: true,
-        perServerRequestLimit: 12,     // Additional limit for newer Cesium versions
-        requestQueueSize: 100          // Size of the request queue
+        perServerRequestLimit: 10,     // Additional limit for newer Cesium versions
+        requestQueueSize: 120          // Increased queue size for Washington mountains's complex tileset
     });
     
     // Store the controller for potential later use
@@ -820,10 +898,10 @@ function setupTiles() {
     tiles.userData.requestController = requestController;
     
     // Log the current status of the request scheduler
-    console.log('Cesium RequestScheduler configured:', requestController.getStatus());
+    console.log('Cesium RequestScheduler configured for Washington mountains:', requestController.getStatus());
     
     // Temporarily boost tile request limits during initial load
-    requestController.temporaryBoost(8000); // 8-second boost for initial loading
+    requestController.temporaryBoost(10000); // 10-second boost for initial loading of DC's complex tileset
     
     tiles.onLoadModel = (model) => {
         model.traverse((node) => {
@@ -842,7 +920,7 @@ function setupTiles() {
                 }
             }
         });
-        console.log("Loaded San Francisco model with shadow settings");
+        console.log("Loaded Washington mountains model with shadow settings");
     };
     
     scene.add(tiles.group);
@@ -850,7 +928,7 @@ function setupTiles() {
 
 // Add a new function to create fixed coordinate system - values found empirically / trial and error
 function createBasePlane() {
-    console.log("Creating fixed coordinate system");
+    console.log("Creating fixed coordinate system for Washington");
   
     if (window.gridCoordinateSystem) {
       scene.remove(window.gridCoordinateSystem);
@@ -859,7 +937,8 @@ function createBasePlane() {
     const gridPlaneSystem = new THREE.Group();
     window.gridCoordinateSystem = gridPlaneSystem;
   
-    const fixedPosition = new THREE.Vector3(-2704597.993, -4260866.335, 3886911.844);
+    // Adjusted for Washington mountains
+    const fixedPosition = new THREE.Vector3(-1282726.44, -4870561.48, 3855700.32);
     gridPlaneSystem.position.copy(fixedPosition);
     const fixedQuaternion = new THREE.Quaternion(0.6390, 0.6326, 0.4253, -0.1034);
     gridPlaneSystem.quaternion.copy(fixedQuaternion);
@@ -932,16 +1011,13 @@ function createBasePlane() {
     );
     basePlane.name = "basePlane";
     gridPlaneSystem.add(basePlane);
-  
-    // Apply LinearFog to the scene
-    scene.fog = new THREE.Fog(0x87ceeb, 2000, 4000);
+    
+    // No mountain border in Washington version
   
     scene.add(gridPlaneSystem);
   
-    console.log("Fixed coordinate system created with plane and fog at position:", basePlaneConfig.position, "and rotation:", basePlaneConfig.rotation);
-  }
-  
-  // Assuming createTextSprite and basePlaneConfig are defined elsewhere
+    console.log("Fixed coordinate system created with plane at position:", basePlaneConfig.position, "and rotation:", basePlaneConfig.rotation);
+}
 
 // Add a function to update the base plane position and rotation
 export function updateBasePlane(position, rotation) {
@@ -972,16 +1048,6 @@ export function updateBasePlane(position, rotation) {
       THREE.MathUtils.degToRad(basePlaneConfig.rotation.z)
     );
     
-    // Update walls if they exist
-    if (basePlane.userData.walls) {
-      const wallsContainer = basePlane.userData.wallsContainer;
-      if (wallsContainer) {
-        // Update the position and rotation of the walls container to match the base plane
-        wallsContainer.position.copy(basePlane.position);
-        wallsContainer.rotation.copy(basePlane.rotation);
-      }
-    }
-    
     console.log("Updated base plane position:", basePlaneConfig.position, "and rotation:", basePlaneConfig.rotation);
   } else {
     // If the plane doesn't exist yet, recreate it
@@ -997,7 +1063,7 @@ function alignGridToTerrain() {
 // Modify the reinstantiateTiles function to call alignGridToTerrain immediately without the timeout delay
 function reinstantiateTiles() {
     if (tiles) {
- scene.remove(tiles.group);
+        scene.remove(tiles.group);
         tiles.dispose();
         tiles = null;
     }
@@ -1009,12 +1075,12 @@ function reinstantiateTiles() {
     tiles.addEventListener('load-tile-set', () => {
         const sphere = new THREE.Sphere();
         tiles.getBoundingSphere(sphere);
- console.log('San Francisco bounding sphere center:', sphere.center);
- console.log('San Francisco bounding sphere radius:', sphere.radius);
- console.log('San Francisco tileset loaded successfully');
- 
- // Call alignGridToTerrain immediately without timeout
- alignGridToTerrain();
+        console.log('Washington mountains bounding sphere center:', sphere.center);
+        console.log('Washington mountains bounding sphere radius:', sphere.radius);
+        console.log('Washington mountains tileset loaded successfully');
+        
+        // Call alignGridToTerrain immediately without timeout
+        alignGridToTerrain();
     });
     tiles.addEventListener('error', (error) => {
         console.error('Tileset loading error:', error);
@@ -1053,7 +1119,7 @@ function initControls() {
     });
 }
 
-function setupearthLighting() {
+function setupWashingtonLighting() {
     if (!textureLoader) {
         textureLoader = new THREE.TextureLoader(textureLoadingManager);
     }
@@ -1063,40 +1129,40 @@ function setupearthLighting() {
     scene.add(ambientLight);
  
     // Create a more focused and less intense directional light for the sun
-    earthSun = new THREE.DirectionalLight(0xffffff, 3); // Reduced for better balance
+    washingtonSun = new THREE.DirectionalLight(0xffffff, 3); // Reduced for better balance
  
     // Define the light source position using lat, lon, and height
-    const sunLat = 37.7749; // San Francisco latitude
-    const sunLon = -122.4194; // San Francisco longitude
+    const sunLat = 46.8529; // Mount Rainier latitude
+    const sunLon = -121.7604; // Mount Rainier longitude
     const sunHeight = 100000; // High altitude to simulate sunlight from above
     const sunPosition = latLonHeightToEcef(sunLat, sunLon, sunHeight);
-    earthSun.position.copy(sunPosition);
+    washingtonSun.position.copy(sunPosition);
  
-    earthSun.castShadow = true;
+    washingtonSun.castShadow = true;
  
-    earthSun.shadow.mapSize.width = 4096;
-    earthSun.shadow.mapSize.height = 4096;
-    earthSun.shadow.camera.near = 1000;
-    earthSun.shadow.camera.far = 200000;
+    washingtonSun.shadow.mapSize.width = 4096;
+    washingtonSun.shadow.mapSize.height = 4096;
+    washingtonSun.shadow.camera.near = 1000;
+    washingtonSun.shadow.camera.far = 200000;
     const shadowSize = 20000;
-    earthSun.shadow.camera.left = -shadowSize;
-    earthSun.shadow.camera.right = shadowSize;
-    earthSun.shadow.camera.top = shadowSize;
-    earthSun.shadow.camera.bottom = -shadowSize;
-    earthSun.shadow.bias = -0.00002;
-    earthSun.shadow.normalBias = 0.005;
+    washingtonSun.shadow.camera.left = -shadowSize;
+    washingtonSun.shadow.camera.right = shadowSize;
+    washingtonSun.shadow.camera.top = shadowSize;
+    washingtonSun.shadow.camera.bottom = -shadowSize;
+    washingtonSun.shadow.bias = -0.00002;
+    washingtonSun.shadow.normalBias = 0.005;
  
-    // Set the target at San Francisco's ground level
-    const targetLat = 37.7749;
-    const targetLon = -122.4194;
+    // Set the target at Washington's ground level
+    const targetLat = 38.8895;
+    const targetLon = -77.0352;
     const targetHeight = 0; // Ground level
     const targetPosition = latLonHeightToEcef(targetLat, targetLon, targetHeight);
     const target = new THREE.Object3D();
     target.position.copy(targetPosition);
     scene.add(target);
-    earthSun.target = target;
+    washingtonSun.target = target;
  
-    scene.add(earthSun);
+    scene.add(washingtonSun);
  
     // Reduce intensity of additional lights or remove them for space environment
     const sideLight = new THREE.DirectionalLight(0xffffff, 0.2); // Reduced from 0.5 to 0.2
@@ -1151,25 +1217,14 @@ function setupearthLighting() {
 }
 
 export function init() {
- console.log("San Francisco 3D initialization started");
+    console.log("Washington mountains 3D initialization started");
  
- if (sanFranInitialized) {
- console.log("Already initialized, skipping");
- return { scene: scene, camera: camera, renderer: renderer, tiles: tiles };
- }
+    if (washingtonInitialized) {
+        console.log("Already initialized, skipping");
+        return { scene: scene, camera: camera, renderer: renderer, tiles: tiles };
+    }
 
- // Set initialization time to current time to prevent collision warnings during startup
- initializationTime = Date.now();
- isInitialEarthEntry = true; // Mark as initial entry
- console.log("Setting initialization safety period for collision detection");
- 
- // Set a timeout to mark the end of initial entry after the safety period
- setTimeout(() => {
-   isInitialEarthEntry = false;
-   console.log("Initial Earth entry period ended, normal collision detection enabled");
- }, COLLISION_SAFETY_PERIOD);
-
- scene = new THREE.Scene();
+    scene = new THREE.Scene();
     const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(0), 64, 64);
     env.mapping = THREE.EquirectangularReflectionMapping;
     env.needsUpdate = true;
@@ -1191,18 +1246,19 @@ export function init() {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.gammaFactor = 2.2;
  
- document.body.appendChild(renderer.domElement);
- renderer.domElement.tabIndex = 1;
+    document.body.appendChild(renderer.domElement);
+    renderer.domElement.tabIndex = 1;
 
-//  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 100000);
- camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
- camera.position.set(100, 100, -100);
- camera.lookAt(0, 0, 0);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
+    camera.position.set(100, 100, -100);
+    camera.lookAt(0, 0, 0);
  
     textureLoader = new THREE.TextureLoader(textureLoadingManager);
-setupearthLighting();
-initSpacecraft();
+    setupWashingtonLighting();
+    initSpacecraft();
     
+    // Create reference sphere after spacecraft is initialized
+    createReferenceSphere();
     
     reinstantiateTiles();
 
@@ -1210,178 +1266,187 @@ initSpacecraft();
     window.addEventListener('resize', onWindowResize, false);
     initControls();
 
- sanFranInitialized = true;
- console.log("San Francisco 3D initialization complete");
+    washingtonInitialized = true;
+    console.log("Washington mountains 3D initialization complete");
     
     return { 
- scene: scene, 
- camera: camera, 
- renderer: renderer, 
+        scene: scene, 
+        camera: camera, 
+        renderer: renderer, 
         tiles: tiles 
     };
 }
 
+export function update(deltaTime = 0.016) {
+    try {
+        if (!washingtonInitialized) {
+            console.log("Not initialized yet");
+            return false;
+        }
+
+        if (!tiles) {
+            return false;
+        }
+
+        updateMovement();
+        updateCamera();
+        
+        // Handle laser firing with spacebar
+        if (keys.space && spacecraft) {
+            // LASER FIRING DISABLED
+        }
+ 
+        // Update all active lasers
+ 
+        // Update reticle position if available
+        if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
+            // Pass both boost and slow states to the reticle update function
+            spacecraft.userData.updateReticle(keys.up, keys.down);
+        } else {
+            // Only log this warning once to avoid console spam
+            if (!window.reticleWarningLogged) {
+                console.warn("Reticle update function not found on spacecraft userData", spacecraft);
+                window.reticleWarningLogged = true;
+            }
+        }
+ 
+        if (tiles.group) {
+            tiles.group.traverse((node) => {
+                if (node.isMesh && node.receiveShadow === undefined) {
+                    node.receiveShadow = true;
+                }
+            });
+        }
+        
+        updateWashingtonLighting();
+
+        // Death Star is completely fixed in space
+ 
+        if (!camera) {
+            console.warn("Camera not initialized");
+            return false;
+        }
+
+        // Apply terrain optimization if needed based on performance
+        if (camera.userData && camera.userData.performanceMetrics && 
+           camera.userData.performanceMetrics.fps < 25 && 
+           tiles.userData && tiles.userData.terrainController) {
+            // If framerate drops below threshold, reduce terrain detail temporarily
+            tiles.userData.terrainController.decreaseDetail();
+        }
+
+        tiles.setCamera(camera);
+        tiles.setResolutionFromRenderer(camera, renderer);
+        camera.updateMatrixWorld();
+        tiles.update();
+        
+        // Update cockpit elements if in first-person view
+        if (spacecraft && spacecraft.updateCockpit) {
+            spacecraft.updateCockpit(deltaTime);
+        }
+        
+        return true;
+    } catch (error) {
+        console.error("Error in update:", error);
+        return false;
+    }
+}
+
+function updateWashingtonLighting() {
+    if (!washingtonSun || !spacecraft) return;
+    
+    const spacecraftPosition = spacecraft.position.clone();
+    washingtonSun.position.set(
+        spacecraftPosition.x,
+        spacecraftPosition.y + 100000,
+        spacecraftPosition.z
+    );
+    
+    if (washingtonSun.target) {
+        washingtonSun.target.position.copy(spacecraftPosition);
+        washingtonSun.target.updateMatrixWorld();
+    }
+    
+    // Update the player sun based on config
+    if (playerSun && playerSunTarget) {
+        if (playerSunConfig.fixedPosition) {
+            // For fixed position, use the global lat/lon coordinates to position the sun
+            // Only update if we need to maintain the position in global space
+            const playerSunPosition = latLonHeightToEcef(
+                playerSunConfig.position.lat,
+                playerSunConfig.position.lon,
+                playerSunConfig.position.height
+            );
+            playerSun.position.copy(playerSunPosition);
+            
+            // Point the sun at the player's position
+            playerSunTarget.position.copy(spacecraftPosition);
+            playerSunTarget.position.add(new THREE.Vector3(
+                playerSunConfig.targetOffset.x,
+                playerSunConfig.targetOffset.y,
+                playerSunConfig.targetOffset.z
+            ));
+        } else {
+            // If following player, position the sun above the player's local up direction
+            const playerUp = new THREE.Vector3(0, 1, 0).applyQuaternion(spacecraft.quaternion);
+            playerUp.normalize().multiplyScalar(playerSunConfig.position.height);
+            
+            // Set the sun position relative to the player
+            playerSun.position.copy(spacecraftPosition).add(playerUp);
+            
+            // Set the target to the player's position
+            playerSunTarget.position.copy(spacecraftPosition);
+        }
+        
+        playerSunTarget.updateMatrixWorld();
+        playerSun.target = playerSunTarget;
+        playerSun.updateMatrixWorld(true);
+    }
+}
+
 function onWindowResize() {
- camera.aspect = window.innerWidth / window.innerHeight;
- camera.updateProjectionMatrix();
- renderer.setSize(window.innerWidth, window.innerHeight);
- renderer.setPixelRatio(window.devicePixelRatio);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
 }
 
 // Add a function to check collision with base plane
 function checkBasePlaneCollision() {
-  // Extra safety: Always skip collision detection during initial entry period
-  if (isInitialEarthEntry || Date.now() - initializationTime < COLLISION_SAFETY_PERIOD) {
-    return false;
-  }
+    if (!spacecraft || !basePlane || !window.gridCoordinateSystem) return false;
 
-  if (!spacecraft || !basePlane || !window.gridCoordinateSystem) return false;
+    // Get the world position of the spacecraft
+    const spacecraftWorldPosition = spacecraft.getWorldPosition(new THREE.Vector3());
 
-  // Get the world position of the spacecraft
-  const spacecraftWorldPosition = spacecraft.getWorldPosition(new THREE.Vector3());
-  
-  // Get the spacecraft's forward vector and velocity
-  const forwardVector = new THREE.Vector3(0, 0, 1).applyQuaternion(spacecraft.quaternion);
-  const velocity = forwardVector.clone().multiplyScalar(currentSpeed);
-  
-  // Create an expanded detection zone in front of the spacecraft for high-speed collisions
-  // Use a much smaller look-ahead to ensure only direct collisions are detected
-  const lookAheadDistance = currentSpeed * 0.5; // Reduced from 3 to 0.5 for much tighter collision detection
-  const futurePosition = spacecraftWorldPosition.clone().add(velocity.clone().normalize().multiplyScalar(lookAheadDistance));
+    // Get the plane's world position and quaternion
+    const planeWorldPosition = new THREE.Vector3();
+    basePlane.getWorldPosition(planeWorldPosition);
+    const planeQuaternion = window.gridCoordinateSystem.quaternion;
 
-  // Get the plane's world position and quaternion
-  const planeWorldPosition = new THREE.Vector3();
-  basePlane.getWorldPosition(planeWorldPosition);
-  const planeQuaternion = window.gridCoordinateSystem.quaternion;
+    // Get the plane's normal (Z-axis of the grid system, pointing "up" in local space)
+    const planeNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(planeQuaternion);
 
-  // Get the plane's normal (Z-axis of the grid system, pointing "up" in local space)
-  const planeNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(planeQuaternion);
+    // Define collision thresholds
+    const planeCollisionThreshold = 4; // Increased from 2 to 4 for stronger base plane collision
 
-  // Define collision thresholds - minimal values for direct contact
-  const planeCollisionThreshold = 0.5; // Drastically reduced from 10 to 0.5
-  const highSpeedThreshold = 4; // Keep this the same for high-speed detection
+    // --- Plane Collision (prevent passing through the base plane) ---
+    const raycasterPlane = new THREE.Raycaster();
+    raycasterPlane.set(spacecraftWorldPosition, planeNormal.clone().negate()); // Ray downward
+    const planeIntersects = raycasterPlane.intersectObject(basePlane);
 
-  // --- Check for z-coordinate violation (going below the plane's z-level) ---
-  // Convert spacecraft world position to local coordinate system
-  const gridWorldMatrix = window.gridCoordinateSystem.matrixWorld;
-  const gridWorldMatrixInverse = new THREE.Matrix4().copy(gridWorldMatrix).invert();
-  const spacecraftLocalPosition = spacecraftWorldPosition.clone().applyMatrix4(gridWorldMatrixInverse);
-  
-  // Check if the spacecraft is below the plane's z-coordinate (basePlaneConfig.position.z)
-  const belowPlaneZLevel = spacecraftLocalPosition.z > basePlaneConfig.position.z;
-  
-  if (belowPlaneZLevel) {
-    console.log("Spacecraft went below the plane's z-level:", spacecraftLocalPosition.z, "plane z:", basePlaneConfig.position.z);
-    
-    // Trigger position reset (simulating 'R' key press)
-    resetPosition();
-    
-    // Show collision warning message
-    showCollisionWarning("WASTED");
-    
-    return true;
-  }
-
-  // --- Plane Collision (prevent passing through the base plane) ---
-  // Create a raycaster from the current position
-  const raycasterPlane = new THREE.Raycaster();
-  raycasterPlane.set(spacecraftWorldPosition, planeNormal.clone().negate()); // Ray downward
-  const planeIntersects = raycasterPlane.intersectObject(basePlane);
-  
-  // Create a second raycaster from the predicted future position
-  const raycasterFuture = new THREE.Raycaster();
-  raycasterFuture.set(futurePosition, planeNormal.clone().negate());
-  const futureIntersects = raycasterFuture.intersectObject(basePlane);
-
-  // Check for either immediate collision or predicted collision
-  if ((planeIntersects.length > 0 && planeIntersects[0].distance < planeCollisionThreshold) ||
-      (futureIntersects.length > 0 && futureIntersects[0].distance < planeCollisionThreshold && currentSpeed > highSpeedThreshold)) {
-    
-    // If collision detected, push the spacecraft upward (minimal push)
-    const pushDistance = 0; // Reduced from planeCollisionThreshold * 1.5 to a smaller fixed value
-    const pushDirection = planeNormal.clone(); // Push upward
-    spacecraft.position.add(pushDirection.multiplyScalar(pushDistance));
-    console.log("Collision detected with base plane, pushing upward. Speed:", currentSpeed);
-
-    // Trigger position reset (simulating 'R' key press) for base plane only
-    resetPosition();
-    
-    // Show collision warning message with specific plane text
-    showCollisionWarning("WASTED");
-    
-    return true;
-  }
-
-  return false;
-}
-
-// Function to display a temporary collision warning message
-function showCollisionWarning(message = "COLLISION") {
-  // Safety check: Don't show warnings during initialization safety period
-  if (Date.now() - initializationTime < COLLISION_SAFETY_PERIOD) {
-    console.log(`Suppressing "${message}" warning during safety period. Remaining time:`, 
-                Math.round((COLLISION_SAFETY_PERIOD - (Date.now() - initializationTime))/1000) + "s");
-    return; // Exit without showing warning
-  }
-  
-  // Check if a warning message already exists and remove it
-  const existingWarning = document.getElementById('collision-warning');
-  if (existingWarning) {
-    document.body.removeChild(existingWarning);
-  }
-  
-  // Create warning element
-  const warningElement = document.createElement('div');
-  warningElement.id = 'collision-warning';
-  warningElement.textContent = message;
-  
-  // Style the warning
-  warningElement.style.position = 'fixed';
-  warningElement.style.top = '40%'; // Moved up from 50% to 40% to appear higher on screen
-  warningElement.style.left = '50%';
-  warningElement.style.transform = 'translate(-50%, -50%)';
-  warningElement.style.color = '#ff0000';
-  warningElement.style.fontFamily = 'Orbitron, sans-serif';
-  warningElement.style.fontSize = '32px';
-  warningElement.style.fontWeight = 'bold';
-  warningElement.style.zIndex = '10000';
-  warningElement.style.textShadow = '0 0 10px rgba(255, 0, 0, 0.7)';
-  warningElement.style.padding = '20px';
-  warningElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-  warningElement.style.borderRadius = '5px';
-  warningElement.style.opacity = '1';
-  warningElement.style.transition = 'opacity 0.5s ease-out';
-  
-  // Add to DOM
-  document.body.appendChild(warningElement);
-  
-  // Flash the warning by changing opacity
-  let flashCount = 0;
-  const maxFlashes = 3;
-  
-  const flashWarning = () => {
-    if (flashCount >= maxFlashes) {
-      // Remove warning after flashing
-      setTimeout(() => {
-        if (warningElement.parentNode) {
-          warningElement.style.opacity = '0';
-          setTimeout(() => {
-            if (warningElement.parentNode) {
-              document.body.removeChild(warningElement);
-            }
-          }, 500);
-        }
-      }, 200);
-      return;
+    if (planeIntersects.length > 0 && planeIntersects[0].distance < planeCollisionThreshold) {
+        const pushDistance = planeCollisionThreshold - planeIntersects[0].distance;
+        const pushDirection = planeNormal.clone(); // Push upward
+        spacecraft.position.add(pushDirection.multiplyScalar(pushDistance));
+        
+        // Reduce velocity on collision to prevent momentum carrying through the base plane
+        currentSpeed *= 0.5; // Reduce speed by 50% on collision
+        
+        console.log("Collision detected with base plane, pushing upward");
+        return true;
     }
-    
-    warningElement.style.opacity = warningElement.style.opacity === '1' ? '0.3' : '1';
-    flashCount++;
-    setTimeout(flashWarning, 200);
-  };
-  
-  // Start flashing
-  flashWarning();
+
+    return false;
 }
 
 // Add these functions to export so they can be called from other files or the console
@@ -1518,131 +1583,243 @@ export function setPlayerSunTargetOffset(x = 0, y = 0, z = 0) {
     console.log(`Player sun target offset set to (${x}, ${y}, ${z})`);
 }
 
-// Remove the call to updateGridAlignment in the update function
-export function update(deltaTime = 0.016) {
- try {
- if (!sanFranInitialized) {
- console.log("Not initialized yet");
-            return false;
-        }
+/**
+ * Creates a reference sphere at a fixed position in space
+ */
+function createReferenceSphere() {
+  if (!spacecraft) {
+    console.warn("Cannot create reference sphere: spacecraft not initialized");
+    return;
+  }
 
-        if (!tiles) {
-            return false;
-        }
+  // Create geometry and material with Earth texture
+  const geometry = new THREE.SphereGeometry(sphereConfig.radius, 32, 32);
+  
+  // Load Earth texture from skybox folder
+  const earthTexture = textureLoader.load(`${config.textures.path}/2k_neptune.jpg`, (texture) => {
 
-        updateMovement();
-        updateCamera();
-        
- // Call to updateGridAlignment removed since grid is now hidden
- 
- // Handle laser firing with spacebar
- if (keys.space && spacecraft) {
-   // LASER FIRING DISABLED
- }
- 
- // Update all active lasers
- 
- // Update reticle position if available
- if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
-   // Pass both boost and slow states to the reticle update function
-   spacecraft.userData.updateReticle(keys.up, keys.down);
- } else {
-   // Only log this warning once to avoid console spam
-   if (!window.reticleWarningLogged) {
-     console.warn("Reticle update function not found on spacecraft userData", spacecraft);
-     window.reticleWarningLogged = true;
-   }
- }
- 
-        if (tiles.group) {
-            tiles.group.traverse((node) => {
-                if (node.isMesh && node.receiveShadow === undefined) {
-                    node.receiveShadow = true;
-                }
-            });
-        }
-        
-        // Check for collision with base plane - only after safety period has passed
-        if (!isInitialEarthEntry && Date.now() - initializationTime >= COLLISION_SAFETY_PERIOD) {
-            checkBasePlaneCollision();
-        } else if (Math.random() < 0.01) { // Only log occasionally to avoid spam
-            // During safety period, log that collision detection is skipped
-            console.log("Skipping collision detection during initial Earth entry, remaining time:", 
-                Math.round((COLLISION_SAFETY_PERIOD - (Date.now() - initializationTime))/1000) + "s");
-        }
-        
- updateearthLighting();
-
- if (!camera) {
- console.warn("Camera not initialized");
-            return false;
-        }
-
- tiles.setCamera(camera);
- tiles.setResolutionFromRenderer(camera, renderer);
- camera.updateMatrixWorld();
-        tiles.update();
-        
-        // Update cockpit elements if in first-person view
-        if (spacecraft && spacecraft.updateCockpit) {
-            spacecraft.updateCockpit(deltaTime);
-        }
-        
-        return true;
-    } catch (error) {
- console.error("Error in update:", error);
-        return false;
+    // Apply a simple blur effect to the texture to simulate atmosphere
+    // texture.minFilter = THREE.LinearFilter;
+    // texture.magFilter = THREE.LinearFilter;
+    
+    // // This line is the key for the blurring effect - reducing anisotropy 
+    // // creates a softening/blurring effect on the texture
+    // texture.anisotropy = 1; // Minimum anisotropy for a blurred look
+    
+    if (referenceSphere && referenceSphere.material) {
+      referenceSphere.material.needsUpdate = true;
     }
+  });
+  
+  // Create a material that responds to lighting but appears much more subdued
+  const material = new THREE.MeshPhongMaterial({ 
+    map: earthTexture,
+    shininess: 0,           // No shininess for a more matte appearance
+    specular: 0x000000,     // No specular highlights
+    reflectivity: 0,        // No reflections
+    emissive: 0x000000,     // No emission
+    emissiveIntensity: 0,   // No emission intensity
+    opacity: 1.0,           // Fully opaque
+    
+    // This is key - reduce ambient and diffuse response to make it appear more shadowy
+    // but still visible with the texture
+    color: 0x606060
+  });
+  
+  // Add atmosphere effect with gradient haze at the bottom
+  material.onBeforeCompile = (shader) => {
+    // Add shader code for atmospheric effect
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <dithering_fragment>',
+      `
+      #include <dithering_fragment>
+      
+      // Calculate position-based factors for atmospheric effects
+      float edgeFactor = 1.0 - abs(dot(vNormal, vec3(0.0, 0.0, 1.0)));
+      edgeFactor = smoothstep(0.3, 1.0, edgeFactor) * 0.3; // Edge atmosphere (subtle blue)
+      
+      // Calculate bottom haze effect - strongest at the bottom of the planet
+      float bottomFactor = smoothstep(0.0, 0.7, -vNormal.y);
+      bottomFactor *= 0.7; // Control intensity
+      
+      // Apply blue rim glow (lighter at edges)
+      gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.5, 0.7, 1.0), edgeFactor);
+      
+      // Apply white-green atmospheric haze at the bottom
+      vec3 hazeColor = mix(vec3(0.9, 1.0, 0.9), vec3(0.7, 0.95, 0.7), bottomFactor * 0.5);
+      gl_FragColor.rgb = mix(gl_FragColor.rgb, hazeColor, bottomFactor);
+      
+      // Add slight bloom/glow effect
+      float glowIntensity = bottomFactor * 0.3;
+      gl_FragColor.rgb += hazeColor * glowIntensity;
+      `
+    );
+  };
+  
+  // Create mesh
+  referenceSphere = new THREE.Mesh(geometry, material);
+  
+  // Enable shadows on the Earth sphere
+  referenceSphere.castShadow = true;
+  referenceSphere.receiveShadow = true;
+  
+  // Position the sphere in front of the spacecraft
+  updateReferenceSpherePlacement();
+  
+  // Add to scene
+  scene.add(referenceSphere);
+  
+  console.log("Reference sphere created with atmospheric effect at distance:", sphereConfig.distance);
 }
 
-function updateearthLighting() {
-    if (!earthSun || !spacecraft) return;
+/**
+ * Updates the reference sphere position and rotation based on config
+ */
+function updateReferenceSpherePlacement() {
+  if (!referenceSphere || !spacecraft) return;
+  
+  // Get the initial spacecraft position 
+  const mtRainierLat = 46.8529;
+  const mtRainierLon = -121.7604;
+  const initialHeight = 5000;
+  const initialPosition = latLonHeightToEcef(mtRainierLat, mtRainierLon, initialHeight);
+  
+  // Create a direction vector pointing forward from spacecraft's initial orientation
+  const initialRotation = new THREE.Euler(
+    THREE.MathUtils.degToRad(-20),
+    THREE.MathUtils.degToRad(75),
+    THREE.MathUtils.degToRad(150),
+    'XYZ'
+  );
+  const forward = new THREE.Vector3(0, 0, 1);
+  forward.applyEuler(initialRotation);
+  
+  // Create side and up vectors for orientation
+  const up = new THREE.Vector3(0, 1, 0);
+  up.applyEuler(initialRotation);
+  const right = new THREE.Vector3().crossVectors(forward, up).normalize();
+  
+  // Apply polar coordinates
+  let targetPosition = new THREE.Vector3();
+  
+  // Convert polar angles to radians
+  const angleRad = THREE.MathUtils.degToRad(sphereConfig.polar.angle);
+  const pitchRad = THREE.MathUtils.degToRad(sphereConfig.polar.pitch);
+  
+  // Calculate direction with polar coordinates
+  targetPosition.copy(forward);
+  
+  // Apply angle (rotation around up axis)
+  targetPosition.applyAxisAngle(up, angleRad);
+  
+  // Apply pitch (rotation around right axis)
+  targetPosition.applyAxisAngle(right, pitchRad);
+  
+  // Scale to distance and add to initial spacecraft position
+  targetPosition.multiplyScalar(sphereConfig.distance);
+  targetPosition.add(initialPosition);
+  
+  // Set sphere position
+  referenceSphere.position.copy(targetPosition);
+  
+  // Apply rotation
+  referenceSphere.rotation.set(
+    THREE.MathUtils.degToRad(sphereConfig.rotation.x),
+    THREE.MathUtils.degToRad(sphereConfig.rotation.y),
+    THREE.MathUtils.degToRad(sphereConfig.rotation.z)
+  );
+  
+  // Set visibility
+  referenceSphere.visible = sphereConfig.visible;
+}
+
+/**
+ * Set the distance of the reference sphere from the spacecraft
+ * @param {number} distance - Distance in units
+ */
+export function setReferenceSphereDistance(distance) {
+  if (distance > 0) {
+    sphereConfig.distance = distance;
+    updateReferenceSpherePlacement();
+    console.log(`Reference sphere distance set to ${distance} units`);
+  } else {
+    console.warn("Reference sphere distance must be greater than 0");
+  }
+}
+
+/**
+ * Set the radius of the reference sphere
+ * @param {number} radius - Radius in units
+ */
+export function setReferenceSphereRadius(radius) {
+  if (radius > 0 && referenceSphere) {
+    sphereConfig.radius = radius;
     
-    const spacecraftPosition = spacecraft.position.clone();
-    earthSun.position.set(
-        spacecraftPosition.x,
-        spacecraftPosition.y + 100000,
-        spacecraftPosition.z
+    // Create new geometry with updated radius
+    const newGeometry = new THREE.SphereGeometry(radius, 32, 32);
+    referenceSphere.geometry.dispose(); // Clean up old geometry
+    referenceSphere.geometry = newGeometry;
+    
+    console.log(`Reference sphere radius set to ${radius} units`);
+  } else {
+    console.warn("Reference sphere radius must be greater than 0");
+  }
+}
+
+/**
+ * Set the rotation of the reference sphere
+ * @param {number} x - X rotation in degrees
+ * @param {number} y - Y rotation in degrees
+ * @param {number} z - Z rotation in degrees
+ */
+export function setReferenceSphereRotation(x = 0, y = 0, z = 0) {
+  sphereConfig.rotation.x = x;
+  sphereConfig.rotation.y = y;
+  sphereConfig.rotation.z = z;
+  
+  if (referenceSphere) {
+    referenceSphere.rotation.set(
+      THREE.MathUtils.degToRad(x),
+      THREE.MathUtils.degToRad(y),
+      THREE.MathUtils.degToRad(z)
     );
-    
-    if (earthSun.target) {
-        earthSun.target.position.copy(spacecraftPosition);
-        earthSun.target.updateMatrixWorld();
-    }
-    
-    // Update the player sun based on config
-    if (playerSun && playerSunTarget) {
-        if (playerSunConfig.fixedPosition) {
-            // For fixed position, use the global lat/lon coordinates to position the sun
-            // Only update if we need to maintain the position in global space
-            const playerSunPosition = latLonHeightToEcef(
-                playerSunConfig.position.lat,
-                playerSunConfig.position.lon,
-                playerSunConfig.position.height
-            );
-            playerSun.position.copy(playerSunPosition);
-            
-            // Point the sun at the player's position
-            playerSunTarget.position.copy(spacecraftPosition);
-            playerSunTarget.position.add(new THREE.Vector3(
-                playerSunConfig.targetOffset.x,
-                playerSunConfig.targetOffset.y,
-                playerSunConfig.targetOffset.z
-            ));
-        } else {
-            // If following player, position the sun above the player's local up direction
-            const playerUp = new THREE.Vector3(0, 1, 0).applyQuaternion(spacecraft.quaternion);
-            playerUp.normalize().multiplyScalar(playerSunConfig.position.height);
-            
-            // Set the sun position relative to the player
-            playerSun.position.copy(spacecraftPosition).add(playerUp);
-            
-            // Set the target to the player's position
-            playerSunTarget.position.copy(spacecraftPosition);
-        }
-        
-        playerSunTarget.updateMatrixWorld();
-        playerSun.target = playerSunTarget;
-        playerSun.updateMatrixWorld(true);
-    }
+  }
+  
+  console.log(`Reference sphere rotation set to (${x}°, ${y}°, ${z}°)`);
+}
+
+/**
+ * Set the polar coordinates of the reference sphere relative to the spacecraft
+ * @param {number} angle - Horizontal angle in degrees (0 = directly in front)
+ * @param {number} pitch - Vertical angle in degrees (0 = same height as player)
+ */
+export function setReferenceSpherePolar(angle = 0, pitch = 0) {
+  sphereConfig.polar.angle = angle;
+  sphereConfig.polar.pitch = pitch;
+  
+  updateReferenceSpherePlacement();
+  
+  console.log(`Reference sphere polar coordinates set to angle: ${angle}°, pitch: ${pitch}°`);
+}
+
+/**
+ * Set the visibility of the reference sphere
+ * @param {boolean} visible - Whether the sphere should be visible
+ */
+export function setReferenceSphereVisibility(visible) {
+  sphereConfig.visible = visible;
+  
+  if (referenceSphere) {
+    referenceSphere.visible = visible;
+  }
+  
+  console.log(`Reference sphere visibility set to ${visible}`);
+}
+
+/**
+ * Get the current reference sphere configuration
+ * @returns {Object} The current reference sphere configuration
+ */
+export function getReferenceSphereConfig() {
+  return { ...sphereConfig };
 }

@@ -27,7 +27,7 @@ camera.lookAt(0, 0, 0);
 
 // Create camera state for the space scene
 const cameraState = createCameraState('space');
-const smoothFactor = 0.1; // Exactly the same as SanFran3D
+const smoothFactor = 0.1; // Exactly the same as sanFranCesium
 
 // set up renderer for default space view
 const renderer = new THREE.WebGLRenderer();

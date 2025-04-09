@@ -1,12 +1,13 @@
+// IMPORTS
 import * as THREE from 'three';
-import { TilesRenderer } from '3d-tiles-renderer';
+import { TilesRenderer } from '3d-tiles-renderer/src/three/TilesRenderer.js';
 import { CesiumIonAuthPlugin } from '3d-tiles-renderer/src/plugins/three/CesiumIonAuthPlugin.js';
 import { GLTFExtensionsPlugin } from '3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { createSpacecraft } from '../spacecraft.js';
 import { 
-    washingtonCamera,
-    washingtonCockpitCamera,
+    moonCamera,
+    moonCockpitCamera,
     createCameraState,
     updateTargetOffsets,
     updateCameraOffsets,
@@ -19,16 +20,43 @@ import config from '../config.js';
 // Import loading managers at the top of the file
 import { loadingManager, textureLoadingManager } from '../loaders.js';
 
+// DEFINE GLOBAL VARIABLES
 let camera, scene, renderer, tiles, cameraTarget;
-let washingtonInitialized = false;
+let moonInitialized = false;
 
-// DEFINE local coordinate system (align to the 3D tile rendering)
+// Add function to reset the moonInitialized flag
+export function resetMoonInitialized() {
+  moonInitialized = false;
+  console.log('Reset Moon surface initialization state');
+}
+
+// Export the initialization state
+export function isMoonInitialized() {
+  return moonInitialized;
+}
+
+// Function to reset all key states to prevent stuck movement
+export function resetKeys() {
+  // Reset all keys to prevent stuck movement patterns
+  keys.w = false;
+  keys.s = false;
+  keys.a = false;
+  keys.d = false;
+  keys.left = false;
+  keys.right = false;
+  keys.up = false;
+  keys.down = false;
+  keys.space = false;
+  console.log('Moon: Reset all key states');
+}
+
+// DEFINE local coordinate system (not applied here)
 const coordConfig = {
  scale: 2,
  position: {
- lat: 38.8895,
- lon: -77.0352,
- height: -100
+ lat: 0.6741,
+ lon: 23.4733,
+ height: 20000
  },
  orientation: {
  pitch: 50,
@@ -65,15 +93,15 @@ let wingAnimation = 0;
 const wingTransitionFrames = 30;
 
 // Movement settings
-const baseSpeed = 5;
-const boostSpeed = baseSpeed * 5;
-const slowSpeed = baseSpeed * 0.5; // Half of base speed
+export const baseSpeed = 20;
+export const boostSpeed = baseSpeed * 5;
+export const slowSpeed = baseSpeed * 0.5; // Half of base speed for slow mode
 let currentSpeed = baseSpeed;
 
-// Turn speed variables for Washington mountains environment
-const baseTurnSpeed = 0.03;     // Regular turn speed
-const slowTurnSpeed = 0.03;     // More sensitive turning when moving slowly (urban precision)
-const boostTurnSpeed = 0.025;   // Much less sensitive turning when boosting (stability at high speed)
+// Turn speed variables for moon environment
+const baseTurnSpeed = 0.02;     // Regular turn speed
+const slowTurnSpeed = 0.025;     // More precise turning when moving slowly
+const boostTurnSpeed = 0.015;   // Less sensitive turning when boosting
 let currentTurnSpeed = baseTurnSpeed; // Current active turn speed
 
 // Add sensitivity multipliers for each rotation axis
@@ -82,25 +110,51 @@ const rollSensitivity = 1;  // Lower value = less sensitive
 const yawSensitivity = 0.5;   // Lower value = less sensitive
 let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false, down: false, space: false };
 
-// Camera settings are now imported from camera.js
 
 // Collision detection
 const spacecraftBoundingSphere = new THREE.Sphere();
 const raycaster = new THREE.Raycaster();
 const collisionOffset = new THREE.Vector3();
 
-// Sun objects and materials
-let washingtonSun, sunGroup, sunMesh, sunHalo, sunFlare;
-let playerSun, playerSunTarget; // Add new variables for player sun
+// Lighting elements
+let playerSun, playerSunTarget; // Main directional light and its target
 let textureLoader = new THREE.TextureLoader(textureLoadingManager);
+
+
+// SET PARAMETERS
+const SPACECRAFT_INITIAL_LAT = 0.6741;
+const SPACECRAFT_INITIAL_LON = 23.4733;
+const SPACECRAFT_INITIAL_HEIGHT = 20000;
+const SPACECRAFT_INITIAL_ROTATION = new THREE.Euler(
+    THREE.MathUtils.degToRad(-100),
+    THREE.MathUtils.degToRad(-20),
+    THREE.MathUtils.degToRad(-120),
+    'XYZ'
+);
+
+// Distant Earth image configuration
+const sphereConfig = {
+    distance: 300000,         // Distance in front of player
+    radius: 100000,            // Size in radius
+    rotation: {              // Rotation angles in degrees
+        x: 0,
+        y: 0,
+        z: 180
+    },
+    polar: {                 // Polar coordinates around player
+        angle: 0,            // Horizontal angle in degrees (0 = directly in front)
+        pitch: 40             // Vertical angle in degrees (0 = same height as player)
+    },
+    visible: true            // Whether the sphere is visible
+};
 
 // Add player sun configuration options
 const playerSunConfig = {
     // Position the sun using lat/lon/height in global coordinates instead of relative height
     position: {
-        lat: 46.8529,  // Mount Rainier latitude
-        lon: -121.7604, // Mount Rainier longitude
-        height: 500000  // Very high altitude for sun
+        lat: 0.6741,
+        lon: 23.4733,
+        height: 50000  // Very high altitude for sun
     },
     intensity: 10,     
     color: 0xffffff,
@@ -112,26 +166,9 @@ const playerSunConfig = {
     }
 };
 
-// Distant Earth image configuration
-const sphereConfig = {
-    distance: 200000,         // Distance in front of player
-    radius: 80000,            // Size in radius
-    rotation: {              // Rotation angles in degrees
-        x: 0,
-        y: 0,
-        z: 180
-    },
-    polar: {                 // Polar coordinates around player
-        angle: 0,            // Horizontal angle in degrees (0 = directly in front)
-        pitch: 20             // Vertical angle in degrees (0 = same height as player)
-    },
-    visible: true            // Whether the sphere is visible
-};
+const smoothFactor = 0.1;
 
-// Orientation widget variables
-let orientationScene, orientationCamera, orientationRenderer;
-let orientationAxes;
-
+// rotation for coordinate system
 const rotation = {
     pitch: new THREE.Quaternion(),
     yaw: new THREE.Quaternion(),
@@ -148,25 +185,27 @@ if (typeof process !== 'undefined' && process.versions && process.versions.node)
 }
 
 // Pull CESIUM API key from environment variables or localStorage
-let apiKey = localStorage.getItem('ionApiKey') || process.env.CESIUM_ACCESS_TOKEN || 'YOUR_CESIUM_TOKEN_HERE';
+let apiKey = localStorage.getItem('ionApiKey') || import.meta.env.VITE_CESIUM_ACCESS_TOKEN || 'YOUR_CESIUM_TOKEN_HERE';
 
 // Fallback for local development if no .env variable is found
-if (!apiKey) {
-  if (typeof process !== 'undefined' && process.versions && process.versions.node) {
-      const fs = await import('fs/promises');
-      try {
-          const configData = await fs.readFile('./config.json', 'utf8');
-          const config = JSON.parse(configData);
-          apiKey = config.cesiumAccessToken || apiKey;
-      } catch (error) {
-          console.warn('Failed to load config.json, using localStorage or default token:', error);
-      }
+if (!apiKey && typeof process !== 'undefined' && process.versions && process.versions.node) {
+  try {
+      // Only attempt to import fs in a Node.js environment
+      const fs = await import('fs/promises').catch(() => {
+          console.warn('fs/promises module not available');
+          return { readFile: () => Promise.reject(new Error('fs not available')) };
+      });
+      
+      const configData = await fs.readFile('./config.json', 'utf8');
+      const config = JSON.parse(configData);
+      apiKey = config.cesiumAccessToken || apiKey;
+  } catch (error) {
+      console.warn('Failed to load config.json, using localStorage or default token:', error);
   }
 }
 
-// Parameters for Washington mountains 3D tileset
 const params = {
-    ionAssetId: '57590', // Washington mountains tileset ID
+    ionAssetId: '2684829', // moon
     ionAccessToken: apiKey,
     reload: reinstantiateTiles,
 };
@@ -177,44 +216,9 @@ const MAX_SLOPE_ANGLE = 45;
 // Add the declaration at the top of the file, near other global variables
 let gridHelper; // Declare gridHelper as a global variable
 
-// Add a global variable to reference the base plane for collision detection
-let basePlane;
+// Create camera state for moon scene
+const cameraState = createCameraState('moon');
 
-// Add global variables to control the base plane position and rotation
-const basePlaneConfig = {
-  position: { x: 400, y: 1000, z: -10 },
-  rotation: { x: 0, y: 0, z: 30 }
-};
-
-// Create camera state for Washington scene
-const cameraState = createCameraState('washington');
-const smoothFactor = 0.1;
-
-// Export the initialized flag and a function to reset it
-export function resetWashingtonInitialized() {
-  washingtonInitialized = false;
-  console.log('Reset Washington surface initialization state');
-}
-
-// Export the initialized state
-export function isWashingtonInitialized() {
-  return washingtonInitialized;
-}
-
-// Function to reset all key states to prevent stuck movement
-export function resetKeys() {
-  // Reset all keys to prevent stuck movement patterns
-  keys.w = false;
-  keys.s = false;
-  keys.a = false;
-  keys.d = false;
-  keys.left = false;
-  keys.right = false;
-  keys.up = false;
-  keys.down = false;
-  keys.space = false;
-  console.log('Washington: Reset all key states');
-}
 
 function initSpacecraft() {
     const spacecraftComponents = createSpacecraft(scene);
@@ -248,36 +252,29 @@ function initSpacecraft() {
         }
     });
 
- // Verify reticle creation
- if (spacecraftComponents.reticle) {
-   console.log("Reticle was successfully created with spacecraft in washington3D.js");
- } else {
-   console.warn("Reticle not found in spacecraft components");
- }
+    // Verify reticle creation
+    if (spacecraftComponents.reticle) {
+    console.log("Reticle was successfully created with spacecraft in moonCesium.js");
+    } else {
+    console.warn("Reticle not found in spacecraft components");
+    }
 
- // Set initial position of craft above Mount Rainier
- const mtRainierLat = 46.8529;
- const mtRainierLon = -121.7604;
- const initialHeight = 5000;
- const position = latLonHeightToEcef(mtRainierLat, mtRainierLon, initialHeight);
+    // Set initial position of craft using the constants
+    const position = latLonToCartesian(SPACECRAFT_INITIAL_LAT, SPACECRAFT_INITIAL_LON, SPACECRAFT_INITIAL_HEIGHT);
     spacecraft.position.copy(position);
 
- spacecraft.quaternion.setFromEuler(new THREE.Euler(
- THREE.MathUtils.degToRad(-20),
- THREE.MathUtils.degToRad(75),
- THREE.MathUtils.degToRad(150),
- 'XYZ'
- ));
+    // Initial rotation using the constant
+    spacecraft.quaternion.setFromEuler(SPACECRAFT_INITIAL_ROTATION);
 
- cameraTarget = new THREE.Object3D();
- spacecraft.add(cameraTarget);
- cameraTarget.position.set(0, 0, 0);
+    cameraTarget = new THREE.Object3D();
+    spacecraft.add(cameraTarget);
+    cameraTarget.position.set(0, 0, 0);
 
     updateEngineEffects = spacecraftComponents.updateEngineEffects;
 }
 
 /**
- * Resets the spacecraft to its initial position over Washington mountains
+ * Resets the spacecraft to its initial position over moon
  */
 export function resetPosition() {
     if (!spacecraft) {
@@ -285,22 +282,14 @@ export function resetPosition() {
         return;
     }
 
-    console.log("Resetting spacecraft position to Mount Rainier starting point");
+    console.log("Resetting spacecraft position to moon starting point");
     
-    // Set initial position of craft above Mount Rainier
-    const mtRainierLat = 46.8529;
-    const mtRainierLon = -121.7604;
-    const initialHeight = 5000;
-    const position = latLonHeightToEcef(mtRainierLat, mtRainierLon, initialHeight);
+    // Set initial position of craft using the same constants
+    const position = latLonToCartesian(SPACECRAFT_INITIAL_LAT, SPACECRAFT_INITIAL_LON, SPACECRAFT_INITIAL_HEIGHT);
     spacecraft.position.copy(position);
 
-    // Reset orientation
-    spacecraft.quaternion.setFromEuler(new THREE.Euler(
-        THREE.MathUtils.degToRad(-20),
-        THREE.MathUtils.degToRad(75),
-        THREE.MathUtils.degToRad(150),
-        'XYZ'
-    ));
+    // Use the same rotation constant
+    spacecraft.quaternion.setFromEuler(SPACECRAFT_INITIAL_ROTATION);
 }
 
 // Helper function to create text sprites
@@ -385,7 +374,6 @@ function createCoordinateSystem() {
  const zLabel = createTextSprite('Z', '#0000ff', coordConfig.labelSize);
  zLabel.position.set(0, 0, coordConfig.arrowLength + coordConfig.labelSize / 2);
 
- // Remove the ground plane with solid color
  
  // Add all components to coordinate system
  coordinateSystem.add(xArrow, yArrow, zArrow, xLabel, yLabel, zLabel);
@@ -428,17 +416,35 @@ function createCoordinateSystem() {
  console.log("Local coordinate system initialized but hidden from view");
 }
 
-// Convert lat/lon/height to ECEF coordinates for Earth
+function latLonToCartesian(lat, lon, height) {
+    const moonRadius = 1737.4 * 1000;
+    const radius = moonRadius + height;
+    const phi = THREE.MathUtils.degToRad(90 - lat);
+    const theta = THREE.MathUtils.degToRad(lon);
+    const x = radius * Math.sin(phi) * Math.cos(theta);
+    const y = radius * Math.cos(phi);
+    const z = radius * Math.sin(phi) * Math.sin(theta);
+    return new THREE.Vector3(x, y, z);
+}
+
+// Convert lat/lon/height to ECEF coordinates for Moon's surface instead of Earth
+// THIS CONVERTS THE EARTH'S CAMERA MOVEMENT TO THE MOON'S SURFACE
 function latLonHeightToEcef(lat, lon, height) {
- const a = 6378137.0; // WGS84 semi-major axis in meters
- const f = 1 / 298.257223563; // WGS84 flattening
- const e2 = f * (2 - f);
- const latRad = THREE.MathUtils.degToRad(lat);
- const lonRad = THREE.MathUtils.degToRad(lon);
- const N = a / Math.sqrt(1 - e2 * Math.sin(latRad) ** 2);
- const x = (N + height) * Math.cos(latRad) * Math.cos(lonRad);
- const y = (N + height) * Math.cos(latRad) * Math.sin(lonRad);
- const z = (N * (1 - e2) + height) * Math.sin(latRad);
+    // Moon-specific parameters - Moon has a more spherical shape than Earth
+    const moonRadius = 1737400.0; // Moon radius in meters (vs Earth's 6378137.0)
+    // Moon has negligible flattening compared to Earth, so we use a more spherical model
+    const moonFlattening = 0.0012; // Much less flattened than Earth's 1/298.257223563
+    
+    const e2 = moonFlattening * (2 - moonFlattening);
+    const latRad = THREE.MathUtils.degToRad(lat);
+    const lonRad = THREE.MathUtils.degToRad(lon);
+    
+    // For Moon, use simpler spherical model with slight adjustments for its small ellipticity
+    const N = moonRadius / Math.sqrt(1 - e2 * Math.sin(latRad) ** 2);
+    const x = (N + height) * Math.cos(latRad) * Math.cos(lonRad);
+    const y = (N + height) * Math.cos(latRad) * Math.sin(lonRad);
+    const z = (N * (1 - e2) + height) * Math.sin(latRad);
+    
     return new THREE.Vector3(x, y, z);
 }
 
@@ -466,7 +472,7 @@ function checkTerrainCollision() {
 
     spacecraftBoundingSphere.center.copy(spacecraft.position);
     // Increase collision radius when boosting for better detection at high speeds
-    spacecraftBoundingSphere.radius = keys.up ? 5.0 : 3.5; // Larger radius when boosting
+    spacecraftBoundingSphere.radius = keys.up ? 7.0 : 5.0; // Larger radius when boosting
 
     const terrainMeshes = [];
     tiles.group.traverse((object) => {
@@ -494,17 +500,22 @@ function checkTerrainCollision() {
     }
 
     try {
+        // Enhanced array of directions for more thorough collision checking
         const directions = [
-            new THREE.Vector3(0, -1, 0),    // Down
-            new THREE.Vector3(0, 0, 1),     // Forward
-            new THREE.Vector3(1, 0, 0),     // Right
-            new THREE.Vector3(-1, 0, 0),    // Left
-            new THREE.Vector3(0, 0, -1),    // Back
-            new THREE.Vector3(0, -1, 1).normalize(),  // Down-Forward
-            new THREE.Vector3(0, -1, -1).normalize(), // Down-Back
-            new THREE.Vector3(1, -1, 0).normalize(),  // Down-Right
-            new THREE.Vector3(-1, -1, 0).normalize(), // Down-Left
-            new THREE.Vector3(0, -0.5, 0).normalize() // Slight down
+            new THREE.Vector3(0, -1, 0),     // Down
+            new THREE.Vector3(0, 0, 1),      // Forward
+            new THREE.Vector3(1, 0, 0),      // Right
+            new THREE.Vector3(-1, 0, 0),     // Left
+            new THREE.Vector3(0, 0, -1),     // Back
+            new THREE.Vector3(0, -1, 1).normalize(),     // Down-Forward
+            new THREE.Vector3(0, -1, -1).normalize(),    // Down-Back
+            new THREE.Vector3(1, -1, 0).normalize(),     // Down-Right
+            new THREE.Vector3(-1, -1, 0).normalize(),    // Down-Left
+            new THREE.Vector3(0, -0.5, 0).normalize(),   // Slight down
+            new THREE.Vector3(0.5, -0.5, 0.5).normalize(), // Down-Forward-Right diagonal
+            new THREE.Vector3(-0.5, -0.5, 0.5).normalize(), // Down-Forward-Left diagonal
+            new THREE.Vector3(0.5, -0.5, -0.5).normalize(), // Down-Back-Right diagonal
+            new THREE.Vector3(-0.5, -0.5, -0.5).normalize() // Down-Back-Left diagonal
         ];
         
         // Add more direction checks when boosting for better detection
@@ -512,7 +523,8 @@ function checkTerrainCollision() {
             directions.push(
                 new THREE.Vector3(1, 0, 1).normalize(),   // Forward-Right
                 new THREE.Vector3(-1, 0, 1).normalize(),  // Forward-Left
-                new THREE.Vector3(0.5, -0.5, 1).normalize() // Down-Forward-Slight Right
+                new THREE.Vector3(0.5, -0.5, 1).normalize(), // Down-Forward-Slight Right
+                new THREE.Vector3(0, 0.5, 1).normalize()  // Slightly up and forward
             );
         }
         
@@ -532,7 +544,7 @@ function checkTerrainCollision() {
                         (intersection.point ? new THREE.Vector3().subVectors(intersection.point, new THREE.Vector3(0, 0, 0)).normalize() : 
                         direction.clone().negate().normalize());
                     
-                    const pushFactor = keys.up ? 2.0 : 1.5; // Stronger push when boosting
+                    const pushFactor = keys.up ? 3.0 : 2.5; // Stronger push when boosting
                     collisionOffset.copy(normal).multiplyScalar((spacecraftBoundingSphere.radius - distanceToSurface) * pushFactor);
                     spacecraft.position.add(collisionOffset);
                     
@@ -573,22 +585,17 @@ function resetToCollisionPoint(collisionPoint, collisionNormal) {
         return;
     }
 
-    console.log("Resetting spacecraft 2000m above crash point with original orientation");
+    console.log("Resetting spacecraft 2000m above Moon crash point with original orientation");
     
     // Default up vector if normal not available
     const upVector = collisionNormal || new THREE.Vector3(0, 1, 0);
     
     // Set position 2000m above the collision point
-    const resetPosition = collisionPoint.clone().add(upVector.normalize().multiplyScalar(2000));
+    const resetPosition = collisionPoint.clone().add(upVector.normalize().multiplyScalar(5000));
     spacecraft.position.copy(resetPosition);
 
     // Reset to the original orientation (same as at initialization)
-    spacecraft.quaternion.setFromEuler(new THREE.Euler(
-        THREE.MathUtils.degToRad(-20),
-        THREE.MathUtils.degToRad(75),
-        THREE.MathUtils.degToRad(150),
-        'XYZ'
-    ));
+    spacecraft.quaternion.setFromEuler(SPACECRAFT_INITIAL_ROTATION);
     
     // Reset speed to avoid continuing at high speed
     currentSpeed = baseSpeed;
@@ -690,11 +697,11 @@ export function updateMovement() {
     } 
     // Fallback to manual animation if setWingsOpen is not available
     else if ((keys.up || isInHyperspace) && wingsOpen) {
-        console.log(`Washington: Closing wings due to ${isInHyperspace ? 'hyperspace' : 'boost'} mode`);
+        console.log(`moon: Closing wings due to ${isInHyperspace ? 'hyperspace' : 'boost'} mode`);
         wingsOpen = false;
         wingAnimation = wingTransitionFrames;
     } else if (!keys.up && !isInHyperspace && !wingsOpen) {
-        console.log('Washington: Opening wings for normal flight');
+        console.log('moon: Opening wings for normal flight');
         wingsOpen = true;
         wingAnimation = wingTransitionFrames;
     }
@@ -768,10 +775,7 @@ export function updateMovement() {
     spacecraft.position.add(forward.multiplyScalar(currentSpeed));
 
     try {
-        // Check for collisions with the base plane
-        if (checkBasePlaneCollision()) {
-            console.log("Collision with base plane detected and resolved");
-        }
+        // Check for collisions with the base plane (if implemented in future)
         
         // Check for collisions with terrain
         if (tiles && tiles.group && tiles.group.children.length > 0) {
@@ -780,12 +784,12 @@ export function updateMovement() {
                 // Handle collision by using the appropriate camera offset
                 const isFirstPerson = spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? 
                     spacecraft.isFirstPersonView() : false;
-                const viewMode = isFirstPerson ? 'washingtonCockpit' : 'washington';
+                const viewMode = isFirstPerson ? 'moonCockpit' : 'moon';
                 
                 // Force the camera state to use collision offsets
                 cameraState.targetOffset = isFirstPerson ? 
-                    washingtonCockpitCamera.collision.clone() : 
-                    washingtonCamera.collision.clone();
+                    moonCockpitCamera.collision.clone() : 
+                    moonCamera.collision.clone();
                 
                 if (checkTerrainCollision()) {
                     console.log("Multiple collisions detected, reverting to original position");
@@ -808,7 +812,7 @@ export function updateMovement() {
         
         // Log animation progress occasionally
         if (wingAnimation % 10 === 0) {
-            console.log(`Washington wing animation: ${Math.round(progress * 100)}% complete, ${wingsOpen ? 'opening' : 'closing'}`);
+            console.log(`moon wing animation: ${Math.round(progress * 100)}% complete, ${wingsOpen ? 'opening' : 'closing'}`);
         }
         
         // Define the angles for open and closed positions
@@ -845,29 +849,51 @@ export function updateCamera() {
         return;
     }
 
+    // IMPORTANT: Ensure matrix is updated before using it for camera calculations
+    spacecraft.updateMatrixWorld(true);
+
+    // Add debug logging to help diagnose camera issues
+    if (window.debugCamera) {
+        console.log("Moon Camera Debug:", {
+            spacecraftPosition: spacecraft.position.clone(),
+            spacecraftQuaternion: spacecraft.quaternion.clone(),
+            spacecraftMatrix: spacecraft.matrixWorld.clone()
+        });
+    }
+
     // Check if we're in first-person view
     const isFirstPerson = spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? spacecraft.isFirstPersonView() : false;
 
     // Update target offsets based on keys - use appropriate view mode
-    const viewMode = isFirstPerson ? 'washingtonCockpit' : 'washington';
+    const viewMode = isFirstPerson ? 'moonCockpit' : 'moon';
     updateTargetOffsets(cameraState, keys, viewMode);
     
     // Update current offsets by interpolating toward targets
     updateCameraOffsets(cameraState, rotation);
     
-    // For washington3D we'll use a simpler camera approach without all the cinematic effects
+    // For moonCesium we'll use a simpler camera approach without all the cinematic effects
     // This maintains compatibility with the existing code while using the new camera module
     let localOffset;
     
     if (keys.up) {
-        localOffset = isFirstPerson ? washingtonCockpitCamera.boost.clone() : washingtonCamera.boost.clone();
+        localOffset = isFirstPerson ? moonCockpitCamera.boost.clone() : moonCamera.boost.clone();
     } else if (keys.down) {
-        localOffset = isFirstPerson ? washingtonCockpitCamera.slow.clone() : washingtonCamera.slow.clone();
+        localOffset = isFirstPerson ? moonCockpitCamera.slow.clone() : moonCamera.slow.clone();
     } else {
-        localOffset = isFirstPerson ? washingtonCockpitCamera.base.clone() : washingtonCamera.base.clone();
+        localOffset = isFirstPerson ? moonCockpitCamera.base.clone() : moonCamera.base.clone();
     }
     
     const cameraPosition = localOffset.applyMatrix4(spacecraft.matrixWorld);
+    
+    // Debug the calculated camera position if enabled
+    if (window.debugCamera) {
+        console.log("Moon Camera Position Calculation:", {
+            localOffset: localOffset.clone(),
+            calculatedCameraPosition: cameraPosition.clone(),
+            currentCameraPosition: camera.position.clone(),
+            smoothFactor: smoothFactor
+        });
+    }
 
     camera.position.lerp(cameraPosition, smoothFactor);
     camera.quaternion.copy(spacecraft.quaternion);
@@ -882,15 +908,15 @@ let updateEngineEffects;
 function setupTiles() {
     tiles.fetchOptions.mode = 'cors';
     tiles.registerPlugin(new GLTFExtensionsPlugin({
-        dracoLoader: new DRACOLoader().setDecoderPath('./draco/')
+        dracoLoader: new DRACOLoader().setDecoderPath(config.DRACO_PATH)
     }));
     
     // Configure Cesium's request scheduler for optimal tile loading performance
     const requestController = configureCesiumRequestScheduler({
-        maximumRequestsPerServer: 6,  // Slightly lower limit for Washington mountains's more detailed tileset
+        maximumRequestsPerServer: 6,  // Slightly lower limit for moon's more detailed tileset
         throttleRequestsByServer: true,
         perServerRequestLimit: 10,     // Additional limit for newer Cesium versions
-        requestQueueSize: 120          // Increased queue size for Washington mountains's complex tileset
+        requestQueueSize: 120          // Increased queue size for moon's complex tileset
     });
     
     // Store the controller for potential later use
@@ -898,10 +924,10 @@ function setupTiles() {
     tiles.userData.requestController = requestController;
     
     // Log the current status of the request scheduler
-    console.log('Cesium RequestScheduler configured for Washington mountains:', requestController.getStatus());
+    console.log('Cesium RequestScheduler configured for moon:', requestController.getStatus());
     
     // Temporarily boost tile request limits during initial load
-    requestController.temporaryBoost(10000); // 10-second boost for initial loading of DC's complex tileset
+    requestController.temporaryBoost(10000); // 10-second boost for initial loading of moon's complex tileset
     
     tiles.onLoadModel = (model) => {
         model.traverse((node) => {
@@ -920,144 +946,10 @@ function setupTiles() {
                 }
             }
         });
-        console.log("Loaded Washington mountains model with shadow settings");
+        console.log("Loaded moon moon model with shadow settings");
     };
     
     scene.add(tiles.group);
-}
-
-// Add a new function to create fixed coordinate system - values found empirically / trial and error
-function createBasePlane() {
-    console.log("Creating fixed coordinate system for Washington");
-  
-    if (window.gridCoordinateSystem) {
-      scene.remove(window.gridCoordinateSystem);
-    }
-  
-    const gridPlaneSystem = new THREE.Group();
-    window.gridCoordinateSystem = gridPlaneSystem;
-  
-    // Adjusted for Washington mountains
-    const fixedPosition = new THREE.Vector3(-1282726.44, -4870561.48, 3855700.32);
-    gridPlaneSystem.position.copy(fixedPosition);
-    const fixedQuaternion = new THREE.Quaternion(0.6390, 0.6326, 0.4253, -0.1034);
-    gridPlaneSystem.quaternion.copy(fixedQuaternion);
-  
-    // Axes setup (unchanged, remains invisible)
-    const axesSize = 500;
-    const axesHelper = new THREE.Group();
-    axesHelper.visible = false;
-    const xGeometry = new THREE.CylinderGeometry(20, 20, axesSize, 8);
-    const xMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, visible: false });
-    const xAxis = new THREE.Mesh(xGeometry, xMaterial);
-    xAxis.rotation.z = -Math.PI / 2;
-    xAxis.position.x = axesSize / 2;
-    const xConeGeometry = new THREE.ConeGeometry(40, 100, 8);
-    const xCone = new THREE.Mesh(xConeGeometry, xMaterial);
-    xCone.rotation.z = -Math.PI / 2;
-    xCone.position.x = axesSize + 50;
-    const yGeometry = new THREE.CylinderGeometry(20, 20, axesSize, 8);
-    const yMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, visible: false });
-    const yAxis = new THREE.Mesh(yGeometry, yMaterial);
-    yAxis.position.y = axesSize / 2;
-    const yConeGeometry = new THREE.ConeGeometry(40, 100, 8);
-    const yCone = new THREE.Mesh(yConeGeometry, yMaterial);
-    yCone.position.y = axesSize + 50;
-    const zGeometry = new THREE.CylinderGeometry(20, 20, axesSize, 8);
-    const zMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff, visible: false });
-    const zAxis = new THREE.Mesh(zGeometry, zMaterial);
-    zAxis.rotation.x = Math.PI / 2;
-    zAxis.position.z = axesSize / 2;
-    const zConeGeometry = new THREE.ConeGeometry(40, 100, 8);
-    const zCone = new THREE.Mesh(zConeGeometry, zMaterial);
-    zCone.rotation.x = Math.PI / 2;
-    zCone.position.z = axesSize + 50;
-    const labelSize = 100;
-    const xLabel = createTextSprite('X', '#ff0000', labelSize / 500);
-    xLabel.position.set(axesSize + 150, 0, 0);
-    xLabel.visible = false;
-    const yLabel = createTextSprite('Y', '#00ff00', labelSize / 500);
-    yLabel.position.set(0, axesSize + 150, 0);
-    yLabel.visible = false;
-    const zLabel = createTextSprite('Z', '#0000ff', labelSize / 500);
-    zLabel.position.set(0, 0, axesSize + 150);
-    zLabel.visible = false;
-    const originGeometry = new THREE.SphereGeometry(40, 16, 16);
-    const originMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, visible: false });
-    const origin = new THREE.Mesh(originGeometry, originMaterial);
-    axesHelper.add(xAxis, xCone, yAxis, yCone, zAxis, zCone, xLabel, yLabel, zLabel, origin);
-    gridPlaneSystem.add(axesHelper);
-  
-    // BASE PLANE SETUP
-    const planeWidth = 8000;
-    const planeHeight = 8000;
-    const planeGeometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
-    const planeMaterial = new THREE.MeshBasicMaterial({ 
-      color: 0x507062, 
-      side: THREE.DoubleSide,
-      transparent: false,
-      opacity: 1.0
-    });
-    basePlane = new THREE.Mesh(planeGeometry, planeMaterial);
-    basePlane.position.set(
-      basePlaneConfig.position.x,
-      basePlaneConfig.position.y,
-      basePlaneConfig.position.z
-    );
-    basePlane.rotation.set(
-      THREE.MathUtils.degToRad(basePlaneConfig.rotation.x),
-      THREE.MathUtils.degToRad(basePlaneConfig.rotation.y),
-      THREE.MathUtils.degToRad(basePlaneConfig.rotation.z)
-    );
-    basePlane.name = "basePlane";
-    gridPlaneSystem.add(basePlane);
-    
-    // No mountain border in Washington version
-  
-    scene.add(gridPlaneSystem);
-  
-    console.log("Fixed coordinate system created with plane at position:", basePlaneConfig.position, "and rotation:", basePlaneConfig.rotation);
-}
-
-// Add a function to update the base plane position and rotation
-export function updateBasePlane(position, rotation) {
-  // Update the configuration
-  if (position) {
-    basePlaneConfig.position.x = position.x !== undefined ? position.x : basePlaneConfig.position.x;
-    basePlaneConfig.position.y = position.y !== undefined ? position.y : basePlaneConfig.position.y;
-    basePlaneConfig.position.z = position.z !== undefined ? position.z : basePlaneConfig.position.z;
-  }
-  
-  if (rotation) {
-    basePlaneConfig.rotation.x = rotation.x !== undefined ? rotation.x : basePlaneConfig.rotation.x;
-    basePlaneConfig.rotation.y = rotation.y !== undefined ? rotation.y : basePlaneConfig.rotation.y;
-    basePlaneConfig.rotation.z = rotation.z !== undefined ? rotation.z : basePlaneConfig.rotation.z;
-  }
-  
-  // If the plane already exists, update its position and rotation
-  if (basePlane) {
-    basePlane.position.set(
-      basePlaneConfig.position.x,
-      basePlaneConfig.position.y,
-      basePlaneConfig.position.z
-    );
-    
-    basePlane.rotation.set(
-      THREE.MathUtils.degToRad(basePlaneConfig.rotation.x),
-      THREE.MathUtils.degToRad(basePlaneConfig.rotation.y),
-      THREE.MathUtils.degToRad(basePlaneConfig.rotation.z)
-    );
-    
-    console.log("Updated base plane position:", basePlaneConfig.position, "and rotation:", basePlaneConfig.rotation);
-  } else {
-    // If the plane doesn't exist yet, recreate it
-    createBasePlane();
-  }
-}
-
-// Replace the dynamic alignGridToTerrain function with our fixed implementation
-function alignGridToTerrain() {
-  createBasePlane();
 }
 
 // Modify the reinstantiateTiles function to call alignGridToTerrain immediately without the timeout delay
@@ -1075,12 +967,10 @@ function reinstantiateTiles() {
     tiles.addEventListener('load-tile-set', () => {
         const sphere = new THREE.Sphere();
         tiles.getBoundingSphere(sphere);
-        console.log('Washington mountains bounding sphere center:', sphere.center);
-        console.log('Washington mountains bounding sphere radius:', sphere.radius);
-        console.log('Washington mountains tileset loaded successfully');
+        console.log('moon bounding sphere center:', sphere.center);
+        console.log('moon bounding sphere radius:', sphere.radius);
+        console.log('moon tileset loaded successfully');
         
-        // Call alignGridToTerrain immediately without timeout
-        alignGridToTerrain();
     });
     tiles.addEventListener('error', (error) => {
         console.error('Tileset loading error:', error);
@@ -1119,74 +1009,23 @@ function initControls() {
     });
 }
 
-function setupWashingtonLighting() {
-    if (!textureLoader) {
-        textureLoader = new THREE.TextureLoader(textureLoadingManager);
-    }
-    
-    // Create a stronger ambient light for more even lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Increased for more even illumination
+function setupmoonLighting() {
+    // Create basic ambient light
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     scene.add(ambientLight);
- 
-    // Create a more focused and less intense directional light for the sun
-    washingtonSun = new THREE.DirectionalLight(0xffffff, 3); // Reduced for better balance
- 
-    // Define the light source position using lat, lon, and height
-    const sunLat = 46.8529; // Mount Rainier latitude
-    const sunLon = -121.7604; // Mount Rainier longitude
-    const sunHeight = 100000; // High altitude to simulate sunlight from above
-    const sunPosition = latLonHeightToEcef(sunLat, sunLon, sunHeight);
-    washingtonSun.position.copy(sunPosition);
- 
-    washingtonSun.castShadow = true;
- 
-    washingtonSun.shadow.mapSize.width = 4096;
-    washingtonSun.shadow.mapSize.height = 4096;
-    washingtonSun.shadow.camera.near = 1000;
-    washingtonSun.shadow.camera.far = 200000;
-    const shadowSize = 20000;
-    washingtonSun.shadow.camera.left = -shadowSize;
-    washingtonSun.shadow.camera.right = shadowSize;
-    washingtonSun.shadow.camera.top = shadowSize;
-    washingtonSun.shadow.camera.bottom = -shadowSize;
-    washingtonSun.shadow.bias = -0.00002;
-    washingtonSun.shadow.normalBias = 0.005;
- 
-    // Set the target at Washington's ground level
-    const targetLat = 38.8895;
-    const targetLon = -77.0352;
-    const targetHeight = 0; // Ground level
-    const targetPosition = latLonHeightToEcef(targetLat, targetLon, targetHeight);
-    const target = new THREE.Object3D();
-    target.position.copy(targetPosition);
-    scene.add(target);
-    washingtonSun.target = target;
- 
-    scene.add(washingtonSun);
- 
-    // Reduce intensity of additional lights or remove them for space environment
-    const sideLight = new THREE.DirectionalLight(0xffffff, 0.2); // Reduced from 0.5 to 0.2
-    sideLight.position.set(-1, -1, 1).normalize();
-    scene.add(sideLight);
     
-    // Use a very dim blue fill light for space ambience
-    const fillLight = new THREE.DirectionalLight(0xaaaaff, 0.1); // Reduced from 0.2 to 0.1
-    fillLight.position.set(0, -1, 0);
-    scene.add(fillLight);
-    
-    // Add a hemisphere light for more even illumination from above
-    const hemisphereLight = new THREE.HemisphereLight(
-        0xffffff,  // Sky color - white light from above
-        0x444444,  // Ground color - darker light from below
-        0.4        // Intensity
-    );
+    // Add hemisphere light for more natural illumination
+    const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.5);
     scene.add(hemisphereLight);
     
-    // Add a main directional sun positioned using lat/lon coordinates
-    playerSun = new THREE.DirectionalLight(playerSunConfig.color, playerSunConfig.intensity);
-    playerSun.castShadow = true;
+    // Setup player sun directional light
+    playerSun = new THREE.DirectionalLight(
+        playerSunConfig.color, 
+        playerSunConfig.intensity
+    );
     
-    // Configure shadows for better quality
+    // Configure shadows
+    playerSun.castShadow = true;
     playerSun.shadow.mapSize.width = 2048;
     playerSun.shadow.mapSize.height = 2048;
     playerSun.shadow.camera.near = 0.5;
@@ -1197,29 +1036,21 @@ function setupWashingtonLighting() {
     playerSun.shadow.camera.bottom = -3000;
     playerSun.shadow.bias = -0.0001;
     
-    // Position the sun using global coordinates
-    const playerSunPosition = latLonHeightToEcef(
-        playerSunConfig.position.lat,
-        playerSunConfig.position.lon,
-        playerSunConfig.position.height
-    );
-    playerSun.position.copy(playerSunPosition);
-    
-    // Create a target object for the player sun
+    // Setup target for the sun to point at
     playerSunTarget = new THREE.Object3D();
     scene.add(playerSunTarget);
     playerSun.target = playerSunTarget;
     
-    // Add the player sun to the scene
+    // Add sun to scene
     scene.add(playerSun);
     
-    console.log(`Sun initialized at global coordinates: lat ${playerSunConfig.position.lat}, lon ${playerSunConfig.position.lon}, height ${playerSunConfig.position.height}`);
+    // Initial update of light positions will happen in the first updatemoonLighting call
 }
 
 export function init() {
-    console.log("Washington mountains 3D initialization started");
+    console.log("moon 3D initialization started");
  
-    if (washingtonInitialized) {
+    if (moonInitialized) {
         console.log("Already initialized, skipping");
         return { scene: scene, camera: camera, renderer: renderer, tiles: tiles };
     }
@@ -1235,14 +1066,14 @@ export function init() {
         precision: 'highp',
         powerPreference: 'high-performance'
     });
-    renderer.setClearColor(0x87ceeb); // Set background to blue
+    renderer.setClearColor(0x000000); // Set background to black
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.physicallyCorrectLights = true;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 0.8; // Reduced from 1.2 for darker space
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.gammaFactor = 2.2;
  
@@ -1254,8 +1085,13 @@ export function init() {
     camera.lookAt(0, 0, 0);
  
     textureLoader = new THREE.TextureLoader(textureLoadingManager);
-    setupWashingtonLighting();
     initSpacecraft();
+    setupmoonLighting();
+    
+    // Initialize player sun position after spacecraft is created
+    if (spacecraft && playerSun) {
+        updatemoonLighting();
+    }
     
     // Create reference sphere after spacecraft is initialized
     createReferenceSphere();
@@ -1266,8 +1102,8 @@ export function init() {
     window.addEventListener('resize', onWindowResize, false);
     initControls();
 
-    washingtonInitialized = true;
-    console.log("Washington mountains 3D initialization complete");
+    moonInitialized = true;
+    console.log("moon 3D initialization complete");
     
     return { 
         scene: scene, 
@@ -1279,7 +1115,7 @@ export function init() {
 
 export function update(deltaTime = 0.016) {
     try {
-        if (!washingtonInitialized) {
+        if (!moonInitialized) {
             console.log("Not initialized yet");
             return false;
         }
@@ -1288,7 +1124,15 @@ export function update(deltaTime = 0.016) {
             return false;
         }
 
+        // Update spacecraft movement first
         updateMovement();
+        
+        // CRITICAL: Update spacecraft matrix world before camera calculations
+        if (spacecraft) {
+            spacecraft.updateMatrixWorld(true);
+        }
+        
+        // Now update camera with updated spacecraft matrix
         updateCamera();
         
         // Handle laser firing with spacebar
@@ -1318,7 +1162,7 @@ export function update(deltaTime = 0.016) {
             });
         }
         
-        updateWashingtonLighting();
+        updatemoonLighting();
 
         // Death Star is completely fixed in space
  
@@ -1335,9 +1179,11 @@ export function update(deltaTime = 0.016) {
             tiles.userData.terrainController.decreaseDetail();
         }
 
+        // Ensure camera matrices are updated before tile updates
+        camera.updateMatrixWorld(true);
+        
         tiles.setCamera(camera);
         tiles.setResolutionFromRenderer(camera, renderer);
-        camera.updateMatrixWorld();
         tiles.update();
         
         // Update cockpit elements if in first-person view
@@ -1352,56 +1198,34 @@ export function update(deltaTime = 0.016) {
     }
 }
 
-function updateWashingtonLighting() {
-    if (!washingtonSun || !spacecraft) return;
+function updatemoonLighting() {
+    if (!spacecraft || !playerSun || !playerSunTarget) return;
     
     const spacecraftPosition = spacecraft.position.clone();
-    washingtonSun.position.set(
-        spacecraftPosition.x,
-        spacecraftPosition.y + 100000,
-        spacecraftPosition.z
+    
+    // Position the sun based on mode (fixed or following)
+    if (playerSunConfig.fixedPosition) {
+        // Use global coordinates for fixed position
+        playerSun.position.copy(latLonToCartesian(
+            playerSunConfig.position.lat,
+            playerSunConfig.position.lon,
+            playerSunConfig.position.height
+        ));
+    } else {
+        // Use player-relative position
+        const playerUp = new THREE.Vector3(0, 1, 0).applyQuaternion(spacecraft.quaternion).normalize();
+        playerSun.position.copy(spacecraftPosition).add(playerUp.multiplyScalar(playerSunConfig.position.height));
+    }
+    
+    // Always point at the player with optional offset
+    playerSunTarget.position.copy(spacecraftPosition).add(
+        new THREE.Vector3(playerSunConfig.targetOffset.x, playerSunConfig.targetOffset.y, playerSunConfig.targetOffset.z)
     );
     
-    if (washingtonSun.target) {
-        washingtonSun.target.position.copy(spacecraftPosition);
-        washingtonSun.target.updateMatrixWorld();
-    }
-    
-    // Update the player sun based on config
-    if (playerSun && playerSunTarget) {
-        if (playerSunConfig.fixedPosition) {
-            // For fixed position, use the global lat/lon coordinates to position the sun
-            // Only update if we need to maintain the position in global space
-            const playerSunPosition = latLonHeightToEcef(
-                playerSunConfig.position.lat,
-                playerSunConfig.position.lon,
-                playerSunConfig.position.height
-            );
-            playerSun.position.copy(playerSunPosition);
-            
-            // Point the sun at the player's position
-            playerSunTarget.position.copy(spacecraftPosition);
-            playerSunTarget.position.add(new THREE.Vector3(
-                playerSunConfig.targetOffset.x,
-                playerSunConfig.targetOffset.y,
-                playerSunConfig.targetOffset.z
-            ));
-        } else {
-            // If following player, position the sun above the player's local up direction
-            const playerUp = new THREE.Vector3(0, 1, 0).applyQuaternion(spacecraft.quaternion);
-            playerUp.normalize().multiplyScalar(playerSunConfig.position.height);
-            
-            // Set the sun position relative to the player
-            playerSun.position.copy(spacecraftPosition).add(playerUp);
-            
-            // Set the target to the player's position
-            playerSunTarget.position.copy(spacecraftPosition);
-        }
-        
-        playerSunTarget.updateMatrixWorld();
-        playerSun.target = playerSunTarget;
-        playerSun.updateMatrixWorld(true);
-    }
+    // Update matrices
+    playerSunTarget.updateMatrixWorld();
+    playerSun.target = playerSunTarget;
+    playerSun.updateMatrixWorld(true);
 }
 
 function onWindowResize() {
@@ -1411,124 +1235,73 @@ function onWindowResize() {
     renderer.setPixelRatio(window.devicePixelRatio);
 }
 
-// Add a function to check collision with base plane
-function checkBasePlaneCollision() {
-    if (!spacecraft || !basePlane || !window.gridCoordinateSystem) return false;
-
-    // Get the world position of the spacecraft
-    const spacecraftWorldPosition = spacecraft.getWorldPosition(new THREE.Vector3());
-
-    // Get the plane's world position and quaternion
-    const planeWorldPosition = new THREE.Vector3();
-    basePlane.getWorldPosition(planeWorldPosition);
-    const planeQuaternion = window.gridCoordinateSystem.quaternion;
-
-    // Get the plane's normal (Z-axis of the grid system, pointing "up" in local space)
-    const planeNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(planeQuaternion);
-
-    // Define collision thresholds
-    const planeCollisionThreshold = 4; // Increased from 2 to 4 for stronger base plane collision
-
-    // --- Plane Collision (prevent passing through the base plane) ---
-    const raycasterPlane = new THREE.Raycaster();
-    raycasterPlane.set(spacecraftWorldPosition, planeNormal.clone().negate()); // Ray downward
-    const planeIntersects = raycasterPlane.intersectObject(basePlane);
-
-    if (planeIntersects.length > 0 && planeIntersects[0].distance < planeCollisionThreshold) {
-        const pushDistance = planeCollisionThreshold - planeIntersects[0].distance;
-        const pushDirection = planeNormal.clone(); // Push upward
-        spacecraft.position.add(pushDirection.multiplyScalar(pushDistance));
-        
-        // Reduce velocity on collision to prevent momentum carrying through the base plane
-        currentSpeed *= 0.5; // Reduce speed by 50% on collision
-        
-        console.log("Collision detected with base plane, pushing upward");
-        return true;
-    }
-
-    return false;
-}
 
 // Add these functions to export so they can be called from other files or the console
 
 /**
- * Set the position of the player sun using lat/lon coordinates
- * @param {number} lat - Latitude in degrees
- * @param {number} lon - Longitude in degrees
- * @param {number} height - Height above sea level in meters (optional)
+ * Updates any aspect of the player sun configuration and applies changes immediately
+ * @param {Object} config - Configuration object with any of these optional properties:
+ * @param {Object} config.position - Position object with lat, lon, and/or height
+ * @param {number} config.intensity - Light intensity (0-20 recommended)
+ * @param {number} config.color - Color in hex format (e.g., 0xffffcc)
+ * @param {boolean} config.fixedPosition - Whether sun stays fixed in world space
+ * @param {Object} config.targetOffset - Target offset with x, y, and/or z
+ * @returns {Object} The updated configuration
  */
-export function setPlayerSunPosition(lat, lon, height = null) {
-    playerSunConfig.position.lat = lat;
-    playerSunConfig.position.lon = lon;
-    
-    if (height !== null && height > 0) {
-        playerSunConfig.position.height = height;
-    }
-    
-    console.log(`Player sun position set to lat: ${lat}, lon: ${lon}, height: ${playerSunConfig.position.height}`);
-    
-    // Update the sun position immediately if it exists
-    if (playerSun) {
-        const playerSunPosition = latLonHeightToEcef(
-            playerSunConfig.position.lat,
-            playerSunConfig.position.lon,
-            playerSunConfig.position.height
-        );
-        playerSun.position.copy(playerSunPosition);
-        playerSun.updateMatrixWorld(true);
-    }
-}
-
-/**
- * Set the height of the player sun above sea level
- * @param {number} height - Height in meters above sea level
- */
-export function setPlayerSunHeight(height) {
-    if (height > 0) {
-        playerSunConfig.position.height = height;
-        console.log(`Player sun height set to ${height} meters`);
-        
-        // Update the sun position immediately if it exists
-        if (playerSun) {
-            const playerSunPosition = latLonHeightToEcef(
-                playerSunConfig.position.lat,
-                playerSunConfig.position.lon,
-                playerSunConfig.position.height
-            );
-            playerSun.position.copy(playerSunPosition);
-            playerSun.updateMatrixWorld(true);
+export function updatePlayerSun(config = {}) {
+    // Update position if provided
+    if (config.position) {
+        if (config.position.lat !== undefined) {
+            playerSunConfig.position.lat = config.position.lat;
         }
-    } else {
-        console.warn("Player sun height must be greater than 0");
-    }
-}
-
-/**
- * Set the intensity of the player sun
- * @param {number} intensity - Light intensity (recommended range: 0-20)
- */
-export function setPlayerSunIntensity(intensity) {
-    if (intensity >= 0) {
-        playerSunConfig.intensity = intensity;
-        if (playerSun) {
-            playerSun.intensity = intensity;
+        if (config.position.lon !== undefined) {
+            playerSunConfig.position.lon = config.position.lon;
         }
-        console.log(`Player sun intensity set to ${intensity}`);
-    } else {
-        console.warn("Player sun intensity must be non-negative");
+        if (config.position.height !== undefined && config.position.height > 0) {
+            playerSunConfig.position.height = config.position.height;
+        }
     }
-}
-
-/**
- * Set the color of the player sun
- * @param {number} color - Color in hex format (e.g., 0xffffcc for warm sunlight)
- */
-export function setPlayerSunColor(color) {
-    playerSunConfig.color = color;
-    if (playerSun) {
-        playerSun.color.set(color);
+    
+    // Update intensity if provided
+    if (config.intensity !== undefined && config.intensity >= 0) {
+        playerSunConfig.intensity = config.intensity;
+        if (playerSun) {
+            playerSun.intensity = config.intensity;
+        }
     }
-    console.log(`Player sun color set to 0x${color.toString(16)}`);
+    
+    // Update color if provided
+    if (config.color !== undefined) {
+        playerSunConfig.color = config.color;
+        if (playerSun) {
+            playerSun.color.set(config.color);
+        }
+    }
+    
+    // Update fixed position setting if provided
+    if (config.fixedPosition !== undefined) {
+        playerSunConfig.fixedPosition = config.fixedPosition;
+    }
+    
+    // Update target offset if provided
+    if (config.targetOffset) {
+        if (config.targetOffset.x !== undefined) {
+            playerSunConfig.targetOffset.x = config.targetOffset.x;
+        }
+        if (config.targetOffset.y !== undefined) {
+            playerSunConfig.targetOffset.y = config.targetOffset.y;
+        }
+        if (config.targetOffset.z !== undefined) {
+            playerSunConfig.targetOffset.z = config.targetOffset.z;
+        }
+    }
+    
+    // Update sun position immediately if it exists and spacecraft exists
+    if (playerSun && spacecraft) {
+        updatemoonLighting();
+    }
+    
+    return { ...playerSunConfig };
 }
 
 /**
@@ -1539,52 +1312,54 @@ export function getPlayerSunConfig() {
     return { ...playerSunConfig };
 }
 
-/**
- * Set whether the sun should be fixed in world space or follow the player
- * @param {boolean} fixed - Whether the sun stays in a fixed position (true) or follows the player (false)
- */
-export function setPlayerSunFixed(fixed) {
-    playerSunConfig.fixedPosition = fixed;
-    
-    // Update the sun position immediately if it exists
-    if (playerSun && spacecraft) {
-        if (fixed) {
-            // When switching to fixed, update the global position
-            const playerSunPosition = latLonHeightToEcef(
-                playerSunConfig.position.lat,
-                playerSunConfig.position.lon,
-                playerSunConfig.position.height
-            );
-            playerSun.position.copy(playerSunPosition);
-        } else {
-            // When switching to player-relative, update the local position
-            const playerUp = new THREE.Vector3(0, 1, 0).applyQuaternion(spacecraft.quaternion);
-            playerUp.normalize().multiplyScalar(playerSunConfig.position.height);
-            playerSun.position.copy(spacecraft.position).add(playerUp);
-        }
-        playerSun.updateMatrixWorld(true);
+// For backward compatibility, maintain the individual setter functions
+// but implement them using our new consolidated function
+
+export function setPlayerSunPosition(lat, lon, height = null) {
+    const position = { lat, lon };
+    if (height !== null && height > 0) {
+        position.height = height;
     }
-    
+    updatePlayerSun({ position });
+    console.log(`Player sun position set to lat: ${lat}, lon: ${lon}, height: ${playerSunConfig.position.height}`);
+}
+
+export function setPlayerSunHeight(height) {
+    if (height > 0) {
+        updatePlayerSun({ position: { height } });
+        console.log(`Player sun height set to ${height} meters`);
+    } else {
+        console.warn("Player sun height must be greater than 0");
+    }
+}
+
+export function setPlayerSunIntensity(intensity) {
+    if (intensity >= 0) {
+        updatePlayerSun({ intensity });
+        console.log(`Player sun intensity set to ${intensity}`);
+    } else {
+        console.warn("Player sun intensity must be non-negative");
+    }
+}
+
+export function setPlayerSunColor(color) {
+    updatePlayerSun({ color });
+    console.log(`Player sun color set to 0x${color.toString(16)}`);
+}
+
+export function setPlayerSunFixed(fixed) {
+    updatePlayerSun({ fixedPosition: fixed });
     console.log(`Sun position set to ${fixed ? 'fixed in global coordinates' : 'follow player orientation'}`);
 }
 
-/**
- * Set the target offset for the player sun
- * This allows adjusting where the sun points relative to the player
- * @param {number} x - X offset
- * @param {number} y - Y offset
- * @param {number} z - Z offset
- */
 export function setPlayerSunTargetOffset(x = 0, y = 0, z = 0) {
-    playerSunConfig.targetOffset.x = x;
-    playerSunConfig.targetOffset.y = y;
-    playerSunConfig.targetOffset.z = z;
-    
+    updatePlayerSun({ targetOffset: { x, y, z } });
     console.log(`Player sun target offset set to (${x}, ${y}, ${z})`);
 }
 
 /**
- * Creates a reference sphere at a fixed position in space
+ * Creates a reference sphere in front of the player at scene initialization
+ * // the "REFERENCE SPHERE" is the model of the earth that appears in the distance
  */
 function createReferenceSphere() {
   if (!spacecraft) {
@@ -1596,7 +1371,7 @@ function createReferenceSphere() {
   const geometry = new THREE.SphereGeometry(sphereConfig.radius, 32, 32);
   
   // Load Earth texture from skybox folder
-  const earthTexture = textureLoader.load(`${config.textures.path}/2k_neptune.jpg`, (texture) => {
+  const earthTexture = textureLoader.load(`${config.textures.path}/2k_earth_daymap.jpg`, (texture) => {
 
     // Apply a simple blur effect to the texture to simulate atmosphere
     // texture.minFilter = THREE.LinearFilter;
@@ -1626,32 +1401,17 @@ function createReferenceSphere() {
     color: 0x606060
   });
   
-  // Add atmosphere effect with gradient haze at the bottom
+  // Add a slight blue rim glow by adjusting material properties
   material.onBeforeCompile = (shader) => {
-    // Add shader code for atmospheric effect
+    // Add simple effect to soften the edge - simulates atmospheric scattering
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <dithering_fragment>',
       `
       #include <dithering_fragment>
-      
-      // Calculate position-based factors for atmospheric effects
+      // Simple atmospheric effect - add slight blue tint at the edges
       float edgeFactor = 1.0 - abs(dot(vNormal, vec3(0.0, 0.0, 1.0)));
-      edgeFactor = smoothstep(0.3, 1.0, edgeFactor) * 0.3; // Edge atmosphere (subtle blue)
-      
-      // Calculate bottom haze effect - strongest at the bottom of the planet
-      float bottomFactor = smoothstep(0.0, 0.7, -vNormal.y);
-      bottomFactor *= 0.7; // Control intensity
-      
-      // Apply blue rim glow (lighter at edges)
+      edgeFactor = smoothstep(0.3, 1.0, edgeFactor) * 0.3; // Control intensity here (0.3 is subtle)
       gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.5, 0.7, 1.0), edgeFactor);
-      
-      // Apply white-green atmospheric haze at the bottom
-      vec3 hazeColor = mix(vec3(0.9, 1.0, 0.9), vec3(0.7, 0.95, 0.7), bottomFactor * 0.5);
-      gl_FragColor.rgb = mix(gl_FragColor.rgb, hazeColor, bottomFactor);
-      
-      // Add slight bloom/glow effect
-      float glowIntensity = bottomFactor * 0.3;
-      gl_FragColor.rgb += hazeColor * glowIntensity;
       `
     );
   };
@@ -1678,25 +1438,20 @@ function createReferenceSphere() {
 function updateReferenceSpherePlacement() {
   if (!referenceSphere || !spacecraft) return;
   
-  // Get the initial spacecraft position 
-  const mtRainierLat = 46.8529;
-  const mtRainierLon = -121.7604;
-  const initialHeight = 5000;
-  const initialPosition = latLonHeightToEcef(mtRainierLat, mtRainierLon, initialHeight);
-  
-  // Create a direction vector pointing forward from spacecraft's initial orientation
-  const initialRotation = new THREE.Euler(
-    THREE.MathUtils.degToRad(-20),
-    THREE.MathUtils.degToRad(75),
-    THREE.MathUtils.degToRad(150),
-    'XYZ'
+  // Get the initial spacecraft position and orientation
+  const initialPosition = latLonToCartesian(
+    SPACECRAFT_INITIAL_LAT, 
+    SPACECRAFT_INITIAL_LON, 
+    SPACECRAFT_INITIAL_HEIGHT
   );
+  
+  // Create a direction vector pointing forward from spacecraft
   const forward = new THREE.Vector3(0, 0, 1);
-  forward.applyEuler(initialRotation);
+  forward.applyEuler(SPACECRAFT_INITIAL_ROTATION);
   
   // Create side and up vectors for orientation
   const up = new THREE.Vector3(0, 1, 0);
-  up.applyEuler(initialRotation);
+  up.applyEuler(SPACECRAFT_INITIAL_ROTATION);
   const right = new THREE.Vector3().crossVectors(forward, up).normalize();
   
   // Apply polar coordinates
@@ -1823,3 +1578,4 @@ export function setReferenceSphereVisibility(visible) {
 export function getReferenceSphereConfig() {
   return { ...sphereConfig };
 }
+

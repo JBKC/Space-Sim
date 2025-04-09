@@ -4,8 +4,7 @@ import { CesiumIonAuthPlugin } from '3d-tiles-renderer/src/plugins/three/CesiumI
 import { GLTFExtensionsPlugin } from '3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { Water } from 'three/examples/jsm/objects/Water.js'; // Correct import for ocean
-import { createSpacecraft } from './spacecraft.js';
-import { fireLaser, updateLasers } from './laser.js';
+import { createSpacecraft } from '../spacecraft.js';
 import { 
     sanFranCamera, 
     sanFranCockpitCamera,
@@ -13,13 +12,13 @@ import {
     updateTargetOffsets, 
     updateCameraOffsets, 
     createForwardRotation, 
-} from './camera.js';
+} from '../camera.js';
 // Import Cesium rate limiting utilities
-import { configureCesiumRequestScheduler, optimizeTerrainLoading } from './cesiumRateLimit.js';
+import { configureCesiumRequestScheduler, optimizeTerrainLoading } from '../cesiumRateLimit.js';
 // Import the config
-import config from './config.js';
+import config from '../config.js';
 // Import loading managers
-import { loadingManager, textureLoadingManager } from './loaders.js';
+import { loadingManager, textureLoadingManager } from '../loaders.js';
 
 let camera, scene, renderer, tiles, cameraTarget;
 let sanFranInitialized = false;
@@ -1539,11 +1538,9 @@ export function update(deltaTime = 0.016) {
  // Handle laser firing with spacebar
  if (keys.space && spacecraft) {
    // LASER FIRING DISABLED
-   // fireLaser(spacecraft, scene, 'sanFran', keys.up, keys.down);
  }
  
  // Update all active lasers
- updateLasers(deltaTime);
  
  // Update reticle position if available
  if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {

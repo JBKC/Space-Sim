@@ -255,7 +255,7 @@ function initSpacecraft() {
 
     // Verify reticle creation
     if (spacecraftComponents.reticle) {
-    console.log("Reticle was successfully created with spacecraft in moon3D.js");
+    console.log("Reticle was successfully created with spacecraft in moonCesium.js");
     } else {
     console.warn("Reticle not found in spacecraft components");
     }
@@ -872,7 +872,7 @@ export function updateCamera() {
     // Update current offsets by interpolating toward targets
     updateCameraOffsets(cameraState, rotation);
     
-    // For moon3D we'll use a simpler camera approach without all the cinematic effects
+    // For moonCesium we'll use a simpler camera approach without all the cinematic effects
     // This maintains compatibility with the existing code while using the new camera module
     let localOffset;
     
