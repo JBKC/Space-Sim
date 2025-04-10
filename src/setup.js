@@ -18,6 +18,7 @@ import { loadingManager, textureLoadingManager } from './loaders.js';
 import { stars, starCount, starRange, starPositions, starColors, starSizes } from './solarSystemEnv';
 // Import the controls module
 import { initControls, getHyperspaceState } from './controls.js';
+import { createReticle, setReticleVisibility, ensureReticleConsistency } from './reticle.js';
 
 
 // General initialization
@@ -163,7 +164,22 @@ export function renderScene() {
         console.log("Earth surface active, deferring rendering");
     } else {
         // Only render space scene if neither moon nor earth surfaces are active
+        
+        // Make sure the reticle is visible if it exists
+        if (spacecraft && spacecraft.userData && spacecraft.userData.reticle) {
+            spacecraft.userData.reticle.visible = true;
+        }
+        
+        // Render the scene
         renderer.render(scene, camera);
+        
+        // Debug: log reticle info occasionally 
+        if (Math.random() < 0.01) { // 1% chance each frame to avoid spam
+            if (spacecraft && spacecraft.userData && spacecraft.userData.reticle) {
+                const reticle = spacecraft.userData.reticle;
+                console.log(`Reticle debug: visible=${reticle.visible}, renderOrder=${reticle.renderOrder}, distance=${config.distance}, position=${reticle.position.x.toFixed(2)},${reticle.position.y.toFixed(2)},${reticle.position.z.toFixed(2)}`);
+            }
+        }
     }
 }
 
@@ -361,8 +377,27 @@ export { spacecraft, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing,
 
 // Initialize spacecraft
 function initSpacecraft() {
-    const spacecraftComponents = createSpacecraft(scene);
+    console.log("Initializing spacecraft in space...");
+    
+    // Create the spacecraft using the factory function
+    spacecraftComponents = createSpacecraft(scene);
     spacecraft = spacecraftComponents.spacecraft;
+    
+    if (spacecraftComponents.reticle) {
+        console.log("Reticle was successfully created with spacecraft in setup.js");
+        // Ensure reticle is explicitly set to visible
+        spacecraftComponents.reticle.visible = true;
+        // Set depthTest to false to ensure it's always rendered on top
+        spacecraftComponents.reticle.traverse(child => {
+            if (child.material) {
+                child.material.depthTest = false;
+                child.material.needsUpdate = true;
+            }
+        });
+    } else {
+        console.warn("Reticle not found in spacecraft components");
+    }
+
     engineGlowMaterial = spacecraftComponents.engineGlowMaterial;
     lightMaterial = spacecraftComponents.lightMaterial;
     topRightWing = spacecraftComponents.topRightWing;
@@ -396,13 +431,6 @@ function initSpacecraft() {
         }
     }, 1000); // 1 second delay to ensure model is fully loaded and processed
 
-    // Verify reticle creation
-    if (spacecraftComponents.reticle) {
-        console.log("Reticle was successfully created with spacecraft in setup.js");
-    } else {
-        console.warn("Reticle not found in spacecraft components");
-    }
-
     spacecraft.position.set(40000, 40000, 40000);
     const centerPoint = new THREE.Vector3(0, 0, 10000);
     spacecraft.lookAt(centerPoint);
@@ -434,6 +462,12 @@ export function init() {
     
     // Reset the counter each time the game starts
     resetExploredObjects();
+    
+    // Ensure reticle is consistent and visible
+    if (typeof ensureReticleConsistency === 'function') {
+        ensureReticleConsistency();
+        console.log("Ensured reticle consistency during initialization");
+    }
 
     spaceInitialized = true;
     console.log("Space initialization complete");
@@ -496,10 +530,12 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
             // console.log("Updating reticle in setup.js");
             spacecraft.userData.updateReticle(isBoosting, keys.down);  // Pass both boost and slow states
             
-            // Make sure the reticle is visible in space scene
-            if (spacecraft.userData.reticle && !spacecraft.userData.reticle.visible) {
+            // Ensure reticle is visible in space scene
+            if (spacecraft.userData.reticle) {
                 spacecraft.userData.reticle.visible = true;
-                console.log("Enforcing reticle visibility in space scene");
+                
+                // Make sure reticle is always in front of everything
+                spacecraft.userData.reticle.renderOrder = 9999;
             }
         } else {
             // Only log this warning once to avoid console spam
@@ -605,12 +641,6 @@ export function exitEarthSurface() {
         document.body.removeChild(resetMessage);
     }
     
-    // Reset reticle visibility when returning to space
-    if (spacecraft && spacecraft.userData && spacecraft.userData.reticle) {
-        spacecraft.userData.reticle.visible = true;
-        console.log("Reticle visibility reset when exiting Earth surface");
-    }
-    
     // Position spacecraft away from Earth to avoid immediate re-entry
     const directionVector = new THREE.Vector3(1, 1, 1).normalize();
     spacecraft.position.set(
@@ -663,25 +693,10 @@ export function exitMoonSurface() {
     console.log("Exiting Moon's surface!");
     isMoonSurfaceActive = false;
     
-    // Update the controls dropdown to show hyperspace option again
-    updateControlsDropdown(false, false);
-    
     // Remove the persistent surface message if it exists
     const persistentMessage = document.getElementById('moon-surface-message');
     if (persistentMessage) {
         document.body.removeChild(persistentMessage);
-    }
-    
-    // Remove the reset position message if it exists
-    const resetMessage = document.getElementById('reset-position-message');
-    if (resetMessage) {
-        document.body.removeChild(resetMessage);
-    }
-    
-    // Reset reticle visibility when returning to space
-    if (spacecraft && spacecraft.userData && spacecraft.userData.reticle) {
-        spacecraft.userData.reticle.visible = true;
-        console.log("Reticle visibility reset when exiting Moon surface");
     }
     
     // Position spacecraft away from Moon to avoid immediate re-entry
