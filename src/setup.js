@@ -4,7 +4,6 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { updateSpaceMovement, keys } from './movement.js';
 import { createSpacecraft } from './spacecraft.js';
-import { createReticle, setReticleVisibility } from './reticle.js';
 import { updateControlsDropdown } from './ui.js';
 import { 
     spaceCamera, 
@@ -472,7 +471,7 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
 
         // Update spacecraft effects
         if (updateEngineEffects) {
-            console.log("Calling updateEngineEffects with isBoosting:", isBoosting, "keys.up:", keys.up, "keys.down:", keys.down);
+            // console.log("Calling updateEngineEffects with isBoosting:", isBoosting, "keys.up:", keys.up, "keys.down:", keys.down);
             updateEngineEffects(isBoosting || keys.up, keys.down);
         } else {
             console.warn("updateEngineEffects function is not available:", updateEngineEffects);
@@ -496,6 +495,12 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
             // console.log("Updating reticle in setup.js");
             spacecraft.userData.updateReticle(isBoosting, keys.down);  // Pass both boost and slow states
+            
+            // Make sure the reticle is visible in space scene
+            if (spacecraft.userData.reticle && !spacecraft.userData.reticle.visible) {
+                spacecraft.userData.reticle.visible = true;
+                console.log("Enforcing reticle visibility in space scene");
+            }
         } else {
             // Only log this warning once to avoid console spam
             if (!window.setupReticleWarningLogged) {
@@ -600,6 +605,12 @@ export function exitEarthSurface() {
         document.body.removeChild(resetMessage);
     }
     
+    // Reset reticle visibility when returning to space
+    if (spacecraft && spacecraft.userData && spacecraft.userData.reticle) {
+        spacecraft.userData.reticle.visible = true;
+        console.log("Reticle visibility reset when exiting Earth surface");
+    }
+    
     // Position spacecraft away from Earth to avoid immediate re-entry
     const directionVector = new THREE.Vector3(1, 1, 1).normalize();
     spacecraft.position.set(
@@ -607,28 +618,7 @@ export function exitEarthSurface() {
         earthGroup.position.y + directionVector.y * (earthRadius * 4),
         earthGroup.position.z + directionVector.z * (earthRadius * 4)
     );
-    
-    // Reset spacecraft rotation to look toward the center of the solar system
-    spacecraft.lookAt(new THREE.Vector3(0, 0, 0));
 
-    // Re-initialize the reticle for the spacecraft in space
-    if (spacecraft) {
-        console.log("Re-creating and re-attaching reticle to spacecraft after Earth exit");
-        // First, check if there's an existing reticle to clean up
-        if (spacecraft.userData && spacecraft.userData.reticle) {
-            // Remove old reticle from scene if it exists
-            scene.remove(spacecraft.userData.reticle);
-        }
-        
-        // Create a new reticle and attach it to the spacecraft
-        const reticleComponent = createReticle(scene, spacecraft);
-        spacecraft.userData.reticle = reticleComponent.reticle;
-        spacecraft.userData.updateReticle = reticleComponent.update;
-        spacecraft.userData.reticle.visible = true;
-        
-        // Reset the warning flag so we get warned if the reticle is missing
-        window.setupReticleWarningLogged = false;
-    }
     
     // Show the space container again
     const spaceContainer = document.getElementById('space-container');
@@ -673,10 +663,25 @@ export function exitMoonSurface() {
     console.log("Exiting Moon's surface!");
     isMoonSurfaceActive = false;
     
+    // Update the controls dropdown to show hyperspace option again
+    updateControlsDropdown(false, false);
+    
     // Remove the persistent surface message if it exists
     const persistentMessage = document.getElementById('moon-surface-message');
     if (persistentMessage) {
         document.body.removeChild(persistentMessage);
+    }
+    
+    // Remove the reset position message if it exists
+    const resetMessage = document.getElementById('reset-position-message');
+    if (resetMessage) {
+        document.body.removeChild(resetMessage);
+    }
+    
+    // Reset reticle visibility when returning to space
+    if (spacecraft && spacecraft.userData && spacecraft.userData.reticle) {
+        spacecraft.userData.reticle.visible = true;
+        console.log("Reticle visibility reset when exiting Moon surface");
     }
     
     // Position spacecraft away from Moon to avoid immediate re-entry
@@ -689,25 +694,7 @@ export function exitMoonSurface() {
     
     // Reset spacecraft rotation to look toward the center of the solar system
     spacecraft.lookAt(new THREE.Vector3(0, 0, 0));
-    
-    // Re-initialize the reticle for the spacecraft in space
-    if (spacecraft) {
-        console.log("Re-creating and re-attaching reticle to spacecraft after Moon exit");
-        // First, check if there's an existing reticle to clean up
-        if (spacecraft.userData && spacecraft.userData.reticle) {
-            // Remove old reticle from scene if it exists
-            scene.remove(spacecraft.userData.reticle);
-        }
-        
-        // Create a new reticle and attach it to the spacecraft
-        const reticleComponent = createReticle(scene, spacecraft);
-        spacecraft.userData.reticle = reticleComponent.reticle;
-        spacecraft.userData.updateReticle = reticleComponent.update;
-        spacecraft.userData.reticle.visible = true;
-        
-        // Reset the warning flag so we get warned if the reticle is missing
-        window.setupReticleWarningLogged = false;
-    }
+
     
     // Show the space container again
     const spaceContainer = document.getElementById('space-container');
