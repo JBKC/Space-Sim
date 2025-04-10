@@ -18,8 +18,6 @@ import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
  * @property {number} transitionSpeed - Speed of transition between scaling states (0-1)
  * @property {number} glowIntensity - Intensity of the glow effect
  * @property {number} glowSize - Size of the glow effect
- * @property {number} secondaryGlowSize - Size of the secondary glow effect
- * @property {number} secondaryGlowIntensity - Intensity of the secondary glow
  */
 const config = {
     size: 0.3,             // Increased size for better visibility
@@ -37,8 +35,6 @@ const config = {
     transitionSpeed: 0.1,  // Speed of transition between normal and boost scale (0-1)
     glowIntensity: 1.5,    // Significantly increased glow intensity
     glowSize: 0.06,        // Significantly increased glow size
-    secondaryGlowSize: 0.1, // Size of the secondary glow effect
-    secondaryGlowIntensity: 0.8 // Intensity of the secondary glow
 };
 
 // Reticle object to be attached to the spacecraft
@@ -191,59 +187,6 @@ export function createReticle(scene, spacecraft, camera) {
     const primaryGlow = new THREE.Mesh(glowGeometry, glowMaterial);
     primaryGlow.position.z = -0.01; // Position slightly behind the triangle
     
-    // Create secondary, larger glow for more dramatic effect
-    const secondaryGlowMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-            color: { value: new THREE.Color(config.color) },
-            intensity: { value: config.secondaryGlowIntensity },
-            time: { value: 0.0 }
-        },
-        vertexShader: `
-            varying vec2 vUv;
-            void main() {
-                vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-        `,
-        fragmentShader: `
-            uniform vec3 color;
-            uniform float intensity;
-            uniform float time;
-            varying vec2 vUv;
-            
-            void main() {
-                vec2 center = vec2(0.5, 0.5);
-                float dist = distance(vUv, center);
-                
-                // Softer falloff for the outer glow
-                float glow = 1.0 - smoothstep(0.0, 0.7, dist);
-                
-                // Add a very subtle opposite-phase pulsing
-                float pulse = 0.05 * sin(time * 2.0 + 3.14) + 1.0;
-                glow = glow * pulse;
-                
-                // Make outer glow more ethereal
-                gl_FragColor = vec4(color, glow * intensity * (1.0 - dist));
-            }
-        `,
-        transparent: true,
-        depthWrite: false,
-        depthTest: false,
-        blending: THREE.AdditiveBlending
-    });
-    
-    // Create even larger triangle for secondary glow
-    const secondaryGlowSize = size + config.secondaryGlowSize;
-    const secondaryGlowShape = new THREE.Shape();
-    secondaryGlowShape.moveTo(0, secondaryGlowSize);
-    secondaryGlowShape.lineTo(-secondaryGlowSize * 0.866, -secondaryGlowSize * 0.5);
-    secondaryGlowShape.lineTo(secondaryGlowSize * 0.866, -secondaryGlowSize * 0.5);
-    secondaryGlowShape.lineTo(0, secondaryGlowSize);
-    
-    const secondaryGlowGeometry = new THREE.ShapeGeometry(secondaryGlowShape);
-    const secondaryGlow = new THREE.Mesh(secondaryGlowGeometry, secondaryGlowMaterial);
-    secondaryGlow.position.z = -0.02; // Position behind the primary glow
-    
     // Create the corner brackets
     const bracketGeometry = new THREE.BufferGeometry();
     const bracketSize = config.triangleSize * 1.3;
@@ -277,7 +220,6 @@ export function createReticle(scene, spacecraft, camera) {
     const brackets = new THREE.LineSegments(bracketGeometry, material);
     
     // Add all components to the reticle object
-    reticleObject.add(secondaryGlow); // Add secondary glow first (furthest back)
     reticleObject.add(primaryGlow);   // Add primary glow
     reticleObject.add(triangle);      // Add triangle
     reticleObject.add(crosshair);     // Add crosshair
@@ -349,8 +291,8 @@ export function createReticle(scene, spacecraft, camera) {
                 if (child.material.uniforms.intensity) {
                     const pulseFactor = Math.sin(time * 2.0) * 0.2 + 0.8; // More noticeable pulsing
                     child.material.uniforms.intensity.value = 
-                        child === secondaryGlow 
-                            ? config.secondaryGlowIntensity * pulseFactor * 0.9
+                        child === primaryGlow 
+                            ? config.glowIntensity * pulseFactor * 0.9
                             : config.glowIntensity * pulseFactor;
                 }
                 if (child.material.uniforms.time) {
