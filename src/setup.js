@@ -25,28 +25,19 @@ const scene = new THREE.Scene();
 const renderer = new THREE.WebGLRenderer();
 const textureLoader = new THREE.TextureLoader(textureLoadingManager);
 const loader = new GLTFLoader();
-
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('space-container').appendChild(renderer.domElement);
-// Renderer settings
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.autoClear = true;
 renderer.sortObjects = false;
 renderer.physicallyCorrectLights = false;
 
-let isBoosting = false;
-let isHyperspace = false;
-
-
 // Camera setup
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
 camera.position.set(100, 100, -100);
 camera.lookAt(0, 0, 0);
-
-// Create camera state for the space scene
 const cameraState = createCameraState('space');
 const smoothFactor = 0.1;
-
 // Rotation configuration for camera
 const rotation = {
     pitch: new THREE.Quaternion(),
@@ -56,7 +47,6 @@ const rotation = {
     yawAxis: new THREE.Vector3(0, 1, 0),
     rollAxis: new THREE.Vector3(0, 0, 1)
 };
-
 // Camera update function
 function updateCamera(camera, isHyperspace) {
     if (!spacecraft) {
@@ -137,6 +127,18 @@ function updateCamera(camera, isHyperspace) {
     spacecraft.remove(spacecraftCenter);
 }
 
+// Spacecraft setup
+let spacecraft, engineGlowMaterial, lightMaterial;
+let topRightWing, bottomRightWing, topLeftWing, bottomLeftWing;
+let isBoosting = false;
+let isHyperspace = false;
+let wingsOpen = true;
+let wingAnimation = 0;
+let updateEngineEffects;
+const wingTransitionFrames = 30;
+export { spacecraft, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, wingsOpen, wingAnimation, updateEngineEffects };
+
+
 // Export key objects
 export { 
     renderer, 
@@ -147,13 +149,14 @@ export {
 };
 
 
-/// SCENE SETUP ///
+///////////////////// SCENE SETUP /////////////////////
 
 // Delegate render to each surface scene
 let spaceInitialized = false;
 export let isEarthSurfaceActive = false;
 export let isMoonSurfaceActive = false;
 
+// Function that actually renders the scene
 export function renderScene() {
     if (isMoonSurfaceActive) {
         // nothing to do here - space scene is not active
@@ -162,181 +165,10 @@ export function renderScene() {
         // nothing to do here - space scene is not active
         console.log("Earth surface active, deferring rendering");
     } else {
-        // Only render space scene if neither moon nor earth surfaces are active
+        // Neither moon nor earth surfaces are active - so render the space scene
         renderer.render(scene, camera);
     }
 }
-
-// Array of all celestial objects that can be explored
-const celestialObjects = [
-    'mercury',
-    'venus',
-    'earth',
-    'moon',
-    'mars',
-    'jupiter',
-    'saturn',
-    'uranus',
-    'neptune',
-    'imperial star destroyer', // Counts as one object total
-    'lucrehulk'
-];
-
-// Create a raycaster for planet detection
-const raycaster = new THREE.Raycaster();
-let lastHoveredPlanet = null;
-
-// Create data for popups on all celestial objects
-const planetInfo = {
-    'mercury': {
-        composition: 'Metallic core, silicate crust',
-        atmosphere: 'Thin exosphere',
-        gravity: '38% of Earth'
-    },
-    'venus': {
-        composition: 'Rocky, iron core',
-        atmosphere: 'Thick CO₂, sulfuric acid',
-        gravity: '90% of Earth'
-    },
-    'earth': {
-        composition: 'Iron core, silicate mantle',
-        atmosphere: 'Nitrogen, oxygen',
-        gravity: '9.81 m/s²'
-    },
-    'moon': {
-        composition: 'Rocky, silicate crust',
-        atmosphere: 'Thin exosphere',
-        gravity: '16% of Earth'
-    },
-    'mars': {
-        composition: 'Rocky, iron-nickel core',
-        atmosphere: 'Thin CO₂',
-        gravity: '38% of Earth'
-    },
-    'asteroid belt': {
-        composition: 'Silicate rock, metals, carbon',
-        atmosphere: 'None (vacuum of space)',
-        gravity: 'Negligible'
-    },
-    'jupiter': {
-        composition: 'Hydrogen, helium',
-        atmosphere: 'Dynamic storms',
-        gravity: '250% of Earth'
-    },
-    'saturn': {
-        composition: 'Hydrogen, helium',
-        atmosphere: 'Fast winds, methane',
-        gravity: '107% of Earth'
-    },
-    'uranus': {
-        composition: 'Icy, hydrogen, helium',
-        atmosphere: 'Methane haze',
-        gravity: '89% of Earth'
-    },
-    'neptune': {
-        composition: 'Icy, rocky core',
-        atmosphere: 'Methane clouds',
-        gravity: '114% of Earth'
-    },
-    'imperial star destroyer': {
-        affiliation: 'Galactic Empire',
-        manufacturer: 'Kuat Drive Yards',
-        crew: '40,000'
-    },
-    'lucrehulk': {
-        affiliation: 'Confederacy of Independent Systems',
-        manufacturer: 'Hoersch-Kessel Drive',
-        crew: '200,000'
-    }
-};
-
-// Create the popup UI
-const planetInfoBox = document.createElement('div');
-planetInfoBox.className = 'planet-info-box';
-planetInfoBox.style.position = 'absolute';
-planetInfoBox.style.fontFamily = 'Orbitron, sans-serif';
-planetInfoBox.style.fontSize = '16px';
-planetInfoBox.style.color = 'white';
-planetInfoBox.style.backgroundColor = 'rgba(1, 8, 36, 0.8)';
-planetInfoBox.style.border = '2px solid #4fc3f7';
-planetInfoBox.style.borderRadius = '5px';
-planetInfoBox.style.padding = '15px';
-planetInfoBox.style.width = '320px';
-planetInfoBox.style.pointerEvents = 'none';
-planetInfoBox.style.zIndex = '1000';
-planetInfoBox.style.display = 'none'; // Hidden by default
-// Ensure the box isn't positioned off-screen initially
-planetInfoBox.style.right = '';
-planetInfoBox.style.left = '';
-planetInfoBox.style.top = '';
-document.body.appendChild(planetInfoBox);
-
-// Create exploration counter (number of celestial objects discovered)
-const explorationCounter = document.createElement('div');
-explorationCounter.className = 'exploration-counter';
-explorationCounter.style.position = 'fixed';
-explorationCounter.style.top = '20px';
-explorationCounter.style.right = '20px';
-explorationCounter.style.padding = '10px 15px';
-explorationCounter.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-explorationCounter.style.color = '#4fc3f7';
-explorationCounter.style.fontFamily = 'Orbitron, sans-serif';
-explorationCounter.style.fontSize = '16px';
-explorationCounter.style.borderRadius = '5px';
-explorationCounter.style.border = '1px solid #4fc3f7';
-explorationCounter.style.zIndex = '1000';
-explorationCounter.style.display = 'none'; // Initially hidden until game starts
-document.body.appendChild(explorationCounter);
-
-
-
-// Initialize explored objects - reset every time
-let exploredObjects = {};
-// Initialize with all objects unexplored
-function resetExploredObjects() {
-    celestialObjects.forEach(object => {
-        exploredObjects[object] = false;
-    });
-    updateExplorationCounter();
-}
-// Function to mark an object as explored
-function markAsExplored(objectName) {
-    if (objectName && !exploredObjects[objectName]) {
-        exploredObjects[objectName] = true;
-        updateExplorationCounter();
-        // Discovery notification popup removed as requested
-    }
-}
-// Update the counter display
-function updateExplorationCounter() {
-    const count = Object.values(exploredObjects).filter(Boolean).length;
-    const total = Object.keys(exploredObjects).length;
-    explorationCounter.innerHTML = `Celestial Objects Discovered: <span style="color: white; font-weight: bold;">${count}/${total}</span>`;
-    
-    // Check if all objects have been explored
-    if (count === total) {
-        // All objects explored - permanent blue glow effect
-        explorationCounter.style.boxShadow = '0 0 15px 5px #4fc3f7';
-        explorationCounter.style.border = '2px solid #4fc3f7';
-        explorationCounter.style.backgroundColor = 'rgba(0, 20, 40, 0.8)';
-        // Add a congratulatory message
-        explorationCounter.innerHTML = `<span style="color: #4fc3f7; font-weight: bold;">ALL CELESTIAL OBJECTS DISCOVERED</span>`;
-    } 
-    // Otherwise, add temporary visual flourish when a new object is discovered
-    else if (count > 0) {
-        explorationCounter.style.boxShadow = '0 0 10px #4fc3f7';
-        setTimeout(() => {
-            // Only remove the glow if we haven't completed everything
-            if (Object.values(exploredObjects).filter(Boolean).length !== total) {
-                explorationCounter.style.boxShadow = 'none';
-            }
-        }, 2000);
-    }
-}
-// Reset explored objects on startup
-resetExploredObjects();
-
-
 
 // Lighting
 
@@ -347,17 +179,6 @@ const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 scene.background = new THREE.Color(0x000000);
 
-
-
-// Add spacecraft to scene
-
-let spacecraft, engineGlowMaterial, lightMaterial;
-let topRightWing, bottomRightWing, topLeftWing, bottomLeftWing;
-let wingsOpen = true;
-let wingAnimation = 0;
-let updateEngineEffects;
-const wingTransitionFrames = 30;
-export { spacecraft, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, wingsOpen, wingAnimation, updateEngineEffects };
 
 // Initialize spacecraft
 function initSpacecraft() {
@@ -727,6 +548,21 @@ import { lucrehulkGroup, lucrehulkCollisionBox } from './solarSystemEnv';
 import { asteroidBeltGroup, asteroidCollisionSphere } from './solarSystemEnv';
 
 
+// Define all celestial objects that can be discovered
+const celestialObjects = [
+    'mercury',
+    'venus',
+    'earth',
+    'moon',
+    'mars',
+    'jupiter',
+    'saturn',
+    'uranus',
+    'neptune',
+    'imperial star destroyer', // Counts as one object total
+    'lucrehulk'
+];
+
 // Add all elements to scene
 scene.add(skybox);
 scene.add(stars);
@@ -748,7 +584,8 @@ scene.add(lucrehulkGroup);
 scene.add(asteroidBeltGroup);
 
 
-///// Various animations /////
+
+///// Various animations of celestial bodies /////
 
 // Update stars with brightness interpolation and even distribution
 function updateStars() {
@@ -912,7 +749,7 @@ createConcentricCircles(); // ** TOGGLE ORBITAL LINES ON AND OFF **
 
 ///// Text Labels for Planets /////
 
-// NOTE - required to show info box, as the box will position itself based on the label's position.
+// NOTE - the text labels are required to show popup info box, as the box will position itself based on the label's position.
 // Necessary even for Star Wars objects, despite lack of labels, in order to see the info box.
 const labelData = [
     { group: mercuryGroup, name: 'Mercury', radius: 1000 },
@@ -1135,9 +972,117 @@ export const EARTH_RADIUS = earthRadius;
 export const EARTH_POSITION = earthGroup.position;
 
 
-///// Detecting when celestial objects are discovered /////
 
-// Add a function to detect when the reticle intersects with planets -> show the info box
+///// Popup Info Boxes for Celestial Objects /////
+
+// Create a raycaster for planet detection
+const raycaster = new THREE.Raycaster();
+let lastHoveredPlanet = null;
+
+// Create data for popups on all celestial objects
+const planetInfo = {
+    'mercury': {
+        composition: 'Metallic core, silicate crust',
+        atmosphere: 'Thin exosphere',
+        gravity: '38% of Earth'
+    },
+    'venus': {
+        composition: 'Rocky, iron core',
+        atmosphere: 'Thick CO₂, sulfuric acid',
+        gravity: '90% of Earth'
+    },
+    'earth': {
+        composition: 'Iron core, silicate mantle',
+        atmosphere: 'Nitrogen, oxygen',
+        gravity: '9.81 m/s²'
+    },
+    'moon': {
+        composition: 'Rocky, silicate crust',
+        atmosphere: 'Thin exosphere',
+        gravity: '16% of Earth'
+    },
+    'mars': {
+        composition: 'Rocky, iron-nickel core',
+        atmosphere: 'Thin CO₂',
+        gravity: '38% of Earth'
+    },
+    'asteroid belt': {
+        composition: 'Silicate rock, metals, carbon',
+        atmosphere: 'None (vacuum of space)',
+        gravity: 'Negligible'
+    },
+    'jupiter': {
+        composition: 'Hydrogen, helium',
+        atmosphere: 'Dynamic storms',
+        gravity: '250% of Earth'
+    },
+    'saturn': {
+        composition: 'Hydrogen, helium',
+        atmosphere: 'Fast winds, methane',
+        gravity: '107% of Earth'
+    },
+    'uranus': {
+        composition: 'Icy, hydrogen, helium',
+        atmosphere: 'Methane haze',
+        gravity: '89% of Earth'
+    },
+    'neptune': {
+        composition: 'Icy, rocky core',
+        atmosphere: 'Methane clouds',
+        gravity: '114% of Earth'
+    },
+    'imperial star destroyer': {
+        affiliation: 'Galactic Empire',
+        manufacturer: 'Kuat Drive Yards',
+        crew: '40,000'
+    },
+    'lucrehulk': {
+        affiliation: 'Confederacy of Independent Systems',
+        manufacturer: 'Hoersch-Kessel Drive',
+        crew: '200,000'
+    }
+};
+
+// Create the popup UI (to be moved to ui.js)
+const planetInfoBox = document.createElement('div');
+planetInfoBox.className = 'planet-info-box';
+planetInfoBox.style.position = 'absolute';
+planetInfoBox.style.fontFamily = 'Orbitron, sans-serif';
+planetInfoBox.style.fontSize = '16px';
+planetInfoBox.style.color = 'white';
+planetInfoBox.style.backgroundColor = 'rgba(1, 8, 36, 0.8)';
+planetInfoBox.style.border = '2px solid #4fc3f7';
+planetInfoBox.style.borderRadius = '5px';
+planetInfoBox.style.padding = '15px';
+planetInfoBox.style.width = '320px';
+planetInfoBox.style.pointerEvents = 'none';
+planetInfoBox.style.zIndex = '1000';
+planetInfoBox.style.display = 'none'; // Hidden by default
+// Ensure the box isn't positioned off-screen initially
+planetInfoBox.style.right = '';
+planetInfoBox.style.left = '';
+planetInfoBox.style.top = '';
+document.body.appendChild(planetInfoBox);
+
+// Create exploration counter (number of celestial objects discovered)
+const explorationCounter = document.createElement('div');
+explorationCounter.className = 'exploration-counter';
+explorationCounter.style.position = 'fixed';
+explorationCounter.style.top = '20px';
+explorationCounter.style.right = '20px';
+explorationCounter.style.padding = '10px 15px';
+explorationCounter.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+explorationCounter.style.color = '#4fc3f7';
+explorationCounter.style.fontFamily = 'Orbitron, sans-serif';
+explorationCounter.style.fontSize = '16px';
+explorationCounter.style.borderRadius = '5px';
+explorationCounter.style.border = '1px solid #4fc3f7';
+explorationCounter.style.zIndex = '1000';
+explorationCounter.style.display = 'none'; // Initially hidden until game starts
+document.body.appendChild(explorationCounter);
+
+
+// Core function that detects when the reticle intersects with planets -> shows the info box
 export function checkReticleHover() {
     if (!spacecraft || !camera || isEarthSurfaceActive) {
         // If on a planetary surface, ensure exploration counter is hidden
@@ -1372,6 +1317,54 @@ export function checkReticleHover() {
     }
 }
 
+// Initialize explored objects - resets every time
+let exploredObjects = {};
+// Initialize with all objects unexplored
+function resetExploredObjects() {
+    celestialObjects.forEach(object => {
+        exploredObjects[object] = false;
+    });
+    updateExplorationCounter();
+}
+// Function to mark an object as explored
+function markAsExplored(objectName) {
+    if (objectName && !exploredObjects[objectName]) {
+        exploredObjects[objectName] = true;
+        updateExplorationCounter();
+        // Discovery notification popup removed as requested
+    }
+}
+// Update the exploration counter display
+function updateExplorationCounter() {
+    const count = Object.values(exploredObjects).filter(Boolean).length;
+    const total = Object.keys(exploredObjects).length;
+    explorationCounter.innerHTML = `Celestial Objects Discovered: <span style="color: white; font-weight: bold;">${count}/${total}</span>`;
+    
+    // Check if all objects have been explored
+    if (count === total) {
+        // All objects explored - permanent blue glow effect
+        explorationCounter.style.boxShadow = '0 0 15px 5px #4fc3f7';
+        explorationCounter.style.border = '2px solid #4fc3f7';
+        explorationCounter.style.backgroundColor = 'rgba(0, 20, 40, 0.8)';
+        // Add a congratulatory message
+        explorationCounter.innerHTML = `<span style="color: #4fc3f7; font-weight: bold;">ALL CELESTIAL OBJECTS DISCOVERED</span>`;
+    } 
+    // Otherwise, add temporary visual flourish when a new object is discovered
+    else if (count > 0) {
+        explorationCounter.style.boxShadow = '0 0 10px #4fc3f7';
+        setTimeout(() => {
+            // Only remove the glow if we haven't completed everything
+            if (Object.values(exploredObjects).filter(Boolean).length !== total) {
+                explorationCounter.style.boxShadow = 'none';
+            }
+        }, 2000);
+    }
+}
+// Reset explored objects on startup
+resetExploredObjects();
+
+
+
 
 
 ///// Special Countdown Indicators for Enterable Objects /////
@@ -1405,8 +1398,6 @@ moonDistanceIndicator.style.padding = '5px 10px';
 moonDistanceIndicator.style.borderRadius = '5px';
 moonDistanceIndicator.style.zIndex = '9998'; // Ensure it's always just below the earth distance indicator
 document.body.appendChild(moonDistanceIndicator);
-
-
 
 
 /////////////////////
