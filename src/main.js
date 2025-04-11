@@ -20,7 +20,6 @@ import {
     spacecraft,
     renderScene,
     startHyperspace,
-    updateStreaks
 } from './spaceEnvs/setup.js';
 
 // Earth scene imports
@@ -104,6 +103,9 @@ window.resetMoonInitialized = function() {
     // Also reset the moonCesium initialization flag
     resetMoonInitialized();
 };
+
+// Expose hyperspace function globally for access from inputControls.js
+window.startHyperspace = startHyperspace;
 
 /////////////// INITLIZATION OF HIGH-LEVEL GAME ELEMENTS ///////////////
 
@@ -342,9 +344,8 @@ function animate(currentTime = 0) {
                 
                 // Update hyperspace streaks if active
                 if (isHyperspace) {
-                    updateStreaks();
                     
-                    // Make doubly sure the hyperspace progress bar is visible during hyperspace
+                    // Make sure the hyperspace progress bar is visible during hyperspace
                     const progressContainer = document.getElementById('hyperspace-progress-container');
                     if (progressContainer && progressContainer.style.display !== 'block') {
                         console.log('Force-restoring hyperspace progress visibility during active hyperspace');

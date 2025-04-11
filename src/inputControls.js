@@ -1,5 +1,4 @@
-// Handles keyboard inputs and keyboard-related states
-// STATE BASED APPROACH - meaning that variables are locally set and updated here, rather than passed around to individual scripts
+// Handles all keyboard inputs AND keyboard-related states
 
 // Define keys object here instead of importing from movement.js
 export const keys = { 
@@ -13,57 +12,35 @@ export const keys = {
     down: false, 
     space: false,
     shift: false,
-    c: false,
-    r: false,
-    escape: false
+    c: false,      // View toggle (cockpit/external)
+    r: false,      // Reset position
+    escape: false  // Exit surface
 };
 
-// Previous key states to detect changes
+// Previous frame key states (used to detect key presses)
 const prevKeys = { ...keys };
 
+// Flag to track if controls have been initialized
 let controlsInitialized = false;
 
-// State tracking
+// State variables for movement and actions
 let isBoosting = false;
 let isHyperspace = false;
 let isSpacePressed = false;
+
+// One-time action flags
 let isViewToggleRequested = false;
 let isResetPositionRequested = false;
 let isExitSurfaceRequested = false;
 
-
-///// HYPERSPACE FUNCTIONS /////
-
 /**
- * Set hyperspace state GLOBALLY by calling this function
- * @param {boolean} state - New hyperspace state
+ * Sets the hyperspace state
+ * @param {boolean} state - The new hyperspace state
+ * @returns {boolean} - The new state
  */
 export function setHyperspaceState(state) {
     isHyperspace = !!state; // Convert to boolean
     return isHyperspace;
-}
-
-/**
- * Activates hyperspace mode if conditions are met
- * @param {boolean} isEarthSurfaceActive - Whether earth surface mode is active
- * @param {boolean} isMoonSurfaceActive - Whether moon surface mode is active
- */
-function activateHyperspace(isEarthSurfaceActive, isMoonSurfaceActive) {
-    // Don't activate hyperspace on planet surfaces
-    if (!isHyperspace && !isEarthSurfaceActive && !isMoonSurfaceActive) {
-        isHyperspace = true;
-        console.log("Hyperspace activated!");
-        setTimeout(deactivateHyperspace, 2000);
-    }
-}
-
-/**
- * Deactivates hyperspace automatically after timeout
- */
-function deactivateHyperspace() {
-    if (isHyperspace) {
-        isHyperspace = false;
-    }
 }
 
 ///// GENERAL INPUT INITIALIZATION /////
@@ -141,8 +118,15 @@ export function initControls(isEarthSurfaceActive, isMoonSurfaceActive) {
                 break;
             case 'shift': 
                 keys.shift = true; 
-                if (!isEarthSurfaceActive && !isInMainMenu) {
-                    activateHyperspace(isEarthSurfaceActive, isMoonSurfaceActive);
+                // Don't activate hyperspace on planet surfaces
+                if (!isEarthSurfaceActive && !isMoonSurfaceActive && !isInMainMenu) {
+                    // Hyperspace activation has been moved to setup.js
+                    // This will invoke the startHyperspace function from setup.js
+                    if (typeof window.startHyperspace === 'function') {
+                        window.startHyperspace();
+                    } else {
+                        console.warn('startHyperspace function not found on window object');
+                    }
                 }
                 break;
             case 'c': 
@@ -238,11 +222,26 @@ export function getResetPositionRequested() {
 }
 
 /**
- * Returns whether an exit surface (Esc) was requested this frame
+ * Returns whether an exit surface was requested this frame (applicable to planet surfaces)
  * @returns {boolean} - Exit surface request state
  */
 export function getExitSurfaceRequested() {
     return isExitSurfaceRequested;
+}
+
+/**
+ * Returns whether the space key is currently pressed
+ * @returns {boolean} - Space key state
+ */
+export function getSpaceKeyState() {
+    return isSpacePressed;
+}
+
+/**
+ * Resets the initialized state (useful for test/debug)
+ */
+export function resetControlsInitialized() {
+    controlsInitialized = false;
 }
 
 

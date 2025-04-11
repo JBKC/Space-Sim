@@ -559,7 +559,7 @@ export function exitMoonSurface() {
 
 // Hyperspace streak effect variables
 let streakLines = [];
-const streakCount = 20; // Reduced number of streaks for sparsity
+const streakCount = 20; // Number of streaks
 const streakLength = 50; // Length of each streak
 const streakSpeed = 500; // Speed of streaks moving past the camera
 
@@ -626,9 +626,22 @@ export function startHyperspace() {
     // Get the current hyperspace state from inputControls
     let isHyperspace = getHyperspaceState();
     
-    // Don't activate hyperspace if already in hyperspace, on Earth's surface, or if we're still at the welcome screen
+    // Don't activate hyperspace if:
+    // 1. Already in hyperspace
+    // 2. On Earth's surface
+    // 3. On Moon's surface
+    // 4. Still at the welcome screen
     const welcomeScreen = document.getElementById('welcome-screen');
-    if (isHyperspace || isEarthSurfaceActive || (welcomeScreen && welcomeScreen.style.display !== 'none')) return;
+    if (isHyperspace || isEarthSurfaceActive || isMoonSurfaceActive || 
+        (welcomeScreen && welcomeScreen.style.display !== 'none')) {
+        console.log('Hyperspace activation blocked:', {
+            alreadyInHyperspace: isHyperspace,
+            onEarthSurface: isEarthSurfaceActive,
+            onMoonSurface: isMoonSurfaceActive,
+            inWelcomeScreen: (welcomeScreen && welcomeScreen.style.display !== 'none')
+        });
+        return;
+    }
     
     // Set hyperspace state in inputControls
     setHyperspaceState(true);
@@ -715,7 +728,7 @@ export function startHyperspace() {
         // Exit hyperspace - update the state in inputControls
         setHyperspaceState(false);
         window.isHyperspace = false;
-        console.log('🚀 EXITING HYPERSPACE - Wings should OPEN!');
+        console.log('🚀 EXITING HYPERSPACE');
         console.log('Setting window.isHyperspace =', window.isHyperspace);
         resetMovementInputs();
         
