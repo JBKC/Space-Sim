@@ -122,7 +122,21 @@ setupGameControls({
     resetMoonPosition,
     exitEarthSurface,
     exitMoonSurface,
-    startHyperspace
+    startHyperspace,
+    toggleCameraView: function() {
+        // This function will forward the request to the appropriate spacecraft
+        // based on which surface is active
+        if (isEarthSurfaceActive && earthSpacecraft && typeof earthSpacecraft.toggleView === 'function') {
+            return earthSpacecraft.toggleView(earthCamera);
+        } else if (isMoonSurfaceActive && moonSpacecraft && typeof moonSpacecraft.toggleView === 'function') {
+            return moonSpacecraft.toggleView(moonCamera);
+        } else if (spacecraft && typeof spacecraft.toggleView === 'function') {
+            return spacecraft.toggleView(spaceCamera);
+        } else {
+            console.warn('No toggleView function available on spacecraft');
+            return false;
+        }
+    }
 });
 
 // Initialize main menu screen
