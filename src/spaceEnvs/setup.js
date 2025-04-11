@@ -585,37 +585,34 @@ function createStreaks() {
 }
 
 // Function to update hyperspace streaks
-export function updateStreaks(timestamp, startTime) {
-    // Calculate delta time (or use a default if not provided)
-    const elapsedSeconds = timestamp && startTime ? (timestamp - startTime) / 1000 : 0.016;
-    
-    streakLines.forEach((streak, index) => {
+export function updateStreaks(deltaTimeInSeconds) {
+    streakLines.forEach((streak) => {
         const positions = streak.positions;
 
-        // Move the entire streak backward - use elapsed time for smoother movement
         for (let i = 0; i < positions.length; i += 3) {
-            positions[i + 2] += streakSpeed * elapsedSeconds; // Move along Z (backward)
+            positions[i + 2] += streakSpeed * deltaTimeInSeconds;
         }
 
-        // If the end of the streak goes too far behind, reset it to the front
+        // Reset streak if out of range
         if (positions[5] > 100) {
-            positions[0] = (Math.random() - 0.5) * 100; // New start X
-            positions[1] = (Math.random() - 0.5) * 100; // New start Y
-            positions[2] = -100 - Math.random() * streakLength; // New start Z
-            positions[3] = positions[0]; // End X
-            positions[4] = positions[1]; // End Y
-            positions[5] = positions[2] + streakLength; // End Z
+            positions[0] = (Math.random() - 0.5) * 100;
+            positions[1] = (Math.random() - 0.5) * 100;
+            positions[2] = -100 - Math.random() * streakLength;
+            positions[3] = positions[0];
+            positions[4] = positions[1];
+            positions[5] = positions[2] + streakLength;
         }
 
         streak.line.geometry.attributes.position.needsUpdate = true;
 
-        // Position and rotate with the camera
+        // Align streaks with camera
         const cameraPosition = new THREE.Vector3();
         camera.getWorldPosition(cameraPosition);
         streak.line.position.copy(cameraPosition);
         streak.line.rotation.copy(camera.rotation);
     });
 }
+
 
 // Function to start hyperspace with progress bar and streaks
 export function startHyperspace() {
@@ -648,13 +645,6 @@ export function startHyperspace() {
     // Create hyperspace streaks
     createStreaks();
 
-    // Visual indication for debug purposes
-    const coordsDiv = document.getElementById('coordinates');
-    if (coordsDiv) {
-        coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
-        coordsDiv.style.fontWeight = 'bold';
-    }
-
     // Create hyperspace progress bar that appears at the top of the screen
     const progressContainer = document.getElementById('hyperspace-progress-container');
     const progressBar = document.getElementById('hyperspace-progress');
@@ -670,21 +660,6 @@ export function startHyperspace() {
         return;
     }
     
-    // Force visibility and higher z-index
-    progressContainer.style.display = 'block'; // Show the container
-    progressContainer.style.zIndex = '10000'; // Ensure it's above everything else
-    progressContainer.style.opacity = '1'; // Ensure full opacity
-    progressContainer.style.visibility = 'visible'; // Force visibility
-    bar.style.width = '100%'; // Start at 100% for right-to-left unfilling
-    
-    // Add glow effect to make it more visible
-    bar.style.boxShadow = '0 0 10px 2px #ffffff';
-    
-    // Debug: Log visibility and positioning
-    console.log('Progress container display:', progressContainer.style.display);
-    console.log('Label visibility:', label.style.display, 'Text:', label.textContent);
-    console.log('Label position:', label.style.top, label.style.left);
-    console.log('Z-index:', progressContainer.style.zIndex);
 
     // Calculate total hyperspace duration in milliseconds
     const hyperspaceDuration = 2000; // 2 seconds
@@ -713,7 +688,7 @@ export function startHyperspace() {
         bar.style.width = `${remaining}%`;
         
         // Update streaks animation
-        updateStreaks(timestamp, lastAnimationTime);
+        updateStreaks(deltaTime / 1000);
         
         // Continue animation if we haven't reached the end time
         if (timestamp < endTime) {
@@ -746,11 +721,6 @@ export function startHyperspace() {
         // Reset movement inputs
         resetMovementInputs();
         
-        // Reset visual indication
-        if (coordsDiv) {
-            coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
-            coordsDiv.style.fontWeight = 'normal';
-        }
         
         // Clean up streaks
         streakLines.forEach(streak => scene.remove(streak.line));

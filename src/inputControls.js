@@ -229,20 +229,6 @@ export function getExitSurfaceRequested() {
     return isExitSurfaceRequested;
 }
 
-/**
- * Returns whether the space key is currently pressed
- * @returns {boolean} - Space key state
- */
-export function getSpaceKeyState() {
-    return isSpacePressed;
-}
-
-/**
- * Resets the initialized state (useful for test/debug)
- */
-export function resetControlsInitialized() {
-    controlsInitialized = false;
-}
 
 
 
