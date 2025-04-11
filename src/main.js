@@ -1,11 +1,16 @@
-// MAIN ANIMATION FILE
+// MAIN ANIMATION FILE - ORCHESTRATES THE GAME
 
-// Main setup imports
+import * as THREE from 'three';
+import Stats from 'three/examples/jsm/libs/stats.module.js';
+import { createRateLimitedGameLoader } from './gameLoader.js';
+import { loadingManager, textureLoadingManager, updateAssetDisplay } from './loaders.js';
+
+// Space scene imports
 import { 
     isEarthSurfaceActive,
-    isMoonSurfaceActive, // Uncommented Moon surface access
+    isMoonSurfaceActive,
     exitEarthSurface,
-    exitMoonSurface, // Uncommented Moon surface access
+    exitMoonSurface,
     updateMoonPosition,
     init as initSpace,
     update as updateSpace,
@@ -14,41 +19,28 @@ import {
     camera as spaceCamera,
     spacecraft,
     renderScene
-} from './setup.js';
+} from './spaceEnvs/setup.js';
 
-// Import the rate limiter for initial game loading only
-import { createRateLimitedGameLoader } from './gameLoader.js';
-
-// Import THREE.js from node_modules instead of CDN
-import * as THREE from 'three';
-
-// Import Stats for FPS counter
-import Stats from 'three/examples/jsm/libs/stats.module.js';
-
-// Import loading managers from the new loaders.js file
-import { loadingManager, textureLoadingManager, updateAssetDisplay } from './loaders.js';
-
-// import earth surface functions
+// Earth scene imports
 import { 
     init as initEarthSurface, 
     update as updateEarthSurface,
     scene as earthScene,
     camera as earthCamera,
-    // tiles as earthTiles,
     renderer as earthRenderer,
     spacecraft as earthSpacecraft,  // Import the spacecraft from the 3D scene
     resetPosition as resetEarthPosition,  // Import the generic reset position function
     resetSanFranInitialized,  // Import the new function to reset the San Fran initialization flag
     resetKeys as resetEarthKeys  // Import function to reset Earth surface key states
-// } from './planetEnvs/washingtonCesium.js';
 } from './planetEnvs/sanFranCesium.js';
-// 
+// } from './planetEnvs/washingtonCesium.js';
+
+// Moon scene imports
 import { 
     init as initMoonSurface, 
     update as updateMoonSurface,
     scene as moonScene,
     camera as moonCamera,
-    // tiles as earthTiles,
     renderer as moonRenderer,
     spacecraft as moonSpacecraft,  // Import the spacecraft from the 3D scene
     resetPosition as resetMoonPosition,  // Import the generic reset position function
@@ -57,21 +49,24 @@ import {
 } from './planetEnvs/moonCesium.js';
 
 
-import { setGameMode, resetMovementInputs, keys } from './movement.js'; // Added keys import
+import { resetMovementInputs, keys } from './movement.js'; // Added keys import
 import { 
     setupUIElements, 
-    setupDirectionalIndicator, 
-    updateDirectionalIndicator, 
     showControlsPrompt,
     updateControlsDropdown
 } from './ui.js';
 
+// Import keyboard control functions
+import {
+    setupGameControls,
+    getBoostState,
+    getSpaceKeyState
+} from './inputControls.js';
 
-let gameMode = null;
+/// TO SIMPLIFY / REMOVE
+
 let isAnimating = false;
-let isBoosting = false;
 let isHyperspace = false;
-let isSpacePressed = false;
 let spaceInitialized = false;
 let earthInitialized = false;  // Move to top-level scope for exports
 let moonInitialized = false;  // Move to top-level scope for exports
@@ -94,12 +89,15 @@ let lastFrameTime = 0;
 let prevEarthSurfaceActive = false;
 let prevMoonSurfaceActive = false;
 
+
+
+///// Initialize UI optimization elements (FPS, asset count, etc.) /////
+
 // Initialize FPS counter
 const stats = new Stats();
 stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
 stats.dom.style.cssText = 'position:absolute;bottom:0;left:0;opacity:0.9;z-index:10000;display:none;'; // Start hidden
 document.body.appendChild(stats.dom);
-
 // Create a custom FPS display element
 const fpsDisplay = document.createElement('div');
 fpsDisplay.id = 'fps-display';
@@ -119,209 +117,49 @@ let frameCount = 0;
 let lastFpsUpdateTime = 0;
 const fpsUpdateInterval = 500; // Update numerical display every 500ms
 
-// Add click handler to toggle between FPS and MS panels
-stats.dom.addEventListener('click', function() {
-    // Toggle between FPS (0) and MS (1) panels
-    const currentPanel = stats.dom.children[0].classList.contains('fps') ? 0 : 1;
-    stats.showPanel(currentPanel === 0 ? 1 : 0);
-    
-    // Update the display text based on the selected panel
-    if (currentPanel) {
-        fpsDisplay.textContent = 'FPS: 0';
-    }
-});
-
 // Initialize UI elements and directional indicator
 setupUIElements();
-setupDirectionalIndicator();
 
-// Function to ensure wings are open at startup
-function initializeWingsOpen() {
-    // Check every 500ms for 5 seconds to ensure spacecraft is fully loaded
-    let attempts = 0;
-    const maxAttempts = 10;
-    
-    const checkAndSetWings = function() {
-        if (spacecraft && spacecraft.setWingsOpen) {
-            console.log("🔄 STARTUP: Setting wings to OPEN position in main.js");
-            spacecraft.setWingsOpen(true);
-            return true;
-        } else {
-            console.log(`Waiting for spacecraft to initialize (attempt ${attempts+1}/${maxAttempts})`);
-            attempts++;
-            if (attempts < maxAttempts) {
-                setTimeout(checkAndSetWings, 500);
-            }
-            return false;
-        }
-    };
-    
-    // Start the check process
-    setTimeout(checkAndSetWings, 500);
-}
-
-// Keydown event listeners for controls
-document.addEventListener('keydown', (event) => {
-    // Check if we're in the welcome screen (main menu)
-    const welcomeScreen = document.getElementById('welcome-screen');
-    const isInMainMenu = welcomeScreen && welcomeScreen.style.display !== 'none';
-    
-    // Skip handling most keys when in main menu except for game start (Enter key)
-    if (isInMainMenu && event.key !== 'Enter') {
-        return;
-    }
-    
-    if (event.code === 'Space') {
-        isSpacePressed = true;
-        // Also update the keys object used by scenes
-        if (spacecraft && spacecraft.userData) {
-            spacecraft.userData.keys = spacecraft.userData.keys || {};
-            spacecraft.userData.keys.space = true;
-        }
-    }
-    if (event.code === 'ArrowUp') {
-        isBoosting = true;
-        // console.log('Boost activated - speed should increase');
-        
-        // Visual indication for debug purposes
-        const coordsDiv = document.getElementById('coordinates');
-        if (coordsDiv) {
-            coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
-        }
-    }
-    // Only allow hyperspace if not on Earth's surface and not in main menu
-    if ((event.code === 'ShiftLeft' || event.code === 'ShiftRight') && !isEarthSurfaceActive && !isInMainMenu) {
-        startHyperspace();
-    }
-    // Reset position in Earth surface mode
-    if (event.code === 'KeyR' && isEarthSurfaceActive) {
-        console.log('R pressed - resetting position in San Francisco');
-        resetEarthPosition();
-    }
-    // Reset position in Moon surface mode
-    if (event.code === 'KeyR' && isMoonSurfaceActive) {
-        console.log('R pressed - resetting position on the Moon');
-        resetMoonPosition();
-    }
-    // Toggle first-person/third-person view with 'C' key
-    if (event.code === 'KeyC') {
-        console.log('===== C KEY PRESSED - TOGGLE COCKPIT VIEW =====');
-        console.log('Is on Earth surface:', isEarthSurfaceActive);
-        console.log('Has spacecraft:', !!spacecraft);
-        console.log('Has earth spacecraft:', !!earthSpacecraft);
-        
-        if (isEarthSurfaceActive && earthSpacecraft) {
-            console.log('C pressed - toggling cockpit view in Earth scene');
-            if (typeof earthSpacecraft.toggleView === 'function') {
-                const result = earthSpacecraft.toggleView(earthCamera, (isFirstPerson) => {
-                    // Reset camera state based on new view mode
-                    console.log(`Resetting Earth camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
-                    console.log('Earth camera reset callback executed');
-                    // If you have access to Earth's camera state, reset it here
-                });
-                console.log('Earth toggle view result:', result);
-            } else {
-                console.warn('Toggle view function not available on Earth spacecraft');
-            }
-        } else if (isMoonSurfaceActive && moonSpacecraft) {
-            console.log('C pressed - toggling cockpit view in Moon scene');
-            if (typeof moonSpacecraft.toggleView === 'function') {
-                const result = moonSpacecraft.toggleView(moonCamera, (isFirstPerson) => {
-                    // Reset camera state based on new view mode
-                    console.log(`Resetting Moon camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
-                    console.log('Moon camera reset callback executed');
-                    // If you have access to Moon's camera state, reset it here
-                });
-                console.log('Moon toggle view result:', result);
-            } else {
-                console.warn('Toggle view function not available on Moon spacecraft');
-            }
-        } else if (spacecraft) {
-            console.log('C pressed - toggling cockpit view in Space scene');
-            if (typeof spacecraft.toggleView === 'function') {
-                const result = spacecraft.toggleView(spaceCamera, (isFirstPerson) => {
-                    // Reset camera state based on new view mode
-                    console.log(`Resetting space camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
-                    // Use the imported createCameraState function
-                    const viewMode = isFirstPerson ? 'cockpit' : 'space';
-                    
-                    // Reset camera state with new view mode
-                    spaceCamera.position.copy(spaceCamera.position);
-                    spaceCamera.quaternion.copy(spaceCamera.quaternion);
-                });
-                console.log('Toggle view result:', result);
-            } else {
-                console.warn('Toggle view function not available on Space spacecraft');
-            }
-        }
-    }
-    // Enhanced ESC key to exit Moon surface or Earth surface
-    if (event.code === 'Escape') {
-        if (isMoonSurfaceActive) {
-            console.log('ESC pressed - exiting Moon surface');
-            exitMoonSurface();
-            // Reset the first entry flag so next time we enter Moon, it's treated as a first entry
-            isFirstMoonEntry = true;
-        } else if (isEarthSurfaceActive) {
-            console.log('ESC pressed - exiting Earth surface');
-            exitEarthSurface();
-            // Reset the first entry flag so next time we enter Earth, it's treated as a first entry
-            isFirstEarthEntry = true;
-        }
-    }
+// Setup game controls with needed dependencies
+setupGameControls({
+    spacecraft,
+    earthSpacecraft,
+    moonSpacecraft,
+    spaceCamera,
+    earthCamera,
+    moonCamera,
+    isEarthSurfaceActive,
+    isMoonSurfaceActive,
+    resetEarthPosition,
+    resetMoonPosition,
+    exitEarthSurface,
+    exitMoonSurface,
+    startHyperspace
 });
 
-// Keyup event listeners for controls
-document.addEventListener('keyup', (event) => {
-    if (event.code === 'Space') {
-        isSpacePressed = false;
-        // Also update the keys object used by scenes
-        if (spacecraft && spacecraft.userData) {
-            spacecraft.userData.keys = spacecraft.userData.keys || {};
-            spacecraft.userData.keys.space = false;
-        }
-    }
-    if (event.code === 'ArrowUp') {
-        isBoosting = false;
-        // console.log('Boost deactivated - speed should return to normal');
-        
-        // Reset visual indication
-        const coordsDiv = document.getElementById('coordinates');
-        if (coordsDiv) {
-            coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
-        }
-    }
-});
-
-// Initialize game mode selection on DOM load
+// Initialize main menu screen
 document.addEventListener('DOMContentLoaded', () => {
     const exploreButton = document.querySelector('#explore-button');
     if (exploreButton) {
         // Use rate-limited version for initial game loading
         exploreButton.addEventListener('click', () => rateLimitedStartGame('free'));
-        console.log('Explore button initialized with rate limiting');
+        console.log('Space Simulation Started');
     } else {
         console.error('Explore button not found!');
     }
 });
 
-// Start the game with the selected mode
-function startGame(mode) {
-    console.log('Starting game in mode:', mode);
-    gameMode = mode;
-    setGameMode(mode);
+
+///// FUNCITON THAT LOADS UP GAME WHEN "EXPLORE" BUTTON IS PRESSED /////
+function startGame() {
+
+    // hide welcome screen 
     const welcomeScreen = document.getElementById('welcome-screen');
     if (welcomeScreen) {
         welcomeScreen.style.display = 'none';
     }
     
-    // Show coordinates when game starts
-    const coordsDiv = document.getElementById('coordinates');
-    if (coordsDiv) {
-        coordsDiv.style.display = 'block';
-    }
-    
-    // Show the stats displays now that we're in the game
+    // show stats display
     stats.dom.style.display = 'block';
     fpsDisplay.style.display = 'block';
     assetDisplay.style.display = 'block';
@@ -330,16 +168,13 @@ function startGame(mode) {
     showControlsPrompt();
     updateControlsDropdown(isEarthSurfaceActive, isMoonSurfaceActive);
 
-    // Ensure wings are open at startup
-    initializeWingsOpen();
-
     if (!isAnimating) {
         isAnimating = true;
         animate();
     }
 }
 
-// Create rate-limited version of startGame - ONLY for initial game loading
+// Use rate limiter to start game
 const rateLimitedStartGame = createRateLimitedGameLoader(startGame);
 
 // Handle window resize
@@ -349,10 +184,9 @@ window.addEventListener('resize', () => {
     spaceRenderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Function to start exploration mode (placeholder)
-function startExploration() {
-    console.log('Exploring the galaxy...');
-}
+
+////////////////////////////////////////////////////////////////////////
+
 
 // Function to create hyperspace streak lines
 function createStreaks() {
@@ -611,6 +445,74 @@ window.animateWings = function(duration = 500) {
     }
 };
 
+// Function to show the blue transition effect when entering Earth's atmosphere
+function showEarthTransition(callback) {
+    const transitionElement = document.getElementById('earth-transition');
+    
+    if (!transitionElement) {
+        console.error('Earth transition element not found');
+        if (callback) callback();
+        return;
+    }
+    
+    // Make the transition element visible but with opacity 0
+    transitionElement.style.display = 'block';
+    
+    // Force a reflow to ensure the display change is applied before changing opacity
+    transitionElement.offsetHeight;
+    
+    // Set opacity to 1 to start the fade-in transition
+    transitionElement.style.opacity = '1';
+    
+    // Wait for the transition to complete (0.5 second)
+    setTimeout(() => {
+        // After transition completes, reset the element and call the callback
+        transitionElement.style.opacity = '0';
+        
+        // Wait for fade-out to complete before hiding
+        setTimeout(() => {
+            transitionElement.style.display = 'none';
+        }, 500);
+        
+        // Execute the callback if provided
+        if (callback) callback();
+    }, 500);
+}
+
+// Function to show the mooon transition effect when entering moon's surface
+function showMoonTransition(callback) {
+    const transitionElement = document.getElementById('moon-transition');
+    
+    if (!transitionElement) {
+        console.error('Moon transition element not found');
+        if (callback) callback();
+        return;
+    }
+    
+    // Make the transition element visible but with opacity 0
+    transitionElement.style.display = 'block';
+    
+    // Force a reflow to ensure the display change is applied before changing opacity
+    transitionElement.offsetHeight;
+    
+    // Set opacity to 1 to start the fade-in transition
+    transitionElement.style.opacity = '1';
+    
+    // Wait for the transition to complete (0.5 second)
+    setTimeout(() => {
+        // After transition completes, reset the element and call the callback
+        transitionElement.style.opacity = '0';
+        
+        // Wait for fade-out to complete before hiding
+        setTimeout(() => {
+            transitionElement.style.display = 'none';
+        }, 500);
+        
+        // Execute the callback if provided
+        if (callback) callback();
+    }, 500);
+}
+
 // Main animation loop
 function animate(currentTime = 0) {
     if (!isAnimating) {
@@ -681,6 +583,9 @@ function animate(currentTime = 0) {
                     console.log('Space initialized successfully', spaceObjects);
                 }
                 
+                // Get boosting state from inputControls
+                const isBoosting = getBoostState();
+                
                 // Main frame update function - pass isBoosting and isHyperspace values
                 updateSpace(isBoosting, isHyperspace, deltaTime);
                 
@@ -708,9 +613,6 @@ function animate(currentTime = 0) {
                     if (spacecraft) {
                         // Format coordinates to 1 decimal place
                         coordsDiv.textContent = `X: ${spacecraft.position.x.toFixed(1)}, Y: ${spacecraft.position.y.toFixed(1)}, Z: ${spacecraft.position.z.toFixed(1)}`;
-                        
-                        // Console log the spacecraft global coordinates
-                        // console.log(`Spacecraft Global Coordinates: X: ${spacecraft.position.x.toFixed(1)}, Y: ${spacecraft.position.y.toFixed(1)}, Z: ${spacecraft.position.z.toFixed(1)}`);
                     }
                     coordsDiv.style.display = 'block';
                 }
@@ -1110,70 +1012,3 @@ function animate(currentTime = 0) {
     prevMoonSurfaceActive = isMoonSurfaceActive;
 }
 
-// Function to show the blue transition effect when entering Earth's atmosphere
-function showEarthTransition(callback) {
-    const transitionElement = document.getElementById('earth-transition');
-    
-    if (!transitionElement) {
-        console.error('Earth transition element not found');
-        if (callback) callback();
-        return;
-    }
-    
-    // Make the transition element visible but with opacity 0
-    transitionElement.style.display = 'block';
-    
-    // Force a reflow to ensure the display change is applied before changing opacity
-    transitionElement.offsetHeight;
-    
-    // Set opacity to 1 to start the fade-in transition
-    transitionElement.style.opacity = '1';
-    
-    // Wait for the transition to complete (0.5 second)
-    setTimeout(() => {
-        // After transition completes, reset the element and call the callback
-        transitionElement.style.opacity = '0';
-        
-        // Wait for fade-out to complete before hiding
-        setTimeout(() => {
-            transitionElement.style.display = 'none';
-        }, 500);
-        
-        // Execute the callback if provided
-        if (callback) callback();
-    }, 500);
-}
-
-// Function to show the mooon transition effect when entering moon's surface
-function showMoonTransition(callback) {
-    const transitionElement = document.getElementById('moon-transition');
-    
-    if (!transitionElement) {
-        console.error('Moon transition element not found');
-        if (callback) callback();
-        return;
-    }
-    
-    // Make the transition element visible but with opacity 0
-    transitionElement.style.display = 'block';
-    
-    // Force a reflow to ensure the display change is applied before changing opacity
-    transitionElement.offsetHeight;
-    
-    // Set opacity to 1 to start the fade-in transition
-    transitionElement.style.opacity = '1';
-    
-    // Wait for the transition to complete (0.5 second)
-    setTimeout(() => {
-        // After transition completes, reset the element and call the callback
-        transitionElement.style.opacity = '0';
-        
-        // Wait for fade-out to complete before hiding
-        setTimeout(() => {
-            transitionElement.style.display = 'none';
-        }, 500);
-        
-        // Execute the callback if provided
-        if (callback) callback();
-    }, 500);
-}
