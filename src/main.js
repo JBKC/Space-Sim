@@ -342,9 +342,8 @@ function animate(currentTime = 0) {
                 // Update Moon's position relative to Earth using global coordinates
                 updateMoonPosition();
                 
-                // Update hyperspace streaks if active
+                // During hyperspace, ensure the progress bar is visible
                 if (isHyperspace) {
-                    
                     // Make sure the hyperspace progress bar is visible during hyperspace
                     const progressContainer = document.getElementById('hyperspace-progress-container');
                     if (progressContainer && progressContainer.style.display !== 'block') {

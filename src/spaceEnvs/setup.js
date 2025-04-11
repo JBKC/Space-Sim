@@ -298,6 +298,8 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         const isBoostingFromControls = getBoostState();
         const boostState = isBoostingFromControls || isBoosting || keys.up;
 
+        // Note: Hyperspace streaks are now updated via requestAnimationFrame in startHyperspace
+
         // Check for view toggle request (C key)
         if (getViewToggleRequested() && spacecraft && spacecraft.toggleView) {
             console.log('===== TOGGLE COCKPIT VIEW =====');
@@ -464,11 +466,6 @@ export function exitEarthSurface() {
         console.log('Showing space-container');
     }
     
-    // Make coordinates display visible again
-    const coordsDiv = document.getElementById('coordinates');
-    if (coordsDiv) {
-        coordsDiv.style.display = 'block';
-    }
     
     // Make exploration counter visible again when returning to space
     explorationCounter.style.display = 'block';
@@ -525,12 +522,7 @@ export function exitMoonSurface() {
         spaceContainer.style.display = 'block';
         console.log('Showing space-container');
     }
-    
-    // Make coordinates display visible again
-    const coordsDiv = document.getElementById('coordinates');
-    if (coordsDiv) {
-        coordsDiv.style.display = 'block';
-    }
+
     
     // Make sure keys object is properly reset
     if (keys) {
@@ -567,6 +559,7 @@ const streakSpeed = 500; // Speed of streaks moving past the camera
 
 // Function to create hyperspace streak lines
 function createStreaks() {
+    console.log("Creating streaks");
     streakLines = [];
     for (let i = 0; i < streakCount; i++) {
         const geometry = new THREE.BufferGeometry();
@@ -592,13 +585,16 @@ function createStreaks() {
 }
 
 // Function to update hyperspace streaks
-export function updateStreaks() {
+export function updateStreaks(timestamp, startTime) {
+    // Calculate delta time (or use a default if not provided)
+    const elapsedSeconds = timestamp && startTime ? (timestamp - startTime) / 1000 : 0.016;
+    
     streakLines.forEach((streak, index) => {
         const positions = streak.positions;
 
-        // Move the entire streak backward
+        // Move the entire streak backward - use elapsed time for smoother movement
         for (let i = 0; i < positions.length; i += 3) {
-            positions[i + 2] += streakSpeed * 0.016; // Move along Z (backward)
+            positions[i + 2] += streakSpeed * elapsedSeconds; // Move along Z (backward)
         }
 
         // If the end of the streak goes too far behind, reset it to the front
@@ -648,7 +644,6 @@ export function startHyperspace() {
     // Make sure to set the global isHyperspace flag immediately so other modules can detect it
     window.isHyperspace = true;
     console.log('🚀 ENTERING HYPERSPACE');
-    console.log('Setting window.isHyperspace =', window.isHyperspace);
 
     // Create hyperspace streaks
     createStreaks();
@@ -660,11 +655,11 @@ export function startHyperspace() {
         coordsDiv.style.fontWeight = 'bold';
     }
 
+    // Create hyperspace progress bar that appears at the top of the screen
     const progressContainer = document.getElementById('hyperspace-progress-container');
     const progressBar = document.getElementById('hyperspace-progress');
     const bar = progressBar.querySelector('.bar');
     const label = document.getElementById('hyperspace-progress-label');
-
     if (!progressContainer || !progressBar || !bar || !label) {
         console.error('Hyperspace progress elements not found:', {
             progressContainer,
@@ -674,14 +669,14 @@ export function startHyperspace() {
         });
         return;
     }
-
+    
     // Force visibility and higher z-index
     progressContainer.style.display = 'block'; // Show the container
     progressContainer.style.zIndex = '10000'; // Ensure it's above everything else
     progressContainer.style.opacity = '1'; // Ensure full opacity
     progressContainer.style.visibility = 'visible'; // Force visibility
     bar.style.width = '100%'; // Start at 100% for right-to-left unfilling
-
+    
     // Add glow effect to make it more visible
     bar.style.boxShadow = '0 0 10px 2px #ffffff';
     
@@ -698,38 +693,57 @@ export function startHyperspace() {
     const startTime = performance.now();
     const endTime = startTime + hyperspaceDuration;
 
-    // Animation function using timestamps for precise timing
-    const animateProgress = (timestamp) => {
+    // Flag to track if animations are active
+    let animationsActive = true;
+    let lastAnimationTime = startTime;
+
+    // Combined animation function for both progress bar and streaks
+    const animateHyperspace = (timestamp) => {
+        if (!animationsActive) return;
+        
         // Calculate how much time has elapsed
         const elapsed = timestamp - startTime;
+        const deltaTime = timestamp - lastAnimationTime;
+        lastAnimationTime = timestamp;
         
-        // Calculate the remaining percentage
+        // Calculate the remaining percentage for progress bar
         const remaining = Math.max(0, 100 * (1 - elapsed / hyperspaceDuration));
         
-        // Update the bar width
+        // Update the progress bar width
         bar.style.width = `${remaining}%`;
+        
+        // Update streaks animation
+        updateStreaks(timestamp, lastAnimationTime);
         
         // Continue animation if we haven't reached the end time
         if (timestamp < endTime) {
-            requestAnimationFrame(animateProgress);
+            requestAnimationFrame(animateHyperspace);
         } else {
+            // End of hyperspace
+            animationsActive = false;
+            
             // Ensure the bar is completely empty at the end
             bar.style.width = '0%';
+            
             // Hide the container at exactly the end of hyperspace
             progressContainer.style.display = 'none';
         }
     };
 
-    // Start the animation
-    requestAnimationFrame(animateProgress);
+    // Start the combined animation
+    requestAnimationFrame(animateHyperspace);
 
     // Set a timeout for exiting hyperspace that matches the exact duration
     setTimeout(() => {
+        // End animations
+        animationsActive = false;
+        
         // Exit hyperspace - update the state in inputControls
         setHyperspaceState(false);
         window.isHyperspace = false;
         console.log('🚀 EXITING HYPERSPACE');
-        console.log('Setting window.isHyperspace =', window.isHyperspace);
+        
+        // Reset movement inputs
         resetMovementInputs();
         
         // Reset visual indication
