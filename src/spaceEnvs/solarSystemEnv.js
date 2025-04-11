@@ -4,8 +4,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-import { loadingManager, textureLoadingManager } from './loaders.js';
-import config from './config.js';
+import { loadingManager, textureLoadingManager } from '../loaders.js';
+import config from '../config.js';
 
 const textureLoader = new THREE.TextureLoader(textureLoadingManager);
 const loader = new GLTFLoader();

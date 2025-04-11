@@ -5,7 +5,8 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import config from './config.js';
 import { loadingManager, textureLoadingManager } from './loaders.js';
 import { createReticle } from './reticle.js';
-import { keys } from './movement.js';
+import { keys } from './inputControls.js';
+import { resetMovementInputs } from './movement.js';
 
 // AXES: x = yaw, y = pitch, z = roll
 
@@ -585,9 +586,8 @@ export function createSpacecraft(scene) {
         // Determine if we're boosting, either from parameter or directly from keys
         const isBoostActive = isBoosting || (keys && keys.up);
         
-        // console.log("Engine effects update - boosting:", isBoostActive, 
-        //             "param:", isBoosting, 
-        //             "keys.up:", keys?.up);
+        console.log("Engine effects update - isBoosting:", isBoosting, 
+                    "keys.up:", keys?.up);
         
         // Show/hide flames based on boosting state
         Object.keys(contrails).forEach(key => {

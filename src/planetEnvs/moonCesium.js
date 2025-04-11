@@ -38,6 +38,7 @@ export function isMoonInitialized() {
 
 // Function to reset all key states to prevent stuck movement
 export function resetKeys() {
+  // Reset all keys to prevent stuck movement patterns
   keys.w = false;
   keys.s = false;
   keys.a = false;
@@ -47,7 +48,6 @@ export function resetKeys() {
   keys.up = false;
   keys.down = false;
   keys.space = false;
-  keys.c = false;
   console.log('Moon: Reset all key states');
 }
 
@@ -112,7 +112,7 @@ let currentTurnSpeed = baseTurnSpeed; // Current active turn speed
 const pitchSensitivity = 0.6; // Lower value = less sensitive
 const rollSensitivity = 1;  // Lower value = less sensitive
 const yawSensitivity = 0.5;   // Lower value = less sensitive
-let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false, down: false, space: false, c: false };
+let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false, down: false, space: false };
 
 
 // Collision detection
@@ -995,7 +995,6 @@ function initControls() {
             case 'ArrowUp': keys.up = true; break;
             case 'ArrowDown': keys.down = true; break;
             case ' ': keys.space = true; break;
-            case 'c': keys.c = true; break;
         }
     });
 
@@ -1010,7 +1009,6 @@ function initControls() {
             case 'ArrowUp': keys.up = false; break;
             case 'ArrowDown': keys.down = false; break;
             case ' ': keys.space = false; break;
-            case 'c': keys.c = false; break;
         }
     });
 }
@@ -1120,46 +1118,88 @@ export function init() {
 }
 
 export function update(deltaTime = 0.016) {
-    // Use closure to track previous key state
-    const updateWithState = (() => {
-        let prevCKeyState = false; // Track previous 'c' key state to detect changes
+    try {
+        if (!moonInitialized) {
+            console.log("Not initialized yet");
+            return false;
+        }
+
+        if (!tiles) {
+            return false;
+        }
+
+        // Update spacecraft movement first
+        updateMovement();
         
-        return (deltaTime) => {
-            try {
-                // Toggle camera view when 'c' key is pressed and released
-                if (keys.c && !prevCKeyState && spacecraft && spacecraft.toggleView) {
-                    console.log('C key state change detected in moonCesium - toggling view');
-                    spacecraft.toggleView(camera, (isFirstPerson) => {
-                        console.log(`Resetting Moon camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
-                    });
-                }
-                prevCKeyState = keys.c;
-                
-                // Rest of the original update function
-                if (!moonInitialized) {
-                    console.log("Moon scene not initialized yet");
-                    return false;
-                }
-                
-                updateMovement();
-                updateCamera();
-                
-                // Check for collisions with terrain
-                checkTerrainCollision();
-                
-                // Check for base plane collision
-                checkBasePlaneCollision();
-                
-                return true;
-            } catch (err) {
-                console.error("Error in Moon update:", err);
-                return false;
+        // CRITICAL: Update spacecraft matrix world before camera calculations
+        if (spacecraft) {
+            spacecraft.updateMatrixWorld(true);
+        }
+        
+        // Now update camera with updated spacecraft matrix
+        updateCamera();
+        
+        // Handle laser firing with spacebar
+        if (keys.space && spacecraft) {
+            // LASER FIRING DISABLED
+        }
+ 
+        // Update all active lasers
+ 
+        // Update reticle position if available
+        if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
+            // Pass both boost and slow states to the reticle update function
+            spacecraft.userData.updateReticle(keys.up, keys.down);
+        } else {
+            // Only log this warning once to avoid console spam
+            if (!window.reticleWarningLogged) {
+                console.warn("Reticle update function not found on spacecraft userData", spacecraft);
+                window.reticleWarningLogged = true;
             }
-        };
-    })();
-    
-    // Call the inner function with current parameter
-    return updateWithState(deltaTime);
+        }
+ 
+        if (tiles.group) {
+            tiles.group.traverse((node) => {
+                if (node.isMesh && node.receiveShadow === undefined) {
+                    node.receiveShadow = true;
+                }
+            });
+        }
+        
+        updatemoonLighting();
+
+        // Death Star is completely fixed in space
+ 
+        if (!camera) {
+            console.warn("Camera not initialized");
+            return false;
+        }
+
+        // Apply terrain optimization if needed based on performance
+        if (camera.userData && camera.userData.performanceMetrics && 
+           camera.userData.performanceMetrics.fps < 25 && 
+           tiles.userData && tiles.userData.terrainController) {
+            // If framerate drops below threshold, reduce terrain detail temporarily
+            tiles.userData.terrainController.decreaseDetail();
+        }
+
+        // Ensure camera matrices are updated before tile updates
+        camera.updateMatrixWorld(true);
+        
+        tiles.setCamera(camera);
+        tiles.setResolutionFromRenderer(camera, renderer);
+        tiles.update();
+        
+        // Update cockpit elements if in first-person view
+        if (spacecraft && spacecraft.updateCockpit) {
+            spacecraft.updateCockpit(deltaTime);
+        }
+        
+        return true;
+    } catch (error) {
+        console.error("Error in update:", error);
+        return false;
+    }
 }
 
 function updatemoonLighting() {

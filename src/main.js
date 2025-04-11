@@ -63,9 +63,7 @@ import {
 import {
     setupGameControls,
     getBoostState,
-    getSpaceKeyState,
-    getHyperspaceState,
-    getCameraToggleState
+    getHyperspaceState
 } from './inputControls.js';
 
 /// TO SIMPLIFY / REMOVE
@@ -81,7 +79,6 @@ let isFirstEarthEntry = true;
 // Add a flag to track first Moon entry in a session
 let isFirstMoonEntry = true;
 
-// Hyperspace streak effects now in setup.js
 
 // Added delta time calculation for smoother animations
 let lastFrameTime = 0;
@@ -250,7 +247,7 @@ function showMoonTransition(callback) {
         if (callback) callback();
         return;
     }
-    
+
     // Make the transition element visible but with opacity 0
     transitionElement.style.display = 'block';
     
@@ -266,7 +263,7 @@ function showMoonTransition(callback) {
         transitionElement.style.opacity = '0';
         
         // Wait for fade-out to complete before hiding
-        setTimeout(() => {
+    setTimeout(() => {
             transitionElement.style.display = 'none';
         }, 500);
         
@@ -320,6 +317,7 @@ function animate(currentTime = 0) {
     try {
         // CASE 0 = normal space view
         if (!isEarthSurfaceActive && !isMoonSurfaceActive) {
+
             // If we just exited a planet surface, make sure space container is visible
             const spaceContainer = document.getElementById('space-container');
             if (spaceContainer && spaceContainer.style.display === 'none') {
@@ -345,6 +343,8 @@ function animate(currentTime = 0) {
                     console.log('Space initialized successfully', spaceObjects);
                 }
                 
+                // DETERMINE STATES //
+
                 // Get boosting state from inputControls
                 const isBoosting = getBoostState();
                 // Get hyperspace state from inputControls

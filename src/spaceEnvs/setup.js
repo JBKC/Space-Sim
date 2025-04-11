@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { updateCoreMovement } from '../movement.js';
+import { updateSpaceMovement } from '../movement.js';
 import { keys } from '../inputControls.js';
 import { createSpacecraft } from '../spacecraft.js';
 import { updateControlsDropdown } from '../ui.js';
@@ -171,8 +171,6 @@ scene.background = new THREE.Color(0x000000);
 // Spacecraft setup
 let spacecraft, cockpit, reticle, updateReticle, isFirstPersonView, updateEngineEffects;
 let topRightWing, bottomRightWing, topLeftWing, bottomLeftWing;
-let isBoosting = false;
-let isHyperspace = false;
 let wingsOpen = true;
 let wingAnimation = 0;
 const wingTransitionFrames = 30;
@@ -273,154 +271,77 @@ export function init() {
 }
 
 
-export function updateSpaceMovement(isBoosting, isHyperspace) {
-    // Handle hyperspace-specific speed settings first (space-specific feature)
-    if (isHyperspace) {
-        currentSpeed = hyperspaceSpeed;
-        currentTurnSpeed = boostTurnSpeed; // Use boost turn speed during hyperspace
-        
-        // Apply core movement without rotation in hyperspace
-        // Store current state
-        lastValidPosition.copy(spacecraft.position);
-        lastValidQuaternion.copy(spacecraft.quaternion);
-        
-        // Get current forward direction
-        const forward = new THREE.Vector3(0, 0, 1);
-        forward.applyQuaternion(spacecraft.quaternion);
-        
-        // Calculate next position with hyperspace speed
-        const nextPosition = spacecraft.position.clone().add(
-            forward.multiplyScalar(currentSpeed)
-        );
-        
-        // Move spacecraft forward in hyperspace
-        spacecraft.position.copy(nextPosition);
-        return;
-    }
-    
-    // For normal space movement, apply the core movement
-    const result = updateCoreMovement(isBoosting);
-    
-    // If core movement failed (e.g. spacecraft not initialized), exit early
-    if (!result) return;
-    
-    const { forward, nextPosition } = result;
-    
-    // Space-specific logic: Check for planet collision
-    const distanceToPlanet = nextPosition.distanceTo(EARTH_POSITION);
-    const minDistance = EARTH_RADIUS + COLLISION_THRESHOLD;
-
-    if (distanceToPlanet < minDistance) {
-        // Handle planet collision with bounce
-        const toSpacecraft = new THREE.Vector3().subVectors(spacecraft.position, EARTH_POSITION).normalize();
-        spacecraft.position.copy(EARTH_POSITION).add(
-            toSpacecraft.multiplyScalar(minDistance + COLLISION_PUSHBACK)
-        );
-        const normal = toSpacecraft;
-        const incidentDir = forward.normalize();
-        const reflectDir = new THREE.Vector3();
-        reflectDir.copy(incidentDir).reflect(normal);
-        const bounceQuaternion = new THREE.Quaternion();
-        bounceQuaternion.setFromUnitVectors(forward, reflectDir);
-        spacecraft.quaternion.premultiply(bounceQuaternion);
-        currentSpeed *= BOUNCE_FACTOR;
-    } else {
-        // No collision, apply the calculated next position
-        spacecraft.position.copy(nextPosition);
-    }
-} 
-
 /// CORE STATE UPDATE FUNCTION ///
 export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
-    // Use closure to track previous key state (instead of static variable)
-    const updateWithState = (() => {
-        let prevCKeyState = false; // Track previous 'c' key state to detect changes
+    // 0.016 is the deltaTime for 60fps
+    try {
+        if (!spaceInitialized) {
+            console.log("Space not initialized yet");
+            return false;
+        }
+
+        // Check if spacecraft is near celestial body
+        checkPlanetProximity();
         
-        return (isBoosting, isHyperspace, deltaTime) => {
-            try {
-                if (!spaceInitialized) {
-                    console.log("Space not initialized yet");
-                    return false;
-                }
+        // Check if reticle is hovering over a planet (only in space mode)
+        checkReticleHover();
+
+        // Get the authoritative hyperspace state from inputControls
+        const isHyperspaceFromControls = getHyperspaceState();
+        // Prefer the state from inputControls, but also respect the passed parameter for backward compatibility
+        const hyperspaceState = isHyperspaceFromControls || isHyperspace;
+
+        // Update spacecraft movement and camera
+        updateSpaceMovement(isBoosting, hyperspaceState);
+        updateCamera(camera, hyperspaceState);
+
+        // Update spacecraft effects
+        if (updateEngineEffects) {
+            updateEngineEffects(isBoosting || keys.up, keys.down);
+        } else {
+            console.warn("updateEngineEffects function is not available:", updateEngineEffects);
+        }
         
-                // Check if spacecraft is near celestial body
-                checkPlanetProximity();
-                
-                // Check if reticle is hovering over a planet (only in space mode)
-                checkReticleHover();
+        // Wing position control - check if conditions changed
+        if (spacecraft && spacecraft.setWingsOpen) {
+            const shouldWingsBeOpen = !isBoosting && !hyperspaceState;
+            
+            // The setWingsOpen function now has smooth animations and handles state management internally
+            // It will only trigger an animation if the target state is different from the current state
+            spacecraft.setWingsOpen(shouldWingsBeOpen);
+        }
         
-                // Get the authoritative hyperspace state from inputControls
-                const isHyperspaceFromControls = getHyperspaceState();
-                // Prefer the state from inputControls, but also respect the passed parameter for backward compatibility
-                const hyperspaceState = isHyperspaceFromControls || isHyperspace;
+        // Update animation mixer (Only in space scene)
+        if (spacecraft.updateAnimations) {
+            spacecraft.updateAnimations(deltaTime);
+        }
         
-                // Check for camera toggle (C key press and release)
-                if (keys.c && !prevCKeyState && spacecraft && spacecraft.toggleView) {
-                    console.log('C key state change detected in setup.js - toggling view');
-                    spacecraft.toggleView(camera, (isFirstPerson) => {
-                        console.log(`Resetting space camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
-                        // Reset camera state with new view mode
-                        camera.position.copy(camera.position);
-                        camera.quaternion.copy(camera.quaternion);
-                    });
-                }
-                prevCKeyState = keys.c;
-        
-                // Use the passed isBoosting and the hyperspace state
-                updateSpaceMovement(isBoosting, hyperspaceState);
-                updateCamera(camera, hyperspaceState);
-        
-                // Update spacecraft effects
-                if (updateEngineEffects) {
-                    updateEngineEffects(isBoosting || keys.up, keys.down);
-                } else {
-                    console.warn("updateEngineEffects function is not available:", updateEngineEffects);
-                }
-                
-                // Wing position control - check if conditions changed
-                if (spacecraft && spacecraft.setWingsOpen) {
-                    const shouldWingsBeOpen = !isBoosting && !hyperspaceState;
-                    
-                    // The setWingsOpen function now has smooth animations and handles state management internally
-                    // It will only trigger an animation if the target state is different from the current state
-                    spacecraft.setWingsOpen(shouldWingsBeOpen);
-                }
-                
-                // Update animation mixer (Only in space scene)
-                if (spacecraft.updateAnimations) {
-                    spacecraft.updateAnimations(deltaTime);
-                }
-                
-                // Update reticle position if available
-                if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
-                    // console.log("Updating reticle in setup.js");
-                    spacecraft.userData.updateReticle(isBoosting, keys.down);  // Pass both boost and slow states
-                } else {
-                    // Only log this warning once to avoid console spam
-                    if (!window.setupReticleWarningLogged) {
-                        console.warn("Reticle update function not found on spacecraft userData in setup.js", spacecraft);
-                        window.setupReticleWarningLogged = true;
-                    }
-                }
-                
-                // Update cockpit elements if in first-person view
-                if (spacecraft && spacecraft.updateCockpit) {
-                    spacecraft.updateCockpit(deltaTime);
-                }
-        
-                updateStars();
-                updatePlanetLabels();
-                
-                return true;
-            } catch (error) {
-                console.error("Error in space update:", error);
-                return false;
+        // Update reticle position if available
+        if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
+            // console.log("Updating reticle in setup.js");
+            spacecraft.userData.updateReticle(isBoosting, keys.down);  // Pass both boost and slow states
+        } else {
+            // Only log this warning once to avoid console spam
+            if (!window.setupReticleWarningLogged) {
+                console.warn("Reticle update function not found on spacecraft userData in setup.js", spacecraft);
+                window.setupReticleWarningLogged = true;
             }
-        };
-    })();
-    
-    // Call the inner function with current parameters
-    return updateWithState(isBoosting, isHyperspace, deltaTime);
+        }
+        
+        // Update cockpit elements if in first-person view
+        if (spacecraft && spacecraft.updateCockpit) {
+            spacecraft.updateCockpit(deltaTime);
+        }
+
+        updateStars();
+        updatePlanetLabels();
+        
+        return true;
+
+    } catch (error) {
+        console.error("Error in space update:", error);
+        return false;
+    }
 }
 
 

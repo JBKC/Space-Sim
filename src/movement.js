@@ -7,7 +7,8 @@ import {
     EARTH_RADIUS,
     EARTH_POSITION,
     rotation
-} from './setup.js';
+} from './spaceEnvs/setup.js';
+import { keys, resetKeyStates } from './inputControls.js';
 
 
 ///// Movement Variables /////
@@ -41,17 +42,13 @@ export let moonCurrentTurnSpeed = moonBaseTurnSpeed; // Current active turn spee
 export const pitchSensitivity = 0.6; // Lower value = less sensitive
 export const rollSensitivity = 1;  // Lower value = less sensitive
 export const yawSensitivity = 0.5;   // Lower value = less sensitive
-export let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false, down: false, space: false };
 
 // Wing animation variables
 export let wingsOpen = true;
 export let wingAnimation = 0;
 export const wingTransitionFrames = 30;
 
-// Collision and bounce variables
-const BOUNCE_FACTOR = 0.5;
-const COLLISION_THRESHOLD = 20;
-const COLLISION_PUSHBACK = 30;
+
 let lastValidPosition = new THREE.Vector3();
 let lastValidQuaternion = new THREE.Quaternion();
 
@@ -61,23 +58,12 @@ let gameMode = null;
 // Export the surfaceCameraOffset for backward compatibility
 export const surfaceCameraOffset = new THREE.Vector3(0, 0, 0);
 
-// Function to set game mode
-export function setGameMode(mode) {
-    gameMode = mode;
-}
 
 // Function to reset movement inputs
 export function resetMovementInputs() {
-    keys.w = false;
-    keys.s = false;
-    keys.a = false;
-    keys.d = false;
-    keys.left = false;
-    keys.right = false;
-    keys.up = false;
-    keys.down = false;
-    keys.space = false;
-    // console.log('Movement inputs reset:', keys);
+    // Use resetKeyStates from inputControls.js
+    resetKeyStates();
+    
     // Reset wing animation to default open state after hyperspace
     if (!wingsOpen) {
         wingsOpen = true;
@@ -85,50 +71,7 @@ export function resetMovementInputs() {
     }
 }
 
-// Keyboard controls
-document.addEventListener('keydown', (event) => {
-    switch (event.key) {
-        case 'w': keys.w = true; break;
-        case 's': keys.s = true; break;
-        case 'a': keys.a = true; break;
-        case 'd': keys.d = true; break;
-        case 'ArrowLeft': keys.left = true; break;
-        case 'ArrowRight': keys.right = true; break;
-        case 'ArrowUp': keys.up = true; break;
-        case 'ArrowDown': keys.down = true; break;
-        case ' ': case 'Space': // Handle both space character and 'Space' string
-            keys.space = true;
-            break;
-    }
-    
-    // Also check event.code for Space
-    if (event.code === 'Space') {
-        keys.space = true;
-    }
-});
-
-document.addEventListener('keyup', (event) => {
-    switch (event.key) {
-        case 'w': keys.w = false; break;
-        case 's': keys.s = false; break;
-        case 'a': keys.a = false; break;
-        case 'd': keys.d = false; break;
-        case 'ArrowLeft': keys.left = false; break;
-        case 'ArrowRight': keys.right = false; break;
-        case 'ArrowUp': keys.up = false; break;
-        case 'ArrowDown': keys.down = false; break;
-        case ' ': case 'Space': // Handle both space character and 'Space' string
-            keys.space = false; 
-            break;
-    }
-    
-    // Also check event.code for Space
-    if (event.code === 'Space') {
-        keys.space = false;
-    }
-});
-
-
+// Keyboard controls are now handled in inputControls.js
 
 /**
  * Core movement function to reuse across all scenes
@@ -198,18 +141,18 @@ export function updateCoreMovement(isBoosting) {
 
 ///// SCENE-SPECIFIC MOVEMENT FUNCTIONS /////
 
-/**
- * Updates spacecraft movement in the space environment
- * Combines core movement with space-specific features like hyperspace and planet collisions
- * 
- * @param {boolean} isBoosting - Whether boost is active
- * @param {boolean} isHyperspace - Whether hyperspace is active
- */
+
+// Take parameters from inputControls.js to determine if boosting or hyperspace is active //
 export function updateSpaceMovement(isBoosting, isHyperspace) {
-    // Handle hyperspace-specific speed settings first (space-specific feature)
+
+    // Collision and bounce variables
+    const BOUNCE_FACTOR = 0.5;
+    const COLLISION_THRESHOLD = 20;
+    const COLLISION_PUSHBACK = 30;
+
+    // First determine if hyperspace is active
     if (isHyperspace) {
         currentSpeed = hyperspaceSpeed;
-        currentTurnSpeed = boostTurnSpeed; // Use boost turn speed during hyperspace
         
         // Apply core movement without rotation in hyperspace
         // Store current state
@@ -231,6 +174,7 @@ export function updateSpaceMovement(isBoosting, isHyperspace) {
     }
     
     // For normal space movement, apply the core movement
+    // Note - this is where the boost effects live since it carries across all environments
     const result = updateCoreMovement(isBoosting);
     
     // If core movement failed (e.g. spacecraft not initialized), exit early
@@ -238,7 +182,7 @@ export function updateSpaceMovement(isBoosting, isHyperspace) {
     
     const { forward, nextPosition } = result;
     
-    // Space-specific logic: Check for planet collision
+    // Check for planet collision
     const distanceToPlanet = nextPosition.distanceTo(EARTH_POSITION);
     const minDistance = EARTH_RADIUS + COLLISION_THRESHOLD;
 
@@ -261,6 +205,8 @@ export function updateSpaceMovement(isBoosting, isHyperspace) {
         spacecraft.position.copy(nextPosition);
     }
 } 
+
+
 
 
 /**

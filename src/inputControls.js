@@ -124,8 +124,7 @@ export function initControls(isEarthSurfaceActive, isMoonSurfaceActive) {
         }
     });
 
-    // Remove the keyup event handler that was deactivating hyperspace
-    // Let the timeout in startHyperspace control the duration instead
+    // ** No keyUp event for hyperspace - we want it last a set time, rather than stopping when key is released **
     
     controlsInitialized = true;
     return true;
