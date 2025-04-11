@@ -235,7 +235,7 @@ export function createSpacecraft(scene) {
                         const exhaust = exhaustAndTurretObjects[key];
                         console.log(`Creating flame trail for ${key}`);
                         
-                        const FLAME_SIZE = 6;
+                        const FLAME_SIZE = 10;
                         
                         // Create a flame group to hold both parts
                         const flameGroup = new THREE.Group();
@@ -246,13 +246,15 @@ export function createSpacecraft(scene) {
                         primaryFlameMesh.material.opacity = 0.3
                         primaryFlameMesh.rotation.x = -Math.PI / 2;
                         primaryFlameMesh.position.set(0, 0, -FLAME_SIZE/2);
+                        primaryFlameMesh.userData.initialScale = 1.0;
+                        primaryFlameMesh.userData.pulseFactor = 0;
                         
                         // Secondary (inner) flame - smaller and brighter
-                        const secondaryFlameGeometry = new THREE.ConeGeometry(0.29, FLAME_SIZE * 0.7, 16, 1);
+                        const secondaryFlameGeometry = new THREE.ConeGeometry(0.15, FLAME_SIZE * 0.7, 16, 1);
                         const secondaryFlameMesh = new THREE.Mesh(secondaryFlameGeometry, flameMaterial.clone());
-                        secondaryFlameMesh.material.opacity = 1.0; 
+                        secondaryFlameMesh.material.opacity = 0.9; // More opaque for brighter inner flame
                         secondaryFlameMesh.rotation.x = -Math.PI / 2;
-                        secondaryFlameMesh.position.set(0, 0, -FLAME_SIZE/2);
+                        secondaryFlameMesh.position.set(0, 0, -FLAME_SIZE * 0.4);
                         
                         // Add both flames to the group
                         flameGroup.add(primaryFlameMesh);
@@ -263,7 +265,8 @@ export function createSpacecraft(scene) {
                         
                         // Store reference to the group
                         contrails[key] = {
-                            mesh: flameGroup
+                            mesh: flameGroup,
+                            primaryFlameMesh: primaryFlameMesh // Store reference to primary flame for pulsing
                         };
                     }
                 });
@@ -593,10 +596,24 @@ export function createSpacecraft(scene) {
             if (contrail && contrail.mesh) {
                 // Set visibility based on boosting state
                 contrail.mesh.visible = isBoostActive;
+                
+                // Apply pulsing effect to primary flame when visible
+                if (isBoostActive && contrail.primaryFlameMesh) {
+                    const primaryFlameMesh = contrail.primaryFlameMesh;
+                    
+                    // Update pulse factor
+                    primaryFlameMesh.userData.pulseFactor = 
+                        (primaryFlameMesh.userData.pulseFactor || 0) + (deltaTime || 0.016) * 4.0;
+                    
+                    // Calculate scale factor between 0.6 and 0.8 (60-80% of FLAME_SIZE)
+                    const pulseScale = 0.6 + Math.sin(primaryFlameMesh.userData.pulseFactor) * 0.1;
+                    
+                    // Apply scale only to the z-axis (length) of the flame
+                    primaryFlameMesh.scale.z = pulseScale;
+                }
             }
         });
     }
-
 
     // Add the spacecraft to the scene (fallback)
     scene.add(spacecraft);
