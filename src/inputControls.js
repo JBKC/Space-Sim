@@ -1,17 +1,26 @@
 // Handles all keyboard inputs AND keyboard-related states
 
-// Import keys object from movement.js to maintain shared state across files
-import { keys } from './movement.js';
+// Define keys object here instead of importing from movement.js
+export const keys = { 
+    w: false, 
+    s: false, 
+    a: false, 
+    d: false, 
+    left: false, 
+    right: false, 
+    up: false, 
+    down: false, 
+    space: false,
+    shift: false 
+};
 
-// Flag to track if controls have been initialized
 let controlsInitialized = false;
 
-// Hyperspace functionality 
-let isHyperspaceActive = false;
-
-// State variables that were previously in main.js
+// State tracking
 let isBoosting = false;
+let isHyperspace = false;
 let isSpacePressed = false;
+
 
 /**
  * Activates hyperspace mode if conditions are met
@@ -20,8 +29,8 @@ let isSpacePressed = false;
  */
 function activateHyperspace(isEarthSurfaceActive, isMoonSurfaceActive) {
     // Don't activate hyperspace on planet surfaces
-    if (!isHyperspaceActive && !isEarthSurfaceActive && !isMoonSurfaceActive) {
-        isHyperspaceActive = true;
+    if (!isHyperspace && !isEarthSurfaceActive && !isMoonSurfaceActive) {
+        isHyperspace = true;
         console.log("Hyperspace activated!");
         setTimeout(deactivateHyperspace, 2000);
     }
@@ -31,9 +40,34 @@ function activateHyperspace(isEarthSurfaceActive, isMoonSurfaceActive) {
  * Deactivates hyperspace mode
  */
 function deactivateHyperspace() {
-    if (isHyperspaceActive) {
-        isHyperspaceActive = false;
+    if (isHyperspace) {
+        isHyperspace = false;
     }
+}
+
+/**
+ * Set hyperspace state
+ * @param {boolean} state - New hyperspace state
+ */
+export function setHyperspaceState(state) {
+    isHyperspace = !!state; // Convert to boolean
+    return isHyperspace;
+}
+
+/**
+ * Reset all key states to false
+ */
+export function resetKeyStates() {
+    keys.w = false;
+    keys.s = false;
+    keys.a = false;
+    keys.d = false;
+    keys.left = false;
+    keys.right = false;
+    keys.up = false;
+    keys.down = false;
+    keys.space = false;
+    keys.shift = false;
 }
 
 /**
@@ -60,7 +94,7 @@ export function initControls(isEarthSurfaceActive, isMoonSurfaceActive) {
             case 'ArrowRight': keys.right = true; break;
             case 'ArrowUp': keys.up = true; break;
             case 'ArrowDown': keys.down = true; break;
-            case 'Shift': keys.shift = false; break;
+            case 'Shift': keys.shift = true; break;
         }
     });
 
@@ -259,7 +293,7 @@ export function setupGameControls(dependencies) {
  * @returns {boolean} - Hyperspace active state
  */
 export function getHyperspaceState() {
-    return isHyperspaceActive;
+    return isHyperspace;
 }
 
 /**
@@ -285,8 +319,6 @@ export function resetControlsInitialized() {
     controlsInitialized = false;
 }
 
-// Export keys object to maintain compatibility with existing code
-export { keys }; 
 
 
 

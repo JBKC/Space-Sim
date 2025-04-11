@@ -18,7 +18,9 @@ import {
     scene as spaceScene,
     camera as spaceCamera,
     spacecraft,
-    renderScene
+    renderScene,
+    startHyperspace,
+    updateStreaks
 } from './spaceEnvs/setup.js';
 
 // Earth scene imports
@@ -49,7 +51,8 @@ import {
 } from './planetEnvs/moonCesium.js';
 
 
-import { resetMovementInputs, keys } from './movement.js'; // Added keys import
+import { resetMovementInputs } from './movement.js';
+import { keys } from './inputControls.js';
 import { 
     setupUIElements, 
     showControlsPrompt,
@@ -60,13 +63,14 @@ import {
 import {
     setupGameControls,
     getBoostState,
-    getSpaceKeyState
+    getSpaceKeyState,
+    getHyperspaceState
 } from './inputControls.js';
 
 /// TO SIMPLIFY / REMOVE
 
 let isAnimating = false;
-let isHyperspace = false;
+// Hyperspace state now comes from inputControls.js
 let spaceInitialized = false;
 let earthInitialized = false;  // Move to top-level scope for exports
 let moonInitialized = false;  // Move to top-level scope for exports
@@ -76,11 +80,7 @@ let isFirstEarthEntry = true;
 // Add a flag to track first Moon entry in a session
 let isFirstMoonEntry = true;
 
-// Hyperspace streak effect variables
-let streakLines = [];
-const streakCount = 20; // Reduced number of streaks for sparsity
-const streakLength = 50; // Length of each streak
-const streakSpeed = 500; // Speed of streaks moving past the camera
+// Hyperspace streak effects now in setup.js
 
 // Added delta time calculation for smoother animations
 let lastFrameTime = 0;
@@ -89,36 +89,26 @@ let lastFrameTime = 0;
 let prevEarthSurfaceActive = false;
 let prevMoonSurfaceActive = false;
 
+let debugMode = true;
 
+// Make the reset functions available globally to avoid circular imports
+window.resetEarthInitialized = function() {
+    earthInitialized = false;
+    console.log('Reset Earth surface initialization state');
+    
+    // Also reset the Washington initialization flag
+    resetSanFranInitialized();
+};
 
-///// Initialize UI optimization elements (FPS, asset count, etc.) /////
+window.resetMoonInitialized = function() {
+    moonInitialized = false;
+    console.log('Reset Moon surface initialization state');
+    
+    // Also reset the moonCesium initialization flag
+    resetMoonInitialized();
+};
 
-// Initialize FPS counter
-const stats = new Stats();
-stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
-stats.dom.style.cssText = 'position:absolute;bottom:0;left:0;opacity:0.9;z-index:10000;display:none;'; // Start hidden
-document.body.appendChild(stats.dom);
-// Create a custom FPS display element
-const fpsDisplay = document.createElement('div');
-fpsDisplay.id = 'fps-display';
-fpsDisplay.style.cssText = 'position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.6);color:#0ff;font-family:monospace;font-size:16px;font-weight:bold;padding:5px 10px;border-radius:5px;z-index:10000;display:none;'; // Start hidden
-fpsDisplay.textContent = 'FPS: 0';
-document.body.appendChild(fpsDisplay);
-
-// Create an asset loader display
-const assetDisplay = document.createElement('div');
-assetDisplay.id = 'asset-display';
-assetDisplay.style.cssText = 'position:absolute;bottom:45px;left:10px;background:rgba(0,0,0,0.6);color:#0fa;font-family:monospace;font-size:14px;font-weight:bold;padding:5px 10px;border-radius:5px;z-index:10000;display:none;'; // Start hidden
-assetDisplay.innerHTML = 'Assets: 0/0<br>Textures: 0/0';
-document.body.appendChild(assetDisplay);
-
-// Initialize variables for FPS calculation
-let frameCount = 0;
-let lastFpsUpdateTime = 0;
-const fpsUpdateInterval = 500; // Update numerical display every 500ms
-
-// Initialize UI elements and directional indicator
-setupUIElements();
+/////////////// INITLIZATION OF HIGH-LEVEL GAME ELEMENTS ///////////////
 
 // Setup game controls with needed dependencies
 setupGameControls({
@@ -149,7 +139,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-
 ///// FUNCITON THAT LOADS UP GAME WHEN "EXPLORE" BUTTON IS PRESSED /////
 function startGame() {
 
@@ -177,6 +166,34 @@ function startGame() {
 // Use rate limiter to start game
 const rateLimitedStartGame = createRateLimitedGameLoader(startGame);
 
+// Initialize FPS counter
+const stats = new Stats();
+stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
+stats.dom.style.cssText = 'position:absolute;bottom:0;left:0;opacity:0.9;z-index:10000;display:none;'; // Start hidden
+document.body.appendChild(stats.dom);
+// Create a custom FPS display element
+const fpsDisplay = document.createElement('div');
+fpsDisplay.id = 'fps-display';
+fpsDisplay.style.cssText = 'position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.6);color:#0ff;font-family:monospace;font-size:16px;font-weight:bold;padding:5px 10px;border-radius:5px;z-index:10000;display:none;'; // Start hidden
+fpsDisplay.textContent = 'FPS: 0';
+document.body.appendChild(fpsDisplay);
+
+// Create an asset loader display
+const assetDisplay = document.createElement('div');
+assetDisplay.id = 'asset-display';
+assetDisplay.style.cssText = 'position:absolute;bottom:45px;left:10px;background:rgba(0,0,0,0.6);color:#0fa;font-family:monospace;font-size:14px;font-weight:bold;padding:5px 10px;border-radius:5px;z-index:10000;display:none;'; // Start hidden
+assetDisplay.innerHTML = 'Assets: 0/0<br>Textures: 0/0';
+document.body.appendChild(assetDisplay);
+
+// Initialize variables for FPS calculation
+let frameCount = 0;
+let lastFpsUpdateTime = 0;
+const fpsUpdateInterval = 500; // Update numerical display every 500ms
+
+// Initialize UI elements and directional indicator
+setupUIElements();
+
+
 // Handle window resize
 window.addEventListener('resize', () => {
     spaceCamera.aspect = window.innerWidth / window.innerHeight;
@@ -185,265 +202,9 @@ window.addEventListener('resize', () => {
 });
 
 
+
 ////////////////////////////////////////////////////////////////////////
 
-
-// Function to create hyperspace streak lines
-function createStreaks() {
-    streakLines = [];
-    for (let i = 0; i < streakCount; i++) {
-        const geometry = new THREE.BufferGeometry();
-        const positions = new Float32Array(6); // Two points per line (start and end)
-        positions[0] = (Math.random() - 0.5) * 100; // Start X
-        positions[1] = (Math.random() - 0.5) * 100; // Start Y
-        positions[2] = -100 - Math.random() * streakLength; // Start Z (far in front)
-        positions[3] = positions[0]; // End X (same as start for now)
-        positions[4] = positions[1]; // End Y
-        positions[5] = positions[2] + streakLength; // End Z (length ahead)
-
-        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-        const material = new THREE.LineBasicMaterial({
-            color: 0xffffff, // Solid white
-            linewidth: 4, // Increased thickness for thicker streaks
-        });
-
-        const line = new THREE.Line(geometry, material);
-        spaceScene.add(line);
-        streakLines.push({ line, positions: positions });
-    }
-}
-
-// Function to update hyperspace streaks
-function updateStreaks() {
-    streakLines.forEach((streak, index) => {
-        const positions = streak.positions;
-
-        // Move the entire streak backward
-        for (let i = 0; i < positions.length; i += 3) {
-            positions[i + 2] += streakSpeed * 0.016; // Move along Z (backward)
-        }
-
-        // If the end of the streak goes too far behind, reset it to the front
-        if (positions[5] > 100) {
-            positions[0] = (Math.random() - 0.5) * 100; // New start X
-            positions[1] = (Math.random() - 0.5) * 100; // New start Y
-            positions[2] = -100 - Math.random() * streakLength; // New start Z
-            positions[3] = positions[0]; // End X
-            positions[4] = positions[1]; // End Y
-            positions[5] = positions[2] + streakLength; // End Z
-        }
-
-        streak.line.geometry.attributes.position.needsUpdate = true;
-
-        // Position and rotate with the camera
-        const cameraPosition = new THREE.Vector3();
-        spaceCamera.getWorldPosition(cameraPosition);
-        streak.line.position.copy(cameraPosition);
-        streak.line.rotation.copy(spaceCamera.rotation);
-    });
-}
-
-// Function to start hyperspace with progress bar and streaks
-function startHyperspace() {
-    // Don't activate hyperspace if already in hyperspace, on Earth's surface, or if we're still at the welcome screen
-    const welcomeScreen = document.getElementById('welcome-screen');
-    if (isHyperspace || isEarthSurfaceActive || (welcomeScreen && welcomeScreen.style.display !== 'none')) return;
-    
-    isHyperspace = true;
-    // Make sure to set the global isHyperspace flag immediately so other modules can detect it
-    window.isHyperspace = true;
-    console.log('🚀 ENTERING HYPERSPACE - Wings should CLOSE!');
-    console.log('Setting window.isHyperspace =', window.isHyperspace);
-
-    // Create hyperspace streaks
-    createStreaks();
-
-    // Visual indication for debug purposes
-    const coordsDiv = document.getElementById('coordinates');
-    if (coordsDiv) {
-        coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
-        coordsDiv.style.fontWeight = 'bold';
-    }
-
-    const progressContainer = document.getElementById('hyperspace-progress-container');
-    const progressBar = document.getElementById('hyperspace-progress');
-    const bar = progressBar.querySelector('.bar');
-    const label = document.getElementById('hyperspace-progress-label');
-
-    if (!progressContainer || !progressBar || !bar || !label) {
-        console.error('Hyperspace progress elements not found:', {
-            progressContainer,
-            progressBar,
-            bar,
-            label
-        });
-        return;
-    }
-
-    // Force visibility and higher z-index
-    progressContainer.style.display = 'block'; // Show the container
-    progressContainer.style.zIndex = '10000'; // Ensure it's above everything else
-    progressContainer.style.opacity = '1'; // Ensure full opacity
-    progressContainer.style.visibility = 'visible'; // Force visibility
-    bar.style.width = '100%'; // Start at 100% for right-to-left unfilling
-
-    // Add glow effect to make it more visible
-    bar.style.boxShadow = '0 0 10px 2px #ffffff';
-    
-    // Debug: Log visibility and positioning
-    console.log('Progress container display:', progressContainer.style.display);
-    console.log('Label visibility:', label.style.display, 'Text:', label.textContent);
-    console.log('Label position:', label.style.top, label.style.left);
-    console.log('Z-index:', progressContainer.style.zIndex);
-
-    // Calculate total hyperspace duration in milliseconds
-    const hyperspaceDuration = 2000; // 2 seconds
-
-    // Use requestAnimationFrame for smoother animation tied to display refresh rate
-    const startTime = performance.now();
-    const endTime = startTime + hyperspaceDuration;
-
-    // Animation function using timestamps for precise timing
-    const animateProgress = (timestamp) => {
-        // Calculate how much time has elapsed
-        const elapsed = timestamp - startTime;
-        
-        // Calculate the remaining percentage
-        const remaining = Math.max(0, 100 * (1 - elapsed / hyperspaceDuration));
-        
-        // Update the bar width
-        bar.style.width = `${remaining}%`;
-        
-        // Continue animation if we haven't reached the end time
-        if (timestamp < endTime) {
-            requestAnimationFrame(animateProgress);
-        } else {
-            // Ensure the bar is completely empty at the end
-            bar.style.width = '0%';
-            // Hide the container at exactly the end of hyperspace
-            progressContainer.style.display = 'none';
-        }
-    };
-
-    // Start the animation
-    requestAnimationFrame(animateProgress);
-
-    // Set a timeout for exiting hyperspace that matches the exact duration
-    setTimeout(() => {
-        // Exit hyperspace
-        isHyperspace = false;
-        window.isHyperspace = false;
-        console.log('🚀 EXITING HYPERSPACE - Wings should OPEN!');
-        console.log('Setting window.isHyperspace =', window.isHyperspace);
-        resetMovementInputs();
-        
-        // Reset visual indication
-        if (coordsDiv) {
-            coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
-            coordsDiv.style.fontWeight = 'normal';
-        }
-        
-        // Clean up streaks
-        streakLines.forEach(streak => spaceScene.remove(streak.line));
-        streakLines = [];
-        
-        // Force hide progress bar to ensure it doesn't linger
-        progressContainer.style.display = 'none';
-    }, hyperspaceDuration);
-}
-
-let debugMode = true;
-
-// Make the reset functions available globally to avoid circular imports
-window.resetEarthInitialized = function() {
-    earthInitialized = false;
-    console.log('Reset Earth surface initialization state');
-    
-    // Also reset the Washington initialization flag
-    resetSanFranInitialized();
-};
-
-window.resetMoonInitialized = function() {
-    moonInitialized = false;
-    console.log('Reset Moon surface initialization state');
-    
-    // Also reset the moonCesium initialization flag
-    resetMoonInitialized();
-};
-
-// Add a global function to directly toggle wings for debugging
-window.toggleWings = function() {
-    if (spacecraft && spacecraft.toggleWings) {
-        console.log("Manually toggling wings via global function");
-        const result = spacecraft.toggleWings();
-        console.log(result);
-        return result;
-    } else {
-        console.error("spacecraft.toggleWings function not available");
-        return "Error: Wings cannot be toggled";
-    }
-};
-
-// Add a global function to directly set wing position for debugging
-window.setWingsPosition = function(position) {
-    if (spacecraft && spacecraft.setWingsPosition) {
-        console.log(`Manually setting wing position to ${position} via global function`);
-        const result = spacecraft.setWingsPosition(position);
-        console.log(result);
-        return result;
-    } else {
-        console.error("spacecraft.setWingsPosition function not available");
-        return "Error: Wings position cannot be set";
-    }
-};
-
-// Add a global function to animate wings for testing (animates from closed to open or vice versa)
-window.animateWings = function(duration = 500) {
-    if (!spacecraft) {
-        console.error("spacecraft not available");
-        return "Error: Wings cannot be animated";
-    }
-    
-    if (spacecraft.setWingsOpen) {
-        // Get current state
-        const isCurrentlyOpen = spacecraft._spacecraftComponents?.animationState === 'open';
-        
-        // Toggle to opposite state - setWingsOpen now has smooth animations built-in
-        console.log(`Animating wings from ${isCurrentlyOpen ? 'open' : 'closed'} to ${isCurrentlyOpen ? 'closed' : 'open'}`);
-        spacecraft.setWingsOpen(!isCurrentlyOpen);
-        
-        return `Wings animating to ${isCurrentlyOpen ? 'closed' : 'open'} position`;
-    } else if (spacecraft.setWingsPosition) {
-        // Fall back to the original implementation if setWingsOpen is not available
-        const startTime = performance.now();
-        const startPos = spacecraft._spacecraftComponents?.animationState === 'open' ? 1 : 0;
-        const endPos = startPos > 0.5 ? 0 : 1;
-        
-        console.log(`Animating wings from ${startPos} to ${endPos} over ${duration}ms`);
-        
-        function animate(time) {
-            const elapsed = time - startTime;
-            const progress = Math.min(1, elapsed / duration);
-            
-            // Use an easing function for smoother animation
-            const easedProgress = 0.5 - 0.5 * Math.cos(progress * Math.PI);
-            const currentPos = startPos + (endPos - startPos) * easedProgress;
-            
-            spacecraft.setWingsPosition(currentPos);
-            
-            if (progress < 1) {
-                requestAnimationFrame(animate);
-            }
-        }
-        
-        requestAnimationFrame(animate);
-        return `Animating wings from ${startPos} to ${endPos}`;
-    } else {
-        console.error("No wing animation methods available");
-        return "Error: Wings cannot be animated";
-    }
-};
 
 // Function to show the blue transition effect when entering Earth's atmosphere
 function showEarthTransition(callback) {
@@ -585,6 +346,8 @@ function animate(currentTime = 0) {
                 
                 // Get boosting state from inputControls
                 const isBoosting = getBoostState();
+                // Get hyperspace state from inputControls
+                const isHyperspace = getHyperspaceState();
                 
                 // Main frame update function - pass isBoosting and isHyperspace values
                 updateSpace(isBoosting, isHyperspace, deltaTime);
