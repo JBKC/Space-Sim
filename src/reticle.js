@@ -100,7 +100,7 @@ export function createReticle(scene, spacecraft, camera) {
     crosshairGeometry.setFromPoints(crosshairPoints);
     const crosshair = new THREE.LineSegments(crosshairGeometry, material);
     
-    // Create a triangular reticle instead of a ring
+    // Create a triangular reticle
     const triangleShape = new THREE.Shape();
     const size = config.triangleSize;
     triangleShape.moveTo(0, size);

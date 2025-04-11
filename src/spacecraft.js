@@ -1,3 +1,5 @@
+// spacecraft.js
+
 import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
 import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/loaders/GLTFLoader.js';
 import config from './config.js';
@@ -572,9 +574,9 @@ export function createSpacecraft(scene) {
         // Determine if we're boosting, either from parameter or directly from keys
         const isBoostActive = isBoosting || (keys && keys.up);
         
-        console.log("Engine effects update - boosting:", isBoostActive, 
-                    "param:", isBoosting, 
-                    "keys.up:", keys?.up);
+        // console.log("Engine effects update - boosting:", isBoostActive, 
+        //             "param:", isBoosting, 
+        //             "keys.up:", keys?.up);
         
         // Show/hide red spheres based on boosting state
         Object.keys(contrails).forEach(key => {

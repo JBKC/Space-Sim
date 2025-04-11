@@ -66,8 +66,6 @@ import {
     updateControlsDropdown
 } from './ui.js';
 
-// Import the reticle functions but we won't initialize them here
-import { setReticleVisibility } from './reticle.js';
 
 let gameMode = null;
 let isAnimating = false;
@@ -183,7 +181,7 @@ document.addEventListener('keydown', (event) => {
     }
     if (event.code === 'ArrowUp') {
         isBoosting = true;
-        console.log('Boost activated - speed should increase');
+        // console.log('Boost activated - speed should increase');
         
         // Visual indication for debug purposes
         const coordsDiv = document.getElementById('coordinates');
@@ -285,7 +283,7 @@ document.addEventListener('keyup', (event) => {
     }
     if (event.code === 'ArrowUp') {
         isBoosting = false;
-        console.log('Boost deactivated - speed should return to normal');
+        // console.log('Boost deactivated - speed should return to normal');
         
         // Reset visual indication
         const coordsDiv = document.getElementById('coordinates');
@@ -817,12 +815,11 @@ function animate(currentTime = 0) {
                             });
                             
                             // Hide any reticle display
-                            if (spacecraft && spacecraft.userData && spacecraft.userData.reticle) {
-                                spacecraft.userData.reticle.visible = false;
-                            }
+                            // if (spacecraft && spacecraft.userData && spacecraft.userData.reticle) {
+                            //     spacecraft.userData.reticle.visible = false;
+                            // }
                             
-                            
-                            // Hide any other UI elements that should not be visible on moon surface
+                            // Hide any other UI elements that should not be visible on planet surface
                             // Look for elements by class that might contain 'popup', 'tooltip', or 'notification'
                             const otherUIElements = document.querySelectorAll('[class*="popup"], [class*="tooltip"], [class*="notification"]');
                             otherUIElements.forEach(element => {

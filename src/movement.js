@@ -78,7 +78,7 @@ export function resetMovementInputs() {
     keys.up = false;
     keys.down = false;
     keys.space = false;
-    console.log('Movement inputs reset:', keys);
+    // console.log('Movement inputs reset:', keys);
     // Reset wing animation to default open state after hyperspace
     if (!wingsOpen) {
         wingsOpen = true;
