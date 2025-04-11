@@ -1,7 +1,7 @@
 // spacecraft.js
 
-import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
-import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/loaders/GLTFLoader.js';
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import config from './config.js';
 import { loadingManager, textureLoadingManager } from './loaders.js';
 import { createReticle } from './reticle.js';
@@ -220,12 +220,12 @@ export function createSpacecraft(scene) {
                 ///// Create Engine Boost Effects /////
 
                 // Create material + shape
-                console.log("Creating simple red spheres for exhausts...");
+                console.log("Creating exhaust flames");
                 const contrails = {};
                 
                 const flameMaterial = new THREE.MeshBasicMaterial({
                     color: 0xff00ff,
-                    transparent: false,
+                    transparent: true,
                     side: THREE.DoubleSide
                 });
                 
@@ -235,23 +235,35 @@ export function createSpacecraft(scene) {
                         const exhaust = exhaustAndTurretObjects[key];
                         console.log(`Creating flame trail for ${key}`);
                         
-
                         const FLAME_SIZE = 6;
                         
-                        // Create a simple flame effect
-                        const flameGeometry = new THREE.ConeGeometry(0.3, FLAME_SIZE, 16, 1);
-                        const flameMesh = new THREE.Mesh(flameGeometry, flameMaterial);
-                        flameMesh.rotation.x = -Math.PI / 2;
-
-                        // Position directly at exhaust
-                        flameMesh.position.set(0, 0, -FLAME_SIZE/2);
+                        // Create a flame group to hold both parts
+                        const flameGroup = new THREE.Group();
                         
-                        // Add to exhaust
-                        exhaust.add(flameMesh);
+                        // Primary (outer) flame
+                        const primaryFlameGeometry = new THREE.ConeGeometry(0.3, FLAME_SIZE, 16, 1);
+                        const primaryFlameMesh = new THREE.Mesh(primaryFlameGeometry, flameMaterial);
+                        primaryFlameMesh.material.opacity = 0.3
+                        primaryFlameMesh.rotation.x = -Math.PI / 2;
+                        primaryFlameMesh.position.set(0, 0, -FLAME_SIZE/2);
                         
-                        // Store reference
+                        // Secondary (inner) flame - smaller and brighter
+                        const secondaryFlameGeometry = new THREE.ConeGeometry(0.29, FLAME_SIZE * 0.7, 16, 1);
+                        const secondaryFlameMesh = new THREE.Mesh(secondaryFlameGeometry, flameMaterial.clone());
+                        secondaryFlameMesh.material.opacity = 1.0; 
+                        secondaryFlameMesh.rotation.x = -Math.PI / 2;
+                        secondaryFlameMesh.position.set(0, 0, -FLAME_SIZE/2);
+                        
+                        // Add both flames to the group
+                        flameGroup.add(primaryFlameMesh);
+                        flameGroup.add(secondaryFlameMesh);
+                        
+                        // Add group to exhaust
+                        exhaust.add(flameGroup);
+                        
+                        // Store reference to the group
                         contrails[key] = {
-                            mesh: flameMesh
+                            mesh: flameGroup
                         };
                     }
                 });
@@ -394,10 +406,7 @@ export function createSpacecraft(scene) {
                 
                 // Log contrail details before adding the model back
                 if (model.userData?.contrails) {
-                    console.log("RED SPHERES:", Object.keys(model.userData.contrails).length, "found");
-                    
-                    // Don't automatically make spheres visible - will be controlled by boost state
-                    console.log("Red spheres will be shown/hidden based on boost state");
+                    console.log("FLAMES:", Object.keys(model.userData.contrails).length, "found");
                 }
                 
                 spacecraft.add(model);
@@ -563,7 +572,7 @@ export function createSpacecraft(scene) {
 
     /////// ENGINE EFFECTS SYSTEM ///////
 
-    // Engine effects function - shows red spheres only when boosting
+    // Engine effects function - shows flames only when boosting
     function updateEngineEffects(isBoosting, deltaTime) {
         // Skip if model isn't loaded or doesn't have contrails
         const contrails = xWingModel?.userData?.contrails || {};
@@ -578,7 +587,7 @@ export function createSpacecraft(scene) {
         //             "param:", isBoosting, 
         //             "keys.up:", keys?.up);
         
-        // Show/hide red spheres based on boosting state
+        // Show/hide flames based on boosting state
         Object.keys(contrails).forEach(key => {
             const contrail = contrails[key];
             if (contrail && contrail.mesh) {
@@ -594,20 +603,24 @@ export function createSpacecraft(scene) {
 
     ///// RETURN SPACECRAFT OBJECT /////
 
-    // Return an object containing the spacecraft and all necessary methods and attributes
+    // Return an object containing the spacecraft and all necessary attributes and methods
+    // Note - referred to as spacecraftComponents in setup.js
     return {
+        // attributes
         spacecraft,
         cockpit,
         reticle: reticleComponent.reticle,
         updateReticle: reticleComponent.update,
-        get isFirstPersonView() {return isFirstPersonView},
 
+        // methods
         toggleView,
         updateAnimations,
         setWingsOpen: wingAnimationController.setWingsOpen,
         toggleWings: wingAnimationController.toggleWings,
         setWingsPosition: wingAnimationController.setWingsPosition,
-        
         updateEngineEffects,
+
+        get isFirstPersonView() {return isFirstPersonView},
+
     };
 }

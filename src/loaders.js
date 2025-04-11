@@ -1,4 +1,4 @@
-import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
+import * as THREE from 'three';
 
 // Initialize THREE.js loading managers to track progress
 const loadingManager = new THREE.LoadingManager();

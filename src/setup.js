@@ -127,18 +127,6 @@ function updateCamera(camera, isHyperspace) {
     spacecraft.remove(spacecraftCenter);
 }
 
-// Spacecraft setup
-let spacecraft, engineGlowMaterial, lightMaterial;
-let topRightWing, bottomRightWing, topLeftWing, bottomLeftWing;
-let isBoosting = false;
-let isHyperspace = false;
-let wingsOpen = true;
-let wingAnimation = 0;
-let updateEngineEffects;
-const wingTransitionFrames = 30;
-export { spacecraft, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, wingsOpen, wingAnimation, updateEngineEffects };
-
-
 // Export key objects
 export { 
     renderer, 
@@ -180,36 +168,49 @@ scene.add(ambientLight);
 scene.background = new THREE.Color(0x000000);
 
 
-// Initialize spacecraft
-function initSpacecraft() {
-    const spacecraftComponents = createSpacecraft(scene);
-    spacecraft = spacecraftComponents.spacecraft;
-    engineGlowMaterial = spacecraftComponents.engineGlowMaterial;
-    lightMaterial = spacecraftComponents.lightMaterial;
-    topRightWing = spacecraftComponents.topRightWing;
-    bottomRightWing = spacecraftComponents.bottomRightWing;
-    topLeftWing = spacecraftComponents.topLeftWing;
-    bottomLeftWing = spacecraftComponents.bottomLeftWing;
+// Spacecraft setup
+let spacecraft, cockpit, reticle, updateReticle, isFirstPersonView;
+let toggleView, updateAnimations, setWingsOpen, toggleWings, setWingsPosition, updateEngineEffects;
+let topRightWing, bottomRightWing, topLeftWing, bottomLeftWing;
+let isBoosting = false;
+let isHyperspace = false;
+let wingsOpen = true;
+let wingAnimation = 0;
+const wingTransitionFrames = 30;
+export { spacecraft, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, wingsOpen, wingAnimation, updateEngineEffects };
 
-    // Expose the toggleView function for cockpit view
+
+// Initialize spacecraft in the scene
+function initSpacecraft() {
+
+    // Create a spacecraft object to pull all the attributes and methods from the createSpacecraft function
+    const spacecraftComponents = createSpacecraft(scene);
+
+    // Expose attributes from the spacecraftComponents object
+    spacecraft = spacecraftComponents.spacecraft;
+    cockpit = spacecraftComponents.cockpit;
+    reticle = spacecraftComponents.reticle;
+    updateReticle = spacecraftComponents.updateReticle;
+
+    // Expose methods from the spacecraftComponents object
     spacecraft.toggleView = spacecraftComponents.toggleView;
+    spacecraft.updateAnimations = spacecraftComponents.updateAnimations;
+    spacecraft.setWingsOpen = spacecraftComponents.setWingsOpen;
+    spacecraft.toggleWings = spacecraftComponents.toggleWings;
+    spacecraft.setWingsPosition = spacecraftComponents.setWingsPosition;
+    updateEngineEffects = spacecraftComponents.updateEngineEffects;
     
     // Store the isFirstPersonView state for camera logic
     spacecraft.isFirstPersonView = function() {
         // Add a direct reference to the spacecraftComponents object
         return this._spacecraftComponents ? this._spacecraftComponents.isFirstPersonView : false;
     };
-    
-    // Expose animation functions
-    spacecraft.updateAnimations = spacecraftComponents.updateAnimations;
-    spacecraft.setWingsOpen = spacecraftComponents.setWingsOpen;
-    spacecraft.toggleWings = spacecraftComponents.toggleWings;
-    spacecraft.setWingsPosition = spacecraftComponents.setWingsPosition;
+
     
     // Store a direct reference to the spacecraftComponents
     spacecraft._spacecraftComponents = spacecraftComponents;
 
-    // Make sure wings are open by defaul (attack position)
+    // Make sure wings are open by default (set timeout to ensure model is loaded)
     setTimeout(() => {
         if (spacecraft && spacecraft.setWingsOpen) {
             // console.log("Setting wings to OPEN position in setup.js");
@@ -224,16 +225,16 @@ function initSpacecraft() {
         console.warn("Reticle not found in spacecraft components");
     }
 
+    // Set the initial position and orientation of the spacecraft
     spacecraft.position.set(40000, 40000, 40000);
     const centerPoint = new THREE.Vector3(0, 0, 10000);
     spacecraft.lookAt(centerPoint);
-    spacecraft.name = 'spacecraft'; // Add a name for easier lookup
-    scene.add(spacecraft); // Make sure to add it to the scene
+    spacecraft.name = 'spacecraft';
 
-    updateEngineEffects = spacecraftComponents.updateEngineEffects;
 }
 
-/// STATE / ANIMATION FUNCTIONS ///
+
+/// CORE INITIALIZATION FUNCTION ///
 export function init() {
     console.log("Space initialization started");
     
@@ -266,7 +267,7 @@ export function init() {
     };
 }
 
-// Performs the animation update for the spacecraft / environment (called from main.js)
+/// CORE STATE UPDATE FUNCTION ///
 // currently set to make updates at around 60fps
 export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
     try {
@@ -340,7 +341,7 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
     }
 }
 
-// Check if we're approaching enterable planets
+// Check if we're approaching enterable celestial bodies
 export function checkPlanetProximity() {
     // Get spacecraft position
     const position = spacecraft.position.clone();
@@ -401,6 +402,7 @@ export function checkPlanetProximity() {
     }
 }
 
+// Reset space scene after exiting Earth surface
 export function exitEarthSurface() {
     console.log("Exiting Earth's surface!");
     isEarthSurfaceActive = false;
@@ -468,6 +470,7 @@ export function exitEarthSurface() {
     }
 }
 
+// Reset space scene after exiting Moon surface
 export function exitMoonSurface() {
     console.log("Exiting Moon's surface!");
     isMoonSurfaceActive = false;

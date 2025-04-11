@@ -1,9 +1,8 @@
 // Contains all movement variables and movement-based state updates
 
-import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
+import * as THREE from 'three';
 import { 
     spacecraft, 
-    updateEngineEffects,
     scene as spaceScene,
     EARTH_RADIUS,
     EARTH_POSITION,
@@ -133,7 +132,7 @@ document.addEventListener('keyup', (event) => {
 
 /**
  * Core movement function to reuse across all scenes
- * Handles basic spacecraft movement including pitch, roll, yaw, speed adjustments
+ * Handles basic  spacecraftmovement including pitch, roll, yaw, speed adjustments
  * 
  * @param {boolean} isBoosting - Whether boost is active
  * @returns {Object|null} - The movement vectors or null if spacecraft not initialized
@@ -156,11 +155,6 @@ export function updateCoreMovement(isBoosting) {
     } else {
         currentSpeed = baseSpeed;
         currentTurnSpeed = baseTurnSpeed; // Normal turn sensitivity
-    }
-
-    // Update engine effects
-    if (typeof updateEngineEffects === 'function') {
-        updateEngineEffects(isBoosting || keys.up, keys.down);
     }
 
     // Store current state
