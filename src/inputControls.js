@@ -1,4 +1,4 @@
-// Handles all keyboard inputs AND keyboard-related states
+// Handles keyboard inputs and keyboard-related states
 
 // Define keys object here instead of importing from movement.js
 export const keys = { 
@@ -16,13 +16,10 @@ export const keys = {
 };
 
 let controlsInitialized = false;
-
 // State tracking
 let isBoosting = false;
 let isHyperspace = false;
 let isSpacePressed = false;
-let cameraTogglePressed = false;
-
 
 /**
  * Activates hyperspace mode if conditions are met
@@ -74,7 +71,7 @@ export function resetKeyStates() {
 }
 
 /**
- * Initialize keyboard controls and event listeners
+ * Initialize event listeners
  * @returns {boolean} - Whether controls were initialized
  */
 export function initControls(isEarthSurfaceActive, isMoonSurfaceActive) {
@@ -115,11 +112,11 @@ export function initControls(isEarthSurfaceActive, isMoonSurfaceActive) {
             case 'ArrowUp': keys.up = false; break;
             case 'ArrowDown': keys.down = false; break;
             case 'Shift': keys.shift = false; break;
-            case 'c': case 'C': keys.c = false; break;
+            case 'c': keys.c = false; break;
         }
     });
 
-    // Add global hyperspace key handlers
+    // Add hyperspace activation on Shift key
     window.addEventListener('keydown', (event) => {
         // Only activate hyperspace if not on Earth's surface
         if (event.key === 'Shift' && !isEarthSurfaceActive) {
@@ -127,19 +124,16 @@ export function initControls(isEarthSurfaceActive, isMoonSurfaceActive) {
         }
     });
 
-    window.addEventListener('keyup', (event) => {
-        if (event.key === 'Shift') {
-            deactivateHyperspace();
-        }
-    });
+    // Remove the keyup event handler that was deactivating hyperspace
+    // Let the timeout in startHyperspace control the duration instead
     
     controlsInitialized = true;
     return true;
 }
 
+
+ // Sets up the control dependencies (dependency injection)
 /**
- * Sets up the main game controls for handling various key presses
- * 
  * @param {Object} dependencies - Dependencies needed by the controls
  * @param {Object} dependencies.spacecraft - The main spacecraft object
  * @param {Object} dependencies.earthSpacecraft - The Earth spacecraft object
@@ -154,7 +148,10 @@ export function initControls(isEarthSurfaceActive, isMoonSurfaceActive) {
  * @param {Function} dependencies.exitEarthSurface - Function to exit Earth surface
  * @param {Function} dependencies.exitMoonSurface - Function to exit Moon surface
  * @param {Function} dependencies.startHyperspace - Function to start hyperspace
+ * @param {Function} dependencies.toggleCameraView - Function to toggle camera view
  */
+
+///// ASSIGN CONTROLS TO KEYS /////
 export function setupGameControls(dependencies) {
     const {
         spacecraft, 
@@ -169,7 +166,8 @@ export function setupGameControls(dependencies) {
         resetMoonPosition,
         exitEarthSurface,
         exitMoonSurface,
-        startHyperspace
+        startHyperspace,
+        toggleCameraView
     } = dependencies;
     
     // Main keydown event listener for game controls
@@ -178,53 +176,27 @@ export function setupGameControls(dependencies) {
         const welcomeScreen = document.getElementById('welcome-screen');
         const isInMainMenu = welcomeScreen && welcomeScreen.style.display !== 'none';
         
-        // Skip handling most keys when in main menu except for game start (Enter key)
-        if (isInMainMenu && event.key !== 'Enter') {
+        // Skip handling most keys when in main menu except
+        if (isInMainMenu) {
             return;
         }
-        
-        if (event.code === 'Space') {
-            isSpacePressed = true;
-            // Also update the keys object used by scenes
-            if (spacecraft && spacecraft.userData) {
-                spacecraft.userData.keys = spacecraft.userData.keys || {};
-                spacecraft.userData.keys.space = true;
-            }
-        }
+
+        // BOOSTING
         if (event.code === 'ArrowUp') {
             isBoosting = true;
-            // Visual indication for debug purposes
-            const coordsDiv = document.getElementById('coordinates');
-            if (coordsDiv) {
-                coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
             }
-        }
-        // Only allow hyperspace if not on Earth's surface and not in main menu
+       
+        // HYPERSPACE
         if ((event.code === 'ShiftLeft' || event.code === 'ShiftRight') && !isEarthSurfaceActive && !isInMainMenu) {
             startHyperspace();
         }
-        // Reset position in Earth surface mode
-        if (event.code === 'KeyR' && isEarthSurfaceActive) {
-            console.log('R pressed - resetting position in San Francisco');
-            resetEarthPosition();
-        }
-        // Reset position in Moon surface mode
-        if (event.code === 'KeyR' && isMoonSurfaceActive) {
-            console.log('R pressed - resetting position on the Moon');
-            resetMoonPosition();
-        }
-        // Toggle first-person/third-person view with 'C' key
+
+        // CHANGE VIEW 3RD / 1ST PERSON
         if (event.code === 'KeyC') {
-            cameraTogglePressed = true;
-            keys.c = true;
+            console.log('===== TOGGLE COCKPIT VIEW =====');
             
-            console.log('===== C KEY PRESSED - TOGGLE COCKPIT VIEW =====');
-            console.log('Is on Earth surface:', isEarthSurfaceActive);
-            console.log('Has spacecraft:', !!spacecraft);
-            console.log('Has earth spacecraft:', !!earthSpacecraft);
-            
+            // Earth scene
             if (isEarthSurfaceActive && earthSpacecraft) {
-                console.log('C pressed - toggling cockpit view in Earth scene');
                 if (typeof earthSpacecraft.toggleView === 'function') {
                     const result = earthSpacecraft.toggleView(earthCamera, (isFirstPerson) => {
                         // Reset camera state based on new view mode
@@ -263,39 +235,35 @@ export function setupGameControls(dependencies) {
                 }
             }
         }
+
+        // Reset position in Earth surface mode
+        if (event.code === 'KeyR' && isEarthSurfaceActive) {
+            console.log('R pressed - resetting position');
+            resetEarthPosition();
+        }
+        // Reset position in Moon surface mode
+        if (event.code === 'KeyR' && isMoonSurfaceActive) {
+            console.log('R pressed - resetting position');
+            resetMoonPosition();
+        }
+        
         // Enhanced ESC key to exit Moon surface or Earth surface
         if (event.code === 'Escape') {
-            if (isMoonSurfaceActive) {
-                console.log('ESC pressed - exiting Moon surface');
-                exitMoonSurface();
-            } else if (isEarthSurfaceActive) {
-                console.log('ESC pressed - exiting Earth surface');
+            if (isEarthSurfaceActive) {
+                console.log('ESC pressed - exiting surface');
                 exitEarthSurface();
+            } else if (isMoonSurfaceActive) {
+                console.log('ESC pressed - exiting surface');
+                exitMoonSurface();
             }
         }
     });
 
-    // Keyup event listener
+    // Keyup listener for boosting (lasts as long as it's pressed down)
     document.addEventListener('keyup', (event) => {
-        if (event.code === 'Space') {
-            isSpacePressed = false;
-            // Also update the keys object used by scenes
-            if (spacecraft && spacecraft.userData) {
-                spacecraft.userData.keys = spacecraft.userData.keys || {};
-                spacecraft.userData.keys.space = false;
-            }
-        }
+
         if (event.code === 'ArrowUp') {
             isBoosting = false;
-            // Reset visual indication
-            const coordsDiv = document.getElementById('coordinates');
-            if (coordsDiv) {
-                coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
-            }
-        }
-        if (event.code === 'KeyC') {
-            cameraTogglePressed = false;
-            keys.c = false;
         }
     });
 }
@@ -316,21 +284,6 @@ export function getBoostState() {
     return isBoosting;
 }
 
-/**
- * Returns whether space key is currently pressed
- * @returns {boolean} - Space key state
- */
-export function getSpaceKeyState() {
-    return isSpacePressed;
-}
-
-/**
- * Returns whether camera toggle key is currently pressed
- * @returns {boolean} - Camera toggle key state
- */
-export function getCameraToggleState() {
-    return cameraTogglePressed;
-}
 
 /**
  * Resets the initialized state (useful for test/debug)
