@@ -1,4 +1,5 @@
 // Handles keyboard inputs and keyboard-related states
+// STATE BASED APPROACH - meaning that variables are locally set and updated here, rather than passed around to individual scripts
 
 // Define keys object here instead of importing from movement.js
 export const keys = { 
@@ -12,14 +13,35 @@ export const keys = {
     down: false, 
     space: false,
     shift: false,
-    c: false 
+    c: false,
+    r: false,
+    escape: false
 };
 
+// Previous key states to detect changes
+const prevKeys = { ...keys };
+
 let controlsInitialized = false;
+
 // State tracking
 let isBoosting = false;
 let isHyperspace = false;
 let isSpacePressed = false;
+let isViewToggleRequested = false;
+let isResetPositionRequested = false;
+let isExitSurfaceRequested = false;
+
+
+///// HYPERSPACE FUNCTIONS /////
+
+/**
+ * Set hyperspace state GLOBALLY by calling this function
+ * @param {boolean} state - New hyperspace state
+ */
+export function setHyperspaceState(state) {
+    isHyperspace = !!state; // Convert to boolean
+    return isHyperspace;
+}
 
 /**
  * Activates hyperspace mode if conditions are met
@@ -36,7 +58,7 @@ function activateHyperspace(isEarthSurfaceActive, isMoonSurfaceActive) {
 }
 
 /**
- * Deactivates hyperspace mode
+ * Deactivates hyperspace automatically after timeout
  */
 function deactivateHyperspace() {
     if (isHyperspace) {
@@ -44,34 +66,40 @@ function deactivateHyperspace() {
     }
 }
 
-/**
- * Set hyperspace state
- * @param {boolean} state - New hyperspace state
- */
-export function setHyperspaceState(state) {
-    isHyperspace = !!state; // Convert to boolean
-    return isHyperspace;
-}
+///// GENERAL INPUT INITIALIZATION /////
 
 /**
- * Reset all key states to false
+ * Reset all key states to false - used by movement.js
  */
 export function resetKeyStates() {
-    keys.w = false;
-    keys.s = false;
-    keys.a = false;
-    keys.d = false;
-    keys.left = false;
-    keys.right = false;
-    keys.up = false;
-    keys.down = false;
-    keys.space = false;
-    keys.shift = false;
-    keys.c = false;
+    Object.keys(keys).forEach(key => {
+        keys[key] = false;
+        prevKeys[key] = false;
+    });
+    
+    // Reset action flags
+    isViewToggleRequested = false;
+    isResetPositionRequested = false;
+    isExitSurfaceRequested = false;
 }
 
 /**
- * Initialize event listeners
+ * Update the prevKeys object to match the current keys state
+ * Ensures that a key press is registed as a one-time action
+ */
+export function updatePreviousKeyStates() {
+    Object.keys(keys).forEach(key => {
+        prevKeys[key] = keys[key];
+    });
+    
+    // Reset one-time action flags
+    isViewToggleRequested = false;
+    isResetPositionRequested = false;
+    isExitSurfaceRequested = false;
+}
+
+/**
+ * Initialize event listeners - i.e. intialize the input controls
  * @returns {boolean} - Whether controls were initialized
  */
 export function initControls(isEarthSurfaceActive, isMoonSurfaceActive) {
@@ -85,187 +113,97 @@ export function initControls(isEarthSurfaceActive, isMoonSurfaceActive) {
     // Track when keys are pressed (keydown)
     document.addEventListener('keydown', (event) => {
         if (!keys) return;
-        switch (event.key) {
+        
+        // Check if we're in the welcome screen (main menu)
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const isInMainMenu = welcomeScreen && welcomeScreen.style.display !== 'none';
+        
+        // Skip handling most keys when in main menu
+        if (isInMainMenu) {
+            return;
+        }
+        
+        switch (event.key.toLowerCase()) {
             case 'w': keys.w = true; break;
             case 's': keys.s = true; break;
             case 'a': keys.a = true; break;
             case 'd': keys.d = true; break;
-            case 'ArrowLeft': keys.left = true; break;
-            case 'ArrowRight': keys.right = true; break;
-            case 'ArrowUp': keys.up = true; break;
-            case 'ArrowDown': keys.down = true; break;
-            case 'Shift': keys.shift = true; break;
-            case 'c': case 'C': keys.c = true; break;
+            case 'arrowleft': keys.left = true; break;
+            case 'arrowright': keys.right = true; break;
+            case 'arrowup': 
+                keys.up = true; 
+                isBoosting = true;
+                break;
+            case 'arrowdown': keys.down = true; break;
+            case ' ': 
+                keys.space = true; 
+                isSpacePressed = true;
+                break;
+            case 'shift': 
+                keys.shift = true; 
+                if (!isEarthSurfaceActive && !isInMainMenu) {
+                    activateHyperspace(isEarthSurfaceActive, isMoonSurfaceActive);
+                }
+                break;
+            case 'c': 
+                keys.c = true; 
+                // Only trigger the view toggle on initial key press
+                if (!prevKeys.c) {
+                    isViewToggleRequested = true;
+                    console.log('View toggle requested');
+                }
+                break;
+            case 'r': 
+                keys.r = true; 
+                // Only trigger reset on initial key press
+                if (!prevKeys.r) {
+                    isResetPositionRequested = true;
+                    console.log('Reset position requested');
+                }
+                break;
+            case 'escape': 
+                keys.escape = true; 
+                // Only trigger exit on initial key press
+                if (!prevKeys.escape) {
+                    isExitSurfaceRequested = true;
+                    console.log('Exit surface requested');
+                }
+                break;
         }
     });
 
     // Track when keys are released (keyup)
     document.addEventListener('keyup', (event) => {
         if (!keys) return;
-        switch (event.key) {
+        switch (event.key.toLowerCase()) {
             case 'w': keys.w = false; break;
             case 's': keys.s = false; break;
             case 'a': keys.a = false; break;
             case 'd': keys.d = false; break;
-            case 'ArrowLeft': keys.left = false; break;
-            case 'ArrowRight': keys.right = false; break;
-            case 'ArrowUp': keys.up = false; break;
-            case 'ArrowDown': keys.down = false; break;
-            case 'Shift': keys.shift = false; break;
+            case 'arrowleft': keys.left = false; break;
+            case 'arrowright': keys.right = false; break;
+            case 'arrowup': 
+                keys.up = false; 
+                isBoosting = false;
+                break;
+            case 'arrowdown': keys.down = false; break;
+            case ' ': 
+                keys.space = false; 
+                isSpacePressed = false;
+                break;
+            case 'shift': keys.shift = false; break;
             case 'c': keys.c = false; break;
+            case 'r': keys.r = false; break;
+            case 'escape': keys.escape = false; break;
         }
     });
-
-    // Add hyperspace activation on Shift key
-    window.addEventListener('keydown', (event) => {
-        // Only activate hyperspace if not on Earth's surface
-        if (event.key === 'Shift' && !isEarthSurfaceActive) {
-            activateHyperspace(isEarthSurfaceActive, isMoonSurfaceActive);
-        }
-    });
-
-    // ** No keyUp event for hyperspace - we want it last a set time, rather than stopping when key is released **
     
     controlsInitialized = true;
     return true;
 }
 
 
- // Sets up the control dependencies (dependency injection)
-/**
- * @param {Object} dependencies - Dependencies needed by the controls
- * @param {Object} dependencies.spacecraft - The main spacecraft object
- * @param {Object} dependencies.earthSpacecraft - The Earth spacecraft object
- * @param {Object} dependencies.moonSpacecraft - The Moon spacecraft object
- * @param {Object} dependencies.spaceCamera - The space camera
- * @param {Object} dependencies.earthCamera - The Earth camera
- * @param {Object} dependencies.moonCamera - The Moon camera
- * @param {boolean} dependencies.isEarthSurfaceActive - Whether Earth surface is active
- * @param {boolean} dependencies.isMoonSurfaceActive - Whether Moon surface is active
- * @param {Function} dependencies.resetEarthPosition - Function to reset Earth position
- * @param {Function} dependencies.resetMoonPosition - Function to reset Moon position
- * @param {Function} dependencies.exitEarthSurface - Function to exit Earth surface
- * @param {Function} dependencies.exitMoonSurface - Function to exit Moon surface
- * @param {Function} dependencies.startHyperspace - Function to start hyperspace
- * @param {Function} dependencies.toggleCameraView - Function to toggle camera view
- */
-
-///// ASSIGN CONTROLS TO KEYS /////
-export function setupGameControls(dependencies) {
-    const {
-        spacecraft, 
-        earthSpacecraft, 
-        moonSpacecraft,
-        spaceCamera,
-        earthCamera,
-        moonCamera,
-        isEarthSurfaceActive,
-        isMoonSurfaceActive,
-        resetEarthPosition,
-        resetMoonPosition,
-        exitEarthSurface,
-        exitMoonSurface,
-        startHyperspace,
-        toggleCameraView
-    } = dependencies;
-    
-    // Main keydown event listener for game controls
-    document.addEventListener('keydown', (event) => {
-        // Check if we're in the welcome screen (main menu)
-        const welcomeScreen = document.getElementById('welcome-screen');
-        const isInMainMenu = welcomeScreen && welcomeScreen.style.display !== 'none';
-        
-        // Skip handling most keys when in main menu except
-        if (isInMainMenu) {
-            return;
-        }
-
-        // BOOSTING
-        if (event.code === 'ArrowUp') {
-            isBoosting = true;
-            }
-       
-        // HYPERSPACE
-        if ((event.code === 'ShiftLeft' || event.code === 'ShiftRight') && !isEarthSurfaceActive && !isInMainMenu) {
-            startHyperspace();
-        }
-
-        // CHANGE VIEW 3RD / 1ST PERSON
-        if (event.code === 'KeyC') {
-            console.log('===== TOGGLE COCKPIT VIEW =====');
-            
-            // Earth scene
-            if (isEarthSurfaceActive && earthSpacecraft) {
-                if (typeof earthSpacecraft.toggleView === 'function') {
-                    const result = earthSpacecraft.toggleView(earthCamera, (isFirstPerson) => {
-                        // Reset camera state based on new view mode
-                        console.log(`Resetting Earth camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
-                        console.log('Earth camera reset callback executed');
-                    });
-                    console.log('Earth toggle view result:', result);
-                } else {
-                    console.warn('Toggle view function not available on Earth spacecraft');
-                }
-            } else if (isMoonSurfaceActive && moonSpacecraft) {
-                console.log('C pressed - toggling cockpit view in Moon scene');
-                if (typeof moonSpacecraft.toggleView === 'function') {
-                    const result = moonSpacecraft.toggleView(moonCamera, (isFirstPerson) => {
-                        // Reset camera state based on new view mode
-                        console.log(`Resetting Moon camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
-                        console.log('Moon camera reset callback executed');
-                    });
-                    console.log('Moon toggle view result:', result);
-                } else {
-                    console.warn('Toggle view function not available on Moon spacecraft');
-                }
-            } else if (spacecraft) {
-                console.log('C pressed - toggling cockpit view in Space scene');
-                if (typeof spacecraft.toggleView === 'function') {
-                    const result = spacecraft.toggleView(spaceCamera, (isFirstPerson) => {
-                        // Reset camera state based on new view mode
-                        console.log(`Resetting space camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
-                        // Reset camera state with new view mode
-                        spaceCamera.position.copy(spaceCamera.position);
-                        spaceCamera.quaternion.copy(spaceCamera.quaternion);
-                    });
-                    console.log('Toggle view result:', result);
-                } else {
-                    console.warn('Toggle view function not available on Space spacecraft');
-                }
-            }
-        }
-
-        // Reset position in Earth surface mode
-        if (event.code === 'KeyR' && isEarthSurfaceActive) {
-            console.log('R pressed - resetting position');
-            resetEarthPosition();
-        }
-        // Reset position in Moon surface mode
-        if (event.code === 'KeyR' && isMoonSurfaceActive) {
-            console.log('R pressed - resetting position');
-            resetMoonPosition();
-        }
-        
-        // Enhanced ESC key to exit Moon surface or Earth surface
-        if (event.code === 'Escape') {
-            if (isEarthSurfaceActive) {
-                console.log('ESC pressed - exiting surface');
-                exitEarthSurface();
-            } else if (isMoonSurfaceActive) {
-                console.log('ESC pressed - exiting surface');
-                exitMoonSurface();
-            }
-        }
-    });
-
-    // Keyup listener for boosting (lasts as long as it's pressed down)
-    document.addEventListener('keyup', (event) => {
-
-        if (event.code === 'ArrowUp') {
-            isBoosting = false;
-        }
-    });
-}
+///// FUNCTIONS THAT CHECK AND RETURN INPUT STATE /////
 
 /**
  * Returns whether hyperspace is currently active
@@ -283,16 +221,29 @@ export function getBoostState() {
     return isBoosting;
 }
 
-
 /**
- * Resets the initialized state (useful for test/debug)
+ * Returns whether view toggle was requested this frame (3rd / 1st person)
+ * @returns {boolean} - View toggle request state
  */
-export function resetControlsInitialized() {
-    controlsInitialized = false;
+export function getViewToggleRequested() {
+    return isViewToggleRequested;
 }
 
+/**
+ * Returns whether a position reset (R) was requested this frame (applicable to planet surfaces)
+ * @returns {boolean} - Position reset request state
+ */
+export function getResetPositionRequested() {
+    return isResetPositionRequested;
+}
 
-
+/**
+ * Returns whether an exit surface (Esc) was requested this frame
+ * @returns {boolean} - Exit surface request state
+ */
+export function getExitSurfaceRequested() {
+    return isExitSurfaceRequested;
+}
 
 
 

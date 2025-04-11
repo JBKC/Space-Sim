@@ -16,7 +16,16 @@ import {
 } from '../camera.js';
 import config from '../config.js';
 import { loadingManager, textureLoadingManager } from '../loaders.js';
-import { initControls, getHyperspaceState, setHyperspaceState } from '../inputControls.js';
+import { 
+    initControls, 
+    getHyperspaceState, 
+    setHyperspaceState, 
+    getBoostState, 
+    getViewToggleRequested,
+    getResetPositionRequested,
+    getExitSurfaceRequested,
+    updatePreviousKeyStates 
+} from '../inputControls.js';
 import { resetMovementInputs } from '../movement.js';
 
 
@@ -177,11 +186,6 @@ const wingTransitionFrames = 30;
 export { spacecraft, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, wingsOpen, wingAnimation, updateEngineEffects };
 
 
-// Collision and bounce variables
-const BOUNCE_FACTOR = 0.5;
-const COLLISION_THRESHOLD = 20;
-const COLLISION_PUSHBACK = 30;
-
 // Initialize spacecraft in the scene
 function initSpacecraft() {
 
@@ -251,7 +255,7 @@ export function init() {
     onWindowResize();
     window.addEventListener('resize', onWindowResize, false);
 
-    // Initialize controls passing the surface states
+    // Initialize controls via inputControls.js
     initControls(isEarthSurfaceActive, isMoonSurfaceActive);
 
     // Show exploration counter when game starts
@@ -288,23 +292,37 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
 
         // Get the authoritative hyperspace state from inputControls
         const isHyperspaceFromControls = getHyperspaceState();
-        // Prefer the state from inputControls, but also respect the passed parameter for backward compatibility
         const hyperspaceState = isHyperspaceFromControls || isHyperspace;
 
+        // Get boosting state from inputControls
+        const isBoostingFromControls = getBoostState();
+        const boostState = isBoostingFromControls || isBoosting || keys.up;
+
+        // Check for view toggle request (C key)
+        if (getViewToggleRequested() && spacecraft && spacecraft.toggleView) {
+            console.log('===== TOGGLE COCKPIT VIEW =====');
+            spacecraft.toggleView(camera, (isFirstPerson) => {
+                console.log(`Resetting space camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
+                // Reset camera state with new view mode if needed
+                camera.position.copy(camera.position);
+                camera.quaternion.copy(camera.quaternion);
+            });
+        }
+
         // Update spacecraft movement and camera
-        updateSpaceMovement(isBoosting, hyperspaceState);
+        updateSpaceMovement(boostState, hyperspaceState);
         updateCamera(camera, hyperspaceState);
 
         // Update spacecraft effects
         if (updateEngineEffects) {
-            updateEngineEffects(isBoosting || keys.up, keys.down);
+            updateEngineEffects(boostState || keys.up, keys.down);
         } else {
             console.warn("updateEngineEffects function is not available:", updateEngineEffects);
         }
         
         // Wing position control - check if conditions changed
         if (spacecraft && spacecraft.setWingsOpen) {
-            const shouldWingsBeOpen = !isBoosting && !hyperspaceState;
+            const shouldWingsBeOpen = !boostState && !hyperspaceState;
             
             // The setWingsOpen function now has smooth animations and handles state management internally
             // It will only trigger an animation if the target state is different from the current state
@@ -319,7 +337,7 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         // Update reticle position if available
         if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
             // console.log("Updating reticle in setup.js");
-            spacecraft.userData.updateReticle(isBoosting, keys.down);  // Pass both boost and slow states
+            spacecraft.userData.updateReticle(boostState, keys.down);  // Pass both boost and slow states
         } else {
             // Only log this warning once to avoid console spam
             if (!window.setupReticleWarningLogged) {
@@ -335,6 +353,9 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
 
         updateStars();
         updatePlanetLabels();
+        
+        // Update previous key states at the end of the frame
+        updatePreviousKeyStates();
         
         return true;
 
@@ -613,7 +634,7 @@ export function startHyperspace() {
     setHyperspaceState(true);
     // Make sure to set the global isHyperspace flag immediately so other modules can detect it
     window.isHyperspace = true;
-    console.log('🚀 ENTERING HYPERSPACE - Wings should CLOSE!');
+    console.log('🚀 ENTERING HYPERSPACE');
     console.log('Setting window.isHyperspace =', window.isHyperspace);
 
     // Create hyperspace streaks

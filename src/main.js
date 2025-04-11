@@ -61,7 +61,6 @@ import {
 
 // Import keyboard control functions
 import {
-    setupGameControls,
     getBoostState,
     getHyperspaceState
 } from './inputControls.js';
@@ -108,36 +107,7 @@ window.resetMoonInitialized = function() {
 
 /////////////// INITLIZATION OF HIGH-LEVEL GAME ELEMENTS ///////////////
 
-// Setup game controls with needed dependencies
-setupGameControls({
-    spacecraft,
-    earthSpacecraft,
-    moonSpacecraft,
-    spaceCamera,
-    earthCamera,
-    moonCamera,
-    isEarthSurfaceActive,
-    isMoonSurfaceActive,
-    resetEarthPosition,
-    resetMoonPosition,
-    exitEarthSurface,
-    exitMoonSurface,
-    startHyperspace,
-    toggleCameraView: function() {
-        // This function will forward the request to the appropriate spacecraft
-        // based on which surface is active
-        if (isEarthSurfaceActive && earthSpacecraft && typeof earthSpacecraft.toggleView === 'function') {
-            return earthSpacecraft.toggleView(earthCamera);
-        } else if (isMoonSurfaceActive && moonSpacecraft && typeof moonSpacecraft.toggleView === 'function') {
-            return moonSpacecraft.toggleView(moonCamera);
-        } else if (spacecraft && typeof spacecraft.toggleView === 'function') {
-            return spacecraft.toggleView(spaceCamera);
-        } else {
-            console.warn('No toggleView function available on spacecraft');
-            return false;
-        }
-    }
-});
+
 
 // Initialize main menu screen
 document.addEventListener('DOMContentLoaded', () => {
