@@ -332,76 +332,98 @@ export function updateSpaceMovement(isBoosting, isHyperspace) {
 
 /// CORE STATE UPDATE FUNCTION ///
 export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
-    // 0.016 is the deltaTime for 60fps
-    try {
-        if (!spaceInitialized) {
-            console.log("Space not initialized yet");
-            return false;
-        }
-
-        // Check if spacecraft is near celestial body
-        checkPlanetProximity();
+    // Use closure to track previous key state (instead of static variable)
+    const updateWithState = (() => {
+        let prevCKeyState = false; // Track previous 'c' key state to detect changes
         
-        // Check if reticle is hovering over a planet (only in space mode)
-        checkReticleHover();
-
-        // Get the authoritative hyperspace state from inputControls
-        const isHyperspaceFromControls = getHyperspaceState();
-        // Prefer the state from inputControls, but also respect the passed parameter for backward compatibility
-        const hyperspaceState = isHyperspaceFromControls || isHyperspace;
-
-        // Use the passed isBoosting and the hyperspace state
-        updateSpaceMovement(isBoosting, hyperspaceState);
-        updateCamera(camera, hyperspaceState);
-
-        // Update spacecraft effects
-        if (updateEngineEffects) {
-            updateEngineEffects(isBoosting || keys.up, keys.down);
-        } else {
-            console.warn("updateEngineEffects function is not available:", updateEngineEffects);
-        }
+        return (isBoosting, isHyperspace, deltaTime) => {
+            try {
+                if (!spaceInitialized) {
+                    console.log("Space not initialized yet");
+                    return false;
+                }
         
-        // Wing position control - check if conditions changed
-        if (spacecraft && spacecraft.setWingsOpen) {
-            const shouldWingsBeOpen = !isBoosting && !hyperspaceState;
-            
-            // The setWingsOpen function now has smooth animations and handles state management internally
-            // It will only trigger an animation if the target state is different from the current state
-            spacecraft.setWingsOpen(shouldWingsBeOpen);
-        }
+                // Check if spacecraft is near celestial body
+                checkPlanetProximity();
+                
+                // Check if reticle is hovering over a planet (only in space mode)
+                checkReticleHover();
         
-        // Update animation mixer (Only in space scene)
-        if (spacecraft.updateAnimations) {
-            spacecraft.updateAnimations(deltaTime);
-        }
+                // Get the authoritative hyperspace state from inputControls
+                const isHyperspaceFromControls = getHyperspaceState();
+                // Prefer the state from inputControls, but also respect the passed parameter for backward compatibility
+                const hyperspaceState = isHyperspaceFromControls || isHyperspace;
         
-        // Update reticle position if available
-        if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
-            // console.log("Updating reticle in setup.js");
-            spacecraft.userData.updateReticle(isBoosting, keys.down);  // Pass both boost and slow states
-        } else {
-            // Only log this warning once to avoid console spam
-            if (!window.setupReticleWarningLogged) {
-                console.warn("Reticle update function not found on spacecraft userData in setup.js", spacecraft);
-                window.setupReticleWarningLogged = true;
+                // Check for camera toggle (C key press and release)
+                if (keys.c && !prevCKeyState && spacecraft && spacecraft.toggleView) {
+                    console.log('C key state change detected in setup.js - toggling view');
+                    spacecraft.toggleView(camera, (isFirstPerson) => {
+                        console.log(`Resetting space camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
+                        // Reset camera state with new view mode
+                        camera.position.copy(camera.position);
+                        camera.quaternion.copy(camera.quaternion);
+                    });
+                }
+                prevCKeyState = keys.c;
+        
+                // Use the passed isBoosting and the hyperspace state
+                updateSpaceMovement(isBoosting, hyperspaceState);
+                updateCamera(camera, hyperspaceState);
+        
+                // Update spacecraft effects
+                if (updateEngineEffects) {
+                    updateEngineEffects(isBoosting || keys.up, keys.down);
+                } else {
+                    console.warn("updateEngineEffects function is not available:", updateEngineEffects);
+                }
+                
+                // Wing position control - check if conditions changed
+                if (spacecraft && spacecraft.setWingsOpen) {
+                    const shouldWingsBeOpen = !isBoosting && !hyperspaceState;
+                    
+                    // The setWingsOpen function now has smooth animations and handles state management internally
+                    // It will only trigger an animation if the target state is different from the current state
+                    spacecraft.setWingsOpen(shouldWingsBeOpen);
+                }
+                
+                // Update animation mixer (Only in space scene)
+                if (spacecraft.updateAnimations) {
+                    spacecraft.updateAnimations(deltaTime);
+                }
+                
+                // Update reticle position if available
+                if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
+                    // console.log("Updating reticle in setup.js");
+                    spacecraft.userData.updateReticle(isBoosting, keys.down);  // Pass both boost and slow states
+                } else {
+                    // Only log this warning once to avoid console spam
+                    if (!window.setupReticleWarningLogged) {
+                        console.warn("Reticle update function not found on spacecraft userData in setup.js", spacecraft);
+                        window.setupReticleWarningLogged = true;
+                    }
+                }
+                
+                // Update cockpit elements if in first-person view
+                if (spacecraft && spacecraft.updateCockpit) {
+                    spacecraft.updateCockpit(deltaTime);
+                }
+        
+                updateStars();
+                updatePlanetLabels();
+                
+                return true;
+            } catch (error) {
+                console.error("Error in space update:", error);
+                return false;
             }
-        }
-        
-        // Update cockpit elements if in first-person view
-        if (spacecraft && spacecraft.updateCockpit) {
-            spacecraft.updateCockpit(deltaTime);
-        }
-
-        updateStars();
-        updatePlanetLabels();
-        
-        return true;
-
-    } catch (error) {
-        console.error("Error in space update:", error);
-        return false;
-    }
+        };
+    })();
+    
+    // Call the inner function with current parameters
+    return updateWithState(isBoosting, isHyperspace, deltaTime);
 }
+
+
 
 // Check if we're approaching enterable celestial bodies
 export function checkPlanetProximity() {
@@ -590,6 +612,186 @@ export function exitMoonSurface() {
         console.warn('animate function not found on window object');
     }
 }
+
+///// Hyperspace Effects /////
+
+// Hyperspace streak effect variables
+let streakLines = [];
+const streakCount = 20; // Reduced number of streaks for sparsity
+const streakLength = 50; // Length of each streak
+const streakSpeed = 500; // Speed of streaks moving past the camera
+
+///// HYPERSPACE FUNCTIONS /////
+
+// Function to create hyperspace streak lines
+function createStreaks() {
+    streakLines = [];
+    for (let i = 0; i < streakCount; i++) {
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(6); // Two points per line (start and end)
+        positions[0] = (Math.random() - 0.5) * 100; // Start X
+        positions[1] = (Math.random() - 0.5) * 100; // Start Y
+        positions[2] = -100 - Math.random() * streakLength; // Start Z (far in front)
+        positions[3] = positions[0]; // End X (same as start for now)
+        positions[4] = positions[1]; // End Y
+        positions[5] = positions[2] + streakLength; // End Z (length ahead)
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+        const material = new THREE.LineBasicMaterial({
+            color: 0xffffff, // Solid white
+            linewidth: 4, // Increased thickness for thicker streaks
+        });
+
+        const line = new THREE.Line(geometry, material);
+        scene.add(line);
+        streakLines.push({ line, positions: positions });
+    }
+}
+
+// Function to update hyperspace streaks
+export function updateStreaks() {
+    streakLines.forEach((streak, index) => {
+        const positions = streak.positions;
+
+        // Move the entire streak backward
+        for (let i = 0; i < positions.length; i += 3) {
+            positions[i + 2] += streakSpeed * 0.016; // Move along Z (backward)
+        }
+
+        // If the end of the streak goes too far behind, reset it to the front
+        if (positions[5] > 100) {
+            positions[0] = (Math.random() - 0.5) * 100; // New start X
+            positions[1] = (Math.random() - 0.5) * 100; // New start Y
+            positions[2] = -100 - Math.random() * streakLength; // New start Z
+            positions[3] = positions[0]; // End X
+            positions[4] = positions[1]; // End Y
+            positions[5] = positions[2] + streakLength; // End Z
+        }
+
+        streak.line.geometry.attributes.position.needsUpdate = true;
+
+        // Position and rotate with the camera
+        const cameraPosition = new THREE.Vector3();
+        camera.getWorldPosition(cameraPosition);
+        streak.line.position.copy(cameraPosition);
+        streak.line.rotation.copy(camera.rotation);
+    });
+}
+
+// Function to start hyperspace with progress bar and streaks
+export function startHyperspace() {
+    // Get the current hyperspace state from inputControls
+    let isHyperspace = getHyperspaceState();
+    
+    // Don't activate hyperspace if already in hyperspace, on Earth's surface, or if we're still at the welcome screen
+    const welcomeScreen = document.getElementById('welcome-screen');
+    if (isHyperspace || isEarthSurfaceActive || (welcomeScreen && welcomeScreen.style.display !== 'none')) return;
+    
+    // Set hyperspace state in inputControls
+    setHyperspaceState(true);
+    // Make sure to set the global isHyperspace flag immediately so other modules can detect it
+    window.isHyperspace = true;
+    console.log('🚀 ENTERING HYPERSPACE - Wings should CLOSE!');
+    console.log('Setting window.isHyperspace =', window.isHyperspace);
+
+    // Create hyperspace streaks
+    createStreaks();
+
+    // Visual indication for debug purposes
+    const coordsDiv = document.getElementById('coordinates');
+    if (coordsDiv) {
+        coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
+        coordsDiv.style.fontWeight = 'bold';
+    }
+
+    const progressContainer = document.getElementById('hyperspace-progress-container');
+    const progressBar = document.getElementById('hyperspace-progress');
+    const bar = progressBar.querySelector('.bar');
+    const label = document.getElementById('hyperspace-progress-label');
+
+    if (!progressContainer || !progressBar || !bar || !label) {
+        console.error('Hyperspace progress elements not found:', {
+            progressContainer,
+            progressBar,
+            bar,
+            label
+        });
+        return;
+    }
+
+    // Force visibility and higher z-index
+    progressContainer.style.display = 'block'; // Show the container
+    progressContainer.style.zIndex = '10000'; // Ensure it's above everything else
+    progressContainer.style.opacity = '1'; // Ensure full opacity
+    progressContainer.style.visibility = 'visible'; // Force visibility
+    bar.style.width = '100%'; // Start at 100% for right-to-left unfilling
+
+    // Add glow effect to make it more visible
+    bar.style.boxShadow = '0 0 10px 2px #ffffff';
+    
+    // Debug: Log visibility and positioning
+    console.log('Progress container display:', progressContainer.style.display);
+    console.log('Label visibility:', label.style.display, 'Text:', label.textContent);
+    console.log('Label position:', label.style.top, label.style.left);
+    console.log('Z-index:', progressContainer.style.zIndex);
+
+    // Calculate total hyperspace duration in milliseconds
+    const hyperspaceDuration = 2000; // 2 seconds
+
+    // Use requestAnimationFrame for smoother animation tied to display refresh rate
+    const startTime = performance.now();
+    const endTime = startTime + hyperspaceDuration;
+
+    // Animation function using timestamps for precise timing
+    const animateProgress = (timestamp) => {
+        // Calculate how much time has elapsed
+        const elapsed = timestamp - startTime;
+        
+        // Calculate the remaining percentage
+        const remaining = Math.max(0, 100 * (1 - elapsed / hyperspaceDuration));
+        
+        // Update the bar width
+        bar.style.width = `${remaining}%`;
+        
+        // Continue animation if we haven't reached the end time
+        if (timestamp < endTime) {
+            requestAnimationFrame(animateProgress);
+        } else {
+            // Ensure the bar is completely empty at the end
+            bar.style.width = '0%';
+            // Hide the container at exactly the end of hyperspace
+            progressContainer.style.display = 'none';
+        }
+    };
+
+    // Start the animation
+    requestAnimationFrame(animateProgress);
+
+    // Set a timeout for exiting hyperspace that matches the exact duration
+    setTimeout(() => {
+        // Exit hyperspace - update the state in inputControls
+        setHyperspaceState(false);
+        window.isHyperspace = false;
+        console.log('🚀 EXITING HYPERSPACE - Wings should OPEN!');
+        console.log('Setting window.isHyperspace =', window.isHyperspace);
+        resetMovementInputs();
+        
+        // Reset visual indication
+        if (coordsDiv) {
+            coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
+            coordsDiv.style.fontWeight = 'normal';
+        }
+        
+        // Clean up streaks
+        streakLines.forEach(streak => scene.remove(streak.line));
+        streakLines = [];
+        
+        // Force hide progress bar to ensure it doesn't linger
+        progressContainer.style.display = 'none';
+    }, hyperspaceDuration);
+}
+
 
 
 ///////////////////// Solar System Setup /////////////////////
@@ -1510,182 +1712,4 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
 }
-
-// Hyperspace streak effect variables
-let streakLines = [];
-const streakCount = 20; // Reduced number of streaks for sparsity
-const streakLength = 50; // Length of each streak
-const streakSpeed = 500; // Speed of streaks moving past the camera
-
-///// HYPERSPACE FUNCTIONS /////
-
-// Function to create hyperspace streak lines
-function createStreaks() {
-    streakLines = [];
-    for (let i = 0; i < streakCount; i++) {
-        const geometry = new THREE.BufferGeometry();
-        const positions = new Float32Array(6); // Two points per line (start and end)
-        positions[0] = (Math.random() - 0.5) * 100; // Start X
-        positions[1] = (Math.random() - 0.5) * 100; // Start Y
-        positions[2] = -100 - Math.random() * streakLength; // Start Z (far in front)
-        positions[3] = positions[0]; // End X (same as start for now)
-        positions[4] = positions[1]; // End Y
-        positions[5] = positions[2] + streakLength; // End Z (length ahead)
-
-        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-        const material = new THREE.LineBasicMaterial({
-            color: 0xffffff, // Solid white
-            linewidth: 4, // Increased thickness for thicker streaks
-        });
-
-        const line = new THREE.Line(geometry, material);
-        scene.add(line);
-        streakLines.push({ line, positions: positions });
-    }
-}
-
-// Function to update hyperspace streaks
-export function updateStreaks() {
-    streakLines.forEach((streak, index) => {
-        const positions = streak.positions;
-
-        // Move the entire streak backward
-        for (let i = 0; i < positions.length; i += 3) {
-            positions[i + 2] += streakSpeed * 0.016; // Move along Z (backward)
-        }
-
-        // If the end of the streak goes too far behind, reset it to the front
-        if (positions[5] > 100) {
-            positions[0] = (Math.random() - 0.5) * 100; // New start X
-            positions[1] = (Math.random() - 0.5) * 100; // New start Y
-            positions[2] = -100 - Math.random() * streakLength; // New start Z
-            positions[3] = positions[0]; // End X
-            positions[4] = positions[1]; // End Y
-            positions[5] = positions[2] + streakLength; // End Z
-        }
-
-        streak.line.geometry.attributes.position.needsUpdate = true;
-
-        // Position and rotate with the camera
-        const cameraPosition = new THREE.Vector3();
-        camera.getWorldPosition(cameraPosition);
-        streak.line.position.copy(cameraPosition);
-        streak.line.rotation.copy(camera.rotation);
-    });
-}
-
-// Function to start hyperspace with progress bar and streaks
-export function startHyperspace() {
-    // Get the current hyperspace state from inputControls
-    let isHyperspace = getHyperspaceState();
-    
-    // Don't activate hyperspace if already in hyperspace, on Earth's surface, or if we're still at the welcome screen
-    const welcomeScreen = document.getElementById('welcome-screen');
-    if (isHyperspace || isEarthSurfaceActive || (welcomeScreen && welcomeScreen.style.display !== 'none')) return;
-    
-    // Set hyperspace state in inputControls
-    setHyperspaceState(true);
-    // Make sure to set the global isHyperspace flag immediately so other modules can detect it
-    window.isHyperspace = true;
-    console.log('🚀 ENTERING HYPERSPACE - Wings should CLOSE!');
-    console.log('Setting window.isHyperspace =', window.isHyperspace);
-
-    // Create hyperspace streaks
-    createStreaks();
-
-    // Visual indication for debug purposes
-    const coordsDiv = document.getElementById('coordinates');
-    if (coordsDiv) {
-        coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
-        coordsDiv.style.fontWeight = 'bold';
-    }
-
-    const progressContainer = document.getElementById('hyperspace-progress-container');
-    const progressBar = document.getElementById('hyperspace-progress');
-    const bar = progressBar.querySelector('.bar');
-    const label = document.getElementById('hyperspace-progress-label');
-
-    if (!progressContainer || !progressBar || !bar || !label) {
-        console.error('Hyperspace progress elements not found:', {
-            progressContainer,
-            progressBar,
-            bar,
-            label
-        });
-        return;
-    }
-
-    // Force visibility and higher z-index
-    progressContainer.style.display = 'block'; // Show the container
-    progressContainer.style.zIndex = '10000'; // Ensure it's above everything else
-    progressContainer.style.opacity = '1'; // Ensure full opacity
-    progressContainer.style.visibility = 'visible'; // Force visibility
-    bar.style.width = '100%'; // Start at 100% for right-to-left unfilling
-
-    // Add glow effect to make it more visible
-    bar.style.boxShadow = '0 0 10px 2px #ffffff';
-    
-    // Debug: Log visibility and positioning
-    console.log('Progress container display:', progressContainer.style.display);
-    console.log('Label visibility:', label.style.display, 'Text:', label.textContent);
-    console.log('Label position:', label.style.top, label.style.left);
-    console.log('Z-index:', progressContainer.style.zIndex);
-
-    // Calculate total hyperspace duration in milliseconds
-    const hyperspaceDuration = 2000; // 2 seconds
-
-    // Use requestAnimationFrame for smoother animation tied to display refresh rate
-    const startTime = performance.now();
-    const endTime = startTime + hyperspaceDuration;
-
-    // Animation function using timestamps for precise timing
-    const animateProgress = (timestamp) => {
-        // Calculate how much time has elapsed
-        const elapsed = timestamp - startTime;
-        
-        // Calculate the remaining percentage
-        const remaining = Math.max(0, 100 * (1 - elapsed / hyperspaceDuration));
-        
-        // Update the bar width
-        bar.style.width = `${remaining}%`;
-        
-        // Continue animation if we haven't reached the end time
-        if (timestamp < endTime) {
-            requestAnimationFrame(animateProgress);
-        } else {
-            // Ensure the bar is completely empty at the end
-            bar.style.width = '0%';
-            // Hide the container at exactly the end of hyperspace
-            progressContainer.style.display = 'none';
-        }
-    };
-
-    // Start the animation
-    requestAnimationFrame(animateProgress);
-
-    // Set a timeout for exiting hyperspace that matches the exact duration
-    setTimeout(() => {
-        // Exit hyperspace - update the state in inputControls
-        setHyperspaceState(false);
-        window.isHyperspace = false;
-        console.log('🚀 EXITING HYPERSPACE - Wings should OPEN!');
-        console.log('Setting window.isHyperspace =', window.isHyperspace);
-        resetMovementInputs();
-        
-        // Reset visual indication
-        if (coordsDiv) {
-            coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
-            coordsDiv.style.fontWeight = 'normal';
-        }
-        
-        // Clean up streaks
-        streakLines.forEach(streak => scene.remove(streak.line));
-        streakLines = [];
-        
-        // Force hide progress bar to ensure it doesn't linger
-        progressContainer.style.display = 'none';
-    }, hyperspaceDuration);
-}
-
 

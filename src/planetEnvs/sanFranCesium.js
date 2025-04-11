@@ -84,7 +84,7 @@ let currentTurnSpeed = baseTurnSpeed; // Current active turn speed
 const pitchSensitivity = 0.6; // Lower value = less sensitive
 const rollSensitivity = 1;  // Lower value = less sensitive
 const yawSensitivity = 0.5;   // Lower value = less sensitive
-let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false, down: false, space: false };
+let keys = { w: false, s: false, a: false, d: false, left: false, right: false, up: false, down: false, space: false, c: false };
 
 // Camera settings
 const baseCameraOffset = new THREE.Vector3(0, 2, -10);
@@ -228,6 +228,7 @@ export function resetKeys() {
   keys.up = false;
   keys.down = false;
   keys.space = false;
+  keys.c = false;
   console.log('San Francisco: Reset all key states');
 }
 
@@ -1035,6 +1036,7 @@ function initControls() {
             case 'ArrowUp': keys.up = true; break;
             case 'ArrowDown': keys.down = true; break;
             case ' ': keys.space = true; break;
+            case 'c': keys.c = true; break;
         }
     });
 
@@ -1049,6 +1051,7 @@ function initControls() {
             case 'ArrowUp': keys.up = false; break;
             case 'ArrowDown': keys.down = false; break;
             case ' ': keys.space = false; break;
+            case 'c': keys.c = false; break;
         }
     });
 }
@@ -1520,79 +1523,49 @@ export function setPlayerSunTargetOffset(x = 0, y = 0, z = 0) {
 
 // Remove the call to updateGridAlignment in the update function
 export function update(deltaTime = 0.016) {
- try {
- if (!sanFranInitialized) {
- console.log("Not initialized yet");
-            return false;
-        }
-
-        if (!tiles) {
-            return false;
-        }
-
-        updateMovement();
-        updateCamera();
+    // Use closure to track previous key state
+    const updateWithState = (() => {
+        let prevCKeyState = false; // Track previous 'c' key state to detect changes
         
- // Call to updateGridAlignment removed since grid is now hidden
- 
- // Handle laser firing with spacebar
- if (keys.space && spacecraft) {
-   // LASER FIRING DISABLED
- }
- 
- // Update all active lasers
- 
- // Update reticle position if available
- if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
-   // Pass both boost and slow states to the reticle update function
-   spacecraft.userData.updateReticle(keys.up, keys.down);
- } else {
-   // Only log this warning once to avoid console spam
-   if (!window.reticleWarningLogged) {
-     console.warn("Reticle update function not found on spacecraft userData", spacecraft);
-     window.reticleWarningLogged = true;
-   }
- }
- 
-        if (tiles.group) {
-            tiles.group.traverse((node) => {
-                if (node.isMesh && node.receiveShadow === undefined) {
-                    node.receiveShadow = true;
+        return (deltaTime) => {
+            try {
+                // Toggle camera view when 'c' key is pressed and released
+                if (keys.c && !prevCKeyState && spacecraft && spacecraft.toggleView) {
+                    console.log('C key state change detected in sanFranCesium - toggling view');
+                    spacecraft.toggleView(camera, (isFirstPerson) => {
+                        console.log(`Resetting San Francisco camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
+                    });
                 }
-            });
-        }
-        
-        // Check for collision with base plane - only after safety period has passed
-        if (!isInitialEarthEntry && Date.now() - initializationTime >= COLLISION_SAFETY_PERIOD) {
-            checkBasePlaneCollision();
-        } else if (Math.random() < 0.01) { // Only log occasionally to avoid spam
-            // During safety period, log that collision detection is skipped
-            console.log("Skipping collision detection during initial Earth entry, remaining time:", 
-                Math.round((COLLISION_SAFETY_PERIOD - (Date.now() - initializationTime))/1000) + "s");
-        }
-        
- updateearthLighting();
-
- if (!camera) {
- console.warn("Camera not initialized");
-            return false;
-        }
-
- tiles.setCamera(camera);
- tiles.setResolutionFromRenderer(camera, renderer);
- camera.updateMatrixWorld();
-        tiles.update();
-        
-        // Update cockpit elements if in first-person view
-        if (spacecraft && spacecraft.updateCockpit) {
-            spacecraft.updateCockpit(deltaTime);
-        }
-        
-        return true;
-    } catch (error) {
- console.error("Error in update:", error);
-        return false;
-    }
+                prevCKeyState = keys.c;
+                
+                // Rest of the original update function
+                if (!sanFranInitialized) {
+                    console.error("San Francisco scene not initialized!");
+                    return false;
+                }
+                
+                // Update movement every frame regardless of mode
+                updateMovement();
+                
+                // Update camera position
+                updateCamera();
+                
+                // Check for collisions with terrain
+                checkTerrainCollision();
+                
+                // Check for base plane collision
+                checkBasePlaneCollision();
+                
+                return true;
+            } catch (err) {
+                console.error("Error in San Francisco update:", err);
+                return false;
+            }
+        };
+    })();
+    
+    // Call the inner function with current parameter
+    return updateWithState(deltaTime);
 }
 
 function updateearthLighting() {

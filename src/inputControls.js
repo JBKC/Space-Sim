@@ -11,7 +11,8 @@ export const keys = {
     up: false, 
     down: false, 
     space: false,
-    shift: false 
+    shift: false,
+    c: false 
 };
 
 let controlsInitialized = false;
@@ -20,6 +21,7 @@ let controlsInitialized = false;
 let isBoosting = false;
 let isHyperspace = false;
 let isSpacePressed = false;
+let cameraTogglePressed = false;
 
 
 /**
@@ -68,6 +70,7 @@ export function resetKeyStates() {
     keys.down = false;
     keys.space = false;
     keys.shift = false;
+    keys.c = false;
 }
 
 /**
@@ -95,6 +98,7 @@ export function initControls(isEarthSurfaceActive, isMoonSurfaceActive) {
             case 'ArrowUp': keys.up = true; break;
             case 'ArrowDown': keys.down = true; break;
             case 'Shift': keys.shift = true; break;
+            case 'c': case 'C': keys.c = true; break;
         }
     });
 
@@ -111,6 +115,7 @@ export function initControls(isEarthSurfaceActive, isMoonSurfaceActive) {
             case 'ArrowUp': keys.up = false; break;
             case 'ArrowDown': keys.down = false; break;
             case 'Shift': keys.shift = false; break;
+            case 'c': case 'C': keys.c = false; break;
         }
     });
 
@@ -210,6 +215,9 @@ export function setupGameControls(dependencies) {
         }
         // Toggle first-person/third-person view with 'C' key
         if (event.code === 'KeyC') {
+            cameraTogglePressed = true;
+            keys.c = true;
+            
             console.log('===== C KEY PRESSED - TOGGLE COCKPIT VIEW =====');
             console.log('Is on Earth surface:', isEarthSurfaceActive);
             console.log('Has spacecraft:', !!spacecraft);
@@ -285,6 +293,10 @@ export function setupGameControls(dependencies) {
                 coordsDiv.style.color = '#4fc3f7'; // Keep blue color consistent
             }
         }
+        if (event.code === 'KeyC') {
+            cameraTogglePressed = false;
+            keys.c = false;
+        }
     });
 }
 
@@ -310,6 +322,14 @@ export function getBoostState() {
  */
 export function getSpaceKeyState() {
     return isSpacePressed;
+}
+
+/**
+ * Returns whether camera toggle key is currently pressed
+ * @returns {boolean} - Camera toggle key state
+ */
+export function getCameraToggleState() {
+    return cameraTogglePressed;
 }
 
 /**

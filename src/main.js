@@ -64,7 +64,8 @@ import {
     setupGameControls,
     getBoostState,
     getSpaceKeyState,
-    getHyperspaceState
+    getHyperspaceState,
+    getCameraToggleState
 } from './inputControls.js';
 
 /// TO SIMPLIFY / REMOVE
