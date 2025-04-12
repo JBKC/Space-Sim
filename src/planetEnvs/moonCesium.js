@@ -175,7 +175,6 @@ export { spacecraft, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing,
 
 // Initialize spacecraft in the scene
 function initSpacecraft() {
-    console.log("Initializing spacecraft for moon surface");
 
     // Create a spacecraft object to pull all the attributes and methods from the createSpacecraft function
     const spacecraftComponents = createSpacecraft(scene);
@@ -203,24 +202,17 @@ function initSpacecraft() {
     // Store a direct reference to the spacecraftComponents
     spacecraft._spacecraftComponents = spacecraftComponents;
 
-    // Add spacecraft to userData to make sure it's properly referenced
-    if (spacecraft.userData) {
-        spacecraft.userData.updateReticle = updateReticle;
-    } else {
-        spacecraft.userData = { updateReticle };
-    }
-
     // Make sure wings are open by default (set timeout to ensure model is loaded)
     setTimeout(() => {
         if (spacecraft && spacecraft.setWingsOpen) {
-            console.log("Setting wings to OPEN position in moonCesium.js");
+            // console.log("Setting wings to OPEN position in setup.js");
             spacecraft.setWingsOpen(true);
         }
     }, 1000); // 1 second delay to ensure model is fully loaded and processed
 
     // Verify reticle creation
     if (spacecraftComponents.reticle) {
-        console.log("Reticle was successfully created with spacecraft in moonCesium.js");
+        console.log("Reticle was successfully created with spacecraft in setup.js");
     } else {
         console.warn("Reticle not found in spacecraft components");
     }
@@ -234,26 +226,10 @@ function initSpacecraft() {
     spacecraft.add(cameraTarget);
     cameraTarget.position.set(0, 0, 0);
 
-    // Ensure visibility
-    spacecraft.visible = true;
-    spacecraft.castShadow = true;
-    spacecraft.receiveShadow = true;
-    
     spacecraft.name = 'spacecraft';
     scene.add(spacecraft);
 
-    // Force a matrix update to ensure proper positioning
-    spacecraft.updateMatrixWorld(true);
-    
-    // Debug output to verify spacecraft state
-    console.log("Spacecraft initialized in moonCesium.js", {
-        position: spacecraft.position.clone(),
-        rotation: spacecraft.rotation.clone(),
-        visible: spacecraft.visible,
-        inScene: scene.children.includes(spacecraft)
-    });
-    
-    return spacecraft;
+    console.log("Spacecraft initialized in moonCesium.js");
 }
 
 /// CORE INITIALIZATION FUNCTION ///
@@ -284,14 +260,6 @@ export function init() {
     renderer.gammaFactor = 2.2;
  
     document.body.appendChild(renderer.domElement);
-    
-    // Ensure the renderer is visible
-    renderer.domElement.style.display = 'block';
-    renderer.domElement.style.position = 'absolute';
-    renderer.domElement.style.top = '0';
-    renderer.domElement.style.left = '0';
-    renderer.domElement.style.zIndex = '1';
-    
     renderer.domElement.tabIndex = 1;
     textureLoader = new THREE.TextureLoader(textureLoadingManager);
 
@@ -336,10 +304,6 @@ function updateMoonMovement(isBoosting) {
         return;
     }
 
-    console.log("updateMoonMovement: Starting with isBoosting=", isBoosting, 
-        "spacecraft position=", spacecraft.position.clone(), 
-        "keys=", { w: keys.w, s: keys.s, a: keys.a, d: keys.d, left: keys.left, right: keys.right, up: keys.up, down: keys.down });
-
     // Handle wing animation for boost mode - moon specific handling
     const isInHyperspace = window.isHyperspace || false;
     
@@ -360,25 +324,13 @@ function updateMoonMovement(isBoosting) {
     }
 
     // COLLISION DETECTION ON THE MOON
-    console.log("updateMoonMovement: Calling updateCoreMovement");
     const result = updateCoreMovement(isBoosting, 'moon');
     
     // If core movement failed, exit early
-    if (!result) {
-        console.warn("updateMoonMovement: updateCoreMovement returned null");
-        return;
-    }
-    
-    console.log("updateMoonMovement: Got result from updateCoreMovement", result);
+    if (!result) return;
     
     const originalPosition = spacecraft.position.clone();
-    const { forward, nextPosition } = result;
-    
-    // Apply the nextPosition to update spacecraft position
-    if (nextPosition) {
-        spacecraft.position.copy(nextPosition);
-        console.log("updateMoonMovement: Updated spacecraft position to", spacecraft.position.clone());
-    }
+    const { forward } = result;
     
     // Moon-specific terrain handling
     if (tiles && tiles.group && tiles.group.children.length > 0) {
@@ -391,6 +343,7 @@ function updateMoonMovement(isBoosting) {
             });
             
             if (terrainMeshes.length > 0) {
+
                 // RAY CASTING FOR COLLISION DETECTION
                 
                 // Get forward direction for collision response
@@ -414,18 +367,12 @@ function updateMoonMovement(isBoosting) {
                             forward.lerp(adjustedForward, 0.5);
                         }
                     }
+                    
                 }
             }
         } catch (error) {
             console.error("Error in terrain handling:", error);
         }
-    }
-
-    // Update engine effects if available
-    if (updateEngineEffects) {
-        updateEngineEffects(isBoosting || keys.up, keys.down, isInHyperspace);
-    } else if (spacecraft && spacecraft.userData && spacecraft.userData.updateEngineEffects) {
-        spacecraft.userData.updateEngineEffects(isBoosting || keys.up, keys.down, isInHyperspace);
     }
 
     // Moon-specific collision detection - keep this part
@@ -464,34 +411,21 @@ function updateMoonMovement(isBoosting) {
         console.error("Error during collision detection:", error);
         spacecraft.position.copy(originalPosition);
     }
-    
-    // Update spacecraft's matrix after all position changes
-    spacecraft.updateMatrixWorld(true);
-    
-    console.log("updateMoonMovement: Finished, spacecraft position=", spacecraft.position.clone());
 }
 
 /// CORE STATE UPDATE FUNCTION ///
-export function update(deltaTime = 0.016, isBoosting) {
+export function update(isBoosting, deltaTime = 0.016) {
     try {
-        console.log("Moon update function called with deltaTime:", deltaTime, "isBoosting:", isBoosting);
 
         // Follow similar boilerplate from setup.js
 
         if (!tiles) {
-            console.warn("Moon update: tiles not available");
-            return false;
-        }
-
-        if (!spacecraft) {
-            console.warn("Moon update: spacecraft not available");
             return false;
         }
 
         // Get boosting state from inputControls
         const isBoostingFromControls = getBoostState();
-        const boostState = isBoostingFromControls || keys.up || isBoosting;
-        console.log("Moon boost state:", boostState);
+        const boostState = isBoostingFromControls || keys.up;
 
         // Check for view toggle request (C key)
         if (getViewToggleRequested() && spacecraft && spacecraft.toggleView) {
@@ -505,7 +439,6 @@ export function update(deltaTime = 0.016, isBoosting) {
         }
 
         // Update spacecraft movement first
-        console.log("Calling updateMoonMovement with boostState:", boostState);
         updateMoonMovement(boostState);
         
         // CAMERA UPDATE - update spacecraft matrix world before camera calculations
@@ -514,6 +447,7 @@ export function update(deltaTime = 0.016, isBoosting) {
         }
         updateCamera();
         
+
         // Update reticle position if available
         if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
             // Pass both boost and slow states to the reticle update function
@@ -559,9 +493,6 @@ export function update(deltaTime = 0.016, isBoosting) {
         if (spacecraft && spacecraft.updateCockpit) {
             spacecraft.updateCockpit(deltaTime);
         }
-        
-        // Update previous key states at the end of the frame
-        updatePreviousKeyStates();
         
         return true;
     } catch (error) {
