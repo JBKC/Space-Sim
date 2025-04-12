@@ -260,6 +260,14 @@ export function init() {
     renderer.gammaFactor = 2.2;
  
     document.body.appendChild(renderer.domElement);
+    
+    // Ensure the renderer is visible
+    renderer.domElement.style.display = 'block';
+    renderer.domElement.style.position = 'absolute';
+    renderer.domElement.style.top = '0';
+    renderer.domElement.style.left = '0';
+    renderer.domElement.style.zIndex = '1';
+    
     renderer.domElement.tabIndex = 1;
     textureLoader = new THREE.TextureLoader(textureLoadingManager);
 
@@ -414,18 +422,26 @@ function updateMoonMovement(isBoosting) {
 }
 
 /// CORE STATE UPDATE FUNCTION ///
-export function update(isBoosting, deltaTime = 0.016) {
+export function update(deltaTime = 0.016, isBoosting) {
     try {
+        console.log("Moon update function called with deltaTime:", deltaTime, "isBoosting:", isBoosting);
 
         // Follow similar boilerplate from setup.js
 
         if (!tiles) {
+            console.warn("Moon update: tiles not available");
+            return false;
+        }
+
+        if (!spacecraft) {
+            console.warn("Moon update: spacecraft not available");
             return false;
         }
 
         // Get boosting state from inputControls
         const isBoostingFromControls = getBoostState();
-        const boostState = isBoostingFromControls || keys.up;
+        const boostState = isBoostingFromControls || keys.up || isBoosting;
+        console.log("Moon boost state:", boostState);
 
         // Check for view toggle request (C key)
         if (getViewToggleRequested() && spacecraft && spacecraft.toggleView) {
@@ -439,6 +455,7 @@ export function update(isBoosting, deltaTime = 0.016) {
         }
 
         // Update spacecraft movement first
+        console.log("Calling updateMoonMovement with boostState:", boostState);
         updateMoonMovement(boostState);
         
         // CAMERA UPDATE - update spacecraft matrix world before camera calculations
