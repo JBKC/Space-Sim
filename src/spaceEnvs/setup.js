@@ -365,6 +365,7 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
 }
 
 
+// FUNCTION THAT ACTIVATES APPROPRIATE SURFACE SCENE
 // Check if we're approaching enterable celestial bodies
 export function checkPlanetProximity() {
     // Get spacecraft position
@@ -381,48 +382,41 @@ export function checkPlanetProximity() {
         
         return;
     }
-    
-    // Check Moon proximity first (direct global position)
-    const moonPosition = moonGroup.position.clone();
-    const distanceToMoon = moonPosition.distanceTo(position);
-    // console.log("Distance to moon:", distanceToMoon);
-    
-    // Define entry threshold directly in this function
-    const moonEntryThreshold = 500; // Distance threshold for Moon entry
-    
-    if (distanceToMoon < moonRadius + moonEntryThreshold && !getMoonSurfaceActive()) {
-        // If close enough - activate moon surface
-        setMoonSurfaceActive(true);
-        console.log("Moon surface active - distance:", distanceToMoon.toFixed(2));
-        
-        // Initialize the Moon surface (if needed)
-        // initMoonSurface();
-    } else if (distanceToMoon >= moonRadius + moonEntryThreshold * 1.2 && getMoonSurfaceActive()) {
-        // Add a small buffer (20% larger) to avoid oscillation at the boundary
-        // If moving away from Moon, exit Moon surface
-        setMoonSurfaceActive(false);
-        console.log("Exiting Moon surface - distance:", distanceToMoon.toFixed(2));
-    }
-    
-    // Check Earth proximity (separate check)
+
+    // Check Earth proximity
     const earthPosition = earthGroup.position.clone();
     const distanceToEarth = earthPosition.distanceTo(position);
-
-    // Define Earth entry threshold
     const earthEntryThreshold = 500; // Distance threshold for Earth entry
     
     if (distanceToEarth < earthRadius + earthEntryThreshold && !getEarthSurfaceActive()) {
         // If close enough - activate Earth surface
+        // Flag gets saved globally in stateEnv.js, and read by main.js to render scene
         setEarthSurfaceActive(true);
         console.log("Earth surface active - distance:", distanceToEarth.toFixed(2));
         
-        // Initialize the Earth surface (if needed)
-        // initEarthSurface();
     } else if (distanceToEarth >= earthRadius + earthEntryThreshold * 1.2 && getEarthSurfaceActive()) {
         // Add a small buffer (20% larger) to avoid oscillation at the boundary
         // If moving away from Earth, exit Earth surface
         setEarthSurfaceActive(false);
         console.log("Exiting Earth surface - distance:", distanceToEarth.toFixed(2));
+    }
+    
+    // Check Moon proximity
+    const moonPosition = moonGroup.position.clone();
+    const distanceToMoon = moonPosition.distanceTo(position);
+    const moonEntryThreshold = 500; // Distance threshold for Moon entry
+    
+    if (distanceToMoon < moonRadius + moonEntryThreshold && !getMoonSurfaceActive()) {
+        // If close enough - activate moon surface
+        // Flag gets saved globally in stateEnv.js, and read by main.js to render scene
+        setMoonSurfaceActive(true);
+        console.log("Moon surface active - distance:", distanceToMoon.toFixed(2));
+        
+    } else if (distanceToMoon >= moonRadius + moonEntryThreshold * 1.2 && getMoonSurfaceActive()) {
+        // Add a small buffer (20% larger) to avoid oscillation at the boundary
+        // If moving away from Moon, exit Moon surface
+        setMoonSurfaceActive(false);
+        console.log("Exiting Moon surface - distance:", distanceToMoon.toFixed(2));
     }
 }
 
@@ -734,7 +728,7 @@ export function startHyperspace() {
 import { skybox } from './solarSystemEnv.js';
 import { stars, starCount, starRange } from './solarSystemEnv.js';
 import { sunGroup, blazingMaterial, blazingEffect } from './solarSystemEnv.js';
-import { planetGroups } from './solarSystemEnv.js';
+import { planetGroups, updateMoonPosition } from './solarSystemEnv.js';
 
 import { mercuryGroup, mercuryCollisionSphere } from './solarSystemEnv.js';
 import { venusGroup, venusCollisionSphere, venusCloudMesh } from './solarSystemEnv.js';
@@ -869,38 +863,6 @@ function animateEarthClouds() {
 }
 animateEarthClouds();
 
-// Update Moon's position if Earth moves
-function updateMoonPosition() {
-    // Only update if both Earth and Moon exist
-    if (earthGroup && moonGroup) {
-        const currentEarthX = earthGroup.position.x;
-        const currentEarthY = earthGroup.position.y;
-        const currentEarthZ = earthGroup.position.z;
-        
-        // Keep relative position but update global coordinates
-        moonGroup.position.set(
-            currentEarthX + Math.cos(moonAngle) * moonOrbitRadius,
-            currentEarthY + Math.sin(moonAngle) * moonOrbitRadius,
-            currentEarthZ
-        );
-        
-        // Also update the Moon's orbit visualization if it exists
-        if (earthGroup.userData && earthGroup.userData.moonOrbit) {
-            earthGroup.userData.moonOrbit.position.copy(earthGroup.position);
-        }
-    }
-}
-
-// Call this in main.js
-export { updateMoonPosition };
-
-// Animate Moon's rotation
-function animateMoon() {
-    moon.rotation.y += 0.0003; // Rotate slower than Earth
-    requestAnimationFrame(animateMoon);
-}
-animateMoon();
-
 function animateMarsClouds() {
     marsCloudMesh.rotation.y += 0.0005;
     requestAnimationFrame(animateMarsClouds);
@@ -919,6 +881,9 @@ planetGroups.forEach(planet => {
     );
     console.log(`${planet.group.name || 'Planet'} position:`, planet.group.position); // Debug
 });
+
+// Once Earth position is set, update Moon's position
+updateMoonPosition();
 
 // Center the asteroid belt at the origin (0,0,0)
 const asteroidBelt = planetGroups.find(planet => planet.group.name === "asteroidBelt");
@@ -952,37 +917,8 @@ function createConcentricCircles() {
         scene.add(circle);
     });
     
-    // Add a dedicated Moon orbit circle around Earth
-    createMoonOrbit();
 }
 createConcentricCircles(); // ** TOGGLE ORBITAL LINES ON AND OFF **
-
-// Create a circular path for the Moon's orbit around Earth
-function createMoonOrbit() {
-    // Create a circular path for the Moon's orbit around Earth
-    const moonOrbitGeometry = new THREE.CircleGeometry(moonOrbitRadius, 64);
-    const vertices = moonOrbitGeometry.attributes.position.array;
-    const ringVertices = new Float32Array(vertices.length - 3);
-    for (let i = 3; i < vertices.length; i++) {
-        ringVertices[i - 3] = vertices[i];
-    }
-    const moonOrbitRingGeometry = new THREE.BufferGeometry();
-    moonOrbitRingGeometry.setAttribute('position', new THREE.BufferAttribute(ringVertices, 3));
-    
-    // Light blue color for Moon's orbit to distinguish it
-    const moonOrbitMaterial = new THREE.LineBasicMaterial({ color: 0x87CEFA });
-    const moonOrbit = new THREE.LineLoop(moonOrbitRingGeometry, moonOrbitMaterial);
-    
-    // Position the orbit at Earth's position
-    moonOrbit.position.copy(earthGroup.position);
-    moonOrbit.rotation.x = Math.PI / 2; // Align with XY plane
-    
-    // Add the Moon orbit to the Earth group so it moves with Earth
-    scene.add(moonOrbit);
-    
-    // Keep a reference to update the orbit position
-    earthGroup.userData.moonOrbit = moonOrbit;
-}
 
 
 ///// Text Labels for Planets /////

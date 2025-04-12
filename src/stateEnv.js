@@ -1,9 +1,10 @@
 // Simple state management for environment states
 
 // Surface activity states
+let spaceInitialized = false;
+
 let isEarthSurfaceActive = false;
 let isMoonSurfaceActive = false;
-let spaceInitialized = false;
 
 // Get current surface states
 export function getEarthSurfaceActive() {

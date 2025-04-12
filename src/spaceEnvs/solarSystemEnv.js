@@ -297,17 +297,17 @@ moonGroup.add(moonCollisionSphere);
 export const moonOrbitRadius = 5000;
 export const moonAngle = Math.random() * Math.PI * 2; // Random angle in radians
 
-// Get Earth's global position
-const earthGlobalX = earthGroup.position.x;
-const earthGlobalY = earthGroup.position.y;
-const earthGlobalZ = earthGroup.position.z;
 
-// Set moon position globally, but at the correct distance from Earth
-moonGroup.position.set(
-    earthGlobalX + Math.cos(moonAngle) * moonOrbitRadius, // Global X position
-    earthGlobalY + Math.sin(moonAngle) * moonOrbitRadius, // Global Y position
-    earthGlobalZ                                          // Same Z plane as Earth
-);
+// Function that positions the Moon RELATIVE TO EARTH
+export function updateMoonPosition() {
+    const angle = Math.random() * Math.PI * 2;
+
+    moonGroup.position.set(
+        earthGroup.position.x + Math.cos(angle) * moonOrbitRadius,
+        earthGroup.position.y + Math.sin(angle) * moonOrbitRadius,
+        earthGroup.position.z // Keep it on Earth's orbital Z-plane
+    );
+}
 
 
 // --- Mars Setup ---
