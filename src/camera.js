@@ -227,7 +227,7 @@ export function applyCameraState(camera, cameraState, spacecraft, rotation) {
 // CAMERA MOVEMENT LOGIC
 // ====================
 
-// The below is like HMI / handtracking / mouse movement logic. Interpolation between current and target values.
+// The below is like HMI / handtracking / mouse movement logic. Interpolation between current and target values
 
 // Updates the TARGET offsets based on current input
 export function updateTargetOffsets(cameraState, keys, scene, isHyperspace = false) {

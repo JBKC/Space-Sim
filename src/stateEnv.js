@@ -2,7 +2,6 @@
 
 // Surface activity states
 let spaceInitialized = false;
-
 let isEarthSurfaceActive = false;
 let isMoonSurfaceActive = false;
 

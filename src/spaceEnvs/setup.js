@@ -295,8 +295,6 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         const isBoostingFromControls = getBoostState();
         const boostState = isBoostingFromControls || isBoosting || keys.up;
 
-        // Note: Hyperspace streaks are now updated via requestAnimationFrame in startHyperspace
-
         // Check for view toggle request (C key)
         if (getViewToggleRequested() && spacecraft && spacecraft.toggleView) {
             console.log('===== TOGGLE COCKPIT VIEW =====');

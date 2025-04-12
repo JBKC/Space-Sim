@@ -33,18 +33,6 @@ import config from '../config.js';
 
 // DEFINE GLOBAL VARIABLES
 let camera, scene, renderer, tiles, cameraTarget;
-let moonInitialized = false;
-
-// Add function to reset the moonInitialized flag
-export function resetMoonInitialized() {
-  moonInitialized = false;
-  console.log('Reset Moon surface initialization state');
-}
-
-// Export the initialization state
-export function isMoonInitialized() {
-  return moonInitialized;
-}
 
 // Function to reset all key states to prevent stuck movement
 export function resetKeys() {
@@ -61,7 +49,6 @@ export function resetKeys() {
   console.log('Moon: Reset all key states');
 }
 
-let coordinateSystem;
 let localOrigin; // Local origin point for coordinate system
 let referenceSphere; // Reference sphere object
 
@@ -252,13 +239,9 @@ function initSpacecraft() {
 }
 
 /// CORE INITIALIZATION FUNCTION ///
-export function init() {
+export function init(isEarthSurfaceActive, isMoonSurfaceActive) {
+
     console.log("Moon initialization started");
- 
-    if (moonInitialized) {
-        console.log("Already initialized, skipping");
-        return { scene: scene, camera: camera, renderer: renderer, tiles: tiles };
-    }
 
     scene = new THREE.Scene();
     const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(0), 64, 64);
@@ -309,9 +292,6 @@ export function init() {
     
     reinstantiateTiles();
 
-
-
-    moonInitialized = true;
     console.log("moon 3D initialization complete");
     
     return { 
@@ -323,7 +303,7 @@ export function init() {
 }
 
 // MOVEMENT UPDATE FUNCTION //
-function updateMoonMovement() {
+function updateMoonMovement(isBoosting) {
     // Check if spacecraft is initialized
     if (!spacecraft) {
         console.warn("Spacecraft not initialized yet");
@@ -350,7 +330,6 @@ function updateMoonMovement() {
     }
 
     // COLLISION DETECTION ON THE MOON
-    const isBoosting = keys.up;
     const result = updateCoreMovement(isBoosting, 'moon');
     
     // If core movement failed, exit early
@@ -443,39 +422,43 @@ function updateMoonMovement() {
 /// CORE STATE UPDATE FUNCTION ///
 export function update(deltaTime = 0.016) {
     try {
-        if (!moonInitialized) {
-            console.log("Not initialized yet");
-            return false;
-        }
+
+        // Follow similar boilerplate from setup.js
 
         if (!tiles) {
             return false;
         }
 
+        // Get boosting state from inputControls
+        const isBoostingFromControls = getBoostState();
+        const boostState = isBoostingFromControls || keys.up;
+
+        // Check for view toggle request (C key)
+        if (getViewToggleRequested() && spacecraft && spacecraft.toggleView) {
+            console.log('===== TOGGLE COCKPIT VIEW =====');
+            spacecraft.toggleView(camera, (isFirstPerson) => {
+                console.log(`Resetting space camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
+                // Reset camera state with new view mode if needed
+                camera.position.copy(camera.position);
+                camera.quaternion.copy(camera.quaternion);
+            });
+        }
+
         // Update spacecraft movement first
-        updateMoonMovement();
+        updateMoonMovement(boostState);
         
-        // CRITICAL: Update spacecraft matrix world before camera calculations
+        // CAMERA UPDATE - update spacecraft matrix world before camera calculations
         if (spacecraft) {
             spacecraft.updateMatrixWorld(true);
         }
-        
-        // Now update camera with updated spacecraft matrix
         updateCamera();
         
-        // Handle laser firing with spacebar
-        if (keys.space && spacecraft) {
-            // LASER FIRING DISABLED
-        }
- 
-        // Update all active lasers
- 
+
         // Update reticle position if available
         if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
             // Pass both boost and slow states to the reticle update function
             spacecraft.userData.updateReticle(keys.up, keys.down);
         } else {
-            // Only log this warning once to avoid console spam
             if (!window.reticleWarningLogged) {
                 console.warn("Reticle update function not found on spacecraft userData", spacecraft);
                 window.reticleWarningLogged = true;
@@ -491,8 +474,6 @@ export function update(deltaTime = 0.016) {
         }
         
         updatemoonLighting();
-
-        // Death Star is completely fixed in space
  
         if (!camera) {
             console.warn("Camera not initialized");
@@ -507,7 +488,7 @@ export function update(deltaTime = 0.016) {
             tiles.userData.terrainController.decreaseDetail();
         }
 
-        // Ensure camera matrices are updated before tile updates
+        // Ensure camera matrices are updated before Cesium tile updates
         camera.updateMatrixWorld(true);
         
         tiles.setCamera(camera);
