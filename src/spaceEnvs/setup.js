@@ -2,8 +2,9 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { updateSpaceMovement } from '../movement.js';
-import { keys } from '../inputControls.js';
+import { loadingManager, textureLoadingManager } from '../loaders.js';
+
+import { updateSpaceMovement, resetMovementInputs } from '../movement.js';
 import { createSpacecraft } from '../spacecraft.js';
 import { updateControlsDropdown } from '../ui.js';
 import { 
@@ -14,19 +15,23 @@ import {
     updateCameraOffsets,
     createForwardRotation
 } from '../camera.js';
-import config from '../config.js';
-import { loadingManager, textureLoadingManager } from '../loaders.js';
 import { 
+    keys,
     initControls, 
     getHyperspaceState, 
     setHyperspaceState, 
     getBoostState, 
     getViewToggleRequested,
-    getResetPositionRequested,
-    getExitSurfaceRequested,
     updatePreviousKeyStates 
 } from '../inputControls.js';
-import { resetMovementInputs } from '../movement.js';
+import {
+    getEarthSurfaceActive,
+    getMoonSurfaceActive,
+    setEarthSurfaceActive,
+    setMoonSurfaceActive,
+    getSpaceInitialized,
+    setSpaceInitialized
+} from '../stateEnv.js';
 
 
 // General initialization
@@ -148,26 +153,19 @@ export {
 
 ///////////////////// SCENE SETUP /////////////////////
 
-// Delegate render to each surface scene
-let spaceInitialized = false;
-export let isEarthSurfaceActive = false;
-export let isMoonSurfaceActive = false;
-
-// Function that actually renders the scene
+// RENDER SCENE - returns scene and camera for main.js to render, ONLY when in space scene
 export function renderScene() {
-    if (isMoonSurfaceActive) {
-        // nothing to do here - space scene is not active
-        console.log("Moon surface active, deferring rendering");
-    } else if (isEarthSurfaceActive) {
-        // nothing to do here - space scene is not active
-        console.log("Earth surface active, deferring rendering");
+    // if not in space scene, return null
+    if (getMoonSurfaceActive()) {
+        return null;
+    } else if (getEarthSurfaceActive()) {
+        return null;
     } else {
-        // Neither moon nor earth surfaces are active - so render the space scene
-        renderer.render(scene, camera);
+        return { scene, camera };
     }
 }
 
-// Lighting
+// Space Lighting
 
 const directionalLight = new THREE.DirectionalLight(0xffffff, 10);
 directionalLight.position.set(-1, -1, -1,);
@@ -244,9 +242,9 @@ function initSpacecraft() {
 export function init() {
     console.log("Space initialization started");
     
-    if (spaceInitialized) {
+    if (getSpaceInitialized()) {
         console.log("Space already initialized, skipping");
-        return { scene: scene, camera: camera, renderer: renderer };
+        return { scene, camera, renderer };
     }
 
     // Add spacecraft (and reticle) to scene
@@ -256,7 +254,7 @@ export function init() {
     window.addEventListener('resize', onWindowResize, false);
 
     // Initialize controls via inputControls.js
-    initControls(isEarthSurfaceActive, isMoonSurfaceActive);
+    initControls(getEarthSurfaceActive(), getMoonSurfaceActive());
 
     // Show exploration counter when game starts
     explorationCounter.style.display = 'block';
@@ -264,22 +262,21 @@ export function init() {
     // Reset the counter each time the game starts
     resetExploredObjects();
 
-    spaceInitialized = true;
+    setSpaceInitialized(true);
     console.log("Space initialization complete");
     
     return { 
-        scene: scene, 
-        camera: camera, 
-        renderer: renderer, 
+        scene, 
+        camera, 
+        renderer
     };
 }
-
 
 /// CORE STATE UPDATE FUNCTION ///
 export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
     // 0.016 is the deltaTime for 60fps
     try {
-        if (!spaceInitialized) {
+        if (!getSpaceInitialized()) {
             console.log("Space not initialized yet");
             return false;
         }
@@ -368,14 +365,13 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
 }
 
 
-
 // Check if we're approaching enterable celestial bodies
 export function checkPlanetProximity() {
     // Get spacecraft position
     const position = spacecraft.position.clone();
     
     // Skip proximity check when on a surface
-    if (isEarthSurfaceActive || isMoonSurfaceActive) {
+    if (getEarthSurfaceActive() || getMoonSurfaceActive()) {
         // Make sure distance indicators are hidden when on surface
         if (earthDistanceIndicator) earthDistanceIndicator.style.display = 'none';
         if (moonDistanceIndicator) moonDistanceIndicator.style.display = 'none';
@@ -394,17 +390,17 @@ export function checkPlanetProximity() {
     // Define entry threshold directly in this function
     const moonEntryThreshold = 500; // Distance threshold for Moon entry
     
-    if (distanceToMoon < moonRadius + moonEntryThreshold && !isMoonSurfaceActive) {
+    if (distanceToMoon < moonRadius + moonEntryThreshold && !getMoonSurfaceActive()) {
         // If close enough - activate moon surface
-        isMoonSurfaceActive = true;
+        setMoonSurfaceActive(true);
         console.log("Moon surface active - distance:", distanceToMoon.toFixed(2));
         
         // Initialize the Moon surface (if needed)
         // initMoonSurface();
-    } else if (distanceToMoon >= moonRadius + moonEntryThreshold * 1.2 && isMoonSurfaceActive) {
+    } else if (distanceToMoon >= moonRadius + moonEntryThreshold * 1.2 && getMoonSurfaceActive()) {
         // Add a small buffer (20% larger) to avoid oscillation at the boundary
         // If moving away from Moon, exit Moon surface
-        isMoonSurfaceActive = false;
+        setMoonSurfaceActive(false);
         console.log("Exiting Moon surface - distance:", distanceToMoon.toFixed(2));
     }
     
@@ -415,17 +411,17 @@ export function checkPlanetProximity() {
     // Define Earth entry threshold
     const earthEntryThreshold = 500; // Distance threshold for Earth entry
     
-    if (distanceToEarth < earthRadius + earthEntryThreshold && !isEarthSurfaceActive) {
+    if (distanceToEarth < earthRadius + earthEntryThreshold && !getEarthSurfaceActive()) {
         // If close enough - activate Earth surface
-        isEarthSurfaceActive = true;
+        setEarthSurfaceActive(true);
         console.log("Earth surface active - distance:", distanceToEarth.toFixed(2));
         
         // Initialize the Earth surface (if needed)
         // initEarthSurface();
-    } else if (distanceToEarth >= earthRadius + earthEntryThreshold * 1.2 && isEarthSurfaceActive) {
+    } else if (distanceToEarth >= earthRadius + earthEntryThreshold * 1.2 && getEarthSurfaceActive()) {
         // Add a small buffer (20% larger) to avoid oscillation at the boundary
         // If moving away from Earth, exit Earth surface
-        isEarthSurfaceActive = false;
+        setEarthSurfaceActive(false);
         console.log("Exiting Earth surface - distance:", distanceToEarth.toFixed(2));
     }
 }
@@ -433,7 +429,7 @@ export function checkPlanetProximity() {
 // Reset space scene after exiting Earth surface
 export function exitEarthSurface() {
     console.log("Exiting Earth's surface!");
-    isEarthSurfaceActive = false;
+    setEarthSurfaceActive(false);
     
     // Update the controls dropdown to show hyperspace option again
     updateControlsDropdown(false, false);
@@ -496,7 +492,7 @@ export function exitEarthSurface() {
 // Reset space scene after exiting Moon surface
 export function exitMoonSurface() {
     console.log("Exiting Moon's surface!");
-    isMoonSurfaceActive = false;
+    setMoonSurfaceActive(false);
     
     // Remove the persistent surface message if it exists
     const persistentMessage = document.getElementById('moon-surface-message');
@@ -625,12 +621,12 @@ export function startHyperspace() {
     // 3. On Moon's surface
     // 4. Still at the welcome screen
     const welcomeScreen = document.getElementById('welcome-screen');
-    if (isHyperspace || isEarthSurfaceActive || isMoonSurfaceActive || 
+    if (isHyperspace || getEarthSurfaceActive() || getMoonSurfaceActive() || 
         (welcomeScreen && welcomeScreen.style.display !== 'none')) {
         console.log('Hyperspace activation blocked:', {
             alreadyInHyperspace: isHyperspace,
-            onEarthSurface: isEarthSurfaceActive,
-            onMoonSurface: isMoonSurfaceActive,
+            onEarthSurface: getEarthSurfaceActive(),
+            onMoonSurface: getMoonSurfaceActive(),
             inWelcomeScreen: (welcomeScreen && welcomeScreen.style.display !== 'none')
         });
         return;
@@ -1031,7 +1027,7 @@ labelData.forEach(planet => {
 // Function to update label positions
 export function updatePlanetLabels() {
     // If on surface, hide all planet labels
-    if (isEarthSurfaceActive || isMoonSurfaceActive) {
+    if (getEarthSurfaceActive() || getMoonSurfaceActive()) {
         labels.forEach(label => {
             label.element.style.display = 'none';
         });
@@ -1326,9 +1322,9 @@ document.body.appendChild(explorationCounter);
 
 // Core function that detects when the reticle intersects with planets -> shows the info box
 export function checkReticleHover() {
-    if (!spacecraft || !camera || isEarthSurfaceActive) {
+    if (!spacecraft || !camera || getEarthSurfaceActive()) {
         // If on a planetary surface, ensure exploration counter is hidden
-        if (isEarthSurfaceActive) {
+        if (getEarthSurfaceActive()) {
             explorationCounter.style.display = 'none';
         }
         return;

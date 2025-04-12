@@ -72,6 +72,7 @@ export const moonCockpitCamera = {
 // CINEMATIC CAMERA PARAMETERS
 // ==========================
 
+// Define the cinematic effects
 export const cinematicEffects = {
     // Maximum rotation offsets for cinematic effect
     MAX_PITCH_OFFSET: 0.1,  // Maximum pitch offset in radians (about 5.7 degrees)
@@ -96,17 +97,16 @@ export const cinematicEffects = {
 // ================
 
 // Returns the appropriate camera offsets based on the current scene
-export function getCameraOffsets(scene) {
+function getCameraOffsets(scene) {
     switch (scene) {
         case 'space':
             return spaceCamera;
         case 'cockpit':
-            // console.log(">>> RETRIEVING COCKPIT CAMERA OFFSETS <<<");
             return cockpitCamera;
-        case 'earth':
-            return earthCamera;
         case 'moon':
             return moonCamera;
+        case 'moonCockpit':
+            return moonCockpitCamera;
         case 'washington':
             return washingtonCamera;
         case 'washingtonCockpit':
@@ -114,15 +114,14 @@ export function getCameraOffsets(scene) {
         case 'sanFran':
             return sanFranCamera;
         case 'sanFranCockpit':
-            // console.log(">>> RETRIEVING SAN FRANCISCO COCKPIT CAMERA OFFSETS <<<");
             return sanFranCockpitCamera;
         default:
-            // console.warn(`Unknown scene '${scene}', defaulting to space camera`);
             return spaceCamera;
     }
 }
 
 // Creates a rotation quaternion that rotates from one direction to another
+// Essentially smooths the transition between directions
 export function rotationBetweenDirections(dir1, dir2) {
     const rotation = new THREE.Quaternion();
     const a = new THREE.Vector3().crossVectors(dir1, dir2);
@@ -134,17 +133,18 @@ export function rotationBetweenDirections(dir1, dir2) {
     return rotation;
 }
 
-// Helper function to create a forward-facing rotation (180 degrees around Y axis)
+// Reverses the direction of the camera in y axis (so it faces same direction as the spacecraft)
 export function createForwardRotation() {
     return new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI, 0));
 }
 
 // Create a camera state object that can be used to track camera state in each scene
 export function createCameraState(scene) {
+
+    // Instantiate the camera offsets
     const offsets = getCameraOffsets(scene);
     
-    // console.log("Creating new camera state for scene:", scene, "with initial offset:", offsets.base);
-    
+    // Return the camera state object
     return {
         // Current camera offsets that will be interpolated
         currentOffset: offsets.base.clone(),
@@ -166,85 +166,6 @@ export function createCameraState(scene) {
         currentFOV: cinematicEffects.DEFAULT_FOV,
         targetFOV: cinematicEffects.DEFAULT_FOV,
     };
-}
-
-// Updates the target offsets based on current input
-export function updateTargetOffsets(cameraState, keys, scene, isHyperspace = false) {
-    const offsets = getCameraOffsets(scene);
-    
-    // Update positional offset based on movement mode
-    if (isHyperspace) {
-        cameraState.targetOffset = offsets.hyperspace.clone();
-        cameraState.targetFOV = cinematicEffects.HYPERSPACE_FOV;
-    } else if (keys.up) {
-        cameraState.targetOffset = offsets.boost.clone();
-        cameraState.targetFOV = cinematicEffects.DEFAULT_FOV;
-    } else if (keys.down) {
-        cameraState.targetOffset = offsets.slow.clone();
-        cameraState.targetFOV = cinematicEffects.DEFAULT_FOV;
-    } else {
-        cameraState.targetOffset = offsets.base.clone();
-        cameraState.targetFOV = cinematicEffects.DEFAULT_FOV;
-    }
-    
-    // Update rotational offsets for cinematic effect
-    if (keys.w) {
-        cameraState.targetPitchOffset = -cinematicEffects.MAX_PITCH_OFFSET;
-        cameraState.targetLocalPitchRotation = -cinematicEffects.MAX_LOCAL_PITCH_ROTATION;
-    } else if (keys.s) {
-        cameraState.targetPitchOffset = cinematicEffects.MAX_PITCH_OFFSET;
-        cameraState.targetLocalPitchRotation = cinematicEffects.MAX_LOCAL_PITCH_ROTATION;
-    } else {
-        cameraState.targetPitchOffset = 0;
-        cameraState.targetLocalPitchRotation = 0;
-    }
-    
-    if (keys.left) {
-        cameraState.targetYawOffset = cinematicEffects.MAX_YAW_OFFSET;
-        cameraState.targetLocalYawRotation = -cinematicEffects.MAX_LOCAL_YAW_ROTATION;
-    } else if (keys.right) {
-        cameraState.targetYawOffset = -cinematicEffects.MAX_YAW_OFFSET;
-        cameraState.targetLocalYawRotation = cinematicEffects.MAX_LOCAL_YAW_ROTATION;
-    } else {
-        cameraState.targetYawOffset = 0;
-        cameraState.targetLocalYawRotation = 0;
-    }
-    
-    return cameraState;
-}
-
-// Updates the current camera offsets by interpolating toward target values
-export function updateCameraOffsets(cameraState, rotation) {
-    // Interpolate position
-    cameraState.currentOffset.lerp(
-        cameraState.targetOffset, 
-        cinematicEffects.transitionSpeed
-    );
-    
-    // Interpolate rotational offsets
-    cameraState.currentPitchOffset += (
-        cameraState.targetPitchOffset - cameraState.currentPitchOffset
-    ) * cinematicEffects.CAMERA_LAG_FACTOR;
-    
-    cameraState.currentYawOffset += (
-        cameraState.targetYawOffset - cameraState.currentYawOffset
-    ) * cinematicEffects.CAMERA_LAG_FACTOR;
-    
-    // Interpolate local rotations
-    cameraState.currentLocalPitchRotation += (
-        cameraState.targetLocalPitchRotation - cameraState.currentLocalPitchRotation
-    ) * cinematicEffects.LOCAL_ROTATION_SPEED;
-    
-    cameraState.currentLocalYawRotation += (
-        cameraState.targetLocalYawRotation - cameraState.currentLocalYawRotation
-    ) * cinematicEffects.LOCAL_ROTATION_SPEED;
-    
-    // Interpolate FOV
-    cameraState.currentFOV += (
-        cameraState.targetFOV - cameraState.currentFOV
-    ) * cinematicEffects.FOV_TRANSITION_SPEED;
-    
-    return cameraState;
 }
 
 // Apply the camera state to a camera
@@ -302,3 +223,90 @@ export function applyCameraState(camera, cameraState, spacecraft, rotation) {
     camera.fov = cameraState.currentFOV;
     camera.updateProjectionMatrix();
 } 
+
+// CAMERA MOVEMENT LOGIC
+// ====================
+
+// The below is like HMI / handtracking / mouse movement logic. Interpolation between current and target values.
+
+// Updates the TARGET offsets based on current input
+export function updateTargetOffsets(cameraState, keys, scene, isHyperspace = false) {
+
+    // Instantiate the camera offsets
+    const offsets = getCameraOffsets(scene);
+    
+    // Update positional offset / FOV based on speed
+    if (isHyperspace) {
+        cameraState.targetOffset = offsets.hyperspace.clone();
+        cameraState.targetFOV = cinematicEffects.HYPERSPACE_FOV;
+    } else if (keys.up) {
+        cameraState.targetOffset = offsets.boost.clone();
+        cameraState.targetFOV = cinematicEffects.DEFAULT_FOV;
+    } else if (keys.down) {
+        cameraState.targetOffset = offsets.slow.clone();
+        cameraState.targetFOV = cinematicEffects.DEFAULT_FOV;
+    } else {
+        cameraState.targetOffset = offsets.base.clone();
+        cameraState.targetFOV = cinematicEffects.DEFAULT_FOV;
+    }
+    
+    // Update rotational offsets for cinematic effect
+    if (keys.w) {
+        cameraState.targetPitchOffset = -cinematicEffects.MAX_PITCH_OFFSET;
+        cameraState.targetLocalPitchRotation = -cinematicEffects.MAX_LOCAL_PITCH_ROTATION;
+    } else if (keys.s) {
+        cameraState.targetPitchOffset = cinematicEffects.MAX_PITCH_OFFSET;
+        cameraState.targetLocalPitchRotation = cinematicEffects.MAX_LOCAL_PITCH_ROTATION;
+    } else {
+        cameraState.targetPitchOffset = 0;
+        cameraState.targetLocalPitchRotation = 0;
+    }
+    
+    if (keys.left) {
+        cameraState.targetYawOffset = cinematicEffects.MAX_YAW_OFFSET;
+        cameraState.targetLocalYawRotation = -cinematicEffects.MAX_LOCAL_YAW_ROTATION;
+    } else if (keys.right) {
+        cameraState.targetYawOffset = -cinematicEffects.MAX_YAW_OFFSET;
+        cameraState.targetLocalYawRotation = cinematicEffects.MAX_LOCAL_YAW_ROTATION;
+    } else {
+        cameraState.targetYawOffset = 0;
+        cameraState.targetLocalYawRotation = 0;
+    }
+    
+    return cameraState;
+}
+
+// Updates the CURRENT offsets by interpolating toward target values
+export function updateCameraOffsets(cameraState, rotation) {
+    // Interpolate position
+    cameraState.currentOffset.lerp(
+        cameraState.targetOffset, 
+        cinematicEffects.transitionSpeed
+    );
+    
+    // Interpolate rotational offsets
+    cameraState.currentPitchOffset += (
+        cameraState.targetPitchOffset - cameraState.currentPitchOffset
+    ) * cinematicEffects.CAMERA_LAG_FACTOR;
+    
+    cameraState.currentYawOffset += (
+        cameraState.targetYawOffset - cameraState.currentYawOffset
+    ) * cinematicEffects.CAMERA_LAG_FACTOR;
+    
+    // Interpolate local rotations
+    cameraState.currentLocalPitchRotation += (
+        cameraState.targetLocalPitchRotation - cameraState.currentLocalPitchRotation
+    ) * cinematicEffects.LOCAL_ROTATION_SPEED;
+    
+    cameraState.currentLocalYawRotation += (
+        cameraState.targetLocalYawRotation - cameraState.currentLocalYawRotation
+    ) * cinematicEffects.LOCAL_ROTATION_SPEED;
+    
+    // Interpolate FOV
+    cameraState.currentFOV += (
+        cameraState.targetFOV - cameraState.currentFOV
+    ) * cinematicEffects.FOV_TRANSITION_SPEED;
+    
+    return cameraState;
+}
+

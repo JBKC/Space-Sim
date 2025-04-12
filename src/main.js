@@ -7,8 +7,6 @@ import { loadingManager, textureLoadingManager, updateAssetDisplay } from './loa
 
 // Space scene imports
 import { 
-    isEarthSurfaceActive,
-    isMoonSurfaceActive,
     exitEarthSurface,
     exitMoonSurface,
     updateMoonPosition,
@@ -21,6 +19,16 @@ import {
     renderScene,
     startHyperspace,
 } from './spaceEnvs/setup.js';
+
+// Import state environment functions
+import {
+    getEarthSurfaceActive,
+    getMoonSurfaceActive,
+    setEarthSurfaceActive,
+    setMoonSurfaceActive,
+    getSpaceInitialized,
+    setSpaceInitialized
+} from './stateEnv.js';
 
 // Earth scene imports
 import { 
@@ -68,10 +76,8 @@ import {
 
 let isAnimating = false;
 // Hyperspace state now comes from inputControls.js
-let spaceInitialized = false;
 let earthInitialized = false;  // Move to top-level scope for exports
 let moonInitialized = false;  // Move to top-level scope for exports
-// Remove the local isMoonSurfaceActive variable to use the imported one
 // Add a flag to track first Earth entry in a session
 let isFirstEarthEntry = true;
 // Add a flag to track first Moon entry in a session
@@ -139,7 +145,7 @@ function startGame() {
     
     // Show the controls prompt and initialize dropdown state
     showControlsPrompt();
-    updateControlsDropdown(isEarthSurfaceActive, isMoonSurfaceActive);
+    updateControlsDropdown(getEarthSurfaceActive(), getMoonSurfaceActive());
 
     if (!isAnimating) {
         isAnimating = true;
@@ -300,9 +306,13 @@ function animate(currentTime = 0) {
         
     }
 
+    // Get current environment states at the beginning of each frame
+    const isEarthActive = getEarthSurfaceActive();
+    const isMoonActive = getMoonSurfaceActive();
+
     try {
         // CASE 0 = normal space view
-        if (!isEarthSurfaceActive && !isMoonSurfaceActive) {
+        if (!isEarthActive && !isMoonActive) {
 
             // If we just exited a planet surface, make sure space container is visible
             const spaceContainer = document.getElementById('space-container');
@@ -322,10 +332,10 @@ function animate(currentTime = 0) {
 
             try {
                 // Initialize space scene if needed
-                if (!spaceInitialized) {
+                if (!getSpaceInitialized()) {
                     console.log('Initializing Outer Space');
                     const spaceObjects = initSpace();
-                    spaceInitialized = true;
+                    setSpaceInitialized(true);
                     console.log('Space initialized successfully', spaceObjects);
                 }
                 
@@ -371,15 +381,21 @@ function animate(currentTime = 0) {
                     explorationCounter.style.display = 'block';
                 }
                 
-                // Render the scene
-                renderScene();
+                // Get space scene and camera from renderScene function
+                const spaceSceneInfo = renderScene();
+                
+                // If we have valid scene info, render the space scene directly
+                if (spaceSceneInfo) {
+                    // Render the space scene with the space camera using our renderer
+                    spaceRenderer.render(spaceSceneInfo.scene, spaceSceneInfo.camera);
+                }
             } catch (e) {
                 console.error('Space animation error:', e);
             }
         }
 
         // CASE 1 = earth surface view
-        if (isEarthSurfaceActive && !isMoonSurfaceActive) {
+        if (isEarthActive && !isMoonActive) {
             try {
                 // Reset movement inputs immediately to prevent stuck key states
                 resetMovementInputs();
@@ -464,11 +480,6 @@ function animate(currentTime = 0) {
                                 indicator.style.display = 'none';
                             });
                             
-                            // Hide any reticle display
-                            // if (spacecraft && spacecraft.userData && spacecraft.userData.reticle) {
-                            //     spacecraft.userData.reticle.visible = false;
-                            // }
-                            
                             // Hide any other UI elements that should not be visible on planet surface
                             // Look for elements by class that might contain 'popup', 'tooltip', or 'notification'
                             const otherUIElements = document.querySelectorAll('[class*="popup"], [class*="tooltip"], [class*="notification"]');
@@ -527,8 +538,8 @@ function animate(currentTime = 0) {
         }
         
         // Update the hyperspace option in the controls dropdown when scene changes
-        if (prevEarthSurfaceActive !== isEarthSurfaceActive) {
-            updateControlsDropdown(isEarthSurfaceActive, isMoonSurfaceActive);
+        if (prevEarthSurfaceActive !== isEarthActive) {
+            updateControlsDropdown(isEarthActive, isMoonActive);
             
             // Hide hyperspace progress bar when on Earth's surface
             const progressContainer = document.getElementById('hyperspace-progress-container');
@@ -538,7 +549,7 @@ function animate(currentTime = 0) {
         }
         
         // CASE 2 = moon surface view
-        if (!isEarthSurfaceActive && isMoonSurfaceActive) {
+        if (!isEarthActive && isMoonActive) {
             try {
                 // Reset movement inputs immediately to prevent stuck key states
                 resetMovementInputs();
@@ -696,8 +707,8 @@ function animate(currentTime = 0) {
         }
         
         // Update the hyperspace option in the controls dropdown when scene changes
-        if (prevMoonSurfaceActive !== isMoonSurfaceActive) {
-            updateControlsDropdown(isEarthSurfaceActive, isMoonSurfaceActive);
+        if (prevMoonSurfaceActive !== isMoonActive) {
+            updateControlsDropdown(isEarthActive, isMoonActive);
             
             // Hide hyperspace progress bar when on Moon's surface
             const progressContainer = document.getElementById('hyperspace-progress-container');
@@ -706,7 +717,7 @@ function animate(currentTime = 0) {
             }
             
             // If we just entered moon surface, ensure all space UI elements are hidden
-            if (isMoonSurfaceActive) {
+            if (isMoonActive) {
                 // Hide any planet info boxes that might be visible
                 const planetInfoBox = document.querySelector('.planet-info-box');
                 if (planetInfoBox) {
@@ -747,16 +758,18 @@ function animate(currentTime = 0) {
             }
         }
 
+        // Update previous states at the end of frame for next frame comparison
+        prevEarthSurfaceActive = isEarthActive;
+        prevMoonSurfaceActive = isMoonActive;
 
-    } catch (e) {
-        console.error('Main animation loop error:', e);
+    } catch (error) {
+        console.error("Error in animate loop:", error);
     }
     
     // End stats measurement for this frame
     stats.end();
 
-    // Update previous state for next frame
-    prevEarthSurfaceActive = isEarthSurfaceActive;
-    prevMoonSurfaceActive = isMoonSurfaceActive;
+    // Update asset loading display each frame
+    updateAssetDisplay();
 }
 

@@ -10,6 +10,8 @@ import {
 } from './spaceEnvs/setup.js';
 import { keys, resetKeyStates } from './inputControls.js';
 
+// Create a raycaster for collision detection
+const raycaster = new THREE.Raycaster();
 
 ///// Movement Variables /////
 
@@ -17,12 +19,12 @@ import { keys, resetKeyStates } from './inputControls.js';
 export const baseSpeed = 5;
 export const boostSpeed = baseSpeed * 5;
 export const slowSpeed = baseSpeed * 0.5; // Half of base speed for slow mode
-export const hyperspaceSpeed = baseSpeed * 50;
 export let currentSpeed = baseSpeed;
+export const hyperspaceSpeed = baseSpeed * 50;
 
 export const baseTurnSpeed = 0.02;     // Regular turn speed
-export const slowTurnSpeed = 0.025;     // More precise turning when moving slowly
 export const boostTurnSpeed = 0.015;   // Less sensitive turning when boosting
+export const slowTurnSpeed = 0.025;     // More precise turning when moving slowly
 export let currentTurnSpeed = baseTurnSpeed; // Current active turn speed
 
 
@@ -33,17 +35,43 @@ export const moonSlowSpeed = moonBaseSpeed * 0.5; // Half of base speed for slow
 export let moonCurrentSpeed = moonBaseSpeed;
 
 export const moonBaseTurnSpeed = 0.02;     // Regular turn speed
-export const moonSlowTurnSpeed = 0.025;     // More precise turning when moving slowly
 export const moonBoostTurnSpeed = 0.015;   // Less sensitive turning when boosting
+export const moonSlowTurnSpeed = 0.025;     // More precise turning when moving slowly
 export let moonCurrentTurnSpeed = moonBaseTurnSpeed; // Current active turn speed
 
+// Moon terrain parameters
+export const HOVER_HEIGHT = 30; // Standard hover height above moon terrain
+export const MAX_SLOPE_ANGLE = 30; // Maximum slope angle before terrain avoidance kicks in
 
-// General
+
+// San Francisco scene
+export const sanFranBaseSpeed = 1.5;
+export const sanFranBoostSpeed = sanFranBaseSpeed * 3;
+export const sanFranSlowSpeed = sanFranBaseSpeed * 0.5; // Half of base speed
+export let sanFranCurrentSpeed = sanFranBaseSpeed;
+
+export const sanFranBaseTurnSpeed = 0.025;     // Regular turn speed
+export const sanFranBoostTurnSpeed = 0.02;   // Much less sensitive turning when boosting (stability at high speed)
+export const sanFranSlowTurnSpeed = 0.03;     // More sensitive turning when moving slowly (urban precision)
+export let sanFranCurrentTurnSpeed = sanFranBaseTurnSpeed; // Current active turn speed
+
+
+// Washington (mountains) scene
+export const washingtonBaseSpeed = 5;
+export const washingtonBoostSpeed = washingtonBaseSpeed * 5;
+export const washingtonSlowSpeed = washingtonBaseSpeed * 0.5; // Half of base speed
+export let washingtonCurrentSpeed = washingtonBaseSpeed;
+
+export const washingtonBaseTurnSpeed = 0.03;     // Regular turn speed
+export const washingtonBoostTurnSpeed = 0.025;   // Much less sensitive turning when boosting (stability at high speed)
+export const washingtonSlowTurnSpeed = 0.03;     // More sensitive turning when moving slowly (urban precision)
+export let washingtonCurrentTurnSpeed = washingtonBaseTurnSpeed; // Current active turn speed
+
+
+// General (constant across all environments)
 export const pitchSensitivity = 0.6; // Lower value = less sensitive
 export const rollSensitivity = 1;  // Lower value = less sensitive
 export const yawSensitivity = 0.5;   // Lower value = less sensitive
-
-// Wing animation variables
 export let wingsOpen = true;
 export let wingAnimation = 0;
 export const wingTransitionFrames = 30;
@@ -74,7 +102,7 @@ export function resetMovementInputs() {
 // Keyboard controls are now handled in inputControls.js
 
 /**
- * Core movement function to reuse across all scenes
+ * CORE BOILERPLATE MOVEMENT FUNCTION
  * Handles basic spacecraft movement including pitch, roll, yaw, speed adjustments
  * 
  * @param {boolean} isBoosting - Whether boost is active
@@ -91,7 +119,7 @@ export function updateCoreMovement(isBoosting, environment = 'space') {
     // Determine which set of movement parameters to use based on environment
     let envSpeed, envBoostSpeed, envSlowSpeed, envBaseTurnSpeed, envBoostTurnSpeed, envSlowTurnSpeed;
     
-    // Select the appropriate movement parameters for the current environment
+    // Select parameters based on environment
     switch (environment) {
         case 'moon':
             envSpeed = moonBaseSpeed;
@@ -102,22 +130,20 @@ export function updateCoreMovement(isBoosting, environment = 'space') {
             envSlowTurnSpeed = moonSlowTurnSpeed;
             break;
         case 'sanFran':
-            // San Francisco might need different settings for more precise movement
-            envSpeed = baseSpeed * 0.8; // Slower in city environment
-            envBoostSpeed = boostSpeed * 0.6;
-            envSlowSpeed = slowSpeed * 0.5;
-            envBaseTurnSpeed = baseTurnSpeed * 1.2; // More responsive turning
-            envBoostTurnSpeed = boostTurnSpeed * 1.2;
-            envSlowTurnSpeed = slowTurnSpeed * 1.5;
+            envSpeed = sanFranBaseSpeed;
+            envBoostSpeed = sanFranBoostSpeed;
+            envSlowSpeed = sanFranSlowSpeed;
+            envBaseTurnSpeed = sanFranBaseTurnSpeed;
+            envBoostTurnSpeed = sanFranBoostTurnSpeed;
+            envSlowTurnSpeed = sanFranSlowTurnSpeed;
             break;
         case 'washington':
-            // Mountain environment might need different settings
-            envSpeed = baseSpeed * 1.2; // Faster in open mountains
-            envBoostSpeed = boostSpeed * 0.8;
-            envSlowSpeed = slowSpeed;
-            envBaseTurnSpeed = baseTurnSpeed;
-            envBoostTurnSpeed = boostTurnSpeed; 
-            envSlowTurnSpeed = slowTurnSpeed * 1.2;
+            envSpeed = washingtonBaseSpeed;
+            envBoostSpeed = washingtonBoostSpeed;
+            envSlowSpeed = washingtonSlowSpeed;
+            envBaseTurnSpeed = washingtonBaseTurnSpeed;
+            envBoostTurnSpeed = washingtonBoostTurnSpeed;
+            envSlowTurnSpeed = washingtonSlowTurnSpeed;
             break;
         case 'space':
         default:
@@ -184,7 +210,7 @@ export function updateCoreMovement(isBoosting, environment = 'space') {
 ///// SCENE-SPECIFIC MOVEMENT FUNCTIONS /////
 
 
-// Take parameters from inputControls.js to determine if boosting or hyperspace is active //
+// MOVEMENT UPDATE FUNCTION //
 export function updateSpaceMovement(isBoosting, isHyperspace) {
 
     // Collision and bounce variables
@@ -215,7 +241,7 @@ export function updateSpaceMovement(isBoosting, isHyperspace) {
         return;
     }
     
-    // For normal space movement, apply the core movement
+    // Apply default movement parameters (space env)
     // Note - this is where the boost effects live since it carries across all environments
     const result = updateCoreMovement(isBoosting, 'space');
     
@@ -251,121 +277,6 @@ export function updateSpaceMovement(isBoosting, isHyperspace) {
 
 
 
-/**
- * Updates spacecraft movement in the moon environment
- * Uses core movement mechanics but adds moon-specific terrain features
- */
-export function updateMoonMovement() {
-    // Check if spacecraft is initialized
-    if (!spacecraft) {
-        console.warn("Spacecraft not initialized yet");
-        return;
-    }
-
-    // Handle wing animation for boost mode - moon specific handling
-    const isInHyperspace = window.isHyperspace || false;
-    
-    // Use the proper setWingsOpen method instead of manual animation
-    if (spacecraft && spacecraft.setWingsOpen) {
-        const shouldWingsBeOpen = !keys.up && !isInHyperspace;
-        spacecraft.setWingsOpen(shouldWingsBeOpen);
-    } 
-    // Fallback to manual animation if setWingsOpen is not available
-    else if ((keys.up || isInHyperspace) && wingsOpen) {
-        console.log(`moon: Closing wings due to ${isInHyperspace ? 'hyperspace' : 'boost'} mode`);
-        wingsOpen = false;
-        wingAnimation = wingTransitionFrames;
-    } else if (!keys.up && !isInHyperspace && !wingsOpen) {
-        console.log('moon: Opening wings for normal flight');
-        wingsOpen = true;
-        wingAnimation = wingTransitionFrames;
-    }
-
-    // Use core movement for basic spacecraft control
-    const isBoosting = keys.up;
-    const result = updateCoreMovement(isBoosting, 'moon');
-    
-    // If core movement failed, exit early
-    if (!result) return;
-    
-    const originalPosition = spacecraft.position.clone();
-    const { forward } = result;
-    
-    // Moon-specific terrain handling
-    if (tiles && tiles.group && tiles.group.children.length > 0) {
-        try {
-            const terrainMeshes = [];
-            tiles.group.traverse((object) => {
-                if (object.isMesh && object.geometry) {
-                    terrainMeshes.push(object);
-                }
-            });
-            
-            if (terrainMeshes.length > 0) {
-                const downDirection = new THREE.Vector3(0, -1, 0);
-                raycaster.set(spacecraft.position, downDirection);
-                raycaster.near = 0;
-                raycaster.far = 1000;
-                
-                const groundHits = raycaster.intersectObjects(terrainMeshes, false);
-                if (groundHits.length > 0) {
-                    const groundDistance = groundHits[0].distance;
-                    let groundNormal = groundHits[0].normal || 
-                        (groundHits[0].point ? new THREE.Vector3().subVectors(groundHits[0].point, new THREE.Vector3(0, 0, 0)).normalize() : null);
-                    
-                    if (groundNormal) {
-                        const upVector = new THREE.Vector3(0, 1, 0);
-                        const slopeAngle = Math.acos(groundNormal.dot(upVector)) * (180 / Math.PI);
-                        if (slopeAngle > MAX_SLOPE_ANGLE) {
-                            const rightVector = new THREE.Vector3().crossVectors(forward, upVector).normalize();
-                            const adjustedForward = new THREE.Vector3().crossVectors(rightVector, groundNormal).normalize();
-                            forward.lerp(adjustedForward, 0.5);
-                        }
-                    }
-                    
-                    // Hover height adjustment - moon specific
-                    if (groundDistance < HOVER_HEIGHT) {
-                        spacecraft.position.y += (HOVER_HEIGHT - groundDistance) * 0.2;
-                    } else if (groundDistance > HOVER_HEIGHT * 1.5) {
-                        spacecraft.position.y -= (groundDistance - HOVER_HEIGHT) * 0.015;
-                    }
-                }
-            }
-        } catch (error) {
-            console.error("Error in hover adjustment:", error);
-        }
-    }
-    
-    // Apply forward motion - adjusted by terrain interaction above
-    spacecraft.position.add(forward.multiplyScalar(currentSpeed));
-
-    // Moon-specific collision detection
-    try {
-        if (tiles && tiles.group && tiles.group.children.length > 0) {
-            if (checkTerrainCollision()) {
-                console.log("Collision detected and resolved");
-                // Handle collision by using the appropriate camera offset
-                const isFirstPerson = spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? 
-                    spacecraft.isFirstPersonView() : false;
-                const viewMode = isFirstPerson ? 'moonCockpit' : 'moon';
-                
-                // Force the camera state to use collision offsets
-                cameraState.targetOffset = isFirstPerson ? 
-                    moonCockpitCamera.collision.clone() : 
-                    moonCamera.collision.clone();
-                
-                if (checkTerrainCollision()) {
-                    console.log("Multiple collisions detected, reverting to original position");
-                    spacecraft.position.copy(originalPosition);
-                }
-            }
-        }
-    } catch (error) {
-        console.error("Error during collision detection:", error);
-        spacecraft.position.copy(originalPosition);
-    }
-
-}
 
 /**
  * Updates spacecraft movement in the San Francisco environment
