@@ -5,8 +5,9 @@ import { CesiumIonAuthPlugin } from '3d-tiles-renderer/src/plugins/three/CesiumI
 import { GLTFExtensionsPlugin } from '3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { loadingManager, textureLoadingManager } from '../loaders.js';
-// Import Cesium rate limiting utilities
+
 import { configureCesiumRequestScheduler, optimizeTerrainLoading } from '../cesiumRateLimit.js';
+import config from '../config.js';
 
 import { updateCoreMovement, resetMovementInputs } from '../movement.js';
 import { createSpacecraft } from '../spacecraft.js';
@@ -26,28 +27,16 @@ import {
     getViewToggleRequested,
     updatePreviousKeyStates 
 } from '../inputControls.js';
-
-// Import the config
-import config from '../config.js';
+import {
+    getEarthSurfaceActive,
+    getMoonSurfaceActive,
+    setEarthSurfaceActive,
+    setMoonSurfaceActive,
+} from '../stateEnv.js';
 
 
 // DEFINE GLOBAL VARIABLES
 let camera, scene, renderer, tiles, cameraTarget;
-
-// Function to reset all key states to prevent stuck movement
-export function resetKeys() {
-  // Reset all keys to prevent stuck movement patterns
-  keys.w = false;
-  keys.s = false;
-  keys.a = false;
-  keys.d = false;
-  keys.left = false;
-  keys.right = false;
-  keys.up = false;
-  keys.down = false;
-  keys.space = false;
-  console.log('Moon: Reset all key states');
-}
 
 let localOrigin; // Local origin point for coordinate system
 let referenceSphere; // Reference sphere object
@@ -58,20 +47,11 @@ export {
  renderer, 
  tiles, 
  cameraTarget,
- spacecraft,
  localOrigin,  // Export local origin for other modules to use
  worldToLocal,  // Export conversion functions
  localToWorld,
  referenceSphere, // Export reference sphere for other modules
 };
-
-// Define spacecraft
-let spacecraft, engineGlowMaterial, lightMaterial;
-let topRightWing, bottomRightWing, topLeftWing, bottomLeftWing;
-let wingsOpen = true;
-let wingAnimation = 0;
-const wingTransitionFrames = 30;
-
 
 // Collision detection
 const spacecraftBoundingSphere = new THREE.Sphere();
@@ -184,62 +164,76 @@ const cameraState = createCameraState('moon');
 
 ///////////////////// SCENE SETUP /////////////////////
 
+// Spacecraft setup
+let spacecraft, cockpit, reticle, updateReticle, isFirstPersonView, updateEngineEffects;
+let topRightWing, bottomRightWing, topLeftWing, bottomLeftWing;
+let wingsOpen = true;
+let wingAnimation = 0;
+const wingTransitionFrames = 30;
+export { spacecraft, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, wingsOpen, wingAnimation, updateEngineEffects };
+
+
 // Initialize spacecraft in the scene
 function initSpacecraft() {
+
+    // Create a spacecraft object to pull all the attributes and methods from the createSpacecraft function
     const spacecraftComponents = createSpacecraft(scene);
+
+    // Expose attributes from the spacecraftComponents object
     spacecraft = spacecraftComponents.spacecraft;
-    engineGlowMaterial = spacecraftComponents.engineGlowMaterial;
-    lightMaterial = spacecraftComponents.lightMaterial;
-    topRightWing = spacecraftComponents.topRightWing;
-    bottomRightWing = spacecraftComponents.bottomRightWing;
-    topLeftWing = spacecraftComponents.topLeftWing;
-    bottomLeftWing = spacecraftComponents.bottomLeftWing;
-    
-    // Expose the toggleView function for cockpit view
+    cockpit = spacecraftComponents.cockpit;
+    reticle = spacecraftComponents.reticle;
+    updateReticle = spacecraftComponents.updateReticle;
+
+    // Expose methods from the spacecraftComponents object
     spacecraft.toggleView = spacecraftComponents.toggleView;
-    
-    // Add the setWingsOpen function for boost wing animation
+    spacecraft.updateAnimations = spacecraftComponents.updateAnimations;
     spacecraft.setWingsOpen = spacecraftComponents.setWingsOpen;
+    spacecraft.toggleWings = spacecraftComponents.toggleWings;
+    spacecraft.setWingsPosition = spacecraftComponents.setWingsPosition;
+    updateEngineEffects = spacecraftComponents.updateEngineEffects;
     
     // Store the isFirstPersonView state for camera logic
     spacecraft.isFirstPersonView = function() {
         // Add a direct reference to the spacecraftComponents object
         return this._spacecraftComponents ? this._spacecraftComponents.isFirstPersonView : false;
     };
-    
+
     // Store a direct reference to the spacecraftComponents
     spacecraft._spacecraftComponents = spacecraftComponents;
 
-    spacecraft.traverse((object) => {
-        if (object.isMesh) {
-            object.castShadow = true;
-            object.receiveShadow = true;
+    // Make sure wings are open by default (set timeout to ensure model is loaded)
+    setTimeout(() => {
+        if (spacecraft && spacecraft.setWingsOpen) {
+            // console.log("Setting wings to OPEN position in setup.js");
+            spacecraft.setWingsOpen(true);
         }
-    });
+    }, 1000); // 1 second delay to ensure model is fully loaded and processed
 
     // Verify reticle creation
     if (spacecraftComponents.reticle) {
-    console.log("Reticle was successfully created with spacecraft in moonCesium.js");
+        console.log("Reticle was successfully created with spacecraft in setup.js");
     } else {
-    console.warn("Reticle not found in spacecraft components");
+        console.warn("Reticle not found in spacecraft components");
     }
 
-    // Set initial position of craft using the constants
+    // Set the initial position and orientation of the spacecraft
     const position = latLonToCartesian(SPACECRAFT_INITIAL_LAT, SPACECRAFT_INITIAL_LON, SPACECRAFT_INITIAL_HEIGHT);
     spacecraft.position.copy(position);
-
-    // Initial rotation using the constant
     spacecraft.quaternion.setFromEuler(SPACECRAFT_INITIAL_ROTATION);
 
     cameraTarget = new THREE.Object3D();
     spacecraft.add(cameraTarget);
     cameraTarget.position.set(0, 0, 0);
 
-    updateEngineEffects = spacecraftComponents.updateEngineEffects;
+    spacecraft.name = 'spacecraft';
+    scene.add(spacecraft);
+
+    console.log("Spacecraft initialized in moonCesium.js");
 }
 
 /// CORE INITIALIZATION FUNCTION ///
-export function init(isEarthSurfaceActive, isMoonSurfaceActive) {
+export function init() {
 
     console.log("Moon initialization started");
 
@@ -278,7 +272,7 @@ export function init(isEarthSurfaceActive, isMoonSurfaceActive) {
     onWindowResize();
     window.addEventListener('resize', onWindowResize, false);
 
-    initControls(isEarthSurfaceActive, isMoonSurfaceActive);
+    initControls(getEarthSurfaceActive(), getMoonSurfaceActive());
 
     setupmoonLighting();
     
@@ -292,7 +286,7 @@ export function init(isEarthSurfaceActive, isMoonSurfaceActive) {
     
     reinstantiateTiles();
 
-    console.log("moon 3D initialization complete");
+    console.log("Moon initialization complete");
     
     return { 
         scene: scene, 
@@ -420,7 +414,7 @@ function updateMoonMovement(isBoosting) {
 }
 
 /// CORE STATE UPDATE FUNCTION ///
-export function update(deltaTime = 0.016) {
+export function update(isBoosting, deltaTime = 0.016) {
     try {
 
         // Follow similar boilerplate from setup.js
@@ -853,7 +847,6 @@ export function updateCamera() {
     camera.quaternion.multiply(adjustment);
 }
 
-let updateEngineEffects;
 
 function setupTiles() {
     tiles.fetchOptions.mode = 'cors';

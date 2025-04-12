@@ -234,7 +234,7 @@ function initSpacecraft() {
     const centerPoint = new THREE.Vector3(0, 0, 10000);
     spacecraft.lookAt(centerPoint);
     spacecraft.name = 'spacecraft';
-    // scene.add(spacecraft);
+    scene.add(spacecraft);
 
 }
 

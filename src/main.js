@@ -522,7 +522,7 @@ function animate(currentTime = 0) {
                         if (!moonInitialized) {
                             console.log('Initializing Moon surface');
                             // Pass surface states to initialize function for initControls
-                            const moonObjects = initMoonSurface(isEarthSurfaceActive, isMoonSurfaceActive);
+                            const moonObjects = initMoonSurface();
                             moonInitialized = true;
                             console.log('Moon surface initialized successfully', moonObjects);
 
@@ -568,12 +568,6 @@ function animate(currentTime = 0) {
                                 explorationCounter.style.display = 'none';
                             }
                             
-                            // Clean up any existing hyperspace streaks
-                            if (streakLines && streakLines.length > 0) {
-                                streakLines.forEach(streak => spaceScene.remove(streak.line));
-                                streakLines = [];
-                                isHyperspace = false;
-                            }
                             // Hide hyperspace progress container
                             const progressContainer = document.getElementById('hyperspace-progress-container');
                             if (progressContainer) {
