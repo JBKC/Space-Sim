@@ -55,7 +55,7 @@ import {
 
 
 import { resetMovementInputs } from './movement.js';
-import { keys } from './inputControls.js';
+import { keys, resetKeyStates } from './inputControls.js';
 import { 
     setupUIElements, 
     showControlsPrompt,
@@ -92,16 +92,16 @@ let debugMode = true;
 // Make the reset functions available globally to avoid circular imports
 window.resetEarthInitialized = function() {
     earthInitialized = false;
-    console.log('Reset Earth surface initialization state');
-    
-    // Also reset the Washington initialization flag
+    console.log('Earth surface reset');
+    resetKeyStates();
     resetSanFranInitialized();
 };
 
 // Add resetMoonInitialized function
 window.resetMoonInitialized = function() {
     moonInitialized = false;
-    console.log('Reset Moon surface initialization state');
+    console.log('Moon surface reset');
+    resetKeyStates();
 };
 
 // Expose hyperspace function globally for access from inputControls.js

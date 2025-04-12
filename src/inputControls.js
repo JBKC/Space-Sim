@@ -51,13 +51,22 @@ export function setHyperspaceState(state) {
 export function resetKeyStates() {
     Object.keys(keys).forEach(key => {
         keys[key] = false;
+    });
+    
+    // Also reset the previous keys
+    Object.keys(prevKeys).forEach(key => {
         prevKeys[key] = false;
     });
     
-    // Reset action flags
+    // Reset input-related states
+    isBoosting = false;
+    isHyperspace = false;
+    isSpacePressed = false;
     isViewToggleRequested = false;
     isResetPositionRequested = false;
     isExitSurfaceRequested = false;
+    
+    console.log('All key states reset');
 }
 
 /**
