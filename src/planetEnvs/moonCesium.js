@@ -9,7 +9,7 @@ import { loadingManager, textureLoadingManager } from '../loaders.js';
 import { configureCesiumRequestScheduler, optimizeTerrainLoading } from '../cesiumRateLimit.js';
 import config from '../config.js';
 
-import { updateCoreMovement, resetMovementInputs } from '../movement.js';
+import { updateMoonMovement, resetMovementInputs } from '../movement.js';
 import { createSpacecraft } from '../spacecraft.js';
 import { updateControlsDropdown } from '../ui.js';
 import { 
@@ -101,6 +101,12 @@ function updateCamera(camera, isHyperspace) {
         console.warn("Spacecraft not initialized yet, skipping updateCamera");
         return;
     }
+
+    // Debug camera position and target
+    console.log("Moon camera:", 
+        "Position:", camera.position.x.toFixed(2), camera.position.y.toFixed(2), camera.position.z.toFixed(2),
+        "Target:", spacecraft ? spacecraft.position.x.toFixed(2) + "," + spacecraft.position.y.toFixed(2) + "," + spacecraft.position.z.toFixed(2) : "N/A",
+        "Distance:", spacecraft ? camera.position.distanceTo(spacecraft.position).toFixed(2) : "N/A");
 
     // Create a fixed pivot at the center of the spacecraft
     const spacecraftCenter = new THREE.Object3D();
@@ -293,6 +299,19 @@ export { spacecraft, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing,
 export function renderScene() {
     // only render when on moon surface
     if (getMoonSurfaceActive()) {
+        console.log("RENDERING: MOON SCENE", "Scene has", scene.children.length, "objects");
+        
+        // Debug DOM elements
+        const canvases = document.querySelectorAll('canvas');
+        console.log("DOM contains", canvases.length, "canvas elements");
+        canvases.forEach((canvas, i) => {
+            console.log(`Canvas ${i}:`, 
+                "Display:", canvas.style.display,
+                "Z-index:", canvas.style.zIndex,
+                "Size:", canvas.width + "x" + canvas.height,
+                "Is Moon Renderer:", canvas === renderer.domElement);
+        });
+        
         return { scene, camera };
     } else {
         return null;
@@ -306,11 +325,21 @@ function initSpacecraft() {
     // Create a spacecraft object to pull all the attributes and methods from the createSpacecraft function
     const spacecraftComponents = createSpacecraft(scene);
 
+    // Log successful object creation
+    console.log("Moon spacecraft components created:", 
+                spacecraftComponents ? "Success" : "Failed",
+                "Object structure:", Object.keys(spacecraftComponents || {}));
+
     // Expose attributes from the spacecraftComponents object
     spacecraft = spacecraftComponents.spacecraft;
     cockpit = spacecraftComponents.cockpit;
     reticle = spacecraftComponents.reticle;
     updateReticle = spacecraftComponents.updateReticle;
+
+    // More detailed check of spacecraft object
+    console.log("Moon spacecraft object:", 
+                spacecraft ? "Created successfully" : "Not created",
+                "Type:", spacecraft ? spacecraft.type : "N/A");
 
     // Expose methods from the spacecraftComponents object
     spacecraft.toggleView = spacecraftComponents.toggleView;
@@ -349,18 +378,27 @@ function initSpacecraft() {
     spacecraft.position.copy(position);
     spacecraft.quaternion.setFromEuler(SPACECRAFT_INITIAL_ROTATION);
 
+    console.log("Moon spacecraft initial position set:", 
+                position.x.toFixed(2), position.y.toFixed(2), position.z.toFixed(2),
+                "Rotation:", SPACECRAFT_INITIAL_ROTATION);
+
     spacecraft.name = 'spacecraft';
     scene.add(spacecraft);
-    console.log("Spacecraft initialized");
+    console.log("Spacecraft added to Moon scene, object count:", scene.children.length);
+    // Check if it was added successfully
+    console.log("Spacecraft in Moon scene after add:", scene.children.includes(spacecraft));
 }
 
 /// CORE INITIALIZATION FUNCTION ///
 export function init() {
 
     console.log("Moon initialization started");
+    console.log("Moon surface active:", getMoonSurfaceActive());
+    console.log("Earth surface active:", getEarthSurfaceActive());
+    console.log("Moon initialized:", getMoonInitialized());
 
     if (getMoonInitialized()) {
-        console.log("Space already initialized, skipping");
+        console.log("Moon already initialized, skipping");
         return { scene, camera, renderer };
     }
  
@@ -393,123 +431,6 @@ export function init() {
     };
 }
 
-// MOVEMENT UPDATE FUNCTION //
-function updateMoonMovement(spacecraft, isBoosting) {
-    // Check if spacecraft is initialized
-    if (!spacecraft) {
-        console.warn("Spacecraft not passed as argument / not yet initialized");
-        return null;
-    }
-
-
-    // Handle wing animation for boost mode - moon specific handling
-    const isInHyperspace = window.isHyperspace || false;
-    
-    // Use the proper setWingsOpen method instead of manual animation
-    if (spacecraft && spacecraft.setWingsOpen) {
-        const shouldWingsBeOpen = !keys.up && !isInHyperspace;
-        spacecraft.setWingsOpen(shouldWingsBeOpen);
-    } 
-    // Fallback to manual animation if setWingsOpen is not available
-    else if ((keys.up || isInHyperspace) && wingsOpen) {
-        // console.log(`moon: Closing wings due to ${isInHyperspace ? 'hyperspace' : 'boost'} mode`);
-        wingsOpen = false;
-        wingAnimation = wingTransitionFrames;
-    } else if (!keys.up && !isInHyperspace && !wingsOpen) {
-        // console.log('moon: Opening wings for normal flight');
-        wingsOpen = true;
-        wingAnimation = wingTransitionFrames;
-    }
-
-    // COLLISION DETECTION ON THE MOON
-    const result = updateCoreMovement(isBoosting, 'moon');
-    
-    // If core movement failed, exit early
-    if (!result) return;
-    
-    const originalPosition = spacecraft.position.clone();
-    const { forward } = result;
-    
-    // Moon-specific terrain handling
-    if (tiles && tiles.group && tiles.group.children.length > 0) {
-        try {
-            const terrainMeshes = [];
-            tiles.group.traverse((object) => {
-                if (object.isMesh && object.geometry) {
-                    terrainMeshes.push(object);
-                }
-            });
-            
-            if (terrainMeshes.length > 0) {
-
-                // RAY CASTING FOR COLLISION DETECTION
-                
-                // Get forward direction for collision response
-                const downDirection = new THREE.Vector3(0, -1, 0);
-                raycaster.set(spacecraft.position, downDirection);
-                raycaster.near = 0;
-                raycaster.far = 1000;
-                
-                const groundHits = raycaster.intersectObjects(terrainMeshes, false);
-                if (groundHits.length > 0) {
-                    let groundNormal = groundHits[0].normal || 
-                        (groundHits[0].point ? new THREE.Vector3().subVectors(groundHits[0].point, new THREE.Vector3(0, 0, 0)).normalize() : null);
-                    
-                    // Keep slope avoidance for preventing collisions with mountains
-                    if (groundNormal) {
-                        const upVector = new THREE.Vector3(0, 1, 0);
-                        const slopeAngle = Math.acos(groundNormal.dot(upVector)) * (180 / Math.PI);
-                        if (slopeAngle > MAX_SLOPE_ANGLE) {
-                            const rightVector = new THREE.Vector3().crossVectors(forward, upVector).normalize();
-                            const adjustedForward = new THREE.Vector3().crossVectors(rightVector, groundNormal).normalize();
-                            forward.lerp(adjustedForward, 0.5);
-                        }
-                    }
-                    
-                }
-            }
-        } catch (error) {
-            console.error("Error in terrain handling:", error);
-        }
-    }
-
-    // Moon-specific collision detection - keep this part
-    try {
-        if (tiles && tiles.group && tiles.group.children.length > 0) {
-            if (checkTerrainCollision()) {
-                console.log("Collision detected and resolved");
-                
-                // Show "WASTED" message (or similar) here if desired
-                // You might want to add a UI element for this
-                
-                // Keep camera adjustment on collision
-                const isFirstPerson = spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? 
-                    spacecraft.isFirstPersonView() : false;
-                
-                // Force the camera state to use collision offsets
-                cameraState.targetOffset = isFirstPerson ? 
-                    moonCockpitCamera.collision.clone() : 
-                    moonCamera.collision.clone();
-                
-                // If still colliding, reset position (keep this functionality)
-                if (checkTerrainCollision()) {
-                    console.log("Multiple collisions detected, resetting spacecraft position");
-                    
-                    // Reset to original position as immediate fallback
-                    spacecraft.position.copy(originalPosition);
-                    
-                    // Optionally, call the full reset function after a delay
-                    setTimeout(() => {
-                        resetPosition();
-                    }, 1000); // Reset after 1 second delay
-                }
-            }
-        }
-    } catch (error) {
-        console.error("Error during collision detection:", error);
-        spacecraft.position.copy(originalPosition);
-    }
-}
 
 /// CORE STATE UPDATE FUNCTION ///
 export function update(isBoosting, deltaTime = 0.016) {
@@ -523,6 +444,21 @@ export function update(isBoosting, deltaTime = 0.016) {
         if (!tiles) {
             return false;
         }
+
+        // Debug - check renderer canvas visibility
+        if (renderer && renderer.domElement) {
+            console.log("Moon renderer canvas visibility check:", 
+                "Display:", renderer.domElement.style.display,
+                "Z-index:", renderer.domElement.style.zIndex,
+                "In DOM:", document.body.contains(renderer.domElement),
+                "Size:", renderer.domElement.width + "x" + renderer.domElement.height);
+        }
+
+        // Debug - check if spacecraft is in the scene
+        console.log("Moon update - spacecraft in scene:", 
+            spacecraft ? "Yes" : "No", 
+            "Scene children count:", scene.children.length,
+            "Scene contains spacecraft:", scene.children.includes(spacecraft));
 
         // Get boosting state from inputControls
         const isBoostingFromControls = getBoostState();
@@ -548,7 +484,7 @@ export function update(isBoosting, deltaTime = 0.016) {
 
 
         // Update spacecraft movement and camera
-        updateMoonMovement(boostState);
+        updateMoonMovement(spacecraft, rotation, boostState);
         // FOR CAMERA - update spacecraft matrix world before camera calculations
         if (spacecraft) {
             spacecraft.updateMatrixWorld(true);
@@ -1389,4 +1325,7 @@ export function setReferenceSphereVisibility(visible) {
 export function getReferenceSphereConfig() {
   return { ...sphereConfig };
 }
+
+// Export tiles for use in other modules
+export { tiles };
 

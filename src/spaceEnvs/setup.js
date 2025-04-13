@@ -326,7 +326,7 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
 
 
         // Update spacecraft movement and camera
-        updateSpaceMovement(spacecraft, boostState, hyperspaceState);
+        updateSpaceMovement(spacecraft, rotation, boostState, hyperspaceState);
         updateCamera(camera, hyperspaceState);
         
         // Wing position control - check if conditions changed
