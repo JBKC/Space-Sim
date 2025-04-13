@@ -26,7 +26,11 @@ import {
     setEarthSurfaceActive,
     setMoonSurfaceActive,
     getSpaceInitialized,
-    setSpaceInitialized
+    setSpaceInitialized,
+    getEarthInitialized,
+    setEarthInitialized,
+    getMoonInitialized,
+    setMoonInitialized
 } from './stateEnv.js';
 
 // Earth scene imports
@@ -72,8 +76,7 @@ import {
 
 let isAnimating = false;
 // Hyperspace state now comes from inputControls.js
-let earthInitialized = false;  // Move to top-level scope for exports
-let moonInitialized = false;  // Move to top-level scope for exports
+// Initialization flags now come from stateEnv.js
 // Add a flag to track first Earth entry in a session
 let isFirstEarthEntry = true;
 // Add a flag to track first Moon entry in a session
@@ -91,7 +94,7 @@ let debugMode = true;
 
 // Make the reset functions available globally to avoid circular imports
 window.resetEarthInitialized = function() {
-    earthInitialized = false;
+    setEarthInitialized(false);
     console.log('Reset Earth surface initialization state');
     
     // Also reset the Washington initialization flag
@@ -100,7 +103,7 @@ window.resetEarthInitialized = function() {
 
 // Add resetMoonInitialized function
 window.resetMoonInitialized = function() {
-    moonInitialized = false;
+    setMoonInitialized(false);
     console.log('Reset Moon surface initialization state');
 };
 
@@ -374,10 +377,10 @@ function animate(currentTime = 0) {
                         resetMovementInputs();
                         
                         // Initialize Earth once the transition is complete
-                        if (!earthInitialized) {
+                        if (!getEarthInitialized()) {
                             console.log('Initializing Earth surface');
                             const earthObjects = initEarthSurface();
-                            earthInitialized = true;
+                            setEarthInitialized(true);
                             console.log('Earth surface initialized successfully', earthObjects);
                             
                             // Also reset the Earth-specific keys
@@ -478,7 +481,7 @@ function animate(currentTime = 0) {
                 }
                 
                 // If Earth is already initialized, update and render
-                if (earthInitialized) {
+                if (getEarthInitialized()) {
                     // If this is the first time entering Earth in this session, reset position to ensure proper loading
                     if (isFirstEarthEntry) {
                         console.log('First Earth entry this session - ensuring proper position reset with 200ms delay');
@@ -516,7 +519,7 @@ function animate(currentTime = 0) {
             try {
                 
                 // IF we have only just entered moon's surface, show transition and initialize scene
-                if (!prevMoonSurfaceActive && isMoonSurfaceActive && !moonInitialized) {
+                if (!prevMoonSurfaceActive && isMoonSurfaceActive && !getMoonInitialized()) {
                     
                     // Show transition before initializing Moon surface
                     showMoonTransition(() => {
@@ -527,7 +530,7 @@ function animate(currentTime = 0) {
                         // Initialize scene
                         console.log('Initializing Moon surface');
                         const moonObjects = initMoonSurface();
-                        moonInitialized = true;
+                        setMoonInitialized(true);
                         console.log('Setting moonInitialized = true');
                         
                         // Rest of the UI setup stays the same...
@@ -620,7 +623,7 @@ function animate(currentTime = 0) {
                 }
                 
                 // ELSE IF we are already on the moon surface, update and render
-                else if (isMoonSurfaceActive && moonInitialized) {
+                else if (isMoonSurfaceActive && getMoonInitialized()) {
                     console.log('Moon scene is active and initialized - updating');
                     // If this is the first time entering moon in this session, reset position to ensure proper loading
                     if (isFirstMoonEntry) {
@@ -645,7 +648,7 @@ function animate(currentTime = 0) {
                     }
 
                     // APPLY STATE-BASED UPDATES //
-                    console.log('Moon update section reached, moonInitialized:', moonInitialized);
+                    console.log('Moon update section reached, moonInitialized:', getMoonInitialized());
                     
                     const isBoosting = getBoostState();        
                     console.log('About to update moon surface with isBoosting:', isBoosting);

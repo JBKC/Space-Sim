@@ -30,7 +30,9 @@ import {
     setEarthSurfaceActive,
     setMoonSurfaceActive,
     getSpaceInitialized,
-    setSpaceInitialized
+    setSpaceInitialized,
+    setEarthInitialized,
+    setMoonInitialized
 } from '../stateEnv.js';
 
 
@@ -235,6 +237,8 @@ function initSpacecraft() {
     spacecraft.lookAt(centerPoint);
     spacecraft.name = 'spacecraft';
     scene.add(spacecraft);
+
+    console.log("Spacecraft initialized in setup.js");
 
 }
 
@@ -465,12 +469,14 @@ export function exitEarthSurface() {
         console.log('Reset keys object:', keys);
     }
     
-    // Reset both initialization flags for Earth surface using main.js reset function
+    // Reset both initialization flags for Earth surface
     if (typeof window.resetEarthInitialized === 'function') {
         window.resetEarthInitialized();
         console.log('Both Earth and washington mountains initialization flags have been reset');
     } else {
-        console.warn('resetEarthInitialized function not found on window object');
+        // Fallback to use stateEnv.js directly
+        setEarthInitialized(false);
+        console.log('Earth initialization flags reset directly via stateEnv.js');
     }
     
     // Restart the main animation loop
@@ -519,12 +525,14 @@ export function exitMoonSurface() {
         console.log('Reset keys object:', keys);
     }
     
-    // Reset the moonInitialized flag in main.js
+    // Reset the moonInitialized flag
     if (typeof window.resetMoonInitialized === 'function') {
         window.resetMoonInitialized();
         console.log('Both Moon and moonCesium initialization flags have been reset');
     } else {
-        console.warn('resetMoonInitialized function not found on window object');
+        // Fallback to use stateEnv.js directly
+        setMoonInitialized(false);
+        console.log('Moon initialization flags reset directly via stateEnv.js');
     }
     
     // Restart the main animation loop
