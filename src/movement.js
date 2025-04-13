@@ -2,8 +2,6 @@
 
 import * as THREE from 'three';
 import { 
-    spacecraft, 
-    scene as spaceScene,
     EARTH_RADIUS,
     EARTH_POSITION,
     rotation
@@ -80,9 +78,6 @@ export const wingTransitionFrames = 30;
 let lastValidPosition = new THREE.Vector3();
 let lastValidQuaternion = new THREE.Quaternion();
 
-// Track game mode
-let gameMode = null;
-
 // Export the surfaceCameraOffset for backward compatibility
 export const surfaceCameraOffset = new THREE.Vector3(0, 0, 0);
 
@@ -108,12 +103,10 @@ export function resetMovementInputs() {
  * @param {string} environment - The current environment ('space', 'moon', 'sanFran', 'washington')
  * @returns {Object|null} - The movement vectors or null if spacecraft not initialized
  */
-export function updateCoreMovement(isBoosting, environment = 'space') {
-    // Check if spacecraft is initialized
-    if (!spacecraft) {
-        console.warn("Spacecraft not initialized yet, skipping updateCoreMovement");
-        return null;
-    }
+
+
+// TAKES SPECIFIC ENVIROMENT'S SPACECRAFT OBJECT AS ARGUMENT
+export function updateCoreMovement(spacecraft, isBoosting, environment = 'space') {
     
     // Determine which set of movement parameters to use based on environment
     let envSpeed, envBoostSpeed, envSlowSpeed, envBaseTurnSpeed, envBoostTurnSpeed, envSlowTurnSpeed;
@@ -205,19 +198,21 @@ export function updateCoreMovement(isBoosting, environment = 'space') {
     return { forward, nextPosition, environment };
 }
 
-
-///// SCENE-SPECIFIC MOVEMENT FUNCTIONS /////
-
-
 // MOVEMENT UPDATE FUNCTION //
-export function updateSpaceMovement(isBoosting, isHyperspace) {
+export function updateSpaceMovement(spacecraft, isBoosting, isHyperspace) {
+
+    // Check if spacecraft is initialized
+    if (!spacecraft) {
+        console.warn("Spacecraft not passed as argument / not yet initialized");
+        return null;
+    }
 
     // Collision and bounce variables
     const BOUNCE_FACTOR = 0.5;
     const COLLISION_THRESHOLD = 20;
     const COLLISION_PUSHBACK = 30;
 
-    // First determine if hyperspace is active
+    // Determine if hyperspace is active
     if (isHyperspace) {
         currentSpeed = hyperspaceSpeed;
         
@@ -242,7 +237,7 @@ export function updateSpaceMovement(isBoosting, isHyperspace) {
     
     // Apply default movement parameters (space env)
     // Note - this is where the boost effects live since it carries across all environments
-    const result = updateCoreMovement(isBoosting, 'space');
+    const result = updateCoreMovement(spacecraft, isBoosting, 'space');
     
     // If core movement failed (e.g. spacecraft not initialized), exit early
     if (!result) return;

@@ -394,12 +394,13 @@ export function init() {
 }
 
 // MOVEMENT UPDATE FUNCTION //
-function updateMoonMovement(isBoosting) {
+function updateMoonMovement(spacecraft, isBoosting) {
     // Check if spacecraft is initialized
     if (!spacecraft) {
-        console.warn("Spacecraft not initialized yet");
-        return;
+        console.warn("Spacecraft not passed as argument / not yet initialized");
+        return null;
     }
+
 
     // Handle wing animation for boost mode - moon specific handling
     const isInHyperspace = window.isHyperspace || false;

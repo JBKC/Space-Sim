@@ -600,7 +600,7 @@ function animate(currentTime = 0) {
                 // ELSE IF we are already on the moon surface, update and render
 
                 else if (isMoonSurfaceActive && getMoonInitialized() && !getMoonTransition()) {
-                    console.log('✅ Moon already initialized - updating');
+                    // console.log('✅ Moon already initialized - updating');
                     // If this is the first time entering moon in this session, reset position to ensure proper loading
                     if (isFirstMoonEntry) {
                         console.log('First Moon entry this session - ensuring proper position reset with 200ms delay');
@@ -624,10 +624,8 @@ function animate(currentTime = 0) {
                     }
 
                     // APPLY STATE-BASED UPDATES //
-                    console.log('Moon update section reached, moonInitialized:', getMoonInitialized());
                     
                     const isBoosting = getBoostState();        
-                    console.log('About to update moon surface with isBoosting:', isBoosting);
 
                     // Main update function that updates spacecraft, camera, tiles, world matrices
                     updateMoonSurface(isBoosting, deltaTime);         
