@@ -32,11 +32,18 @@ import {
     getSpaceInitialized,
     setSpaceInitialized,
     setEarthInitialized,
-    setMoonInitialized
+    setMoonInitialized,
+    getEarthTransition,
+    getMoonTransition,
+    setEarthTransition,
+    setMoonTransition
 } from '../stateEnv.js';
 
 
-// General initialization
+
+
+///////////////////// GENERAL INITIALIZATION /////////////////////
+
 const scene = new THREE.Scene();
 const renderer = new THREE.WebGLRenderer();
 const textureLoader = new THREE.TextureLoader(textureLoadingManager);
@@ -155,6 +162,24 @@ export {
 
 ///////////////////// SCENE SETUP /////////////////////
 
+// Spacecraft setup
+let spacecraft, cockpit, reticle, updateReticle, isFirstPersonView, updateEngineEffects;
+let topRightWing, bottomRightWing, topLeftWing, bottomLeftWing;
+let wingsOpen = true;
+let wingAnimation = 0;
+const wingTransitionFrames = 30;
+export { spacecraft, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, wingsOpen, wingAnimation, updateEngineEffects };
+
+
+// Lighting
+const directionalLight = new THREE.DirectionalLight(0xffffff, 10);
+directionalLight.position.set(-1, -1, -1,);
+scene.add(directionalLight);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambientLight);
+scene.background = new THREE.Color(0x000000);
+
+
 // RENDER SCENE - returns scene and camera for main.js to render, ONLY when in space scene
 export function renderScene() {
     // if not in space scene, return null
@@ -166,24 +191,6 @@ export function renderScene() {
         return { scene, camera };
     }
 }
-
-// Space Lighting
-
-const directionalLight = new THREE.DirectionalLight(0xffffff, 10);
-directionalLight.position.set(-1, -1, -1,);
-scene.add(directionalLight);
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-scene.add(ambientLight);
-scene.background = new THREE.Color(0x000000);
-
-
-// Spacecraft setup
-let spacecraft, cockpit, reticle, updateReticle, isFirstPersonView, updateEngineEffects;
-let topRightWing, bottomRightWing, topLeftWing, bottomLeftWing;
-let wingsOpen = true;
-let wingAnimation = 0;
-const wingTransitionFrames = 30;
-export { spacecraft, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, wingsOpen, wingAnimation, updateEngineEffects };
 
 
 // Initialize spacecraft in the scene
@@ -391,15 +398,16 @@ export function checkPlanetProximity() {
     const earthEntryThreshold = 500; // Distance threshold for Earth entry
     
     if (distanceToEarth < earthRadius + earthEntryThreshold && !getEarthSurfaceActive()) {
-        // If close enough - activate Earth surface
-        // Flag gets saved globally in stateEnv.js, and read by main.js to render scene
+        // Set active flag
         setEarthSurfaceActive(true);
+        // Ensure transition flag is TRUE upon activation
+        setEarthTransition(true);
         console.log("Earth surface active - distance:", distanceToEarth.toFixed(2));
         
     } else if (distanceToEarth >= earthRadius + earthEntryThreshold * 1.2 && getEarthSurfaceActive()) {
-        // Add a small buffer (20% larger) to avoid oscillation at the boundary
         // If moving away from Earth, exit Earth surface
         setEarthSurfaceActive(false);
+        // No need to set transition flag here, exitEarthSurface handles it
         console.log("Exiting Earth surface - distance:", distanceToEarth.toFixed(2));
     }
     
@@ -409,15 +417,16 @@ export function checkPlanetProximity() {
     const moonEntryThreshold = 500; // Distance threshold for Moon entry
     
     if (distanceToMoon < moonRadius + moonEntryThreshold && !getMoonSurfaceActive()) {
-        // If close enough - activate moon surface
-        // Flag gets saved globally in stateEnv.js, and read by main.js to render scene
+        // Set active flag
         setMoonSurfaceActive(true);
+        // Ensure transition flag is TRUE upon activation
+        setMoonTransition(true);
         console.log("Moon surface active - distance:", distanceToMoon.toFixed(2));
         
     } else if (distanceToMoon >= moonRadius + moonEntryThreshold * 1.2 && getMoonSurfaceActive()) {
-        // Add a small buffer (20% larger) to avoid oscillation at the boundary
         // If moving away from Moon, exit Moon surface
         setMoonSurfaceActive(false);
+        // No need to set transition flag here, exitMoonSurface handles it
         console.log("Exiting Moon surface - distance:", distanceToMoon.toFixed(2));
     }
 }
@@ -426,6 +435,7 @@ export function checkPlanetProximity() {
 export function exitEarthSurface() {
     console.log("Exiting Earth's surface!");
     setEarthSurfaceActive(false);
+    setEarthTransition(true); // Set transition flag to TRUE on exit
     
     // Update the controls dropdown to show hyperspace option again
     updateControlsDropdown(false, false);
@@ -491,6 +501,7 @@ export function exitEarthSurface() {
 export function exitMoonSurface() {
     console.log("Exiting Moon's surface!");
     setMoonSurfaceActive(false);
+    setMoonTransition(true); // Set transition flag to TRUE on exit
     
     // Remove the persistent surface message if it exists
     const persistentMessage = document.getElementById('moon-surface-message');

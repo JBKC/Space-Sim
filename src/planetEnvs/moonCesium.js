@@ -32,26 +32,135 @@ import {
     getMoonSurfaceActive,
     setEarthSurfaceActive,
     setMoonSurfaceActive,
+    getSpaceInitialized,
+    setSpaceInitialized,
+    setEarthInitialized,
+    setMoonInitialized,
+    getEarthTransition,
+    getMoonTransition,
+    setEarthTransition,
+    setMoonTransition
 } from '../stateEnv.js';
 
 
-// DEFINE GLOBAL VARIABLES
-let camera, scene, renderer, tiles, cameraTarget;
+///////////////////// GENERAL INITIALIZATION /////////////////////
+
+const scene = new THREE.Scene();
+const renderer = new THREE.WebGLRenderer();
+const textureLoader = new THREE.TextureLoader(textureLoadingManager);
+// const loader = new GLTFLoader();
+renderer.setSize(window.innerWidth, window.innerHeight);
+// document.getElementById('space-container').appendChild(renderer.domElement);
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.autoClear = true;
+renderer.sortObjects = false;
+renderer.physicallyCorrectLights = false;
+
+// Camera setup
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
+camera.position.set(100, 100, -100);
+camera.lookAt(0, 0, 0);
+const cameraState = createCameraState('space');
+const smoothFactor = 0.1;
+// Rotation configuration for camera
+const rotation = {
+    pitch: new THREE.Quaternion(),
+    yaw: new THREE.Quaternion(),
+    roll: new THREE.Quaternion(),
+    pitchAxis: new THREE.Vector3(1, 0, 0),
+    yawAxis: new THREE.Vector3(0, 1, 0),
+    rollAxis: new THREE.Vector3(0, 0, 1)
+};
+// Camera update function
+function updateCamera(camera, isHyperspace) {
+    if (!spacecraft) {
+        console.warn("Spacecraft not initialized yet, skipping updateCamera");
+        return;
+    }
+
+    // Create a fixed pivot at the center of the spacecraft
+    const spacecraftCenter = new THREE.Object3D();
+    spacecraft.add(spacecraftCenter);
+    spacecraftCenter.updateMatrixWorld();
+
+    // Check if we're in first-person view
+    const isFirstPerson = spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? spacecraft.isFirstPersonView() : false;
+    
+    // Update target offsets based on keys, hyperspace state and view mode
+    const viewMode = isFirstPerson ? 'cockpit' : 'space';
+    updateTargetOffsets(cameraState, keys, viewMode, isHyperspace);
+    
+    // Update current offsets by interpolating toward targets
+    updateCameraOffsets(cameraState, rotation);
+    
+    // Get the world position of the spacecraft's center
+    const pivotPosition = new THREE.Vector3();
+    spacecraftCenter.getWorldPosition(pivotPosition);
+    
+    // Calculate camera offset based on state
+    let offset = new THREE.Vector3();
+    
+    if (keys.up) {
+        if (!isFirstPerson) {
+            offset.copy(moonCamera.boost);
+        } else {
+            offset.copy(moonCockpitCamera.boost);
+        }
+    } else if (keys.down) {
+        if (!isFirstPerson) {
+            offset.copy(moonCamera.slow);
+        } else {
+            offset.copy(moonCockpitCamera.slow);
+        }
+    } else {
+        if (!isFirstPerson) {
+            offset.copy(moonCamera.base);
+        } else {
+            offset.copy(moonCockpitCamera.base);
+        }
+    }
+    
+    // Apply spacecraft's rotation to the offset
+    const quaternion = spacecraft.quaternion.clone();
+    offset.applyQuaternion(quaternion);
+    
+    // Calculate final camera position by adding offset to pivot
+    const finalPosition = new THREE.Vector3().addVectors(pivotPosition, offset);
+    
+    // Update camera position with smooth interpolation
+    camera.position.lerp(finalPosition, smoothFactor);
+    
+    // Make camera look at the spacecraft's forward direction
+    camera.quaternion.copy(spacecraft.quaternion);
+    
+    // Apply the 180-degree rotation to look forward
+    const adjustment = createForwardRotation();
+    camera.quaternion.multiply(adjustment);
+    
+    // Apply FOV changes from camera state
+    camera.fov = cameraState.currentFOV;
+    camera.updateProjectionMatrix();
+    
+    // Remove the temporary pivot (to avoid cluttering the scene)
+    spacecraft.remove(spacecraftCenter);
+}
+
+// Export key objects
+export { 
+    renderer, 
+    scene, 
+    camera, 
+    rotation,
+    cameraState
+};
+
+
+///////////////////// MOON-SPECIFIC INITIALIZATION /////////////////////
+
+// TO TRIM DOWN THIS WHOLE SECTION //
 
 let localOrigin; // Local origin point for coordinate system
 let referenceSphere; // Reference sphere object
-
-export { 
- scene, 
- camera, 
- renderer, 
- tiles, 
- cameraTarget,
- localOrigin,  // Export local origin for other modules to use
- worldToLocal,  // Export conversion functions
- localToWorld,
- referenceSphere, // Export reference sphere for other modules
-};
 
 // Collision detection
 const spacecraftBoundingSphere = new THREE.Sphere();
@@ -60,7 +169,6 @@ const collisionOffset = new THREE.Vector3();
 
 // Lighting elements
 let playerSun, playerSunTarget; // Main directional light and its target
-let textureLoader = new THREE.TextureLoader(textureLoadingManager);
 
 
 // SET PARAMETERS
@@ -108,17 +216,6 @@ const playerSunConfig = {
     }
 };
 
-const smoothFactor = 0.1;
-
-// rotation for coordinate system
-const rotation = {
-    pitch: new THREE.Quaternion(),
-    yaw: new THREE.Quaternion(),
-    roll: new THREE.Quaternion(),
-    pitchAxis: new THREE.Vector3(1, 0, 0),
-    yawAxis: new THREE.Vector3(0, 1, 0),
-    rollAxis: new THREE.Vector3(0, 0, 1)
-};
 
 // Load environment variables
 if (typeof process !== 'undefined' && process.versions && process.versions.node) {
@@ -155,11 +252,6 @@ const params = {
 const HOVER_HEIGHT = 60; // Increased from 40 to 60
 const MAX_SLOPE_ANGLE = 45;
 
-// Add the declaration at the top of the file, near other global variables
-let gridHelper; // Declare gridHelper as a global variable
-
-// Create camera state for moon scene
-const cameraState = createCameraState('moon');
 
 
 ///////////////////// SCENE SETUP /////////////////////
@@ -171,6 +263,17 @@ let wingsOpen = true;
 let wingAnimation = 0;
 const wingTransitionFrames = 30;
 export { spacecraft, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, wingsOpen, wingAnimation, updateEngineEffects };
+
+
+// RENDER SCENE
+export function renderScene() {
+    // only render when on moon surface
+    if (getMoonSurfaceActive()) {
+        return { scene, camera };
+    } else {
+        return null;
+    }
+}
 
 
 // Initialize spacecraft in the scene
@@ -289,10 +392,10 @@ export function init() {
     console.log("Moon initialization complete");
     
     return { 
-        scene: scene, 
-        camera: camera, 
-        renderer: renderer, 
-        tiles: tiles 
+        scene, 
+        camera, 
+        renderer, 
+        tiles 
     };
 }
 
@@ -784,67 +887,6 @@ function showCollisionWarning(message = "COLLISION") {
   
   // Start flashing
   flashWarning();
-}
-
-
-export function updateCamera() {
-    if (!spacecraft) {
-        console.warn("Spacecraft not initialized yet, skipping updateCamera");
-        return;
-    }
-
-    // IMPORTANT: Ensure matrix is updated before using it for camera calculations
-    spacecraft.updateMatrixWorld(true);
-
-    // Add debug logging to help diagnose camera issues
-    if (window.debugCamera) {
-        console.log("Moon Camera Debug:", {
-            spacecraftPosition: spacecraft.position.clone(),
-            spacecraftQuaternion: spacecraft.quaternion.clone(),
-            spacecraftMatrix: spacecraft.matrixWorld.clone()
-        });
-    }
-
-    // Check if we're in first-person view
-    const isFirstPerson = spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? spacecraft.isFirstPersonView() : false;
-
-    // Update target offsets based on keys - use appropriate view mode
-    const viewMode = isFirstPerson ? 'moonCockpit' : 'moon';
-    updateTargetOffsets(cameraState, keys, viewMode);
-    
-    // Update current offsets by interpolating toward targets
-    updateCameraOffsets(cameraState, rotation);
-    
-    // For moonCesium we'll use a simpler camera approach without all the cinematic effects
-    // This maintains compatibility with the existing code while using the new camera module
-    let localOffset;
-    
-    if (keys.up) {
-        localOffset = isFirstPerson ? moonCockpitCamera.boost.clone() : moonCamera.boost.clone();
-    } else if (keys.down) {
-        localOffset = isFirstPerson ? moonCockpitCamera.slow.clone() : moonCamera.slow.clone();
-    } else {
-        localOffset = isFirstPerson ? moonCockpitCamera.base.clone() : moonCamera.base.clone();
-    }
-    
-    const cameraPosition = localOffset.applyMatrix4(spacecraft.matrixWorld);
-    
-    // Debug the calculated camera position if enabled
-    if (window.debugCamera) {
-        console.log("Moon Camera Position Calculation:", {
-            localOffset: localOffset.clone(),
-            calculatedCameraPosition: cameraPosition.clone(),
-            currentCameraPosition: camera.position.clone(),
-            smoothFactor: smoothFactor
-        });
-    }
-
-    camera.position.lerp(cameraPosition, smoothFactor);
-    camera.quaternion.copy(spacecraft.quaternion);
-
-    // Apply 180-degree rotation to look forward
-    const adjustment = createForwardRotation();
-    camera.quaternion.multiply(adjustment);
 }
 
 

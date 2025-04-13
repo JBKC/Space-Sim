@@ -420,7 +420,7 @@ export function createSpacecraft(scene) {
                     if (typeof updateEngineEffects === 'function') {
                         // Use the imported keys object to determine boosting state
                         const isCurrentlyBoosting = keys && keys.up;
-                        console.log("Forcing engine effects update after view switch, boosting state:", isCurrentlyBoosting, "keys.up:", keys?.up);
+                        // console.log("Forcing engine effects update after view switch, boosting state:", isCurrentlyBoosting, "keys.up:", keys?.up);
                         updateEngineEffects(isCurrentlyBoosting);
                     }
                 }, 100);
@@ -586,8 +586,7 @@ export function createSpacecraft(scene) {
         // Determine if we're boosting, either from parameter or directly from keys
         const isBoostActive = isBoosting || (keys && keys.up);
         
-        console.log("Engine effects update - isBoosting:", isBoosting, 
-                    "keys.up:", keys?.up);
+        // console.log("Engine effects update - isBoosting:", isBoosting, "keys.up:", keys?.up);
         
         // Show/hide flames based on boosting state
         Object.keys(contrails).forEach(key => {

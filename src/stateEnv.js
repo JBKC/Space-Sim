@@ -1,28 +1,25 @@
-// Simple state management for environment states
+// State management for Environments
 
-// Surface activity states
+// What environment is currently initialized?
 let spaceInitialized = false;
-let isEarthSurfaceActive = false;
-let isMoonSurfaceActive = false;
-
-// Initialization states
 let earthInitialized = false;
 let moonInitialized = false;
 
-// Get current surface states
-export function getEarthSurfaceActive() {
-    return isEarthSurfaceActive;
-}
+// Are we currently on the surface of a planet?
+let isEarthSurfaceActive = false;
+let isMoonSurfaceActive = false;
 
-export function getMoonSurfaceActive() {
-    return isMoonSurfaceActive;
-}
+// Do we need a trasition? (true = not on surface, false = already on surface)
+let earthTransition = true;
+let moonTransition = true;
+
+
+////// GET CURRENT STATES //////
 
 export function getSpaceInitialized() {
     return spaceInitialized;
 }
 
-// Get initialization states
 export function getEarthInitialized() {
     return earthInitialized;
 }
@@ -31,23 +28,30 @@ export function getMoonInitialized() {
     return moonInitialized;
 }
 
-// Set surface states
-export function setEarthSurfaceActive(active) {
-    isEarthSurfaceActive = active;
+export function getEarthSurfaceActive() {
     return isEarthSurfaceActive;
 }
 
-export function setMoonSurfaceActive(active) {
-    isMoonSurfaceActive = active;
+export function getMoonSurfaceActive() {
     return isMoonSurfaceActive;
 }
+
+export function getEarthTransition() {
+    return earthTransition;
+}
+
+export function getMoonTransition() {
+    return moonTransition;
+}
+
+
+////// SET CURRENT STATES //////
 
 export function setSpaceInitialized(initialized) {
     spaceInitialized = initialized;
     return spaceInitialized;
 }
 
-// Set initialization states
 export function setEarthInitialized(initialized) {
     earthInitialized = initialized;
     return earthInitialized;
@@ -56,4 +60,33 @@ export function setEarthInitialized(initialized) {
 export function setMoonInitialized(initialized) {
     moonInitialized = initialized;
     return moonInitialized;
+}
+
+export function setEarthSurfaceActive(active) {
+    isEarthSurfaceActive = active;
+
+    if (active) {
+        earthTransition = false;
+    }
+    return isEarthSurfaceActive;
+}
+
+export function setMoonSurfaceActive(active) {
+    isMoonSurfaceActive = active;
+
+    if (active) {
+        moonTransition = false;
+    }
+    return isMoonSurfaceActive;
+}
+
+// Add setters for transition flags
+export function setEarthTransition(value) {
+    earthTransition = !!value; // Ensure boolean
+    return earthTransition;
+}
+
+export function setMoonTransition(value) {
+    moonTransition = !!value; // Ensure boolean
+    return moonTransition;
 }

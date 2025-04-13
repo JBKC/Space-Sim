@@ -5,6 +5,24 @@ import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { createRateLimitedGameLoader } from './gameLoader.js';
 import { loadingManager, textureLoadingManager, updateAssetDisplay } from './loaders.js';
 
+// Import state environment functions
+import {
+    getEarthSurfaceActive,
+    getMoonSurfaceActive,
+    setEarthSurfaceActive,
+    setMoonSurfaceActive,
+    getSpaceInitialized,
+    setSpaceInitialized,
+    getEarthInitialized,
+    setEarthInitialized,
+    getMoonInitialized,
+    setMoonInitialized,
+    getEarthTransition,
+    getMoonTransition,
+    setEarthTransition,
+    setMoonTransition
+} from './stateEnv.js';
+
 // Space scene imports
 import { 
     exitEarthSurface,
@@ -18,20 +36,6 @@ import {
     renderScene as renderSpaceScene,
     startHyperspace,
 } from './spaceEnvs/setup.js';
-
-// Import state environment functions
-import {
-    getEarthSurfaceActive,
-    getMoonSurfaceActive,
-    setEarthSurfaceActive,
-    setMoonSurfaceActive,
-    getSpaceInitialized,
-    setSpaceInitialized,
-    getEarthInitialized,
-    setEarthInitialized,
-    getMoonInitialized,
-    setMoonInitialized
-} from './stateEnv.js';
 
 // Earth scene imports
 import { 
@@ -54,6 +58,7 @@ import {
     camera as moonCamera,
     renderer as moonRenderer,
     spacecraft as moonSpacecraft,  // Import the spacecraft from the 3D scene
+    renderScene as renderMoonScene,
     resetPosition as resetMoonPosition,  // Import the generic reset position function
 } from './planetEnvs/moonCesium.js';
 
@@ -75,22 +80,12 @@ import {
 /// TO SIMPLIFY / REMOVE
 
 let isAnimating = false;
-// Hyperspace state now comes from inputControls.js
-// Initialization flags now come from stateEnv.js
-// Add a flag to track first Earth entry in a session
 let isFirstEarthEntry = true;
-// Add a flag to track first Moon entry in a session
 let isFirstMoonEntry = true;
 
 
 // Added delta time calculation for smoother animations
 let lastFrameTime = 0;
-
-// Track previous state to detect changes for transitions
-let prevEarthSurfaceActive = false;
-let prevMoonSurfaceActive = false;
-
-let debugMode = true;
 
 // Make the reset functions available globally to avoid circular imports
 window.resetEarthInitialized = function() {
@@ -261,7 +256,7 @@ function showMoonTransition(callback) {
     }, 500);
 }
 
-// Main animation loop
+///// MAIN ANIMATION LOOP - EACH CALL IS A SINGLE FRAME /////
 function animate(currentTime = 0) {
     if (!isAnimating) {
         console.log("Animation stopped - isAnimating is false");
@@ -272,6 +267,7 @@ function animate(currentTime = 0) {
     
     // Begin stats measurement for this frame
     stats.begin();
+
 
     // Calculate delta time in seconds for smooth movement
     const deltaTime = (currentTime - lastFrameTime) / 1000;
@@ -307,6 +303,7 @@ function animate(currentTime = 0) {
     const isSpaceInitialized = getSpaceInitialized();
     const isEarthSurfaceActive = getEarthSurfaceActive();
     const isMoonSurfaceActive = getMoonSurfaceActive();
+
 
     try {
         // CASE 0 = default space view
@@ -366,8 +363,8 @@ function animate(currentTime = 0) {
                 // Reset movement inputs immediately to prevent stuck key states
                 resetMovementInputs();
                 
-                // Detect if we just entered Earth's surface
-                if (!prevEarthSurfaceActive) {
+                // Detect if we just entered Earth's surface using the transition flag
+                if (getEarthTransition()) {
                     // Reset movement inputs immediately to prevent stuck key states
                     resetMovementInputs();
                     
@@ -459,6 +456,10 @@ function animate(currentTime = 0) {
                                 document.body.focus();
                                 console.log('Set keyboard focus after Earth initialization');
                             }, 300);
+                            
+                            // Set transition flag to false after successful initialization
+                            setEarthTransition(false);
+                            console.log('Earth transition complete, flag set to false');
                         }
                         
                         // Reset position to starting point over San Francisco every time we enter Earth surface
@@ -503,128 +504,103 @@ function animate(currentTime = 0) {
             }
         }
         
-        // Update the hyperspace option in the controls dropdown when scene changes
-        if (prevEarthSurfaceActive !== isEarthSurfaceActive) {
-            updateControlsDropdown(isEarthSurfaceActive, isMoonSurfaceActive);
-            
-            // Hide hyperspace progress bar when on Earth's surface
-            const progressContainer = document.getElementById('hyperspace-progress-container');
-            if (progressContainer) {
-                progressContainer.style.display = 'none'; // Always hide when scene changes
-            }
-        }
-        
         // CASE 2 = moon surface view
         if (!isEarthSurfaceActive && isMoonSurfaceActive) {
+
             try {
+                // console.log(isMoonSurfaceActive, getMoonTransition(), getMoonInitialized());
                 
-                // IF we have only just entered moon's surface, show transition and initialize scene
-                if (!prevMoonSurfaceActive && isMoonSurfaceActive && !getMoonInitialized()) {
+                // Check if moonTransition = true (transition needed, not already on surface)
+                if (getMoonTransition()) {
+
+                    console.log('🌙 MOON TRANSITION......');
                     
                     // Show transition before initializing Moon surface
                     showMoonTransition(() => {
-
                         // Reset movement inputs to prevent stuck key states
                         resetMovementInputs();         
 
                         // Initialize scene
-                        console.log('Initializing Moon surface');
-                        const moonObjects = initMoonSurface();
-                        setMoonInitialized(true);
-                        console.log('Setting moonInitialized = true');
-                        
-                        // Rest of the UI setup stays the same...
+                        if (!getMoonInitialized()) {
+                            console.log('Initializing Moon surface');
+                            const moonObjects = initMoonSurface();
+                            setMoonInitialized(true);
+                            console.log('Setting moonInitialized = true');
 
-                        // Show moon surface message
-                        const moonMsg = document.createElement('div');
-                        moonMsg.id = 'moon-surface-message';
-                        moonMsg.style.position = 'fixed';
-                        moonMsg.style.top = '20px';
-                        moonMsg.style.right = '20px';
-                        moonMsg.style.color = '#b3e5fc'; // Changed from white to light blue
-                        moonMsg.style.fontFamily = 'Orbitron, sans-serif';
-                        moonMsg.style.fontSize = '16px';
-                        moonMsg.style.padding = '10px';
-                        moonMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-                        moonMsg.style.borderRadius = '5px';
-                        moonMsg.style.zIndex = '9999';
-                        moonMsg.style.boxShadow = '0 0 10px rgba(79, 195, 247, 0.3)'; // Added subtle blue glow
-                        moonMsg.style.border = '1px solid rgba(79, 195, 247, 0.3)'; // Added subtle border
-                        moonMsg.innerHTML = 'MOON SURFACE<br>Press ESC to return to space<br>Press R to reset position';
+                            // Set transition flag to false after successful initialization
+                            setMoonTransition(false);
+                            console.log('Moon transition complete, flag set to false');
+                            
+                            // Show moon surface message
+                            const moonMsg = document.createElement('div');
+                            moonMsg.id = 'moon-surface-message';
+                            moonMsg.style.position = 'fixed';
+                            moonMsg.style.top = '20px';
+                            moonMsg.style.right = '20px';
+                            moonMsg.style.color = '#b3e5fc'; // Changed from white to light blue
+                            moonMsg.style.fontFamily = 'Orbitron, sans-serif';
+                            moonMsg.style.fontSize = '16px';
+                            moonMsg.style.padding = '10px';
+                            moonMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+                            moonMsg.style.borderRadius = '5px';
+                            moonMsg.style.zIndex = '9999';
+                            moonMsg.style.boxShadow = '0 0 10px rgba(79, 195, 247, 0.3)'; // Added subtle blue glow
+                            moonMsg.style.border = '1px solid rgba(79, 195, 247, 0.3)'; // Added subtle border
+                            moonMsg.innerHTML = 'MOON SURFACE<br>Press ESC to return to space<br>Press R to reset position';
 
-                        // Hide space container to see surface scene
-                        const spaceContainer = document.getElementById('space-container');
-                        if (spaceContainer) {
-                            spaceContainer.style.display = 'none';
-                            console.log('Hid space-container');
-                        }
-                        
-                        // Make sure no animation classes are applied
-                        moonMsg.classList.remove('distance-indicator-urgent');
-                        document.body.appendChild(moonMsg);
-                    
-                        // Hide exploration counter
-                        const explorationCounter = document.querySelector('.exploration-counter');
-                        if (explorationCounter) {
-                            explorationCounter.style.display = 'none';
-                        }
-                        
-                        // Hide hyperspace progress container
-                        const progressContainer = document.getElementById('hyperspace-progress-container');
-                        if (progressContainer) {
-                            progressContainer.style.display = 'none';
-                        }
-                        
-                        // Hide any planet info boxes
-                        const planetInfoBox = document.querySelector('.planet-info-box');
-                        if (planetInfoBox) {
-                            planetInfoBox.style.display = 'none';
-                        }
-                        
-                        // Hide any distance indicators
-                        const distanceIndicators = document.querySelectorAll('.distance-indicator');
-                        distanceIndicators.forEach(indicator => {
-                            indicator.style.display = 'none';
-                        });
-                        
-                        // Catchall to hide other UI elements
-                        const otherUIElements = document.querySelectorAll('[class*="popup"], [class*="tooltip"], [class*="notification"], .info-box, [id*="indicator"]');
-                        otherUIElements.forEach(element => {
-                            if (element.id !== 'moon-surface-message' && element.id !== 'controls-prompt' && element.id !== 'controls-dropdown') {
-                                element.style.display = 'none';
+                            // Hide space container to see surface scene
+                            const spaceContainer = document.getElementById('space-container');
+                            if (spaceContainer) {
+                                spaceContainer.style.display = 'none';
+                                console.log('Hid space-container');
                             }
-                        });
+                            
+                            // Make sure no animation classes are applied
+                            moonMsg.classList.remove('distance-indicator-urgent');
+                            document.body.appendChild(moonMsg);
                         
-                        // Ensure keyboard focus is on the page after scene change
-                        setTimeout(() => {
-                            window.focus();
-                            document.body.focus();
-                            console.log('Set keyboard focus after Moon initialization');
-                        }, 300);
-                    
-                        // Reset position to starting point as failsafe
-                        console.log('Scheduling automatic position reset with 200ms delay');
-                        setTimeout(() => {
-                        console.log('Automatically resetting position to starting point');
-                        resetMoonPosition();
-
-                        // INITIALIZATION COMPLETE - update state //
-                        console.log('Moon surface initialized successfully', moonObjects);
-                    
-                        
-                        // Set first entry flag to false AFTER the initial position reset
-                        if (isFirstMoonEntry) {
-                            console.log('First Moon entry completed');
-                            isFirstMoonEntry = false;
+                            // Hide exploration counter
+                            const explorationCounter = document.querySelector('.exploration-counter');
+                            if (explorationCounter) {
+                                explorationCounter.style.display = 'none';
                             }
-                        }, 200);
+                            
+                            // Hide hyperspace progress container
+                            const progressContainer = document.getElementById('hyperspace-progress-container');
+                            if (progressContainer) {
+                                progressContainer.style.display = 'none';
+                            }
+                            
+                            // Hide any planet info boxes
+                            const planetInfoBox = document.querySelector('.planet-info-box');
+                            if (planetInfoBox) {
+                                planetInfoBox.style.display = 'none';
+                            }
+                            
+                            // Hide any distance indicators
+                            const distanceIndicators = document.querySelectorAll('.distance-indicator');
+                            distanceIndicators.forEach(indicator => {
+                                indicator.style.display = 'none';
+                            });
+                            
+                            // Catchall to hide other UI elements
+                            const otherUIElements = document.querySelectorAll('[class*="popup"], [class*="tooltip"], [class*="notification"], .info-box, [id*="indicator"]');
+                            otherUIElements.forEach(element => {
+                                if (element.id !== 'moon-surface-message' && element.id !== 'controls-prompt' && element.id !== 'controls-dropdown') {
+                                    element.style.display = 'none';
+                                }
+                            });
 
-                });
+                            settMoonTransition(false)
+                        }
+
+                    });
                 }
                 
                 // ELSE IF we are already on the moon surface, update and render
-                else if (isMoonSurfaceActive && getMoonInitialized()) {
-                    console.log('Moon scene is active and initialized - updating');
+
+                else if (isMoonSurfaceActive && getMoonInitialized() && !getMoonTransition()) {
+                    console.log('✅ Moon already initialized - updating');
                     // If this is the first time entering moon in this session, reset position to ensure proper loading
                     if (isFirstMoonEntry) {
                         console.log('First Moon entry this session - ensuring proper position reset with 200ms delay');
@@ -654,62 +630,19 @@ function animate(currentTime = 0) {
                     console.log('About to update moon surface with isBoosting:', isBoosting);
 
                     // Main update function that updates spacecraft, camera, tiles, world matrices
-                    const moonUpdated = updateMoonSurface(deltaTime, isBoosting);         
-    
-                    // Render the Moon scene with the Moon camera using our renderer
-                    moonRenderer.render(moonScene, moonCamera);
-                    console.log('Moon scene rendered');
-                    
+                    updateMoonSurface(deltaTime, isBoosting);         
 
+                    const moonSceneInfo = renderMoonScene();
+
+                    // RENDER SCENE //
+                    if (moonSceneInfo) {
+                        moonRenderer.render(moonSceneInfo.scene, moonSceneInfo.camera);
+                    }                
                 }
             } catch (e) {
                 console.error('Moon surface animation error:', e);
             }
         }
-        
-        // Update the hyperspace option in the controls dropdown when scene changes
-        if (prevMoonSurfaceActive !== isMoonSurfaceActive) {
-            updateControlsDropdown(isEarthSurfaceActive, isMoonSurfaceActive);
-            
-            // Hide hyperspace progress bar when on Moon's surface
-            const progressContainer = document.getElementById('hyperspace-progress-container');
-            if (progressContainer) {
-                progressContainer.style.display = 'none'; // Always hide when scene changes
-            }
-            
-            // If we just entered moon surface, ensure all space UI elements are hidden
-            if (isMoonSurfaceActive) {
-                // Hide any planet info boxes that might be visible
-                const planetInfoBox = document.querySelector('.planet-info-box');
-                if (planetInfoBox) {
-                    planetInfoBox.style.display = 'none';
-                }
-                
-                // Make sure all distance indicators are hidden
-                const distanceIndicators = document.querySelectorAll('.distance-indicator');
-                distanceIndicators.forEach(indicator => {
-                    indicator.style.display = 'none';
-                });    
-                
-                // Hide any exploration counter
-                const explorationCounter = document.querySelector('.exploration-counter');
-                if (explorationCounter) {
-                    explorationCounter.style.display = 'none';
-                }
-                
-                // Hide any other UI elements that should not be visible on moon surface
-                const otherUIElements = document.querySelectorAll('[class*="popup"], [class*="tooltip"], [class*="notification"], .info-box, [id*="indicator"]');
-                otherUIElements.forEach(element => {
-                    if (element.id !== 'moon-surface-message' && element.id !== 'controls-prompt' && element.id !== 'controls-dropdown') {
-                        element.style.display = 'none';
-                    }
-                });
-            }
-        }
-
-        // Update previous states at the end of frame for next frame comparison
-        prevEarthSurfaceActive = isEarthSurfaceActive;
-        prevMoonSurfaceActive = isMoonSurfaceActive;
 
     } catch (error) {
         console.error("Error in animate loop:", error);

@@ -89,7 +89,7 @@ export const surfaceCameraOffset = new THREE.Vector3(0, 0, 0);
 
 // Function to reset movement inputs
 export function resetMovementInputs() {
-    // Use resetKeyStates from inputControls.js
+    // Reset key states using the function from inputControls.js
     resetKeyStates();
     
     // Reset wing animation to default open state after hyperspace
