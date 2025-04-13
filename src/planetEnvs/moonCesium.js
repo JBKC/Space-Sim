@@ -34,11 +34,9 @@ import {
     setMoonSurfaceActive,
     getSpaceInitialized,
     setSpaceInitialized,
-    setEarthInitialized,
+    getMoonInitialized,
     setMoonInitialized,
-    getEarthTransition,
     getMoonTransition,
-    setEarthTransition,
     setMoonTransition
 } from '../stateEnv.js';
 
@@ -46,21 +44,44 @@ import {
 ///////////////////// GENERAL INITIALIZATION /////////////////////
 
 const scene = new THREE.Scene();
-const renderer = new THREE.WebGLRenderer();
+let tiles;
+const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(0), 64, 64);
+env.mapping = THREE.EquirectangularReflectionMapping;
+env.needsUpdate = true;
+scene.environment = env;
 const textureLoader = new THREE.TextureLoader(textureLoadingManager);
-// const loader = new GLTFLoader();
+
+// Renderer setuo
+const renderer = new THREE.WebGLRenderer({ 
+    antialias: true,
+    precision: 'highp',
+    powerPreference: 'high-performance'
+});
+
 renderer.setSize(window.innerWidth, window.innerHeight);
-// document.getElementById('space-container').appendChild(renderer.domElement);
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.autoClear = true;
 renderer.sortObjects = false;
 renderer.physicallyCorrectLights = false;
+document.body.appendChild(renderer.domElement);
+renderer.domElement.tabIndex = 1;
+
+renderer.setClearColor(0x000000); // Set background to black
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.physicallyCorrectLights = true;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.8; // Reduced from 1.2 for darker space
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.gammaFactor = 2.2;
 
 // Camera setup
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
 camera.position.set(100, 100, -100);
 camera.lookAt(0, 0, 0);
-const cameraState = createCameraState('space');
+const cameraState = createCameraState('moon');
 const smoothFactor = 0.1;
 // Rotation configuration for camera
 const rotation = {
@@ -71,6 +92,9 @@ const rotation = {
     yawAxis: new THREE.Vector3(0, 1, 0),
     rollAxis: new THREE.Vector3(0, 0, 1)
 };
+
+
+
 // Camera update function
 function updateCamera(camera, isHyperspace) {
     if (!spacecraft) {
@@ -320,19 +344,14 @@ function initSpacecraft() {
         console.warn("Reticle not found in spacecraft components");
     }
 
-    // Set the initial position and orientation of the spacecraft
+    // Non-boilerplate
     const position = latLonToCartesian(SPACECRAFT_INITIAL_LAT, SPACECRAFT_INITIAL_LON, SPACECRAFT_INITIAL_HEIGHT);
     spacecraft.position.copy(position);
     spacecraft.quaternion.setFromEuler(SPACECRAFT_INITIAL_ROTATION);
 
-    cameraTarget = new THREE.Object3D();
-    spacecraft.add(cameraTarget);
-    cameraTarget.position.set(0, 0, 0);
-
     spacecraft.name = 'spacecraft';
     scene.add(spacecraft);
-
-    console.log("Spacecraft initialized in moonCesium.js");
+    console.log("Spacecraft initialized");
 }
 
 /// CORE INITIALIZATION FUNCTION ///
@@ -340,35 +359,10 @@ export function init() {
 
     console.log("Moon initialization started");
 
-    scene = new THREE.Scene();
-    const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(0), 64, 64);
-    env.mapping = THREE.EquirectangularReflectionMapping;
-    env.needsUpdate = true;
-    scene.environment = env;
- 
-    renderer = new THREE.WebGLRenderer({ 
-        antialias: true,
-        precision: 'highp',
-        powerPreference: 'high-performance'
-    });
-    renderer.setClearColor(0x000000); // Set background to black
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.physicallyCorrectLights = true;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.8; // Reduced from 1.2 for darker space
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.gammaFactor = 2.2;
- 
-    document.body.appendChild(renderer.domElement);
-    renderer.domElement.tabIndex = 1;
-    textureLoader = new THREE.TextureLoader(textureLoadingManager);
-
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
-    camera.position.set(100, 100, -100);
-    camera.lookAt(0, 0, 0);
+    if (getMoonInitialized()) {
+        console.log("Space already initialized, skipping");
+        return { scene, camera, renderer };
+    }
  
     initSpacecraft();
 
@@ -519,8 +513,11 @@ function updateMoonMovement(isBoosting) {
 /// CORE STATE UPDATE FUNCTION ///
 export function update(isBoosting, deltaTime = 0.016) {
     try {
-
         // Follow similar boilerplate from setup.js
+        if (!getMoonInitialized()) {
+            console.log("Moon not initialized yet");
+            return false;
+        }
 
         if (!tiles) {
             return false;
@@ -528,28 +525,42 @@ export function update(isBoosting, deltaTime = 0.016) {
 
         // Get boosting state from inputControls
         const isBoostingFromControls = getBoostState();
-        const boostState = isBoostingFromControls || keys.up;
+        const boostState = isBoostingFromControls || isBoosting || keys.up;
+
+        // Update spacecraft effects (if boosting)
+        if (updateEngineEffects) {
+            updateEngineEffects(boostState || keys.up, keys.down);
+        } else {
+            console.warn("updateEngineEffects function is not available:", updateEngineEffects);
+        }
 
         // Check for view toggle request (C key)
         if (getViewToggleRequested() && spacecraft && spacecraft.toggleView) {
             console.log('===== TOGGLE COCKPIT VIEW =====');
             spacecraft.toggleView(camera, (isFirstPerson) => {
-                console.log(`Resetting space camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
+                console.log(`Resetting moon camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
                 // Reset camera state with new view mode if needed
                 camera.position.copy(camera.position);
                 camera.quaternion.copy(camera.quaternion);
             });
         }
 
-        // Update spacecraft movement first
+
+        // Update spacecraft movement and camera
         updateMoonMovement(boostState);
-        
-        // CAMERA UPDATE - update spacecraft matrix world before camera calculations
+        // FOR CAMERA - update spacecraft matrix world before camera calculations
         if (spacecraft) {
             spacecraft.updateMatrixWorld(true);
         }
-        updateCamera();
-        
+        // Pass the camera object to the updateCamera function
+        updateCamera(camera);
+
+        // Wing position control - check if conditions changed
+        if (spacecraft && spacecraft.setWingsOpen) {
+            const shouldWingsBeOpen = !boostState;
+            
+            spacecraft.setWingsOpen(shouldWingsBeOpen);
+        }
 
         // Update reticle position if available
         if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
@@ -562,19 +573,16 @@ export function update(isBoosting, deltaTime = 0.016) {
             }
         }
  
+        // Update environment elements
+        updatemoonLighting();
+
+        // CESIUM TILE UPDATES //
         if (tiles.group) {
             tiles.group.traverse((node) => {
                 if (node.isMesh && node.receiveShadow === undefined) {
                     node.receiveShadow = true;
                 }
             });
-        }
-        
-        updatemoonLighting();
- 
-        if (!camera) {
-            console.warn("Camera not initialized");
-            return false;
         }
 
         // Apply terrain optimization if needed based on performance
@@ -591,11 +599,6 @@ export function update(isBoosting, deltaTime = 0.016) {
         tiles.setCamera(camera);
         tiles.setResolutionFromRenderer(camera, renderer);
         tiles.update();
-        
-        // Update cockpit elements if in first-person view
-        if (spacecraft && spacecraft.updateCockpit) {
-            spacecraft.updateCockpit(deltaTime);
-        }
         
         return true;
     } catch (error) {

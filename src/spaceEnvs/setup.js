@@ -46,8 +46,8 @@ import {
 
 const scene = new THREE.Scene();
 const renderer = new THREE.WebGLRenderer();
-const textureLoader = new THREE.TextureLoader(textureLoadingManager);
-const loader = new GLTFLoader();
+// const textureLoader = new THREE.TextureLoader(textureLoadingManager);
+// const loader = new GLTFLoader();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.getElementById('space-container').appendChild(renderer.domElement);
 renderer.setPixelRatio(window.devicePixelRatio);
@@ -82,7 +82,7 @@ function updateCamera(camera, isHyperspace) {
     spacecraft.add(spacecraftCenter);
     spacecraftCenter.updateMatrixWorld();
 
-    // Check if we're in first-person view
+    // Check if we're in first-person view 
     const isFirstPerson = spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? spacecraft.isFirstPersonView() : false;
     
     // Update target offsets based on keys, hyperspace state and view mode
@@ -170,7 +170,6 @@ let wingAnimation = 0;
 const wingTransitionFrames = 30;
 export { spacecraft, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, wingsOpen, wingAnimation, updateEngineEffects };
 
-
 // Lighting
 const directionalLight = new THREE.DirectionalLight(0xffffff, 10);
 directionalLight.position.set(-1, -1, -1,);
@@ -178,6 +177,7 @@ scene.add(directionalLight);
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 scene.background = new THREE.Color(0x000000);
+
 
 
 // RENDER SCENE - returns scene and camera for main.js to render, ONLY when in space scene
@@ -238,19 +238,20 @@ function initSpacecraft() {
         console.warn("Reticle not found in spacecraft components");
     }
 
-    // Set the initial position and orientation of the spacecraft
+    // Non-boilerplate
     spacecraft.position.set(40000, 40000, 40000);
     const centerPoint = new THREE.Vector3(0, 0, 10000);
     spacecraft.lookAt(centerPoint);
+
     spacecraft.name = 'spacecraft';
     scene.add(spacecraft);
-
-    console.log("Spacecraft initialized in setup.js");
+    console.log("Spacecraft initialized");
 
 }
 
 /// CORE INITIALIZATION FUNCTION ///
 export function init() {
+
     console.log("Space initialization started");
     
     if (getSpaceInitialized()) {
@@ -292,10 +293,9 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
             return false;
         }
 
-        // Check if spacecraft is near celestial body
+        // Check if spacecraft is near celestial body (only in space scene)
         checkPlanetProximity();
-        
-        // Check if reticle is hovering over a planet (only in space mode)
+        // Check if reticle is hovering over a planet (only in space scene)
         checkReticleHover();
 
         // Get the authoritative hyperspace state from inputControls
@@ -305,6 +305,13 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         // Get boosting state from inputControls
         const isBoostingFromControls = getBoostState();
         const boostState = isBoostingFromControls || isBoosting || keys.up;
+
+        // Update spacecraft effects (if boosting)
+        if (updateEngineEffects) {
+            updateEngineEffects(boostState || keys.up, keys.down);
+        } else {
+            console.warn("updateEngineEffects function is not available:", updateEngineEffects);
+        }
 
         // Check for view toggle request (C key)
         if (getViewToggleRequested() && spacecraft && spacecraft.toggleView) {
@@ -317,16 +324,12 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
             });
         }
 
+
         // Update spacecraft movement and camera
         updateSpaceMovement(boostState, hyperspaceState);
         updateCamera(camera, hyperspaceState);
 
-        // Update spacecraft effects
-        if (updateEngineEffects) {
-            updateEngineEffects(boostState || keys.up, keys.down);
-        } else {
-            console.warn("updateEngineEffects function is not available:", updateEngineEffects);
-        }
+
         
         // Wing position control - check if conditions changed
         if (spacecraft && spacecraft.setWingsOpen) {
@@ -337,7 +340,7 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
             spacecraft.setWingsOpen(shouldWingsBeOpen);
         }
         
-        // Update animation mixer (Only in space scene)
+        // Update animation mixer
         if (spacecraft.updateAnimations) {
             spacecraft.updateAnimations(deltaTime);
         }
@@ -354,11 +357,7 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
             }
         }
         
-        // Update cockpit elements if in first-person view
-        if (spacecraft && spacecraft.updateCockpit) {
-            spacecraft.updateCockpit(deltaTime);
-        }
-
+        // update environment elements
         updateStars();
         updatePlanetLabels();
         

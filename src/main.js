@@ -105,9 +105,9 @@ window.resetMoonInitialized = function() {
 // Expose hyperspace function globally for access from inputControls.js
 window.startHyperspace = startHyperspace;
 
+
+
 /////////////// INITLIZATION OF HIGH-LEVEL GAME ELEMENTS ///////////////
-
-
 
 // Initialize main menu screen
 document.addEventListener('DOMContentLoaded', () => {
@@ -121,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-///// FUNCITON THAT LOADS UP GAME WHEN "EXPLORE" BUTTON IS PRESSED /////
+///// FUNCITON THAT LOADS UP GAME WHEN EXPLORE BUTTON IS PRESSED /////
 function startGame() {
 
     // hide welcome screen 
@@ -172,9 +172,8 @@ let frameCount = 0;
 let lastFpsUpdateTime = 0;
 const fpsUpdateInterval = 500; // Update numerical display every 500ms
 
-// Initialize UI elements and directional indicator
+// Initialize UI elements
 setupUIElements();
-
 
 // Handle window resize
 window.addEventListener('resize', () => {
@@ -185,7 +184,7 @@ window.addEventListener('resize', () => {
 
 
 
-////////////////////////////////////////////////////////////////////////
+///////////// ANIMATION FUNCTIONS /////////////
 
 
 // Function to show the blue transition effect when entering Earth's atmosphere
@@ -255,6 +254,7 @@ function showMoonTransition(callback) {
         if (callback) callback();
     }, 500);
 }
+
 
 ///// MAIN ANIMATION LOOP - EACH CALL IS A SINGLE FRAME /////
 function animate(currentTime = 0) {
@@ -591,7 +591,7 @@ function animate(currentTime = 0) {
                                 }
                             });
 
-                            settMoonTransition(false)
+                            setMoonTransition(false)
                         }
 
                     });
@@ -630,7 +630,7 @@ function animate(currentTime = 0) {
                     console.log('About to update moon surface with isBoosting:', isBoosting);
 
                     // Main update function that updates spacecraft, camera, tiles, world matrices
-                    updateMoonSurface(deltaTime, isBoosting);         
+                    updateMoonSurface(isBoosting, deltaTime);         
 
                     const moonSceneInfo = renderMoonScene();
 
@@ -651,7 +651,5 @@ function animate(currentTime = 0) {
     // End stats measurement for this frame
     stats.end();
 
-    // Update asset loading display each frame
-    updateAssetDisplay();
 }
 
