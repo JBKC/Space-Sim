@@ -37,24 +37,25 @@ const config = {
     glowSize: 0.06,        // Significantly increased glow size
 };
 
-// Reticle object to be attached to the spacecraft
-let reticle;
-let reticleObject;
-let currentScale = config.scale; // Track current scale
-let targetScale = config.scale;  // Target scale to transition to
-let lastBoostState = false;      // Track the last boost state to detect changes
-let lastSlowState = false;       // Track the last slow state to detect changes
+// Map spacecraft instance to its reticle object
+const reticleMap = new Map();
+export { reticleMap }; // Export the map for external cleanup access
+
+let currentScale = config.scale; // Track current scale for *a* reticle (needs rethinking if multiple scales needed)
 
 /**
  * Handles window resize events to ensure the reticle stays properly scaled
  */
 export function onWindowResize() {
-    if (reticleObject) {
-        // Scale reticle based on viewport size to maintain consistent visual size
-        const viewportHeight = window.innerHeight;
-        const scaleFactor = (viewportHeight / 1080) * currentScale; // Base scale on a 1080p reference
-        reticleObject.scale.set(scaleFactor, scaleFactor, scaleFactor);
-    }
+    // Resize ALL active reticles
+    reticleMap.forEach((reticleData) => {
+        if (reticleData.object) {
+            const viewportHeight = window.innerHeight;
+            // Use the scale associated with *this* reticle instance if needed, or a global one
+            const scaleFactor = (viewportHeight / 1080) * reticleData.currentScale; 
+            reticleData.object.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        }
+    });
 }
 
 /**
@@ -62,14 +63,18 @@ export function onWindowResize() {
  * @param {THREE.Scene} scene - The scene to add the reticle to
  * @param {THREE.Object3D} spacecraft - The spacecraft object to attach the reticle to
  * @param {THREE.Camera} camera - The camera used for rendering (optional)
- * @returns {Object} - Object containing the reticle and update function
+ * @returns {Object|null} - Object containing the reticle instance and update function, or null if error
  */
 export function createReticle(scene, spacecraft, camera) {
-    console.log("Creating reticle for spacecraft:", spacecraft ? spacecraft.name || "unnamed" : "null");
+    if (!scene || !spacecraft) {
+        console.error("Cannot create reticle: scene or spacecraft not provided");
+        return null;
+    }
+    console.log("Creating reticle for spacecraft:", spacecraft.name || "unnamed");
     
-    // Create a parent object to hold the reticle components
-    reticleObject = new THREE.Object3D();
-    reticleObject.name = "reticle";
+    // Create a NEW parent object for this specific reticle instance
+    const newReticleObject = new THREE.Object3D();
+    newReticleObject.name = "reticle-" + spacecraft.uuid; // Unique name
     
     // Create reticle material - basic material with high visibility
     const material = new THREE.LineBasicMaterial({
@@ -219,77 +224,75 @@ export function createReticle(scene, spacecraft, camera) {
     bracketGeometry.setFromPoints(bracketPoints);
     const brackets = new THREE.LineSegments(bracketGeometry, material);
     
-    // Add all components to the reticle object
-    reticleObject.add(primaryGlow);   // Add primary glow
-    reticleObject.add(triangle);      // Add triangle
-    reticleObject.add(crosshair);     // Add crosshair
-    reticleObject.add(brackets);      // Add brackets
+    // Add all components to the new reticle object
+    newReticleObject.add(primaryGlow);
+    newReticleObject.add(triangle);
+    newReticleObject.add(crosshair);
+    newReticleObject.add(brackets);
     
     // Scale the entire reticle
-    reticleObject.scale.set(config.scale, config.scale, config.scale);
+    newReticleObject.scale.set(config.scale, config.scale, config.scale);
     
-    // Add the reticle to the scene
-    scene.add(reticleObject);
+    // Add the reticle to the provided scene
+    scene.add(newReticleObject);
+
+    // Store this reticle instance and its data in the map
+    const reticleData = {
+        object: newReticleObject,
+        scene: scene,
+        currentScale: config.scale, // Initialize scale for this instance
+        targetScale: config.scale,
+        lastBoostState: false,
+        lastSlowState: false
+    };
+    reticleMap.set(spacecraft, reticleData);
     
-    // Create a target position for the reticle
-    const reticleOffset = new THREE.Vector3(0, config.yOffset, -config.distance);
-    
-    // Function to update the reticle position
-    function updateReticle(isBoosting, isSlowing) {
-        if (!spacecraft) {
-            console.warn("Cannot update reticle: spacecraft not available");
-            return;
+    // Function to update THIS specific reticle instance
+    function updateSpecificReticle(specificSpacecraft, isBoosting, isSlowing) {
+        const currentReticleData = reticleMap.get(specificSpacecraft);
+        if (!currentReticleData || !currentReticleData.object) {
+            // console.warn("Reticle data not found for spacecraft:", specificSpacecraft?.uuid);
+            return; 
         }
         
-        // Check if we need to update the scale based on movement state
-        // Try to determine states from passed parameters or from spacecraft's userData
-        const boosting = isBoosting !== undefined ? isBoosting : 
-                        (spacecraft.userData && spacecraft.userData.isBoosting) || 
-                        (window.keys && window.keys.up);
+        const reticleObj = currentReticleData.object;
         
-        const slowing = isSlowing !== undefined ? isSlowing :
-                       (spacecraft.userData && spacecraft.userData.isSlowing) ||
-                       (window.keys && window.keys.down);
+        // Use instance-specific state for scale transitions
+        const boosting = isBoosting !== undefined ? isBoosting : (keys && keys.up);
+        const slowing = isSlowing !== undefined ? isSlowing : (keys && keys.down);
         
-        // Track if the states have changed
-        const boostStateChanged = boosting !== lastBoostState;
-        const slowStateChanged = slowing !== lastSlowState;
-        lastBoostState = boosting;
-        lastSlowState = slowing;
+        const boostStateChanged = boosting !== currentReticleData.lastBoostState;
+        const slowStateChanged = slowing !== currentReticleData.lastSlowState;
+        currentReticleData.lastBoostState = boosting;
+        currentReticleData.lastSlowState = slowing;
         
-        // Update the target scale based on movement state
         if (boosting) {
-            targetScale = config.boostScale;
+            currentReticleData.targetScale = config.boostScale;
         } else if (slowing) {
-            targetScale = config.slowScale;
+            currentReticleData.targetScale = config.slowScale;
         } else {
-            targetScale = config.scale;
+            currentReticleData.targetScale = config.scale;
         }
         
-        // Smoothly transition the current scale towards the target scale
-        // If we need to ensure it reaches exactly the target, add additional logic
-        if (Math.abs(currentScale - targetScale) > 0.1) {
-            currentScale += (targetScale - currentScale) * config.transitionSpeed;
+        if (Math.abs(currentReticleData.currentScale - currentReticleData.targetScale) > 0.01) {
+            currentReticleData.currentScale += (currentReticleData.targetScale - currentReticleData.currentScale) * config.transitionSpeed;
         } else {
-            // Make sure we snap to exact values when close enough
-            currentScale = targetScale;
+            currentReticleData.currentScale = currentReticleData.targetScale;
         }
         
-        // Only update the scale if there's a noticeable difference or if states changed
-        if (Math.abs(reticleObject.scale.x - (window.innerHeight / 1080) * currentScale) > 0.1 || 
-            boostStateChanged || slowStateChanged) {
-            // Apply the new scale with window size adjustment
-            const viewportHeight = window.innerHeight;
-            const scaleFactor = (viewportHeight / 1080) * currentScale;
-            reticleObject.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        // Apply scale if changed significantly or state changed
+        const viewportHeight = window.innerHeight;
+        const scaleFactor = (viewportHeight / 1080) * currentReticleData.currentScale;
+        if (Math.abs(reticleObj.scale.x - scaleFactor) > 0.01 || boostStateChanged || slowStateChanged) {
+            reticleObj.scale.set(scaleFactor, scaleFactor, scaleFactor);
         }
         
-        // Animate the glow effect
-        const time = performance.now() * 0.001; // Convert to seconds
-        reticleObject.children.forEach(child => {
-            if (child.material && child.material.uniforms) {
+        // Animate glow
+        const time = performance.now() * 0.001;
+        reticleObj.children.forEach(child => {
+             if (child.material && child.material.uniforms) {
                 if (child.material.uniforms.intensity) {
-                    const pulseFactor = Math.sin(time * 2.0) * 0.2 + 0.8; // More noticeable pulsing
+                    const pulseFactor = Math.sin(time * 2.0) * 0.2 + 0.8;
                     child.material.uniforms.intensity.value = 
                         child === primaryGlow 
                             ? config.glowIntensity * pulseFactor * 0.9
@@ -300,52 +303,29 @@ export function createReticle(scene, spacecraft, camera) {
                 }
             }
         });
-        
-        // Option 1: Fixed offset from spacecraft (always follows spacecraft movement)
-        spacecraft.updateMatrixWorld();
-        
-        // Get spacecraft world position
+
+        // Position update logic (remains the same, uses specificSpacecraft)
+        specificSpacecraft.updateMatrixWorld();
         const spacecraftPosition = new THREE.Vector3();
-        spacecraft.getWorldPosition(spacecraftPosition);
-        
-        // Get the forward direction
+        specificSpacecraft.getWorldPosition(spacecraftPosition);
         const forwardVector = new THREE.Vector3(0, 0, -1);
-        forwardVector.applyQuaternion(spacecraft.quaternion);
-        
-        // Position the reticle at a fixed distance in front of the spacecraft
+        forwardVector.applyQuaternion(specificSpacecraft.quaternion);
         const targetPosition = spacecraftPosition.clone().add(
             forwardVector.clone().multiplyScalar(config.distance)
         );
-        
-        // Set reticle position
-        reticleObject.position.copy(targetPosition);
-        
-        // Make the reticle face the same direction as the spacecraft
-        reticleObject.quaternion.copy(spacecraft.quaternion);
-        
-        // Debug logging (commented out to avoid console spam)
-        // console.log("Reticle updated - Position:", reticleObject.position.toArray().map(v => v.toFixed(2)).join(", "));
+        reticleObj.position.copy(targetPosition);
+        reticleObj.quaternion.copy(specificSpacecraft.quaternion);
     }
     
-    // Initial update
-    updateReticle(false, false);
+    // Initial update for this specific reticle
+    updateSpecificReticle(spacecraft, false, false);
     
-    // Return the reticle object and update function
+    // Return the specific reticle object and its specific update function
     return {
-        reticle: reticleObject,
-        update: updateReticle
+        reticle: newReticleObject,
+        // The update function stored in spacecraft.userData will call updateSpecificReticle
+        update: (isBoosting, isSlowing) => updateSpecificReticle(spacecraft, isBoosting, isSlowing) 
     };
-}
-
-/**
- * Updates the reticle's position
- * @param {boolean} isBoosting - Whether the spacecraft is boosting
- * @param {boolean} isSlowing - Whether the spacecraft is in slow mode
- */
-export function updateReticle(isBoosting, isSlowing) {
-    if (reticle && typeof reticle.update === 'function') {
-        reticle.update(isBoosting, isSlowing);
-    }
 }
 
 /**
@@ -357,22 +337,39 @@ export function updateReticle(isBoosting, isSlowing) {
 export function initReticle(scene, spacecraft, camera) {
     if (!scene || !spacecraft) {
         console.warn("Cannot initialize reticle: scene or spacecraft not provided");
-        return;
+        return null;
     }
     
-    console.log("Initializing reticle with scene and spacecraft:", spacecraft.name || "unnamed");
+    console.log("Initializing reticle via initReticle for spacecraft:", spacecraft.name || "unnamed");
     
-    // Create the reticle
-    reticle = createReticle(scene, spacecraft, camera);
+    // If a reticle already exists for this spacecraft, maybe remove the old one first?
+    if (reticleMap.has(spacecraft)) {
+        const oldData = reticleMap.get(spacecraft);
+        if (oldData.object && oldData.scene) {
+            oldData.scene.remove(oldData.object);
+        }
+        reticleMap.delete(spacecraft);
+    }
+
+    // Create the reticle using the refactored function
+    const reticleComponent = createReticle(scene, spacecraft, camera);
     
-    // Set up window resize listener
+    if (!reticleComponent) {
+        console.error("Reticle creation failed in initReticle");
+        return null;
+    }
+
+    // Set up window resize listener (only need to do this once globally)
+    // Consider moving this listener setup outside this function if called multiple times.
+    window.removeEventListener('resize', onWindowResize); // Remove previous listener if any
     window.addEventListener('resize', onWindowResize);
     
     // Initial size adjustment
     onWindowResize();
     
-    console.log("Reticle initialized and attached to spacecraft");
-    return reticle;
+    console.log("Reticle initialized successfully via initReticle");
+    // Return the component containing the reticle object and its specific update function
+    return reticleComponent; 
 }
 
 /**
@@ -380,9 +377,13 @@ export function initReticle(scene, spacecraft, camera) {
  * @param {boolean} visible - Whether the reticle should be visible
  */
 export function setReticleVisibility(visible) {
-    if (reticleObject) {
-        reticleObject.visible = visible;
-        console.log("Reticle visibility set to:", visible);
+    if (reticleMap.size > 0) {
+        reticleMap.forEach((reticleData) => {
+            if (reticleData.object) {
+                reticleData.object.visible = visible;
+                console.log("Reticle visibility set to:", visible);
+            }
+        });
     }
 }
 
@@ -391,15 +392,19 @@ export function setReticleVisibility(visible) {
  * @param {number} color - The color to set the reticle to (THREE.js color format)
  */
 export function setReticleColor(color) {
-    if (reticleObject) {
-        reticleObject.traverse((child) => {
-            if (child.material) {
-                if (child.material.color) {
-                    child.material.color.set(color);
-                }
-                if (child.material.uniforms && child.material.uniforms.color) {
-                    child.material.uniforms.color.value.set(color);
-                }
+    if (reticleMap.size > 0) {
+        reticleMap.forEach((reticleData) => {
+            if (reticleData.object) {
+                reticleData.object.traverse((child) => {
+                    if (child.material) {
+                        if (child.material.color) {
+                            child.material.color.set(color);
+                        }
+                        if (child.material.uniforms && child.material.uniforms.color) {
+                            child.material.uniforms.color.value.set(color);
+                        }
+                    }
+                });
             }
         });
     }
@@ -414,16 +419,26 @@ export function ensureReticleConsistency() {
     setReticleColor(config.color);
     
     // Make sure the reticle is visible
-    if (reticleObject) {
-        reticleObject.visible = true;
+    if (reticleMap.size > 0) {
+        reticleMap.forEach((reticleData) => {
+            if (reticleData.object) {
+                reticleData.object.visible = true;
+            }
+        });
     }
     
     // Ensure the glow effect is active
-    reticleObject.children.forEach(child => {
-        if (child.material && child.material.uniforms && child.material.uniforms.intensity) {
-            child.material.uniforms.intensity.value = config.glowIntensity;
-        }
-    });
+    if (reticleMap.size > 0) {
+        reticleMap.forEach((reticleData) => {
+            if (reticleData.object) {
+                reticleData.object.children.forEach(child => {
+                    if (child.material && child.material.uniforms && child.material.uniforms.intensity) {
+                        child.material.uniforms.intensity.value = config.glowIntensity;
+                    }
+                });
+            }
+        });
+    }
     
     console.log("Reticle consistency ensured - color reset to default blue");
 } 

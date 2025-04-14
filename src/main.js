@@ -81,7 +81,6 @@ import {
 
 let isAnimating = false;
 let isFirstEarthEntry = true;
-let isFirstMoonEntry = true;
 
 
 // Added delta time calculation for smoother animations
@@ -512,25 +511,33 @@ function animate(currentTime = 0) {
                 
                 // Check if moonTransition = true (transition needed, not already on surface)
                 if (getMoonTransition()) {
-
                     console.log('🌙 MOON TRANSITION......');
                     
                     // Show transition before initializing Moon surface
                     showMoonTransition(() => {
-                        // Reset movement inputs to prevent stuck key states
                         resetMovementInputs();         
 
-                        // Initialize scene
+                        // Initialize scene if not already initialized
                         if (!getMoonInitialized()) {
                             console.log('Initializing Moon surface');
                             const moonObjects = initMoonSurface();
                             setMoonInitialized(true);
-                            console.log('Setting moonInitialized = true');
+                            console.log('Moon surface initialized.');
 
-                            // Set transition flag to false after successful initialization
+                            // --- CONSISTENT RESET --- 
+                            // Reset position consistently, each time moon is entered
+                            console.log('Scheduling position reset for Moon entry');
+                            setTimeout(() => {
+                                console.log('Executing automatic Moon position reset');
+                                resetMoonPosition(); 
+                                // Ensure movement inputs are reset *after* position reset
+                                resetMovementInputs(); 
+                            }, 200); // Short delay to ensure scene is ready
+
+                            // Set transition flag to false AFTER initialization and scheduling reset
                             setMoonTransition(false);
                             console.log('Moon transition complete, flag set to false');
-                            
+
                             // Show moon surface message
                             const moonMsg = document.createElement('div');
                             moonMsg.id = 'moon-surface-message';
@@ -555,10 +562,6 @@ function animate(currentTime = 0) {
                                 console.log('Hid space-container');
                             }
                             
-                            // Make sure no animation classes are applied
-                            moonMsg.classList.remove('distance-indicator-urgent');
-                            document.body.appendChild(moonMsg);
-                        
                             // Hide exploration counter
                             const explorationCounter = document.querySelector('.exploration-counter');
                             if (explorationCounter) {
@@ -590,46 +593,26 @@ function animate(currentTime = 0) {
                                     element.style.display = 'none';
                                 }
                             });
-
-                            setMoonTransition(false)
                         }
-
                     });
                 }
                 
-                // ELSE IF we are already on the moon surface, update and render
-
+                // ELSE IF we are already on the moon surface (initialized and transition done), update and render
                 else if (isMoonSurfaceActive && getMoonInitialized() && !getMoonTransition()) {
-                    // console.log('✅ Moon already initialized - updating');
-                    // If this is the first time entering moon in this session, reset position to ensure proper loading
-                    if (isFirstMoonEntry) {
-                        console.log('First Moon entry this session - ensuring proper position reset with 200ms delay');
-                        setTimeout(() => {
-                            console.log('Executing first-entry position reset');
-                            resetMoonPosition();
-                            isFirstMoonEntry = false;
-                        }, 200);
-                    }
-
-                    // Make sure the moon renderer's canvas is visible
+                    
+                    // Make sure the moon renderer's canvas is visible and in DOM (keep this check)
                     if (moonRenderer.domElement.style.display === 'none') {
                         console.log('Force displaying moon renderer canvas');
                         moonRenderer.domElement.style.display = 'block';
                     }
-                    
-                    // Ensure the canvas is in the DOM
                     if (!document.body.contains(moonRenderer.domElement)) {
                         console.log('Force appending moon renderer canvas to DOM');
                         document.body.appendChild(moonRenderer.domElement);
                     }
 
                     // APPLY STATE-BASED UPDATES //
-                    
                     const isBoosting = getBoostState();        
-
-                    // Main update function that updates spacecraft, camera, tiles, world matrices
-                    updateMoonSurface(isBoosting, deltaTime);         
-
+                    updateMoonSurface(isBoosting, deltaTime);
                     const moonSceneInfo = renderMoonScene();
 
                     // RENDER SCENE //

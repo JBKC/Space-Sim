@@ -42,6 +42,7 @@ import {
     getMoonTransition,
     setMoonTransition
 } from '../stateEnv.js';
+import { reticleMap } from '../reticle.js'; // Assuming reticleMap is exported for cleanup
 
 
 ///////////////////// GENERAL INITIALIZATION /////////////////////
@@ -370,40 +371,146 @@ function initSpacecraft() {
     console.log("Spacecraft in Moon scene after add:", scene.children.includes(spacecraft));
 }
 
+/// RESOURCE CLEANUP ///
+
+// ensures no residuals from previous visits to moon surface
+function cleanupMoonResources() {
+    console.log("🧹 Cleaning up previous Moon resources...");
+
+    // Remove spacecraft and its reticle
+    if (spacecraft) {
+        console.log(`   - Removing spacecraft: ${spacecraft.name}`);
+        scene.remove(spacecraft);
+        
+        // Clean up reticle associated with this spacecraft from the map
+        if (reticleMap && reticleMap.has(spacecraft)) {
+            const reticleData = reticleMap.get(spacecraft);
+            if (reticleData && reticleData.object && reticleData.scene === scene) {
+                console.log(`   - Removing reticle: ${reticleData.object.name}`);
+                scene.remove(reticleData.object);
+                // TODO: Dispose reticle geometry/materials if necessary
+            }
+            reticleMap.delete(spacecraft);
+        }
+        
+        // TODO: Dispose spacecraft geometry/materials if necessary
+        spacecraft = null; 
+    }
+
+    // Remove reference sphere (Earth model)
+    if (referenceSphere) {
+        console.log("   - Removing reference sphere");
+        scene.remove(referenceSphere);
+        if (referenceSphere.geometry) referenceSphere.geometry.dispose();
+        if (referenceSphere.material) {
+             if (Array.isArray(referenceSphere.material)) {
+                 referenceSphere.material.forEach(mat => mat.dispose());
+             } else {
+                 referenceSphere.material.dispose();
+             }
+        }
+        referenceSphere = null;
+    }
+
+    // Remove lights
+    if (playerSun) {
+        console.log("   - Removing playerSun light");
+        scene.remove(playerSun);
+        playerSun.dispose(); // Dispose light resources
+        playerSun = null;
+    }
+    if (playerSunTarget) {
+        console.log("   - Removing playerSunTarget");
+        scene.remove(playerSunTarget);
+        playerSunTarget = null;
+    }
+    // Remove other lights if any were added dynamically
+    const lightsToRemove = scene.children.filter(child => child.isLight);
+    lightsToRemove.forEach(light => {
+        console.log(`   - Removing other light: ${light.type}`);
+        scene.remove(light);
+        if(light.dispose) light.dispose();
+    });
+
+    // Dispose tileset
+    if (tiles) {
+        console.log("   - Disposing tileset");
+        scene.remove(tiles.group); // Ensure group is removed
+        tiles.dispose();
+        tiles = null;
+    }
+
+    // Optional: Clean up renderer and DOM element if causing issues
+    // Be cautious with this, might not be necessary if renderer is reused.
+    // if (renderer) {
+    //     console.log("   - Disposing WebGL Renderer context");
+    //     renderer.dispose(); // Release WebGL context
+    //     if (renderer.domElement && renderer.domElement.parentNode) {
+    //         renderer.domElement.parentNode.removeChild(renderer.domElement);
+    //         console.log("   - Removed renderer DOM element");
+    //     }
+    //     // renderer = null; // Only if you are creating a new one in init()
+    // }
+    
+    // Consider traversing the scene to dispose all materials/geometries if leaks persist
+    // scene.traverse(object => { ... dispose logic ... });
+    // While scene.children is now likely empty, check just in case
+    while(scene.children.length > 0){ 
+        scene.remove(scene.children[0]); 
+    }
+
+    console.log("✅ Moon resource cleanup complete.");
+}
+
+
 /// CORE INITIALIZATION FUNCTION ///
 export function init() {
+    
+    // --- Run cleanup BEFORE any initialization --- 
+    cleanupMoonResources();
 
-    console.log("Moon initialization started");
-    console.log("Moon surface active:", getMoonSurfaceActive());
-    console.log("Earth surface active:", getEarthSurfaceActive());
-    console.log("Moon initialized:", getMoonInitialized());
+    console.log("--- Starting Moon Initialization --- ");
+    // console.log("Moon surface active:", getMoonSurfaceActive()); // State checks might be less relevant now
+    // console.log("Earth surface active:", getEarthSurfaceActive());
+    // console.log("Moon initialized flag (before init):", getMoonInitialized());
 
+    // The getMoonInitialized() check might now be redundant if cleanup runs every time,
+    // but keep it for safety or if cleanup logic changes.
     if (getMoonInitialized()) {
-        console.log("Moon already initialized, skipping");
-        return { scene, camera, renderer };
+        console.warn("Moon already marked as initialized, but running init() again after cleanup. This might indicate a state mismatch.");
+        // Force reset flag just in case
+        setMoonInitialized(false); 
     }
  
-    initSpacecraft();
-
+    console.log("   Running initSpacecraft...");
+    initSpacecraft(); // Creates new spacecraft, reticle
+    console.log("   Running onWindowResize...");
     onWindowResize();
+    // Remove previous listener? Might be redundant if the listener is smart.
+    // window.removeEventListener('resize', onWindowResize, false); 
     window.addEventListener('resize', onWindowResize, false);
-
-    initControls(getEarthSurfaceActive(), getMoonSurfaceActive());
-
-    setupmoonLighting();
+    console.log("   Running initControls...");
+    initControls(getEarthSurfaceActive(), getMoonSurfaceActive()); // Re-init or check if already initialized?
+    console.log("   Running setupmoonLighting...");
+    setupmoonLighting(); // Creates new lights
     
     // Initialize player sun position after spacecraft is created
     if (spacecraft && playerSun) {
+        console.log("   Updating initial moon lighting...");
         updatemoonLighting();
     }
     
-    // Create Earth sphere after spacecraft is initialized
-    createReferenceSphere();
+    console.log("   Running createReferenceSphere...");
+    createReferenceSphere(); // Creates new Earth model
     
-    reinstantiateTiles();
+    console.log("   Running reinstantiateTiles...");
+    reinstantiateTiles(); // Creates new tileset
 
-    console.log("Moon initialization complete");
+    console.log("--- Moon Initialization Complete --- ");
+    // Set initialized flag *after* successful init
+    // setMoonInitialized(true); // This is now set in main.js after the callback
     
+    // Return the newly created objects
     return { 
         scene, 
         camera, 
