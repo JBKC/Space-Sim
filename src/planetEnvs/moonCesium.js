@@ -12,6 +12,7 @@ import config from '../config.js';
 import { updateMoonMovement, resetMovementInputs } from '../movement.js';
 import { createSpacecraft } from '../spacecraft.js';
 import { updateControlsDropdown } from '../ui.js';
+import { exitMoonSurface } from '../spaceEnvs/setup.js';
 import { 
     moonCamera,
     moonCockpitCamera,
@@ -25,7 +26,9 @@ import {
     initControls, 
     getBoostState, 
     getViewToggleRequested,
-    updatePreviousKeyStates 
+    updatePreviousKeyStates,
+    getResetPositionRequested,
+    getExitSurfaceRequested
 } from '../inputControls.js';
 import {
     getEarthSurfaceActive,
@@ -423,6 +426,21 @@ export function update(isBoosting, deltaTime = 0.016) {
             return false;
         }
 
+        // Debug - check renderer canvas visibility
+        if (renderer && renderer.domElement) {
+            console.log("Moon renderer canvas visibility check:", 
+                "Display:", renderer.domElement.style.display,
+                "Z-index:", renderer.domElement.style.zIndex,
+                "In DOM:", document.body.contains(renderer.domElement),
+                "Size:", renderer.domElement.width + "x" + renderer.domElement.height);
+        }
+
+        // Debug - check if spacecraft is in the scene
+        console.log("Moon update - spacecraft in scene:", 
+            spacecraft ? "Yes" : "No", 
+            "Scene children count:", scene.children.length,
+            "Scene contains spacecraft:", scene.children.includes(spacecraft));
+
         // Get boosting state from inputControls
         const isBoostingFromControls = getBoostState();
         const boostState = isBoostingFromControls || isBoosting || keys.up;
@@ -445,6 +463,26 @@ export function update(isBoosting, deltaTime = 0.016) {
                 camera.position.copy(camera.position);
                 camera.quaternion.copy(camera.quaternion);
             });
+        }
+
+        // Check for position reset request (R key)
+        if (getResetPositionRequested() && spacecraft) {
+            console.log('===== RESET POSITION REQUESTED =====');
+            resetPosition();
+        }
+
+        // Check for exit surface request (ESC key)
+        if (getExitSurfaceRequested()) {
+            console.log('===== EXIT MOON SURFACE REQUESTED =====');
+            if (typeof exitMoonSurface === 'function') {
+                exitMoonSurface();
+            } else {
+                console.warn('exitMoonSurface function not available');
+                // Fallback to just setting the state
+                setMoonSurfaceActive(false);
+                setMoonTransition(true);
+            }
+            return true; // Return early after exit request
         }
 
 
