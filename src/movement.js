@@ -278,7 +278,7 @@ export function updateMoonMovement(spacecraft, rotation, isBoosting) {
         return null;
     }
 
-    console.warn("Spacecraft object:", spacecraft);
+    // console.warn("Spacecraft object:", spacecraft);  // Commented out to reduce console spam
 
 
 
@@ -393,6 +393,3 @@ export function updateMoonMovement(spacecraft, rotation, isBoosting) {
         spacecraft.position.copy(originalPosition);
     }
 }
-
-
-

@@ -102,12 +102,6 @@ function updateCamera(camera, isHyperspace) {
         return;
     }
 
-    // Debug camera position and target
-    console.log("Moon camera:", 
-        "Position:", camera.position.x.toFixed(2), camera.position.y.toFixed(2), camera.position.z.toFixed(2),
-        "Target:", spacecraft ? spacecraft.position.x.toFixed(2) + "," + spacecraft.position.y.toFixed(2) + "," + spacecraft.position.z.toFixed(2) : "N/A",
-        "Distance:", spacecraft ? camera.position.distanceTo(spacecraft.position).toFixed(2) : "N/A");
-
     // Create a fixed pivot at the center of the spacecraft
     const spacecraftCenter = new THREE.Object3D();
     spacecraft.add(spacecraftCenter);
@@ -299,18 +293,7 @@ export { spacecraft, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing,
 export function renderScene() {
     // only render when on moon surface
     if (getMoonSurfaceActive()) {
-        console.log("RENDERING: MOON SCENE", "Scene has", scene.children.length, "objects");
-        
-        // Debug DOM elements
-        const canvases = document.querySelectorAll('canvas');
-        console.log("DOM contains", canvases.length, "canvas elements");
-        canvases.forEach((canvas, i) => {
-            console.log(`Canvas ${i}:`, 
-                "Display:", canvas.style.display,
-                "Z-index:", canvas.style.zIndex,
-                "Size:", canvas.width + "x" + canvas.height,
-                "Is Moon Renderer:", canvas === renderer.domElement);
-        });
+        // console.log("RENDERING: MOON SCENE", "Scene has", scene.children.length, "objects");
         
         return { scene, camera };
     } else {
@@ -335,11 +318,6 @@ function initSpacecraft() {
     cockpit = spacecraftComponents.cockpit;
     reticle = spacecraftComponents.reticle;
     updateReticle = spacecraftComponents.updateReticle;
-
-    // More detailed check of spacecraft object
-    console.log("Moon spacecraft object:", 
-                spacecraft ? "Created successfully" : "Not created",
-                "Type:", spacecraft ? spacecraft.type : "N/A");
 
     // Expose methods from the spacecraftComponents object
     spacecraft.toggleView = spacecraftComponents.toggleView;
@@ -445,21 +423,6 @@ export function update(isBoosting, deltaTime = 0.016) {
             return false;
         }
 
-        // Debug - check renderer canvas visibility
-        if (renderer && renderer.domElement) {
-            console.log("Moon renderer canvas visibility check:", 
-                "Display:", renderer.domElement.style.display,
-                "Z-index:", renderer.domElement.style.zIndex,
-                "In DOM:", document.body.contains(renderer.domElement),
-                "Size:", renderer.domElement.width + "x" + renderer.domElement.height);
-        }
-
-        // Debug - check if spacecraft is in the scene
-        console.log("Moon update - spacecraft in scene:", 
-            spacecraft ? "Yes" : "No", 
-            "Scene children count:", scene.children.length,
-            "Scene contains spacecraft:", scene.children.includes(spacecraft));
-
         // Get boosting state from inputControls
         const isBoostingFromControls = getBoostState();
         const boostState = isBoostingFromControls || isBoosting || keys.up;
@@ -474,6 +437,8 @@ export function update(isBoosting, deltaTime = 0.016) {
         // Check for view toggle request (C key)
         if (getViewToggleRequested() && spacecraft && spacecraft.toggleView) {
             console.log('===== TOGGLE COCKPIT VIEW =====');
+            console.log('View toggle requested:', getViewToggleRequested());
+            console.log('Spacecraft has toggleView:', spacecraft && spacecraft.toggleView ? "YES" : "NO");
             spacecraft.toggleView(camera, (isFirstPerson) => {
                 console.log(`Resetting moon camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
                 // Reset camera state with new view mode if needed
@@ -536,6 +501,9 @@ export function update(isBoosting, deltaTime = 0.016) {
         tiles.setCamera(camera);
         tiles.setResolutionFromRenderer(camera, renderer);
         tiles.update();
+        
+        // Update previous key states at the end of the frame
+        updatePreviousKeyStates();
         
         return true;
     } catch (error) {
