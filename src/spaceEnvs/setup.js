@@ -160,7 +160,7 @@ export {
 };
 
 
-///////////////////// SCENE SETUP /////////////////////
+///////////////////// SCENE CORE FUNCTIONALITY /////////////////////
 
 // Spacecraft setup
 let spacecraft, cockpit, reticle, updateReticle, isFirstPersonView, updateEngineEffects;
