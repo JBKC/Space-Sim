@@ -426,37 +426,14 @@ export function update(isBoosting, deltaTime = 0.016) {
             return false;
         }
 
-        // Debug - check renderer canvas visibility
-        if (renderer && renderer.domElement) {
-            console.log("Moon renderer canvas visibility check:", 
-                "Display:", renderer.domElement.style.display,
-                "Z-index:", renderer.domElement.style.zIndex,
-                "In DOM:", document.body.contains(renderer.domElement),
-                "Size:", renderer.domElement.width + "x" + renderer.domElement.height);
-        }
-
-        // Debug - check if spacecraft is in the scene
-        console.log("Moon update - spacecraft in scene:", 
-            spacecraft ? "Yes" : "No", 
-            "Scene children count:", scene.children.length,
-            "Scene contains spacecraft:", scene.children.includes(spacecraft));
-
         // Get boosting state from inputControls
         const isBoostingFromControls = getBoostState();
         const boostState = isBoostingFromControls || isBoosting || keys.up;
 
-        // Update spacecraft effects (if boosting)
-        if (updateEngineEffects) {
-            updateEngineEffects(boostState || keys.up, keys.down);
-        } else {
-            console.warn("updateEngineEffects function is not available:", updateEngineEffects);
-        }
-
+        //// CHECK FOR KEY TOGGLES ////
         // Check for view toggle request (C key)
         if (getViewToggleRequested() && spacecraft && spacecraft.toggleView) {
             console.log('===== TOGGLE COCKPIT VIEW =====');
-            console.log('View toggle requested:', getViewToggleRequested());
-            console.log('Spacecraft has toggleView:', spacecraft && spacecraft.toggleView ? "YES" : "NO");
             spacecraft.toggleView(camera, (isFirstPerson) => {
                 console.log(`Resetting moon camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
                 // Reset camera state with new view mode if needed
@@ -464,13 +441,11 @@ export function update(isBoosting, deltaTime = 0.016) {
                 camera.quaternion.copy(camera.quaternion);
             });
         }
-
         // Check for position reset request (R key)
         if (getResetPositionRequested() && spacecraft) {
             console.log('===== RESET POSITION REQUESTED =====');
             resetPosition();
         }
-
         // Check for exit surface request (ESC key)
         if (getExitSurfaceRequested()) {
             console.log('===== EXIT MOON SURFACE REQUESTED =====');
@@ -485,15 +460,15 @@ export function update(isBoosting, deltaTime = 0.016) {
             return true; // Return early after exit request
         }
 
-
-        // Update spacecraft movement and camera
-        updateMoonMovement(spacecraft, rotation, boostState);
-        // FOR CAMERA - update spacecraft matrix world before camera calculations
-        if (spacecraft) {
-            spacecraft.updateMatrixWorld(true);
+        // Update spacecraft effects (if boosting)
+        if (updateEngineEffects) {
+            updateEngineEffects(boostState || keys.up, keys.down);
+        } else {
+            console.warn("updateEngineEffects function is not available:", updateEngineEffects);
         }
-        // Pass the camera object to the updateCamera function
-        updateCamera(camera);
+
+        // Update environment elements
+        updatemoonLighting();
 
         // Wing position control - check if conditions changed
         if (spacecraft && spacecraft.setWingsOpen) {
@@ -502,7 +477,7 @@ export function update(isBoosting, deltaTime = 0.016) {
             spacecraft.setWingsOpen(shouldWingsBeOpen);
         }
 
-        // Update reticle position if available
+        // Update reticle position
         if (spacecraft && spacecraft.userData && spacecraft.userData.updateReticle) {
             // Pass both boost and slow states to the reticle update function
             spacecraft.userData.updateReticle(keys.up, keys.down);
@@ -512,9 +487,15 @@ export function update(isBoosting, deltaTime = 0.016) {
                 window.reticleWarningLogged = true;
             }
         }
- 
-        // Update environment elements
-        updatemoonLighting();
+
+        // Update spacecraft movement and camera
+        updateMoonMovement(spacecraft, rotation, boostState);
+        // FOR CAMERA - update spacecraft matrix world before camera calculations
+        if (spacecraft) {
+            spacecraft.updateMatrixWorld(true);
+        }
+        // Pass the camera object to the updateCamera function
+        updateCamera(camera);
 
         // CESIUM TILE UPDATES //
         if (tiles.group) {
