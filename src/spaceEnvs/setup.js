@@ -378,6 +378,16 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
             }
         }
         
+        // If hyperspace is active, update the streaks
+        if (hyperspaceState) {
+            updateStreaks(deltaTime);
+        } else if (streakLines.length > 0) {
+            // Clean up streaks when exiting hyperspace
+            console.log("Removing hyperspace streaks");
+            streakLines.forEach(streak => scene.remove(streak.line));
+            streakLines = [];
+        }
+        
         // update environment elements
         updateStars();
         updatePlanetLabels();
@@ -578,9 +588,9 @@ export function exitMoonSurface() {
 
 // Hyperspace streak effect variables
 let streakLines = [];
-const streakCount = 20; // Number of streaks
-const streakLength = 50; // Length of each streak
-const streakSpeed = 500; // Speed of streaks moving past the camera
+const streakCount = 100; // Number of streaks - INCREASED from 20 to 100
+const streakLength = 100; // Length of each streak - INCREASED from 50 to 100
+const streakSpeed = 800; // Speed of streaks moving past the camera - INCREASED from 500 to 800
 
 ///// HYPERSPACE FUNCTIONS /////
 
@@ -591,17 +601,19 @@ function createStreaks() {
     for (let i = 0; i < streakCount; i++) {
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(6); // Two points per line (start and end)
-        positions[0] = (Math.random() - 0.5) * 100; // Start X
-        positions[1] = (Math.random() - 0.5) * 100; // Start Y
-        positions[2] = -100 - Math.random() * streakLength; // Start Z (far in front)
+        positions[0] = (Math.random() - 0.5) * 200; // Start X - INCREASED spread
+        positions[1] = (Math.random() - 0.5) * 200; // Start Y - INCREASED spread
+        positions[2] = -200 - Math.random() * streakLength; // Start Z (far in front) - INCREASED depth
         positions[3] = positions[0]; // End X (same as start for now)
         positions[4] = positions[1]; // End Y
         positions[5] = positions[2] + streakLength; // End Z (length ahead)
 
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
+        // Create a mix of blue and white streaks for a more interesting effect
+        const color = Math.random() > 0.6 ? 0xffffff : 0x4fc3f7; // 60% white, 40% blue
         const material = new THREE.LineBasicMaterial({
-            color: 0xffffff, // Solid white
+            color: color,
             linewidth: 4, // Increased thickness for thicker streaks
         });
 
@@ -613,6 +625,8 @@ function createStreaks() {
 
 // Function to update hyperspace streaks
 export function updateStreaks(deltaTimeInSeconds) {
+    if (streakLines.length === 0) return; // Skip if no streaks exist
+    
     streakLines.forEach((streak) => {
         const positions = streak.positions;
 
@@ -621,10 +635,10 @@ export function updateStreaks(deltaTimeInSeconds) {
         }
 
         // Reset streak if out of range
-        if (positions[5] > 100) {
-            positions[0] = (Math.random() - 0.5) * 100;
-            positions[1] = (Math.random() - 0.5) * 100;
-            positions[2] = -100 - Math.random() * streakLength;
+        if (positions[5] > 200) { // INCREASED threshold from 100 to 200
+            positions[0] = (Math.random() - 0.5) * 200; // INCREASED spread
+            positions[1] = (Math.random() - 0.5) * 200; // INCREASED spread
+            positions[2] = -200 - Math.random() * streakLength; // INCREASED depth
             positions[3] = positions[0];
             positions[4] = positions[1];
             positions[5] = positions[2] + streakLength;
@@ -714,8 +728,8 @@ export function startHyperspace() {
         // Update the progress bar width
         bar.style.width = `${remaining}%`;
         
-        // Update streaks animation
-        updateStreaks(deltaTime / 1000);
+        // We don't need to call updateStreaks here anymore as it's now called in the main update loop
+        // when hyperspace is active
         
         // Continue animation if we haven't reached the end time
         if (timestamp < endTime) {
@@ -748,10 +762,8 @@ export function startHyperspace() {
         // Reset movement inputs
         resetMovementInputs();
         
-        
-        // Clean up streaks
-        streakLines.forEach(streak => scene.remove(streak.line));
-        streakLines = [];
+        // Now the streaks will be updated in the main update loop based on hyperspace state
+        // Don't remove the streaks here because they need to persist while hyperspace is active
         
         // Force hide progress bar to ensure it doesn't linger
         progressContainer.style.display = 'none';
