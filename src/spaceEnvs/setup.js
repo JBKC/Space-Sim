@@ -949,11 +949,13 @@ function setupOrbitalPaths() {
 
         // ONLY PLANETS - skip moon and Star Wars objects when creating orbital paths
         const planetName = planet.group.name ? planet.group.name.toLowerCase() : '';
+
+        // use includes instead of === for more flexible matching
         if (planetName.includes('moon') || 
-            planetName.includes('star destroyer') || 
+            planetName.includes('imperial') || 
             planetName.includes('lucrehulk')) {
             console.log(`Skipping orbital path for: ${planetName}`);
-            return; // Skip this iteration
+            return;
         }
         
         const planetPos = planet.group.position;
