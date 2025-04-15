@@ -13,7 +13,9 @@ import {
     explorationCounter,
     planetaryBlue,
     earthDistanceIndicator,
-    moonDistanceIndicator
+    moonDistanceIndicator,
+    createOrbitalPaths,
+    toggleOrbitalPaths
  } from '../ui.js';
 import { 
     spaceCamera, 
@@ -30,6 +32,7 @@ import {
     setHyperspaceState, 
     getBoostState, 
     getViewToggleRequested,
+    getOrbitalPathsToggleRequested,
     updatePreviousKeyStates 
 } from '../inputControls.js';
 import {
@@ -278,6 +281,9 @@ export function init() {
 
     // Initialize controls via inputControls.js
     initControls(getEarthSurfaceActive(), getMoonSurfaceActive());
+    
+    // Create orbital paths (initially hidden)
+    createOrbitalPaths(scene, sunGroup, planetGroups);
 
     // Show exploration counter when game starts
     explorationCounter.style.display = 'block';
@@ -334,7 +340,12 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
                 camera.quaternion.copy(camera.quaternion);
             });
         }
-
+        
+        // Check for orbital paths toggle request (Z key)
+        if (getOrbitalPathsToggleRequested()) {
+            console.log('===== TOGGLE ORBITAL PATHS =====');
+            toggleOrbitalPaths(scene);
+        }
 
         // Update spacecraft movement and camera
         updateSpaceMovement(spacecraft, rotation, boostState, hyperspaceState);
@@ -917,33 +928,7 @@ if (asteroidBelt) {
     console.log("Asteroid belt centered at origin:", asteroidBelt.group.position);
 }
 
-// Concentric circles (already updated to remove radial lines)
-function createConcentricCircles() {
-    const sunPosition = sunGroup.position; // (0, 0, 0)
-    planetGroups.forEach(planet => {
-        const planetPos = planet.group.position;
-        const distance = sunPosition.distanceTo(planetPos);
-        const angle = Math.atan2(planetPos.y, planetPos.x);
 
-        const circleGeometry = new THREE.CircleGeometry(distance, 64);
-        const vertices = circleGeometry.attributes.position.array;
-        const ringVertices = new Float32Array(vertices.length - 3);
-        for (let i = 3; i < vertices.length; i++) {
-            ringVertices[i - 3] = vertices[i];
-        }
-        const ringGeometry = new THREE.BufferGeometry();
-        ringGeometry.setAttribute('position', new THREE.BufferAttribute(ringVertices, 3));
-        const circleMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
-        const circle = new THREE.LineLoop(ringGeometry, circleMaterial);
-
-        circle.position.copy(sunPosition);
-        circle.rotation.x = Math.PI / 2;
-        circle.rotation.y = angle;
-        scene.add(circle);
-    });
-    
-}
-createConcentricCircles(); // ** TOGGLE ORBITAL LINES ON AND OFF **
 
 
 ///// Text Labels for Planets /////

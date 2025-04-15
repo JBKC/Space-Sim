@@ -202,6 +202,7 @@ export function initControls(isEarthSurfaceActive, isMoonSurfaceActive) {
             case 'r': keys.r = false; break;
             case 'escape': keys.escape = false; break;
             case 'enter': keys.enter = false; break;
+            case 'z': keys.z = false; break;
         }
     });
     
