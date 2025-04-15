@@ -318,14 +318,14 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         const isBoostingFromControls = getBoostState();
         const boostState = isBoostingFromControls || isBoosting || keys.up;
 
-        // Update spacecraft effects (if boosting)
+        // Update engine effects (if boosting)
         if (updateEngineEffects) {
             updateEngineEffects(boostState || keys.up, keys.down);
         } else {
             console.warn("updateEngineEffects function is not available:", updateEngineEffects);
         }
         
-        // Update hyperspace streaks if active
+        // Update streaks (if hyperspace)
         if (hyperspaceState && streakLines.length > 0) {
             updateStreaks(deltaTime);
         }
@@ -579,83 +579,17 @@ export function exitMoonSurface() {
     }
 }
 
-///// Hyperspace Effects /////
+///// HYPERSPACE EFFECTS /////
 
 // Hyperspace streak effect variables
 let streakLines = [];
-const streakCount = 20; // Number of streaks
-const streakLength = 50; // Length of each streak
-const streakSpeed = 500; // Speed of streaks moving past the camera
-
+const streakCount = 50; // Number of streaks
+const streakLength = 200; // Length of each streak
+const streakSpeed = 200; // Speed of streaks moving past the camera
+const streakColor = 0xd9fdff; // Light blue
 export { streakLines }; // Export for reference in other modules
 
-///// HYPERSPACE FUNCTIONS /////
-
-// Function to create hyperspace streak lines
-function createStreaks() {
-    console.log("Creating streaks");
-    // Clear existing streaks before creating new ones
-    streakLines.forEach(streak => {
-        if (streak && streak.line) {
-            scene.remove(streak.line);
-        }
-    });
-    streakLines = [];
-    
-    for (let i = 0; i < streakCount; i++) {
-        const geometry = new THREE.BufferGeometry();
-        const positions = new Float32Array(6); // Two points per line (start and end)
-        positions[0] = (Math.random() - 0.5) * 100; // Start X
-        positions[1] = (Math.random() - 0.5) * 100; // Start Y
-        positions[2] = -100 - Math.random() * streakLength; // Start Z (far in front)
-        positions[3] = positions[0]; // End X (same as start for now)
-        positions[4] = positions[1]; // End Y
-        positions[5] = positions[2] + streakLength; // End Z (length ahead)
-
-        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-        const material = new THREE.LineBasicMaterial({
-            color: 0xffffff, // Solid white
-            linewidth: 4, // Increased thickness for thicker streaks
-        });
-
-        const line = new THREE.Line(geometry, material);
-        scene.add(line);
-        streakLines.push({ line, positions: positions });
-    }
-}
-
-// Function to update hyperspace streaks
-export function updateStreaks(deltaTimeInSeconds) {
-    streakLines.forEach((streak) => {
-        const positions = streak.positions;
-
-        for (let i = 0; i < positions.length; i += 3) {
-            positions[i + 2] += streakSpeed * deltaTimeInSeconds;
-        }
-
-        // Reset streak if out of range
-        if (positions[5] > 100) {
-            positions[0] = (Math.random() - 0.5) * 100;
-            positions[1] = (Math.random() - 0.5) * 100;
-            positions[2] = -100 - Math.random() * streakLength;
-            positions[3] = positions[0];
-            positions[4] = positions[1];
-            positions[5] = positions[2] + streakLength;
-        }
-
-        streak.line.geometry.attributes.position.needsUpdate = true;
-
-        // Align streaks with camera
-        const cameraPosition = new THREE.Vector3();
-        camera.getWorldPosition(cameraPosition);
-        streak.line.position.copy(cameraPosition);
-        streak.line.rotation.copy(camera.rotation);
-    });
-}
-
-
-// Function to start hyperspace with progress bar and streaks
+// Master function that starts hyperspace with progress bar and streaks
 export function startHyperspace() {
     // Get the current hyperspace state from inputControls
     let isHyperspace = getHyperspaceState();
@@ -770,6 +704,69 @@ export function startHyperspace() {
         // Force hide progress bar to ensure it doesn't linger
         progressContainer.style.display = 'none';
     }, hyperspaceDuration);
+}
+
+// Creates hyperspace streaks
+function createStreaks() {
+    console.log("Creating streaks");
+    // Clear existing streaks before creating new ones
+    streakLines.forEach(streak => {
+        if (streak && streak.line) {
+            scene.remove(streak.line);
+        }
+    });
+    streakLines = [];
+    
+    for (let i = 0; i < streakCount; i++) {
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(6); // Two points per line (start and end)
+        positions[0] = (Math.random() - 0.5) * 100; // Start X
+        positions[1] = (Math.random() - 0.5) * 100; // Start Y
+        positions[2] = -100 - Math.random() * streakLength; // Start Z (far in front)
+        positions[3] = positions[0]; // End X (same as start for now)
+        positions[4] = positions[1]; // End Y
+        positions[5] = positions[2] + streakLength; // End Z (length ahead)
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+        const material = new THREE.LineBasicMaterial({
+            color: streakColor, // Solid white
+            // linewidth: 1, // LINEBASIC DOESN'T SUPPORT THICKNESS
+        });
+
+        const line = new THREE.Line(geometry, material);
+        scene.add(line);
+        streakLines.push({ line, positions: positions });
+    }
+}
+
+// Updates hyperspace streaks
+export function updateStreaks(deltaTimeInSeconds) {
+    streakLines.forEach((streak) => {
+        const positions = streak.positions;
+
+        for (let i = 0; i < positions.length; i += 3) {
+            positions[i + 2] += streakSpeed * deltaTimeInSeconds;
+        }
+
+        // Reset streak if out of range
+        if (positions[5] > 100) {
+            positions[0] = (Math.random() - 0.5) * 100;
+            positions[1] = (Math.random() - 0.5) * 100;
+            positions[2] = -100 - Math.random() * streakLength;
+            positions[3] = positions[0];
+            positions[4] = positions[1];
+            positions[5] = positions[2] + streakLength;
+        }
+
+        streak.line.geometry.attributes.position.needsUpdate = true;
+
+        // Align streaks with camera
+        const cameraPosition = new THREE.Vector3();
+        camera.getWorldPosition(cameraPosition);
+        streak.line.position.copy(cameraPosition);
+        streak.line.rotation.copy(camera.rotation);
+    });
 }
 
 
