@@ -44,7 +44,6 @@ export function toggleControlsDropdown() {
 // Edit controls dropdown content based on current scene (space vs surface)
 export function updateControlsDropdown(isEarthSurfaceActive, isMoonSurfaceActive) {
     
-    console.log(`updateControlsDropdown called: EarthActive=${isEarthSurfaceActive}, MoonActive=${isMoonSurfaceActive}`); // Log input state
     const controlsDropdown = document.getElementById('controls-dropdown');
     if (!controlsDropdown) {
         console.error('Controls dropdown element not found!');
@@ -55,16 +54,10 @@ export function updateControlsDropdown(isEarthSurfaceActive, isMoonSurfaceActive
     const hyperspaceOption = controlsDropdown.querySelector('.hyperspace-option');
 
     if (hyperspaceOption) {
-        console.log('Found hyperspace option element:', hyperspaceOption); // Log element found
         const shouldHide = isEarthSurfaceActive || isMoonSurfaceActive;
-        console.log(`Should hide hyperspace? ${shouldHide}`); // Log calculated hide state
-
-        console.log('Hyperspace option display BEFORE:', hyperspaceOption.style.display); // Log style before
-
         // Use style.display for <p> elements
         hyperspaceOption.style.display = shouldHide ? 'none' : 'block';
 
-        console.log('Hyperspace option display AFTER:', hyperspaceOption.style.display); // Log style after
     } else {
         console.warn('Hyperspace option element (.hyperspace-option) not found inside #controls-dropdown'); // Log if not found
     }
@@ -80,6 +73,7 @@ export function showControlsPrompt() {
 
 
 ///// EXPLORATION / CELESTIAL BODY INFO /////
+
 
 // Create data for popups on all celestial objects
 export const planetInfo = {

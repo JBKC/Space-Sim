@@ -277,10 +277,7 @@ export function init() {
     onWindowResize();
     window.addEventListener('resize', onWindowResize, false);
 
-    // Initial call to create paths (will do nothing if orbitalPathsVisible is false)
-    createOrbitalPaths();
-    
-    // Initialize input controls
+    // Initialize controls via inputControls.js
     initControls(getEarthSurfaceActive(), getMoonSurfaceActive());
 
     // Show exploration counter when game starts
@@ -339,10 +336,17 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
             });
         }
 
-        // Check for orbital path toggle request (Z key)
+        // Check for orbital paths toggle request (Z key)
         if (getOrbitalPathsToggleRequested()) {
-            toggleOrbitalPathsVisibility(); // Call the new function
+            if (!orbitalPathsInitialized) {
+                // If not initialized, run setup first
+                setupOrbitalPaths();
+            } else {
+                // If already initialized, just toggle visibility
+                toggleOrbitalPaths();
+            }
         }
+
 
         // Update spacecraft movement and camera
         updateSpaceMovement(spacecraft, rotation, boostState, hyperspaceState);
@@ -906,7 +910,7 @@ animateMarsClouds();
 // Randomize planet positions (around fixed orbital radius)
 planetGroups.forEach(planet => {
     const angle = Math.random() * Math.PI * 2; // Random angle in radians
-    const radius = planet.group.position.z; // Use original Z as radius
+    const radius = planet.z; // Use original Z as radius
     planet.group.position.set(
         Math.cos(angle) * radius, // X
         Math.sin(angle) * radius, // Y
@@ -1465,58 +1469,72 @@ function onWindowResize() {
     renderer.setPixelRatio(window.devicePixelRatio);
 }
 
-// Orbital path state
-let orbitalPathsVisible = false; // Start with paths hidden
-let orbitalPathObjects = [];
+// Orbital Paths (concentric circles)
+export let orbitalPaths = [];
+export let orbitalPathsVisible = false;
+export let orbitalPathsInitialized = false; // New flag
 
-// Function to create orbital paths
-function createOrbitalPaths() {
-    orbitalPathObjects.forEach(path => scene.remove(path)); // Clear existing paths
-    orbitalPathObjects = [];
-
-    if (!orbitalPathsVisible) return; // Don't create if toggled off
-
-    const sunPosition = sunGroup.position; // Assume sunGroup is defined and initialized
-    if (!sunGroup || !planetGroups) {
-        console.warn("Sun or planet groups not yet initialized for orbital paths.");
+// Orbital Paths Setup - ONLY creates paths the first time
+export function setupOrbitalPaths() {
+    if (orbitalPathsInitialized) {
+        console.log("Orbital paths already initialized. Skipping setup.");
         return;
     }
     
-    planetGroups.forEach(planet => { // Assume planetGroups is defined and initialized
+    // Create new orbital paths
+    const sunPosition = sunGroup.position; // (0, 0, 0)
+    planetGroups.forEach(planet => {
         const planetPos = planet.group.position;
         const distance = sunPosition.distanceTo(planetPos);
+        const angle = Math.atan2(planetPos.y, planetPos.x);
 
-        // Simplified circle geometry using a LineLoop
-        const points = [];
-        const segments = 64;
-        for (let i = 0; i <= segments; i++) {
-            const theta = (i / segments) * Math.PI * 2;
-            points.push(new THREE.Vector3(Math.cos(theta) * distance, 0, Math.sin(theta) * distance));
+        const circleGeometry = new THREE.CircleGeometry(distance, 64);
+        const vertices = circleGeometry.attributes.position.array;
+        const ringVertices = new Float32Array(vertices.length - 3);
+        for (let i = 3; i < vertices.length; i++) {
+            ringVertices[i - 3] = vertices[i];
         }
-        const ringGeometry = new THREE.BufferGeometry().setFromPoints(points);
-        const circleMaterial = new THREE.LineBasicMaterial({ 
-            color: 0xffffff, 
-            opacity: 0.3, // Make paths less prominent
-            transparent: true 
-        }); 
+        const ringGeometry = new THREE.BufferGeometry();
+        ringGeometry.setAttribute('position', new THREE.BufferAttribute(ringVertices, 3));
+        const circleMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
         const circle = new THREE.LineLoop(ringGeometry, circleMaterial);
 
-        // Position and orient the circle correctly around the sun (assuming sun is at 0,0,0)
-        circle.position.copy(sunPosition); 
-        // No rotation needed if paths are in the XZ plane around the sun at origin
-
+        circle.position.copy(sunPosition);
+        circle.rotation.x = Math.PI / 2;
+        circle.rotation.y = angle;
         scene.add(circle);
-        orbitalPathObjects.push(circle); // Store for later removal/toggle
+        
+        // Store reference to the path
+        orbitalPaths.push(circle);
     });
-    console.log("Orbital paths created/updated. Visible:", orbitalPathsVisible);
+    
+    orbitalPathsVisible = true;
+    orbitalPathsInitialized = true; // Mark as initialized
+    console.log(`Orbital paths initialized and visible. Flag: ${orbitalPathsVisible}`);
 }
 
-// Function to toggle orbital path visibility
-function toggleOrbitalPathsVisibility() {
-    orbitalPathsVisible = !orbitalPathsVisible;
-    console.log("Orbital paths toggled. Visible:", orbitalPathsVisible);
+
+// Orbital Paths Toggle - Shows/Hides existing paths
+export function toggleOrbitalPaths() {
+    if (!orbitalPathsInitialized) {
+        console.error("Attempted to toggle paths before initialization.");
+        return;
+    }
     
-    // Re-create or remove paths based on the new state
-    createOrbitalPaths(); 
+    if (orbitalPathsVisible) {
+        // If paths are visible, hide them
+        for (let i = 0; i < orbitalPaths.length; i++) {
+            scene.remove(orbitalPaths[i]);
+        }
+        orbitalPathsVisible = false;
+        console.log(`Orbital path visible state: ${orbitalPathsVisible}`);
+    } else {
+        // If paths are hidden, show them
+        for (let i = 0; i < orbitalPaths.length; i++) {
+            scene.add(orbitalPaths[i]);
+        }
+        orbitalPathsVisible = true;
+        console.log(`Orbital path visible state: ${orbitalPathsVisible}`);
+    }
 }
 
