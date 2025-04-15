@@ -14,11 +14,11 @@ import {
     createForwardRotation, 
 } from '../camera.js';
 // Import Cesium rate limiting utilities
-import { configureCesiumRequestScheduler, optimizeTerrainLoading } from '../cesiumRateLimit.js';
+import { configureCesiumRequestScheduler, optimizeTerrainLoading } from '../appConfig/cesiumRateLimit.js';
 // Import the config
-import config from '../config.js';
+import config from '../appConfig/config.js';
 // Import loading managers
-import { loadingManager, textureLoadingManager } from '../loaders.js';
+import { loadingManager, textureLoadingManager } from '../appConfig/loaders.js';
 
 let camera, scene, renderer, tiles, cameraTarget;
 let sanFranInitialized = false;

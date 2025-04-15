@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { loadingManager, textureLoadingManager } from '../loaders.js';
+import { loadingManager, textureLoadingManager } from '../appConfig/loaders.js';
 
 import { updateSpaceMovement, resetMovementInputs } from '../movement.js';
 import { createSpacecraft } from '../spacecraft.js';

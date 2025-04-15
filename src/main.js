@@ -2,8 +2,8 @@
 
 import * as THREE from 'three';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
-import { createRateLimitedGameLoader } from './gameLoader.js';
-import { loadingManager, textureLoadingManager, updateAssetDisplay } from './loaders.js';
+import { createRateLimitedGameLoader } from './appConfig/gameLoader.js';
+import { loadingManager, textureLoadingManager, updateAssetDisplay } from './appConfig/loaders.js';
 
 // Import state environment functions
 import {

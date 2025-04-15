@@ -4,10 +4,10 @@ import { TilesRenderer } from '3d-tiles-renderer/src/three/TilesRenderer.js';
 import { CesiumIonAuthPlugin } from '3d-tiles-renderer/src/plugins/three/CesiumIonAuthPlugin.js';
 import { GLTFExtensionsPlugin } from '3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
-import { loadingManager, textureLoadingManager } from '../loaders.js';
+import { loadingManager, textureLoadingManager } from '../appConfig/loaders.js';
 
-import { configureCesiumRequestScheduler, optimizeTerrainLoading } from '../cesiumRateLimit.js';
-import config from '../config.js';
+import { configureCesiumRequestScheduler, optimizeTerrainLoading } from '../appConfig/cesiumRateLimit.js';
+import config from '../appConfig/config.js';
 
 import { updateMoonMovement, resetMovementInputs } from '../movement.js';
 import { createSpacecraft } from '../spacecraft.js';
