@@ -100,7 +100,8 @@ export function resetMovementInputs() {
  */
 
 let tiles;
-// TAKES SPECIFIC ENVIROMENT'S SPACECRAFT OBJECT AS ARGUMENT
+
+// General movement function that take specific spacecraft object as argument
 export function updateCoreMovement(spacecraft, rotation, isBoosting, environment = 'space') {
     
     // Check if spacecraft is initialized
@@ -199,7 +200,8 @@ export function updateCoreMovement(spacecraft, rotation, isBoosting, environment
     return { forward, nextPosition, environment };
 }
 
-// MOVEMENT UPDATE FUNCTION //
+///// ENVIRONMENT-SPECIFIC MOVEMENT FUNCTIONS /////
+
 export function updateSpaceMovement(spacecraft, rotation, isBoosting, isHyperspace) {
 
     // Check if spacecraft is initialized
@@ -269,16 +271,13 @@ export function updateSpaceMovement(spacecraft, rotation, isBoosting, isHyperspa
     }
 } 
 
-// MOVEMENT UPDATE FUNCTION //
-export function updateMoonMovement(spacecraft, rotation, isBoosting) {
+export function updateSanFranMovement(spacecraft, rotation, isBoosting) {
 
     // Check if spacecraft is initialized
     if (!spacecraft) {
         console.warn("Spacecraft not passed as argument / not yet initialized");
         return null;
     }
-
-    // console.warn("Spacecraft object:", spacecraft);  // Commented out to reduce console spam
 
     // Handle wing animation for boost mode - moon specific handling
     const isInHyperspace = window.isHyperspace || false;
@@ -288,6 +287,7 @@ export function updateMoonMovement(spacecraft, rotation, isBoosting) {
         const shouldWingsBeOpen = !keys.up && !isInHyperspace;
         spacecraft.setWingsOpen(shouldWingsBeOpen);
     } 
+
     // Fallback to manual animation if setWingsOpen is not available
     else if ((keys.up || isInHyperspace) && wingsOpen) {
         // console.log(`moon: Closing wings due to ${isInHyperspace ? 'hyperspace' : 'boost'} mode`);
@@ -299,13 +299,12 @@ export function updateMoonMovement(spacecraft, rotation, isBoosting) {
         wingAnimation = wingTransitionFrames;
     }
 
-    const result = updateCoreMovement(spacecraft, rotation, isBoosting, 'moon');
+    const result = updateCoreMovement(spacecraft, rotation, isBoosting, 'sanFran');
     
     // If core movement failed, exit early
     if (!result) return;
     
-    const originalPosition = spacecraft.position.clone();
-    const { forward, nextPosition } = result;  // Extract nextPosition from result
+    const { nextPosition } = result;  // Extract nextPosition from result
     
     // Apply the new position from core movement
     spacecraft.position.copy(nextPosition);
@@ -326,3 +325,62 @@ export function updateMoonMovement(spacecraft, rotation, isBoosting) {
     }
 
 }
+
+export function updateMoonMovement(spacecraft, rotation, isBoosting) {
+
+    // Check if spacecraft is initialized
+    if (!spacecraft) {
+        console.warn("Spacecraft not passed as argument / not yet initialized");
+        return null;
+    }
+
+    // console.warn("Spacecraft object:", spacecraft);  // Commented out to reduce console spam
+
+    // Handle wing animation for boost mode - moon specific handling
+    const isInHyperspace = window.isHyperspace || false;
+    
+    // Use the proper setWingsOpen method instead of manual animation
+    if (spacecraft && spacecraft.setWingsOpen) {
+        const shouldWingsBeOpen = !keys.up && !isInHyperspace;
+        spacecraft.setWingsOpen(shouldWingsBeOpen);
+    } 
+
+    // Fallback to manual animation if setWingsOpen is not available
+    else if ((keys.up || isInHyperspace) && wingsOpen) {
+        // console.log(`moon: Closing wings due to ${isInHyperspace ? 'hyperspace' : 'boost'} mode`);
+        wingsOpen = false;
+        wingAnimation = wingTransitionFrames;
+    } else if (!keys.up && !isInHyperspace && !wingsOpen) {
+        // console.log('moon: Opening wings for normal flight');
+        wingsOpen = true;
+        wingAnimation = wingTransitionFrames;
+    }
+
+    const result = updateCoreMovement(spacecraft, rotation, isBoosting, 'moon');
+    
+    // If core movement failed, exit early
+    if (!result) return;
+    
+    const { nextPosition } = result;  // Extract nextPosition from result
+    
+    // Apply the new position from core movement
+    spacecraft.position.copy(nextPosition);
+    
+    // Moon-specific terrain handling
+    if (tiles && tiles.group && tiles.group.children.length > 0) {
+        try {
+            const terrainMeshes = [];
+            tiles.group.traverse((object) => {
+                if (object.isMesh && object.geometry) {
+                    terrainMeshes.push(object);
+                }
+            });
+            
+        } catch (error) {
+            console.error("Error in terrain handling:", error);
+        }
+    }
+
+}
+
+

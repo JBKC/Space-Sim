@@ -1,4 +1,3 @@
-// IMPORTS
 import * as THREE from 'three';
 import { TilesRenderer } from '3d-tiles-renderer/src/three/TilesRenderer.js';
 import { CesiumIonAuthPlugin } from '3d-tiles-renderer/src/plugins/three/CesiumIonAuthPlugin.js';
@@ -33,13 +32,9 @@ import {
 import {
     getEarthSurfaceActive,
     getMoonSurfaceActive,
-    setEarthSurfaceActive,
     setMoonSurfaceActive,
-    getSpaceInitialized,
-    setSpaceInitialized,
     getMoonInitialized,
     setMoonInitialized,
-    getMoonTransition,
     setMoonTransition
 } from '../stateEnv.js';
 
@@ -94,8 +89,6 @@ const rotation = {
     yawAxis: new THREE.Vector3(0, 1, 0),
     rollAxis: new THREE.Vector3(0, 0, 1)
 };
-
-
 
 // Camera update function
 function updateCamera(camera, isHyperspace) {
@@ -181,7 +174,7 @@ export {
 };
 
 
-///////////////////// MOON-SPECIFIC INITIALIZATION /////////////////////
+///////////////////// MOON-SPECIFIC INITIALIZATION PART 1 /////////////////////
 
 let moonSun, moonSunTarget; // Main directional light and its target
 let planetSphere; // This is the Earth seen from the moon
@@ -422,6 +415,7 @@ function initSpacecraft() {
 }
 
 
+
 /// CORE INITIALIZATION FUNCTION ///
 export function init() {
     
@@ -447,7 +441,7 @@ export function init() {
 
     // Initialize scene elements
     initControls(getEarthSurfaceActive(), getMoonSurfaceActive()); // Re-init or check if already initialized?
-    setupmoonLighting(); // Add lighting to the scene
+    setupMoonLighting(); // Add lighting to the scene
     createplanetSphere(); // Creates Earth seen from moon
     reinstantiateTiles(); // Creates new tileset
 
@@ -599,7 +593,7 @@ export function resetPosition() {
 }
 
 
-///////////////////// MOON-SPECIFIC INITIALIZATION /////////////////////
+///////////////////// MOON-SPECIFIC INITIALIZATION PART 2 /////////////////////
 
 
 // Convert Cesium coordinates to Cartesian (local) coordinates
@@ -661,7 +655,6 @@ function setupTiles() {
     scene.add(tiles.group);
 }
 
-// Modify the reinstantiateTiles function to call alignGridToTerrain immediately without the timeout delay
 function reinstantiateTiles() {
     if (tiles) {
         scene.remove(tiles.group);
@@ -688,13 +681,12 @@ function reinstantiateTiles() {
     setupTiles();
 }
 
-// Export tiles for use in other modules
 export { tiles };
 
 ///////////////////// SCENE LIGHTING /////////////////////
 
 // Define the lighting params
-function setupmoonLighting() {
+function setupMoonLighting() {
     // Create basic ambient light
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     scene.add(ambientLight);

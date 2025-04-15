@@ -226,13 +226,15 @@ earthMsg.id = 'earth-surface-message';
 earthMsg.style.position = 'fixed';
 earthMsg.style.top = '20px';
 earthMsg.style.right = '20px';
-earthMsg.style.color = 'white';
+earthMsg.style.color = '#b3e5fc';
 earthMsg.style.fontFamily = 'Orbitron, sans-serif';
 earthMsg.style.fontSize = '16px';
 earthMsg.style.padding = '10px';
 earthMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
 earthMsg.style.borderRadius = '5px';
 earthMsg.style.zIndex = '9999';
+earthMsg.style.boxShadow = '0 0 10px rgba(79, 195, 247, 0.3)'; // Added subtle blue glow
+earthMsg.style.border = '1px solid rgba(79, 195, 247, 0.3)'; // Added subtle border
 earthMsg.innerHTML = 'EARTH SURFACE<br>Press ESC to return to space<br>Press R to reset position';
 
 

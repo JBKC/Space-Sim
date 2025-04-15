@@ -40,15 +40,13 @@ import {
     updatePlanetLabels
 } from './spaceEnvs/setup.js';
 
-// Earth scene imports
+// Earth scene imports (set to San Francisco)
 import { 
     init as initEarthSurface, 
     update as updateEarthSurface,
-    scene as earthScene,
-    camera as earthCamera,
     renderer as earthRenderer,
-    resetPosition as resetEarthPosition,  // Import the generic reset position function
-    resetSanFranInitialized,  // Import the new function to reset the San Fran initialization flag
+    renderScene as renderEarthScene,
+    resetPosition as resetEarthPosition,
 } from './planetEnvs/sanFranCesium.js';
 // } from './planetEnvs/washingtonCesium.js';
 
@@ -56,11 +54,9 @@ import {
 import { 
     init as initMoonSurface, 
     update as updateMoonSurface,
-    scene as moonScene,
-    camera as moonCamera,
     renderer as moonRenderer,
     renderScene as renderMoonScene,
-    resetPosition as resetMoonPosition,  // Import the generic reset position function
+    resetPosition as resetMoonPosition,
 } from './planetEnvs/moonCesium.js';
 
 
@@ -251,7 +247,7 @@ function showMoonTransition(callback) {
         transitionElement.style.opacity = '0';
         
         // Wait for fade-out to complete before hiding
-    setTimeout(() => {
+        setTimeout(() => {
             transitionElement.style.display = 'none';
         }, 500);
         

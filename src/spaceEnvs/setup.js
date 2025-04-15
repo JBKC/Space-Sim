@@ -458,7 +458,7 @@ export function checkPlanetProximity() {
 
 // Reset space scene after exiting Earth surface
 export function exitEarthSurface() {
-    console.log("Exiting Earth's surface!");
+    console.log("Exiting Earth's surface");
     setEarthSurfaceActive(false);
     setEarthTransition(true); // Set transition flag to TRUE on exit
     
@@ -524,7 +524,7 @@ export function exitEarthSurface() {
 
 // Reset space scene after exiting Moon surface
 export function exitMoonSurface() {
-    console.log("Exiting Moon's surface!");
+    console.log("Exiting Moon's surface");
     setMoonSurfaceActive(false);
     setMoonTransition(true); // Set transition flag to TRUE on exit
     
