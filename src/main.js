@@ -34,6 +34,10 @@ import {
     camera as spaceCamera,
     renderScene as renderSpaceScene,
     startHyperspace,
+    checkPlanetProximity,
+    updateStreaks,
+    streakLines,
+    updatePlanetLabels
 } from './spaceEnvs/setup.js';
 
 // Earth scene imports
@@ -388,6 +392,11 @@ function animate(currentTime = 0) {
                         progressContainer.style.zIndex = '10000';
                         progressContainer.style.opacity = '1';
                         progressContainer.style.visibility = 'visible';
+                    }
+                    
+                    // Explicit call to update streaks in the main animation loop
+                    if (typeof updateStreaks === 'function' && streakLines && streakLines.length > 0) {
+                        updateStreaks(deltaTime);
                     }
                 }
                 
