@@ -6,20 +6,15 @@ import { loadingManager, textureLoadingManager } from '../loaders.js';
 
 import { updateSpaceMovement, resetMovementInputs } from '../movement.js';
 import { createSpacecraft } from '../spacecraft.js';
-import { updateControlsDropdown, 
+import { 
+    updateControlsDropdown, 
+    planetInfo, 
     planetInfoBox, 
-    labels, 
-    earthDistanceIndicator, 
-    moonDistanceIndicator, 
-    lastHoveredPlanet, 
-    createPlanetLabel,
-    planetInfo,
-    celestialObjects,
     explorationCounter,
-    resetExploredObjects,
-    markAsExplored,
-    updateExplorationCounter
-} from '../ui.js';
+    planetaryBlue,
+    earthDistanceIndicator,
+    moonDistanceIndicator
+ } from '../ui.js';
 import { 
     spaceCamera, 
     cockpitCamera,
@@ -61,8 +56,11 @@ const scene = new THREE.Scene();
 const renderer = new THREE.WebGLRenderer();
 // const textureLoader = new THREE.TextureLoader(textureLoadingManager);
 // const loader = new GLTFLoader();
-renderer.setSize(window.innerWidth, window.innerHeight);
+
+// Get space container so we render scene to the correct DOM (document object model) element within the browser
 document.getElementById('space-container').appendChild(renderer.domElement);
+
+renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.autoClear = true;
 renderer.sortObjects = false;
@@ -772,6 +770,21 @@ import { lucrehulkGroup, lucrehulkCollisionBox } from './solarSystemEnv.js';
 import { asteroidBeltGroup, asteroidCollisionSphere } from './solarSystemEnv.js';
 
 
+// Define all celestial objects that can be discovered
+const celestialObjects = [
+    'mercury',
+    'venus',
+    'earth',
+    'moon',
+    'mars',
+    'jupiter',
+    'saturn',
+    'uranus',
+    'neptune',
+    'imperial star destroyer', // Counts as one object total
+    'lucrehulk'
+];
+
 // Add all elements to scene
 scene.add(skybox);
 scene.add(stars);
@@ -952,8 +965,24 @@ const labelData = [
 ];
 
 // Create and store label elements
+const labels = [];
 labelData.forEach(planet => {
-    createPlanetLabel(planet.name, planet.group, planet.radius);
+    const label = document.createElement('div');
+    label.className = 'planet-label';
+    label.textContent = planet.name;
+    
+    // Hide Star Destroyer and Lucrehulk labels visually while keeping them in the DOM
+    if (planet.name === 'Imperial Star Destroyer' || planet.name === 'Lucrehulk') {
+        label.style.opacity = '0'; // Make invisible but keep it in the DOM for positioning
+        label.style.pointerEvents = 'none'; // Ensure it doesn't interfere with interaction
+    }
+    
+    document.body.appendChild(label); // Add to DOM
+    labels.push({
+        element: label,
+        planetGroup: planet.group,
+        radius: planet.radius
+    });
 });
 
 // Function to update label positions
@@ -1002,7 +1031,7 @@ export function updatePlanetLabels() {
             earthDistanceIndicator.style.color = 'white';
             earthDistanceIndicator.style.fontSize = '20px';
             earthDistanceIndicator.style.fontWeight = 'normal';
-            earthDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px rgba(79, 195, 247, 1.0)';
+            earthDistanceIndicator.style.textShadow = `0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px ${planetaryBlue}`;
             earthDistanceIndicator.textContent = `EARTH ENTRY: ${Math.round(distanceToEntry)}`;
             // Remove animations
             earthDistanceIndicator.classList.remove('distance-indicator-pulse');
@@ -1013,7 +1042,7 @@ export function updatePlanetLabels() {
         earthDistanceIndicator.style.color = 'white';
         earthDistanceIndicator.style.fontSize = '18px';
         earthDistanceIndicator.style.fontWeight = 'normal';
-        earthDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px rgba(79, 195, 247, 1.0)';
+        earthDistanceIndicator.style.textShadow = `0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px ${planetaryBlue}`;
         earthDistanceIndicator.textContent = `EARTH ENTRY: ${Math.round(distanceToEntry)}`;
         // Remove animations
         earthDistanceIndicator.classList.remove('distance-indicator-pulse');
@@ -1043,7 +1072,7 @@ export function updatePlanetLabels() {
             moonDistanceIndicator.style.color = 'white';
             moonDistanceIndicator.style.fontSize = '20px';
             moonDistanceIndicator.style.fontWeight = 'normal';
-            moonDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px rgba(79, 195, 247, 1.0)';
+            moonDistanceIndicator.style.textShadow = `0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px ${planetaryBlue}`;
             moonDistanceIndicator.textContent = `MOON ENTRY: ${Math.round(moonEntryDistance)}`;
             // Remove animations
             moonDistanceIndicator.classList.remove('distance-indicator-pulse');
@@ -1054,7 +1083,7 @@ export function updatePlanetLabels() {
         moonDistanceIndicator.style.color = 'white';
         moonDistanceIndicator.style.fontSize = '18px';
         moonDistanceIndicator.style.fontWeight = 'normal';
-        moonDistanceIndicator.style.textShadow = '0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px rgba(79, 195, 247, 1.0)';
+        moonDistanceIndicator.style.textShadow = `0 0 15px rgba(255, 255, 255, 1.0), 0 0 25px ${planetaryBlue}`;
         moonDistanceIndicator.textContent = `MOON ENTRY: ${Math.round(moonEntryDistance)}`;
         // Remove animations
         moonDistanceIndicator.classList.remove('distance-indicator-pulse');
@@ -1147,6 +1176,13 @@ export const EARTH_POSITION = earthGroup.position;
 
 // Create a raycaster for planet detection
 const raycaster = new THREE.Raycaster();
+let lastHoveredPlanet = null;
+
+// Add the planet info box style to scene (imported from ui.js)
+document.body.appendChild(planetInfoBox);
+// Add the exploration counter style to scene (imported from ui.js)
+document.body.appendChild(explorationCounter);
+
 
 // Core function that detects when the reticle intersects with planets -> shows the info box
 export function checkReticleHover() {
@@ -1207,33 +1243,33 @@ export function checkReticleHover() {
                     if (info.composition && info.atmosphere && info.gravity) {
                         // Planet format
                     planetInfoBox.innerHTML = `
-                        <div style="text-align: center; margin-bottom: 10px; font-size: 20px; color: #4fc3f7;">
+                        <div style="text-align: center; margin-bottom: 10px; font-size: 20px; color: ${planetaryBlue};">
                             ${planetObj.name.toUpperCase()}
                         </div>
                         <div style="margin-bottom: 8px;">
-                            <span style="color: #4fc3f7;">Composition:</span> ${info.composition}
+                            <span style="color: ${planetaryBlue};">Composition:</span> ${info.composition}
                         </div>
                         <div style="margin-bottom: 8px;">
-                            <span style="color: #4fc3f7;">Atmosphere:</span> ${info.atmosphere}
+                            <span style="color: ${planetaryBlue};">Atmosphere:</span> ${info.atmosphere}
                         </div>
                         <div>
-                            <span style="color: #4fc3f7;">Gravity:</span> ${info.gravity}
+                            <span style="color: ${planetaryBlue};">Gravity:</span> ${info.gravity}
                         </div>
                     `;
                     } else {
                         // Star Wars format
                         planetInfoBox.innerHTML = `
-                            <div style="text-align: center; margin-bottom: 10px; font-size: 20px; color: #4fc3f7;">
+                            <div style="text-align: center; margin-bottom: 10px; font-size: 20px; color: ${planetaryBlue};">
                                 ${planetObj.name.toUpperCase()}
                             </div>
                             <div style="margin-bottom: 8px;">
-                                <span style="color: #4fc3f7;">Affiliation:</span> ${info.affiliation}
+                                <span style="color: ${planetaryBlue};">Affiliation:</span> ${info.affiliation}
                             </div>
                             <div style="margin-bottom: 8px;">
-                                <span style="color: #4fc3f7;">Manufacturer:</span> ${info.manufacturer}
+                                <span style="color: ${planetaryBlue};">Manufacturer:</span> ${info.manufacturer}
                             </div>
                             <div>
-                                <span style="color: #4fc3f7;">Crew:</span> ${info.crew}
+                                <span style="color: ${planetaryBlue};">Crew:</span> ${info.crew}
                             </div>
                         `;
                     }
@@ -1382,6 +1418,63 @@ export function checkReticleHover() {
         
     }
 }
+
+// Initialize explored objects - resets every time
+let exploredObjects = {};
+// Initialize with all objects unexplored
+function resetExploredObjects() {
+    celestialObjects.forEach(object => {
+        exploredObjects[object] = false;
+    });
+    updateExplorationCounter();
+}
+// Function to mark an object as explored
+function markAsExplored(objectName) {
+    if (objectName && !exploredObjects[objectName]) {
+        exploredObjects[objectName] = true;
+        updateExplorationCounter();
+        // Discovery notification popup removed as requested
+    }
+}
+// Update the exploration counter display
+function updateExplorationCounter() {
+    const count = Object.values(exploredObjects).filter(Boolean).length;
+    const total = Object.keys(exploredObjects).length;
+    explorationCounter.innerHTML = `Celestial Objects Discovered: <span style="color: white; font-weight: bold;">${count}/${total}</span>`;
+    
+    // Check if all objects have been explored
+    if (count === total) {
+        // All objects explored - permanent blue glow effect
+        explorationCounter.style.boxShadow = `0 0 15px 5px ${planetaryBlue}`;
+        explorationCounter.style.border = `2px solid ${planetaryBlue}`;
+        explorationCounter.style.backgroundColor = 'rgba(0, 20, 40, 0.8)';
+        // Add a congratulatory message
+        explorationCounter.innerHTML = `<span style="color: ${planetaryBlue}; font-weight: bold;">ALL CELESTIAL OBJECTS DISCOVERED</span>`;
+    } 
+    // Otherwise, add temporary visual flourish when a new object is discovered
+    else if (count > 0) {
+        explorationCounter.style.boxShadow = `0 0 10px ${planetaryBlue}`;
+        setTimeout(() => {
+            // Only remove the glow if we haven't completed everything
+            if (Object.values(exploredObjects).filter(Boolean).length !== total) {
+                explorationCounter.style.boxShadow = 'none';
+            }
+        }, 2000);
+    }
+}
+// Reset explored objects on startup
+resetExploredObjects();
+
+
+
+// Special Countdown Indicators for Enterable Objects //
+
+document.body.appendChild(earthDistanceIndicator);
+document.body.appendChild(moonDistanceIndicator);
+
+
+/////////////////////
+
 
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;

@@ -1,6 +1,12 @@
 // src/ui.js
 
-// Setup controls dropdown functionality
+////////// GENERAL APPEARANCE//////////
+
+export const planetaryBlue = '#4fc3f7';
+
+////////// CONTROLS DROPDOWN //////////
+
+// Controls Dropdown (press Enter prompt in top left corner)
 export function setupControlsDropdown() {
     const controlsPrompt = document.getElementById('controls-prompt');
     const controlsDropdown = document.getElementById('controls-dropdown');
@@ -30,7 +36,7 @@ export function setupControlsDropdown() {
     controlsPrompt.addEventListener('click', toggleControlsDropdown);
 }
 
-// Export the toggle function to be accessible from other modules
+// Toggle controls dropdown
 export function toggleControlsDropdown() {
     const controlsDropdown = document.getElementById('controls-dropdown');
     const controlsPrompt = document.getElementById('controls-prompt');
@@ -88,49 +94,157 @@ export function showControlsPrompt() {
     }
 }
 
-let previousAngle = 0;
-const smoothingFactor = 0.1;
 
-export function initUI(startGameCallback) {
-    const welcomeScreen = document.getElementById('welcome-screen');
-    const exploreButton = document.getElementById('explore-button');
-    const controlsPrompt = document.getElementById('controls-prompt');
-    const controlsDropdown = document.getElementById('controls-dropdown');
 
-    // --- Welcome screen button --- 
-    if (exploreButton && welcomeScreen) {
-        exploreButton.addEventListener('click', () => {
-            startGameCallback('free'); // Use the passed callback
-            welcomeScreen.style.display = 'none';
-            if (controlsPrompt) controlsPrompt.style.display = 'block'; // Show prompt after start
-            console.log('Explore button clicked, starting game.');
-        });
+///// EXPLORATION / CELESTIAL BODY INFO /////
+
+// Create data for popups on all celestial objects
+export const planetInfo = {
+    'mercury': {
+        composition: 'Metallic core, silicate crust',
+        atmosphere: 'Thin exosphere',
+        gravity: '38% of Earth'
+    },
+    'venus': {
+        composition: 'Rocky, iron core',
+        atmosphere: 'Thick CO₂, sulfuric acid',
+        gravity: '90% of Earth'
+    },
+    'earth': {
+        composition: 'Iron core, silicate mantle',
+        atmosphere: 'Nitrogen, oxygen',
+        gravity: '9.81 m/s²'
+    },
+    'moon': {
+        composition: 'Rocky, silicate crust',
+        atmosphere: 'Thin exosphere',
+        gravity: '16% of Earth'
+    },
+    'mars': {
+        composition: 'Rocky, iron-nickel core',
+        atmosphere: 'Thin CO₂',
+        gravity: '38% of Earth'
+    },
+    'asteroid belt': {
+        composition: 'Silicate rock, metals, carbon',
+        atmosphere: 'None (vacuum of space)',
+        gravity: 'Negligible'
+    },
+    'jupiter': {
+        composition: 'Hydrogen, helium',
+        atmosphere: 'Dynamic storms',
+        gravity: '250% of Earth'
+    },
+    'saturn': {
+        composition: 'Hydrogen, helium',
+        atmosphere: 'Fast winds, methane',
+        gravity: '107% of Earth'
+    },
+    'uranus': {
+        composition: 'Icy, hydrogen, helium',
+        atmosphere: 'Methane haze',
+        gravity: '89% of Earth'
+    },
+    'neptune': {
+        composition: 'Icy, rocky core',
+        atmosphere: 'Methane clouds',
+        gravity: '114% of Earth'
+    },
+    'imperial star destroyer': {
+        affiliation: 'Galactic Empire',
+        manufacturer: 'Kuat Drive Yards',
+        crew: '40,000'
+    },
+    'lucrehulk': {
+        affiliation: 'Confederacy of Independent Systems',
+        manufacturer: 'Hoersch-Kessel Drive',
+        crew: '200,000'
     }
+};
 
-    // --- Controls Dropdown Toggle (Enter Key) --- 
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            // Check if welcome screen is visible
-            if (welcomeScreen && welcomeScreen.style.display !== 'none') {
-                console.log('Enter pressed, but welcome screen is visible. Ignoring.');
-                return; // Do nothing if welcome screen is up
-            }
-            
-            // Toggle dropdown if welcome screen is hidden
-            if (controlsDropdown) {
-                const isVisible = controlsDropdown.style.display === 'block';
-                controlsDropdown.style.display = isVisible ? 'none' : 'block';
-                console.log(`Enter pressed, toggling controls dropdown to ${isVisible ? 'hidden' : 'visible'}`);
-            }
-        }
-    });
+// Create the info box design
+export const planetInfoBox = document.createElement('div');
+planetInfoBox.className = 'planet-info-box';
+planetInfoBox.style.position = 'absolute';
+planetInfoBox.style.fontFamily = 'Orbitron, sans-serif';
+planetInfoBox.style.fontSize = '16px';
+planetInfoBox.style.color = 'white';
+planetInfoBox.style.backgroundColor = 'rgba(1, 8, 36, 0.8)';
+planetInfoBox.style.border = `2px solid ${planetaryBlue}`;
+planetInfoBox.style.borderRadius = '5px';
+planetInfoBox.style.padding = '15px';
+planetInfoBox.style.width = '320px';
+planetInfoBox.style.pointerEvents = 'none';
+planetInfoBox.style.zIndex = '1000';
+planetInfoBox.style.display = 'none'; // Hidden by default
+// Ensure the box isn't positioned off-screen initially
+planetInfoBox.style.right = '';
+planetInfoBox.style.left = '';
+planetInfoBox.style.top = '';
 
-    // --- Controls Dropdown Toggle (Click Prompt) ---
-    if (controlsPrompt && controlsDropdown) {
-        controlsPrompt.addEventListener('click', () => {
-            const isVisible = controlsDropdown.style.display === 'block';
-            controlsDropdown.style.display = isVisible ? 'none' : 'block';
-            console.log(`Controls prompt clicked, toggling controls dropdown to ${isVisible ? 'hidden' : 'visible'}`);
-        });
-    }
-}
+// Create the exploration counter design
+export const explorationCounter = document.createElement('div');
+explorationCounter.className = 'exploration-counter';
+explorationCounter.style.position = 'fixed';
+explorationCounter.style.top = '20px';
+explorationCounter.style.right = '20px';
+explorationCounter.style.padding = '10px 15px';
+explorationCounter.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+explorationCounter.style.color = planetaryBlue;
+explorationCounter.style.fontFamily = 'Orbitron, sans-serif';
+explorationCounter.style.fontSize = '16px';
+explorationCounter.style.borderRadius = '5px';
+explorationCounter.style.border = `1px solid ${planetaryBlue}`;
+explorationCounter.style.zIndex = '1000';
+explorationCounter.style.display = 'none'; // Initially hidden until game starts
+
+
+///// Special Countdown Indicators for Enterable Objects /////
+
+// Earth
+export const earthDistanceIndicator = document.createElement('div');
+earthDistanceIndicator.className = 'distance-indicator';
+earthDistanceIndicator.style.color = 'white';
+earthDistanceIndicator.style.fontFamily = 'Orbitron, sans-serif';
+earthDistanceIndicator.style.fontSize = '18px';
+earthDistanceIndicator.style.textAlign = 'center';
+earthDistanceIndicator.style.position = 'absolute';
+earthDistanceIndicator.style.display = 'none'; // Initially hidden
+earthDistanceIndicator.style.backgroundColor = 'rgba(1, 8, 36, 0.6)';
+earthDistanceIndicator.style.padding = '5px 10px';
+earthDistanceIndicator.style.borderRadius = '5px';
+earthDistanceIndicator.style.zIndex = '9999'; // Ensure it's on top of other elements
+document.body.appendChild(earthDistanceIndicator);
+
+// Moon
+export const moonDistanceIndicator = document.createElement('div');
+moonDistanceIndicator.className = 'distance-indicator';
+moonDistanceIndicator.style.color = 'white';
+moonDistanceIndicator.style.fontFamily = 'Orbitron, sans-serif';
+moonDistanceIndicator.style.fontSize = '18px';
+moonDistanceIndicator.style.textAlign = 'center';
+moonDistanceIndicator.style.position = 'absolute';
+moonDistanceIndicator.style.display = 'none'; // Initially hidden
+moonDistanceIndicator.style.backgroundColor = 'rgba(1, 8, 36, 0.6)';
+moonDistanceIndicator.style.padding = '5px 10px';
+moonDistanceIndicator.style.borderRadius = '5px';
+moonDistanceIndicator.style.zIndex = '9998'; // Ensure it's always just below the earth distance indicator
+document.body.appendChild(moonDistanceIndicator);
+
+
+///// Surface Message / Button Prompts /////
+export const moonMsg = document.createElement('div');
+moonMsg.id = 'moon-surface-message';
+moonMsg.style.position = 'fixed';
+moonMsg.style.top = '20px';
+moonMsg.style.right = '20px';
+moonMsg.style.color = '#b3e5fc'; // Changed from white to light blue
+moonMsg.style.fontFamily = 'Orbitron, sans-serif';
+moonMsg.style.fontSize = '16px';
+moonMsg.style.padding = '10px';
+moonMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+moonMsg.style.borderRadius = '5px';
+moonMsg.style.zIndex = '9999';
+moonMsg.style.boxShadow = '0 0 10px rgba(79, 195, 247, 0.3)'; // Added subtle blue glow
+moonMsg.style.border = '1px solid rgba(79, 195, 247, 0.3)'; // Added subtle border
+moonMsg.innerHTML = 'MOON SURFACE<br>Press ESC to return to space<br>Press R to reset position';

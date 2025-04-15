@@ -185,14 +185,10 @@ export {
 
 ///////////////////// MOON-SPECIFIC INITIALIZATION /////////////////////
 
-let localOrigin; // Local origin point for coordinate system
+let moonSun, moonSunTarget; // Main directional light and its target
 let planetSphere; // This is the Earth seen from the moon
 
-// Lighting elements
-let moonSun, moonSunTarget; // Main directional light and its target
-
-
-// SET PARAMETERS
+// Spacecraft initial position
 const SPACECRAFT_INITIAL_LAT = 0.6741;
 const SPACECRAFT_INITIAL_LON = 23.4733;
 const SPACECRAFT_INITIAL_HEIGHT = 20000;
@@ -697,7 +693,7 @@ function reinstantiateTiles() {
 // Export tiles for use in other modules
 export { tiles };
 
-///////////////////// LIGHTING /////////////////////
+///////////////////// SCENE LIGHTING /////////////////////
 
 // Define the lighting params
 function setupmoonLighting() {
@@ -772,7 +768,7 @@ function updatemoonLighting() {
 
 
 
-///////////////////// CREATE EARTH SPHERE FROM MOON'S VIEW /////////////////////
+///////////////////// CREATE EARTH VISIBLE FROM MOON SURFACE /////////////////////
 
 function createplanetSphere() {
   if (!spacecraft) {
