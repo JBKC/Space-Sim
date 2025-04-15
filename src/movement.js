@@ -280,8 +280,6 @@ export function updateMoonMovement(spacecraft, rotation, isBoosting) {
 
     // console.warn("Spacecraft object:", spacecraft);  // Commented out to reduce console spam
 
-
-
     // Handle wing animation for boost mode - moon specific handling
     const isInHyperspace = window.isHyperspace || false;
     
@@ -301,7 +299,6 @@ export function updateMoonMovement(spacecraft, rotation, isBoosting) {
         wingAnimation = wingTransitionFrames;
     }
 
-    // COLLISION DETECTION ON THE MOON
     const result = updateCoreMovement(spacecraft, rotation, isBoosting, 'moon');
     
     // If core movement failed, exit early
@@ -323,73 +320,9 @@ export function updateMoonMovement(spacecraft, rotation, isBoosting) {
                 }
             });
             
-            if (terrainMeshes.length > 0) {
-
-                // RAY CASTING FOR COLLISION DETECTION
-                
-                // Get forward direction for collision response
-                const downDirection = new THREE.Vector3(0, -1, 0);
-                raycaster.set(spacecraft.position, downDirection);
-                raycaster.near = 0;
-                raycaster.far = 1000;
-                
-                const groundHits = raycaster.intersectObjects(terrainMeshes, false);
-                if (groundHits.length > 0) {
-                    let groundNormal = groundHits[0].normal || 
-                        (groundHits[0].point ? new THREE.Vector3().subVectors(groundHits[0].point, new THREE.Vector3(0, 0, 0)).normalize() : null);
-                    
-                    // Keep slope avoidance for preventing collisions with mountains
-                    if (groundNormal) {
-                        const upVector = new THREE.Vector3(0, 1, 0);
-                        const slopeAngle = Math.acos(groundNormal.dot(upVector)) * (180 / Math.PI);
-                        if (slopeAngle > MAX_SLOPE_ANGLE) {
-                            const rightVector = new THREE.Vector3().crossVectors(forward, upVector).normalize();
-                            const adjustedForward = new THREE.Vector3().crossVectors(rightVector, groundNormal).normalize();
-                            forward.lerp(adjustedForward, 0.5);
-                        }
-                    }
-                    
-                }
-            }
         } catch (error) {
             console.error("Error in terrain handling:", error);
         }
     }
 
-    // Moon-specific collision detection - keep this part
-    try {
-        if (tiles && tiles.group && tiles.group.children.length > 0) {
-            if (checkTerrainCollision()) {
-                console.log("Collision detected and resolved");
-                
-                // Show "WASTED" message (or similar) here if desired
-                // You might want to add a UI element for this
-                
-                // Keep camera adjustment on collision
-                const isFirstPerson = spacecraft.isFirstPersonView && typeof spacecraft.isFirstPersonView === 'function' ? 
-                    spacecraft.isFirstPersonView() : false;
-                
-                // Force the camera state to use collision offsets
-                cameraState.targetOffset = isFirstPerson ? 
-                    moonCockpitCamera.collision.clone() : 
-                    moonCamera.collision.clone();
-                
-                // If still colliding, reset position (keep this functionality)
-                if (checkTerrainCollision()) {
-                    console.log("Multiple collisions detected, resetting spacecraft position");
-                    
-                    // Reset to original position as immediate fallback
-                    spacecraft.position.copy(originalPosition);
-                    
-                    // Optionally, call the full reset function after a delay
-                    setTimeout(() => {
-                        resetPosition();
-                    }, 1000); // Reset after 1 second delay
-                }
-            }
-        }
-    } catch (error) {
-        console.error("Error during collision detection:", error);
-        spacecraft.position.copy(originalPosition);
-    }
 }

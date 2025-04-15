@@ -220,6 +220,22 @@ document.body.appendChild(moonDistanceIndicator);
 
 
 ///// Surface Message / Button Prompts /////
+
+export const earthMsg = document.createElement('div');
+earthMsg.id = 'earth-surface-message';
+earthMsg.style.position = 'fixed';
+earthMsg.style.top = '20px';
+earthMsg.style.right = '20px';
+earthMsg.style.color = 'white';
+earthMsg.style.fontFamily = 'Orbitron, sans-serif';
+earthMsg.style.fontSize = '16px';
+earthMsg.style.padding = '10px';
+earthMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+earthMsg.style.borderRadius = '5px';
+earthMsg.style.zIndex = '9999';
+earthMsg.innerHTML = 'EARTH SURFACE<br>Press ESC to return to space<br>Press R to reset position';
+
+
 export const moonMsg = document.createElement('div');
 moonMsg.id = 'moon-surface-message';
 moonMsg.style.position = 'fixed';

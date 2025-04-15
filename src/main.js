@@ -71,6 +71,7 @@ import {
     showControlsPrompt,
     updateControlsDropdown,
     toggleControlsDropdown,
+    earthMsg,
     moonMsg
 } from './ui.js';
 
@@ -81,10 +82,11 @@ import {
     getControlsToggleRequested
 } from './inputControls.js';
 
-/// TO SIMPLIFY / REMOVE
+
+
+/// IS THIS FLUFF????
 
 let isAnimating = false;
-let isFirstEarthEntry = true;
 
 
 // Added delta time calculation for smoother animations
@@ -416,150 +418,75 @@ function animate(currentTime = 0) {
 
         // CASE 1 = earth surface view
         if (isEarthSurfaceActive && !isMoonSurfaceActive) {
+            
             try {
                 // Reset movement inputs immediately to prevent stuck key states
                 resetMovementInputs();
                 
                 // Detect if we just entered Earth's surface using the transition flag
                 if (getEarthTransition()) {
-                    // Reset movement inputs immediately to prevent stuck key states
-                    resetMovementInputs();
-                    
+                    console.log('🌏 EARTH TRANSITION......');
+
                     // Show transition before initializing Earth surface
                     showEarthTransition(() => {
-                        // Reset movement inputs again after transition to ensure clean state
                         resetMovementInputs();
                         
                         // Initialize Earth once the transition is complete
                         if (!getEarthInitialized()) {
                             console.log('Initializing Earth surface');
-                            const earthObjects = initEarthSurface();
+                            initEarthSurface();
                             setEarthInitialized(true);
-                            console.log('Earth surface initialized successfully', earthObjects);
+                            console.log('Earth surface initialized.');
                             
-                            // Also reset the Earth-specific keys
-                            resetEarthKeys();
-                            
-                            // Hide space container to see surface scene
-                            const spaceContainer = document.getElementById('space-container');
-                            if (spaceContainer) {
-                                spaceContainer.style.display = 'none';
-                                console.log('Hid space-container');
-                            }
-                            
-                            // Show Earth surface message
-                            const earthMsg = document.createElement('div');
-                            earthMsg.id = 'earth-surface-message';
-                            earthMsg.style.position = 'fixed';
-                            earthMsg.style.top = '20px';
-                            earthMsg.style.right = '20px';
-                            earthMsg.style.color = 'white';
-                            earthMsg.style.fontFamily = 'Orbitron, sans-serif';
-                            earthMsg.style.fontSize = '16px';
-                            earthMsg.style.padding = '10px';
-                            earthMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-                            earthMsg.style.borderRadius = '5px';
-                            earthMsg.style.zIndex = '9999';
-                            earthMsg.innerHTML = 'EARTH SURFACE<br>Press ESC to return to space<br>Press R to reset position';
-                            document.body.appendChild(earthMsg);
-                            
-                            // Hide coordinates display in earth surface mode
-                            const coordsDiv = document.getElementById('coordinates');
-                            if (coordsDiv) {
-                                coordsDiv.style.display = 'none';
-                            }
-                            
-                            // Hide exploration counter on Earth's surface
-                            const explorationCounter = document.querySelector('.exploration-counter');
-                            if (explorationCounter) {
-                                explorationCounter.style.display = 'none';
-                            }
-                            
-                            // Hide hyperspace progress container on Earth's surface
-                            const progressContainer = document.getElementById('hyperspace-progress-container');
-                            if (progressContainer) {
-                                progressContainer.style.display = 'none';
-                            }
-                            
-                            // Clean up any existing hyperspace streaks
-                            if (streakLines && streakLines.length > 0) {
-                                streakLines.forEach(streak => spaceScene.remove(streak.line));
-                                streakLines = [];
-                                isHyperspace = false;
-                            }
-                            
-                            // Hide any planet info boxes that might be visible
-                            const planetInfoBox = document.querySelector('.planet-info-box');
-                            if (planetInfoBox) {
-                                planetInfoBox.style.display = 'none';
-                            }
-                            
-                            // Hide any distance indicators
-                            const distanceIndicators = document.querySelectorAll('.distance-indicator');
-                            distanceIndicators.forEach(indicator => {
-                                indicator.style.display = 'none';
-                            });
-                            
-                            // Hide any other UI elements that should not be visible on planet surface
-                            // Look for elements by class that might contain 'popup', 'tooltip', or 'notification'
-                            const otherUIElements = document.querySelectorAll('[class*="popup"], [class*="tooltip"], [class*="notification"]');
-                            otherUIElements.forEach(element => {
-                                element.style.display = 'none';
-                            });
-                            
-                            // Ensure keyboard focus is on the page after scene change
+                        
+                            // Reset position to starting point over San Francisco every time we enter Earth surface
+                            console.log('Scheduling automatic position reset with 200ms delay');
                             setTimeout(() => {
-                                window.focus();
-                                document.body.focus();
-                                console.log('Set keyboard focus after Earth initialization');
-                            }, 300);
-                            
-                            // Set transition flag to false after successful initialization
+                                console.log('Automatically resetting position to starting point');
+                                resetEarthPosition();
+                                // Ensure movement inputs are reset *after* position reset
+                                resetMovementInputs(); 
+                            }, 200); 
+
+                            // Set transition flag to false AFTER initialization and scheduling reset
                             setEarthTransition(false);
                             console.log('Earth transition complete, flag set to false');
-                        }
-                        
-                        // Reset position to starting point over San Francisco every time we enter Earth surface
-                        console.log('Scheduling automatic position reset with 200ms delay');
-                        setTimeout(() => {
-                            console.log('Automatically resetting position to starting point');
-                            resetEarthPosition();
-                            
-                            // Ensure no keys are stuck after position reset
-                            resetMovementInputs();
-                            resetEarthKeys(); // Reset Earth-specific keys too
-                            
-                            // Set first entry flag to false AFTER the initial position reset
-                            if (isFirstEarthEntry) {
-                                console.log('First Earth entry completed');
-                                isFirstEarthEntry = false;
-                            }
-                        }, 200);
+
+                            hideSpaceScene();
+
+                            // Show Earth surface message
+                            document.body.appendChild(earthMsg);
+                        }   
                     });
                 }
-                
-                // If Earth is already initialized, update and render
-                if (getEarthInitialized()) {
-                    // If this is the first time entering Earth in this session, reset position to ensure proper loading
-                    if (isFirstEarthEntry) {
-                        console.log('First Earth entry this session - ensuring proper position reset with 200ms delay');
-                        setTimeout(() => {
-                            console.log('Executing first-entry position reset');
-                            resetEarthPosition();
-                            isFirstEarthEntry = false;
-                        }, 200);
+
+                // ELSE IF we are already on the Earth surface (initialized and transition done), update and render
+                else if (isEarthSurfaceActive && getEarthInitialized() && !getEarthTransition()) {
+
+                    // Force Earth DOM to the front as a failsafe
+                    if (earthRenderer.domElement.style.display === 'none') {
+                        earthRenderer.domElement.style.display = 'block';
                     }
+                    if (!document.body.contains(earthRenderer.domElement)) {
+                        document.body.appendChild(earthRenderer.domElement);
+                    }
+
+                    // APPLY STATE-BASED UPDATES //
+                    const isBoosting = getBoostState();        
                     
                     // Check if controls toggle is requested (Enter key pressed)
                     if (getControlsToggleRequested()) {
                         toggleControlsDropdown();
                     }
                     
-                    // Main update function that updates spacecraft, camera, tiles, world matrices
-                    const earthUpdated = updateEarthSurface(deltaTime);              
-    
-                    // Render the earth scene with the earth camera using our renderer
-                    earthRenderer.render(earthScene, earthCamera);
+                    updateEarthSurface(isBoosting, deltaTime);
+                    updateControlsDropdown(getEarthSurfaceActive(), getMoonSurfaceActive());
+                    const earthSceneInfo = renderEarthScene();
+
+                    // RENDER SCENE //
+                    if (earthSceneInfo) {
+                        earthRenderer.render(earthSceneInfo.scene, earthSceneInfo.camera);
+                    }                
                 }
             } catch (e) {
                 console.error('Earth surface animation error:', e);
@@ -574,7 +501,7 @@ function animate(currentTime = 0) {
                 
                 // Check if moonTransition = true (transition needed, not already on surface)
                 if (getMoonTransition()) {
-                    console.log('🌙 MOON TRANSITION......');
+                    console.log('🌑 MOON TRANSITION......');
                     
                     // Show transition before initializing Moon surface
                     showMoonTransition(() => {
