@@ -14,7 +14,9 @@ export const keys = {
     shift: false,
     c: false,      // View toggle (cockpit/external)
     r: false,      // Reset position
-    escape: false  // Exit surface
+    escape: false,  // Exit surface
+    enter: false,   // Controls dropdown
+    z: false       // Orbital paths toggle
 };
 
 // Previous frame key states (used to detect key presses)
@@ -26,12 +28,14 @@ let controlsInitialized = false;
 // State variables for movement and actions
 let isBoosting = false;
 let isHyperspace = false;
-let isSpacePressed = false;
+// let isSpacePressed = false;
 
 // One-time action flags
 let isViewToggleRequested = false;
 let isResetPositionRequested = false;
 let isExitSurfaceRequested = false;
+let isControlsToggleRequested = false;
+let isOrbitalPathsToggleRequested = false;
 
 /**
  * Sets the hyperspace state
@@ -73,6 +77,8 @@ export function updatePreviousKeyStates() {
     isViewToggleRequested = false;
     isResetPositionRequested = false;
     isExitSurfaceRequested = false;
+    isControlsToggleRequested = false;
+    isOrbitalPathsToggleRequested = false;
 }
 
 /**
@@ -153,6 +159,22 @@ export function initControls(isEarthSurfaceActive, isMoonSurfaceActive) {
                     console.log('Exit surface requested');
                 }
                 break;
+            case 'enter':
+                keys.enter = true;
+                // Only trigger toggle on initial key press
+                if (!prevKeys.enter) {
+                    isControlsToggleRequested = true;
+                    console.log('Controls toggle requested');
+                }
+                break;
+            case 'z':
+                keys.z = true;
+                // Only trigger toggle on initial key press
+                if (!prevKeys.z) {
+                    isOrbitalPathsToggleRequested = true;
+                    console.log('Orbital paths toggle requested');
+                }
+                break;
         }
     });
 
@@ -179,6 +201,7 @@ export function initControls(isEarthSurfaceActive, isMoonSurfaceActive) {
             case 'c': keys.c = false; break;
             case 'r': keys.r = false; break;
             case 'escape': keys.escape = false; break;
+            case 'enter': keys.enter = false; break;
         }
     });
     
@@ -229,9 +252,21 @@ export function getExitSurfaceRequested() {
     return isExitSurfaceRequested;
 }
 
+/**
+ * Returns whether a controls toggle was requested this frame
+ * @returns {boolean} - Controls toggle request state
+ */
+export function getControlsToggleRequested() {
+    return isControlsToggleRequested;
+}
 
-
-
+/**
+ * Returns whether an orbital paths toggle was requested this frame
+ * @returns {boolean} - Orbital paths toggle request state
+ */
+export function getOrbitalPathsToggleRequested() {
+    return isOrbitalPathsToggleRequested;
+}
 
 
 

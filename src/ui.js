@@ -18,25 +18,9 @@ export function setupControlsDropdown() {
     if (welcomeScreen && welcomeScreen.style.display !== 'none') {
         controlsPrompt.style.display = 'none';
     }
-    
-    // Toggle dropdown on Enter key
-    document.addEventListener('keydown', (event) => {
-        // Check if the welcome screen is currently displayed
-        const welcomeScreen = document.getElementById('welcome-screen');
-        if (welcomeScreen && welcomeScreen.style.display !== 'none') {
-            return; // Do nothing if the welcome screen is visible
-        }
-
-        if (event.key === 'Enter') {
-            toggleControlsDropdown();
-        }
-    });
-    
-    // Toggle dropdown when clicking the prompt
-    controlsPrompt.addEventListener('click', toggleControlsDropdown);
 }
 
-// Toggle controls dropdown
+// Toggle controls dropdown between visible and hidden
 export function toggleControlsDropdown() {
     const controlsDropdown = document.getElementById('controls-dropdown');
     const controlsPrompt = document.getElementById('controls-prompt');
@@ -57,7 +41,7 @@ export function toggleControlsDropdown() {
     }
 }
 
-// Update controls dropdown content based on current scene
+// Edit controls dropdown content based on current scene (space vs surface)
 export function updateControlsDropdown(isEarthSurfaceActive, isMoonSurfaceActive) {
     
     console.log(`updateControlsDropdown called: EarthActive=${isEarthSurfaceActive}, MoonActive=${isMoonSurfaceActive}`); // Log input state
@@ -95,8 +79,39 @@ export function showControlsPrompt() {
 }
 
 
-
 ///// EXPLORATION / CELESTIAL BODY INFO /////
+
+// Orbital Paths (concentric circles)
+export function createOrbitalPaths() {
+    const sunPosition = sunGroup.position; // (0, 0, 0)
+    planetGroups.forEach(planet => {
+        const planetPos = planet.group.position;
+        const distance = sunPosition.distanceTo(planetPos);
+        const angle = Math.atan2(planetPos.y, planetPos.x);
+
+        const circleGeometry = new THREE.CircleGeometry(distance, 64);
+        const vertices = circleGeometry.attributes.position.array;
+        const ringVertices = new Float32Array(vertices.length - 3);
+        for (let i = 3; i < vertices.length; i++) {
+            ringVertices[i - 3] = vertices[i];
+        }
+        const ringGeometry = new THREE.BufferGeometry();
+        ringGeometry.setAttribute('position', new THREE.BufferAttribute(ringVertices, 3));
+        const circleMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+        const circle = new THREE.LineLoop(ringGeometry, circleMaterial);
+
+        circle.position.copy(sunPosition);
+        circle.rotation.x = Math.PI / 2;
+        circle.rotation.y = angle;
+        scene.add(circle);
+    });  
+}
+
+// Toggle orbital paths on / off
+export function toggleOrbitalPaths() {
+    // TO FILL
+}
+
 
 // Create data for popups on all celestial objects
 export const planetInfo = {

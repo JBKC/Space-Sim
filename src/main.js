@@ -66,13 +66,15 @@ import {
     setupControlsDropdown, 
     showControlsPrompt,
     updateControlsDropdown,
+    toggleControlsDropdown,
     moonMsg
 } from './ui.js';
 
 // Import keyboard control functions
 import {
     getBoostState,
-    getHyperspaceState
+    getHyperspaceState,
+    getControlsToggleRequested
 } from './inputControls.js';
 
 /// TO SIMPLIFY / REMOVE
@@ -369,6 +371,11 @@ function animate(currentTime = 0) {
                 const isBoosting = getBoostState();
                 const isHyperspace = getHyperspaceState();
                 
+                // Check if controls toggle is requested (Enter key pressed)
+                if (getControlsToggleRequested()) {
+                    toggleControlsDropdown();
+                }
+                
                 // Perform main space updates (pulled from setup.js)
                 updateSpace(isBoosting, isHyperspace, deltaTime);
                 
@@ -534,6 +541,11 @@ function animate(currentTime = 0) {
                         }, 200);
                     }
                     
+                    // Check if controls toggle is requested (Enter key pressed)
+                    if (getControlsToggleRequested()) {
+                        toggleControlsDropdown();
+                    }
+                    
                     // Main update function that updates spacecraft, camera, tiles, world matrices
                     const earthUpdated = updateEarthSurface(deltaTime);              
     
@@ -602,6 +614,12 @@ function animate(currentTime = 0) {
 
                     // APPLY STATE-BASED UPDATES //
                     const isBoosting = getBoostState();        
+                    
+                    // Check if controls toggle is requested (Enter key pressed)
+                    if (getControlsToggleRequested()) {
+                        toggleControlsDropdown();
+                    }
+                    
                     updateMoonSurface(isBoosting, deltaTime);
                     updateControlsDropdown(getEarthSurfaceActive(), getMoonSurfaceActive());
                     const moonSceneInfo = renderMoonScene();
