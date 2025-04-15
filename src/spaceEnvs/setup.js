@@ -946,12 +946,12 @@ function setupOrbitalPaths() {
     // Create new orbital paths
     const sunPosition = sunGroup.position; // (0, 0, 0)
     planetGroups.forEach(planet => {
-        // Skip moon and Star Wars objects when creating orbital paths
+
+        // ONLY PLANETS - skip moon and Star Wars objects when creating orbital paths
         const planetName = planet.group.name ? planet.group.name.toLowerCase() : '';
-        if (planetName === 'moon' || 
-            planetName === 'imperial star destroyer' || 
-            planetName === 'star destroyer' ||
-            planetName === 'lucrehulk') {
+        if (planetName.includes('moon') || 
+            planetName.includes('star destroyer') || 
+            planetName.includes('lucrehulk')) {
             console.log(`Skipping orbital path for: ${planetName}`);
             return; // Skip this iteration
         }
