@@ -583,9 +583,11 @@ export function exitMoonSurface() {
 
 // Hyperspace streak effect variables
 let streakLines = [];
-const streakCount = 50; // Number of streaks
+const streakCount = 100; // Number of streaks
 const streakLength = 200; // Length of each streak
-const streakSpeed = 200; // Speed of streaks moving past the camera
+const maxStreakSpeed = 300; // Maximum speed during acceleration
+const minStreakSpeed = 50; // Minimum speed at start and end
+let currentStreakSpeed = minStreakSpeed; // Current dynamic speed
 const streakColor = 0xd9fdff; // Light blue
 export { streakLines }; // Export for reference in other modules
 
@@ -617,6 +619,9 @@ export function startHyperspace() {
     window.isHyperspace = true;
     console.log('🚀 ENTERING HYPERSPACE');
 
+    // Reset streak speed to initial slow value
+    currentStreakSpeed = minStreakSpeed;
+
     // Create hyperspace streaks
     createStreaks();
 
@@ -638,10 +643,14 @@ export function startHyperspace() {
 
     // Calculate total hyperspace duration in milliseconds
     const hyperspaceDuration = 2000; // 2 seconds
+    const accelerationDuration = hyperspaceDuration * 0.4; // First 40% for acceleration
+    const cruisingDuration = hyperspaceDuration * 0.5; // Middle 50% for high speed
+    const decelerationDuration = hyperspaceDuration * 0.1; // Last 10% for quick deceleration
 
     // Use requestAnimationFrame for smoother animation tied to display refresh rate
     const startTime = performance.now();
     const endTime = startTime + hyperspaceDuration;
+    const accelerationEndTime = startTime + accelerationDuration;
 
     // Flag to track if animations are active
     let animationsActive = true;
@@ -653,7 +662,7 @@ export function startHyperspace() {
         
         // Calculate how much time has elapsed
         const elapsed = timestamp - startTime;
-        const deltaTime = timestamp - lastAnimationTime;
+        const deltaTime = (timestamp - lastAnimationTime) / 1000; // Convert to seconds
         lastAnimationTime = timestamp;
         
         // Calculate the remaining percentage for progress bar
@@ -662,8 +671,23 @@ export function startHyperspace() {
         // Update the progress bar width
         bar.style.width = `${remaining}%`;
         
-        // Update streaks animation
-        updateStreaks(deltaTime / 1000);
+        // Update streak speed based on animation phase
+        if (elapsed < accelerationDuration) {
+            // PHASE 1: Acceleration - slow to fast (easeIn)
+            const progress = elapsed / accelerationDuration;
+            currentStreakSpeed = minStreakSpeed + (maxStreakSpeed - minStreakSpeed) * Math.pow(progress, 2);
+        } else if (elapsed < accelerationDuration + cruisingDuration) {
+            // PHASE 2: Cruising - maintain max speed
+            currentStreakSpeed = maxStreakSpeed;
+        } else {
+            // PHASE 3: Deceleration - fast to slow (sharp drop)
+            const timeLeft = endTime - timestamp;
+            const progress = timeLeft / decelerationDuration;
+            currentStreakSpeed = minStreakSpeed + (maxStreakSpeed - minStreakSpeed) * Math.pow(progress, 0.5);
+        }
+        
+        // Update streaks animation with current speed
+        updateStreaks(deltaTime);
         
         // Continue animation if we haven't reached the end time
         if (timestamp < endTime) {
@@ -720,43 +744,66 @@ function createStreaks() {
     for (let i = 0; i < streakCount; i++) {
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(6); // Two points per line (start and end)
+        
+        // Create initial short lines for the start of hyperspace
+        const streakScale = 0.3; // Start with shorter streaks
         positions[0] = (Math.random() - 0.5) * 100; // Start X
         positions[1] = (Math.random() - 0.5) * 100; // Start Y
-        positions[2] = -100 - Math.random() * streakLength; // Start Z (far in front)
+        positions[2] = -50 - Math.random() * (streakLength * streakScale); // Start Z (closer at beginning)
         positions[3] = positions[0]; // End X (same as start for now)
         positions[4] = positions[1]; // End Y
-        positions[5] = positions[2] + streakLength; // End Z (length ahead)
+        positions[5] = positions[2] + (streakLength * streakScale); // End Z (shorter length at start)
 
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
+        // Create varying line thicknesses by using different colors/opacities
+        const brightness = 0.7 + Math.random() * 0.3; // Random brightness
         const material = new THREE.LineBasicMaterial({
-            color: streakColor, // Solid white
-            // linewidth: 1, // LINEBASIC DOESN'T SUPPORT THICKNESS
+            color: streakColor,
+            opacity: brightness,
+            transparent: true
         });
 
         const line = new THREE.Line(geometry, material);
         scene.add(line);
-        streakLines.push({ line, positions: positions });
+        
+        // Store additional properties for animation
+        streakLines.push({ 
+            line, 
+            positions: positions,
+            initialLength: streakLength * streakScale,
+            targetLength: streakLength,
+            currentLength: streakLength * streakScale
+        });
     }
 }
 
-// Updates hyperspace streaks
+// Updates hyperspace streaks with dynamic speed
 export function updateStreaks(deltaTimeInSeconds) {
     streakLines.forEach((streak) => {
         const positions = streak.positions;
+        
+        // Dynamically adjust streak length during acceleration
+        if (streak.currentLength < streak.targetLength) {
+            streak.currentLength += (streak.targetLength - streak.initialLength) * 0.05;
+            
+            // Update the end Z to maintain the line length
+            positions[5] = positions[2] + streak.currentLength;
+        }
 
+        // Update position based on current dynamic speed
         for (let i = 0; i < positions.length; i += 3) {
-            positions[i + 2] += streakSpeed * deltaTimeInSeconds;
+            positions[i + 2] += currentStreakSpeed * deltaTimeInSeconds;
         }
 
         // Reset streak if out of range
         if (positions[5] > 100) {
             positions[0] = (Math.random() - 0.5) * 100;
             positions[1] = (Math.random() - 0.5) * 100;
-            positions[2] = -100 - Math.random() * streakLength;
+            positions[2] = -100 - Math.random() * streak.currentLength;
             positions[3] = positions[0];
             positions[4] = positions[1];
-            positions[5] = positions[2] + streakLength;
+            positions[5] = positions[2] + streak.currentLength;
         }
 
         streak.line.geometry.attributes.position.needsUpdate = true;
