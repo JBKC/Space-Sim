@@ -930,6 +930,87 @@ if (asteroidBelt) {
 }
 
 
+///// Orbital Paths (concentric circles) /////
+
+let orbitalPaths = [];
+let orbitalPathsInitialized = false;
+let orbitalPathsVisible = false;
+
+// Orbital Paths Setup - ONLY creates paths the first time
+function setupOrbitalPaths() {
+    if (orbitalPathsInitialized) {
+        console.log("Orbital paths already initialized. Skipping setup.");
+        return;
+    }
+    
+    // Create new orbital paths
+    const sunPosition = sunGroup.position; // (0, 0, 0)
+    planetGroups.forEach(planet => {
+        // Skip moon and Star Wars objects when creating orbital paths
+        const planetName = planet.group.name ? planet.group.name.toLowerCase() : '';
+        if (planetName === 'moon' || 
+            planetName === 'imperial star destroyer' || 
+            planetName === 'star destroyer' ||
+            planetName === 'lucrehulk') {
+            console.log(`Skipping orbital path for: ${planetName}`);
+            return; // Skip this iteration
+        }
+        
+        const planetPos = planet.group.position;
+        const distance = sunPosition.distanceTo(planetPos);
+        const angle = Math.atan2(planetPos.y, planetPos.x);
+
+        const circleGeometry = new THREE.CircleGeometry(distance, 64);
+        const vertices = circleGeometry.attributes.position.array;
+        const ringVertices = new Float32Array(vertices.length - 3);
+        for (let i = 3; i < vertices.length; i++) {
+            ringVertices[i - 3] = vertices[i];
+        }
+        const ringGeometry = new THREE.BufferGeometry();
+        ringGeometry.setAttribute('position', new THREE.BufferAttribute(ringVertices, 3));
+        const circleMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+        const circle = new THREE.LineLoop(ringGeometry, circleMaterial);
+
+        circle.position.copy(sunPosition);
+        circle.rotation.x = Math.PI / 2;
+        circle.rotation.y = angle;
+        scene.add(circle);
+        
+        // Store reference to the path
+        orbitalPaths.push(circle);
+        console.log(`Created orbital path for: ${planetName}`);
+    });
+    
+    orbitalPathsVisible = true;
+    orbitalPathsInitialized = true; // Mark as initialized
+    console.log(`Orbital paths initialized and visible. Flag: ${orbitalPathsVisible}`);
+}
+
+
+// Orbital Paths Toggle - Shows/Hides existing paths
+function toggleOrbitalPaths() {
+    if (!orbitalPathsInitialized) {
+        console.error("Attempted to toggle paths before initialization.");
+        return;
+    }
+    
+    if (orbitalPathsVisible) {
+        // If paths are visible, hide them
+        for (let i = 0; i < orbitalPaths.length; i++) {
+            scene.remove(orbitalPaths[i]);
+        }
+        orbitalPathsVisible = false;
+        console.log(`Orbital path visible state: ${orbitalPathsVisible}`);
+    } else {
+        // If paths are hidden, show them
+        for (let i = 0; i < orbitalPaths.length; i++) {
+            scene.add(orbitalPaths[i]);
+        }
+        orbitalPathsVisible = true;
+        console.log(`Orbital path visible state: ${orbitalPathsVisible}`);
+    }
+}
+
 
 
 ///// Text Labels for Planets /////
@@ -1469,72 +1550,4 @@ function onWindowResize() {
     renderer.setPixelRatio(window.devicePixelRatio);
 }
 
-// Orbital Paths (concentric circles)
-export let orbitalPaths = [];
-export let orbitalPathsVisible = false;
-export let orbitalPathsInitialized = false; // New flag
-
-// Orbital Paths Setup - ONLY creates paths the first time
-export function setupOrbitalPaths() {
-    if (orbitalPathsInitialized) {
-        console.log("Orbital paths already initialized. Skipping setup.");
-        return;
-    }
-    
-    // Create new orbital paths
-    const sunPosition = sunGroup.position; // (0, 0, 0)
-    planetGroups.forEach(planet => {
-        const planetPos = planet.group.position;
-        const distance = sunPosition.distanceTo(planetPos);
-        const angle = Math.atan2(planetPos.y, planetPos.x);
-
-        const circleGeometry = new THREE.CircleGeometry(distance, 64);
-        const vertices = circleGeometry.attributes.position.array;
-        const ringVertices = new Float32Array(vertices.length - 3);
-        for (let i = 3; i < vertices.length; i++) {
-            ringVertices[i - 3] = vertices[i];
-        }
-        const ringGeometry = new THREE.BufferGeometry();
-        ringGeometry.setAttribute('position', new THREE.BufferAttribute(ringVertices, 3));
-        const circleMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
-        const circle = new THREE.LineLoop(ringGeometry, circleMaterial);
-
-        circle.position.copy(sunPosition);
-        circle.rotation.x = Math.PI / 2;
-        circle.rotation.y = angle;
-        scene.add(circle);
-        
-        // Store reference to the path
-        orbitalPaths.push(circle);
-    });
-    
-    orbitalPathsVisible = true;
-    orbitalPathsInitialized = true; // Mark as initialized
-    console.log(`Orbital paths initialized and visible. Flag: ${orbitalPathsVisible}`);
-}
-
-
-// Orbital Paths Toggle - Shows/Hides existing paths
-export function toggleOrbitalPaths() {
-    if (!orbitalPathsInitialized) {
-        console.error("Attempted to toggle paths before initialization.");
-        return;
-    }
-    
-    if (orbitalPathsVisible) {
-        // If paths are visible, hide them
-        for (let i = 0; i < orbitalPaths.length; i++) {
-            scene.remove(orbitalPaths[i]);
-        }
-        orbitalPathsVisible = false;
-        console.log(`Orbital path visible state: ${orbitalPathsVisible}`);
-    } else {
-        // If paths are hidden, show them
-        for (let i = 0; i < orbitalPaths.length; i++) {
-            scene.add(orbitalPaths[i]);
-        }
-        orbitalPathsVisible = true;
-        console.log(`Orbital path visible state: ${orbitalPathsVisible}`);
-    }
-}
 
