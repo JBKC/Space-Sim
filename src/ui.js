@@ -50,16 +50,26 @@ export function updateControlsDropdown(isEarthSurfaceActive, isMoonSurfaceActive
         return;
     }
 
-    // Select the <p> tag using its class
+    // Select the options using their classes
     const hyperspaceOption = controlsDropdown.querySelector('.hyperspace-option');
+    const orbitalPathsOption = controlsDropdown.querySelector('.orbital-paths-option');
 
+    // Determine if we should hide options based on environment
+    const shouldHide = isEarthSurfaceActive || isMoonSurfaceActive;
+
+    // Handle hyperspace option visibility
     if (hyperspaceOption) {
-        const shouldHide = isEarthSurfaceActive || isMoonSurfaceActive;
         // Use style.display for <p> elements
         hyperspaceOption.style.display = shouldHide ? 'none' : 'block';
-
     } else {
-        console.warn('Hyperspace option element (.hyperspace-option) not found inside #controls-dropdown'); // Log if not found
+        console.warn('Hyperspace option element (.hyperspace-option) not found inside #controls-dropdown'); 
+    }
+    
+    // Handle orbital paths option visibility
+    if (orbitalPathsOption) {
+        orbitalPathsOption.style.display = shouldHide ? 'none' : 'block';
+    } else {
+        console.warn('Orbital paths option element (.orbital-paths-option) not found inside #controls-dropdown'); 
     }
 }
 
