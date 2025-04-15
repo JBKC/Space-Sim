@@ -6,7 +6,14 @@ import { loadingManager, textureLoadingManager } from '../loaders.js';
 
 import { updateSpaceMovement, resetMovementInputs } from '../movement.js';
 import { createSpacecraft } from '../spacecraft.js';
-import { updateControlsDropdown } from '../ui.js';
+import { updateControlsDropdown, 
+    planetInfoBox, 
+    labels, 
+    earthDistanceIndicator, 
+    moonDistanceIndicator, 
+    lastHoveredPlanet, 
+    createPlanetLabel 
+} from '../ui.js';
 import { 
     spaceCamera, 
     cockpitCamera,
@@ -954,24 +961,8 @@ const labelData = [
 ];
 
 // Create and store label elements
-const labels = [];
 labelData.forEach(planet => {
-    const label = document.createElement('div');
-    label.className = 'planet-label';
-    label.textContent = planet.name;
-    
-    // Hide Star Destroyer and Lucrehulk labels visually while keeping them in the DOM
-    if (planet.name === 'Imperial Star Destroyer' || planet.name === 'Lucrehulk') {
-        label.style.opacity = '0'; // Make invisible but keep it in the DOM for positioning
-        label.style.pointerEvents = 'none'; // Ensure it doesn't interfere with interaction
-    }
-    
-    document.body.appendChild(label); // Add to DOM
-    labels.push({
-        element: label,
-        planetGroup: planet.group,
-        radius: planet.radius
-    });
+    createPlanetLabel(planet.name, planet.group, planet.radius);
 });
 
 // Function to update label positions
@@ -1165,7 +1156,6 @@ export const EARTH_POSITION = earthGroup.position;
 
 // Create a raycaster for planet detection
 const raycaster = new THREE.Raycaster();
-let lastHoveredPlanet = null;
 
 // Create data for popups on all celestial objects
 const planetInfo = {
@@ -1230,27 +1220,6 @@ const planetInfo = {
         crew: '200,000'
     }
 };
-
-// Create the popup UI (to be moved to ui.js)
-const planetInfoBox = document.createElement('div');
-planetInfoBox.className = 'planet-info-box';
-planetInfoBox.style.position = 'absolute';
-planetInfoBox.style.fontFamily = 'Orbitron, sans-serif';
-planetInfoBox.style.fontSize = '16px';
-planetInfoBox.style.color = 'white';
-planetInfoBox.style.backgroundColor = 'rgba(1, 8, 36, 0.8)';
-planetInfoBox.style.border = '2px solid #4fc3f7';
-planetInfoBox.style.borderRadius = '5px';
-planetInfoBox.style.padding = '15px';
-planetInfoBox.style.width = '320px';
-planetInfoBox.style.pointerEvents = 'none';
-planetInfoBox.style.zIndex = '1000';
-planetInfoBox.style.display = 'none'; // Hidden by default
-// Ensure the box isn't positioned off-screen initially
-planetInfoBox.style.right = '';
-planetInfoBox.style.left = '';
-planetInfoBox.style.top = '';
-document.body.appendChild(planetInfoBox);
 
 // Create exploration counter (number of celestial objects discovered)
 const explorationCounter = document.createElement('div');
@@ -1553,42 +1522,6 @@ resetExploredObjects();
 
 
 
-
-
-///// Special Countdown Indicators for Enterable Objects /////
-
-// Earth
-const earthDistanceIndicator = document.createElement('div');
-earthDistanceIndicator.className = 'distance-indicator';
-earthDistanceIndicator.style.color = 'white';
-earthDistanceIndicator.style.fontFamily = 'Orbitron, sans-serif';
-earthDistanceIndicator.style.fontSize = '18px';
-earthDistanceIndicator.style.textAlign = 'center';
-earthDistanceIndicator.style.position = 'absolute';
-earthDistanceIndicator.style.display = 'none'; // Initially hidden
-earthDistanceIndicator.style.backgroundColor = 'rgba(1, 8, 36, 0.6)';
-earthDistanceIndicator.style.padding = '5px 10px';
-earthDistanceIndicator.style.borderRadius = '5px';
-earthDistanceIndicator.style.zIndex = '9999'; // Ensure it's on top of other elements
-document.body.appendChild(earthDistanceIndicator);
-
-// Moon
-const moonDistanceIndicator = document.createElement('div');
-moonDistanceIndicator.className = 'distance-indicator';
-moonDistanceIndicator.style.color = 'white';
-moonDistanceIndicator.style.fontFamily = 'Orbitron, sans-serif';
-moonDistanceIndicator.style.fontSize = '18px';
-moonDistanceIndicator.style.textAlign = 'center';
-moonDistanceIndicator.style.position = 'absolute';
-moonDistanceIndicator.style.display = 'none'; // Initially hidden
-moonDistanceIndicator.style.backgroundColor = 'rgba(1, 8, 36, 0.6)';
-moonDistanceIndicator.style.padding = '5px 10px';
-moonDistanceIndicator.style.borderRadius = '5px';
-moonDistanceIndicator.style.zIndex = '9998'; // Ensure it's always just below the earth distance indicator
-document.body.appendChild(moonDistanceIndicator);
-
-
-/////////////////////
 
 
 function onWindowResize() {

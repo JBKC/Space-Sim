@@ -1,61 +1,7 @@
 // src/ui.js
-export function setupUIElements() {
-    let scoreElement = document.getElementById('score');
-    if (!scoreElement) {
-        scoreElement = document.createElement('div');
-        scoreElement.id = 'score';
-        scoreElement.style.position = 'absolute';
-        scoreElement.style.top = '20px';
-        scoreElement.style.left = '20px';
-        scoreElement.style.color = 'white';
-        scoreElement.style.fontFamily = 'Orbitron, Arial, sans-serif';
-        scoreElement.style.fontSize = '24px';
-        scoreElement.style.fontWeight = 'bold';
-        scoreElement.style.zIndex = '1001';
-        scoreElement.style.display = 'none'; // Hidden by default
-        document.body.appendChild(scoreElement);
-    }
-
-    let timerElement = document.getElementById('timer');
-    if (!timerElement) {
-        timerElement = document.createElement('div');
-        timerElement.id = 'timer';
-        timerElement.style.position = 'absolute';
-        timerElement.style.top = '55px';
-        timerElement.style.left = '20px';
-        timerElement.style.color = 'white';
-        timerElement.style.fontFamily = 'Orbitron, Arial, sans-serif';
-        timerElement.style.fontSize = '24px';
-        timerElement.style.fontWeight = 'bold';
-        timerElement.style.zIndex = '1001';
-        timerElement.style.display = 'none'; // Hidden by default
-        document.body.appendChild(timerElement);
-    }
-
-    // Create glow overlays
-    let glowOverlay = document.getElementById('glow-overlay');
-    if (!glowOverlay) {
-        glowOverlay = document.createElement('div');
-        glowOverlay.id = 'glow-overlay';
-        glowOverlay.style.position = 'fixed';
-        glowOverlay.style.top = '0';
-        glowOverlay.style.left = '0';
-        glowOverlay.style.width = '100%';
-        glowOverlay.style.height = '100%';
-        glowOverlay.style.backgroundColor = 'rgba(0, 183, 255, 0.2)';
-        glowOverlay.style.opacity = '0';
-        glowOverlay.style.transition = 'opacity 0.3s';
-        glowOverlay.style.pointerEvents = 'none';
-        glowOverlay.style.zIndex = '1000';
-        document.body.appendChild(glowOverlay);
-    }
-    
-    // Setup controls dropdown
-    setupControlsDropdown();
-}
 
 // Setup controls dropdown functionality
-function setupControlsDropdown() {
+export function setupControlsDropdown() {
     const controlsPrompt = document.getElementById('controls-prompt');
     const controlsDropdown = document.getElementById('controls-dropdown');
     
@@ -123,3 +69,87 @@ export function showControlsPrompt() {
 
 let previousAngle = 0;
 const smoothingFactor = 0.1;
+
+// ===============================
+// PLANET AND SPACE UI ELEMENTS
+// ===============================
+
+// Create the planet info box
+export const planetInfoBox = document.createElement('div');
+planetInfoBox.className = 'planet-info-box';
+planetInfoBox.style.position = 'absolute';
+planetInfoBox.style.fontFamily = 'Orbitron, sans-serif';
+planetInfoBox.style.fontSize = '16px';
+planetInfoBox.style.color = 'white';
+planetInfoBox.style.backgroundColor = 'rgba(1, 8, 36, 0.8)';
+planetInfoBox.style.border = '2px solid #4fc3f7';
+planetInfoBox.style.borderRadius = '5px';
+planetInfoBox.style.padding = '15px';
+planetInfoBox.style.width = '320px';
+planetInfoBox.style.pointerEvents = 'none';
+planetInfoBox.style.zIndex = '1000';
+planetInfoBox.style.display = 'none'; // Hidden by default
+// Ensure the box isn't positioned off-screen initially
+planetInfoBox.style.right = '';
+planetInfoBox.style.left = '';
+planetInfoBox.style.top = '';
+document.body.appendChild(planetInfoBox);
+
+// Create the planet labels container array
+export const labels = [];
+
+// Create the Earth distance indicator
+export const earthDistanceIndicator = document.createElement('div');
+earthDistanceIndicator.className = 'distance-indicator';
+earthDistanceIndicator.style.color = 'white';
+earthDistanceIndicator.style.fontFamily = 'Orbitron, sans-serif';
+earthDistanceIndicator.style.fontSize = '18px';
+earthDistanceIndicator.style.textAlign = 'center';
+earthDistanceIndicator.style.position = 'absolute';
+earthDistanceIndicator.style.display = 'none'; // Initially hidden
+earthDistanceIndicator.style.backgroundColor = 'rgba(1, 8, 36, 0.6)';
+earthDistanceIndicator.style.padding = '5px 10px';
+earthDistanceIndicator.style.borderRadius = '5px';
+earthDistanceIndicator.style.zIndex = '9999'; // Ensure it's on top of other elements
+document.body.appendChild(earthDistanceIndicator);
+
+// Create the Moon distance indicator
+export const moonDistanceIndicator = document.createElement('div');
+moonDistanceIndicator.className = 'distance-indicator';
+moonDistanceIndicator.style.color = 'white';
+moonDistanceIndicator.style.fontFamily = 'Orbitron, sans-serif';
+moonDistanceIndicator.style.fontSize = '18px';
+moonDistanceIndicator.style.textAlign = 'center';
+moonDistanceIndicator.style.position = 'absolute';
+moonDistanceIndicator.style.display = 'none'; // Initially hidden
+moonDistanceIndicator.style.backgroundColor = 'rgba(1, 8, 36, 0.6)';
+moonDistanceIndicator.style.padding = '5px 10px';
+moonDistanceIndicator.style.borderRadius = '5px';
+moonDistanceIndicator.style.zIndex = '9998'; // Just below Earth indicator
+document.body.appendChild(moonDistanceIndicator);
+
+// Variable to track the last hovered planet
+export let lastHoveredPlanet = null;
+
+// Add a createPlanetLabel function to centralize label creation
+export function createPlanetLabel(planetName, planetGroup, radius) {
+    const label = document.createElement('div');
+    label.className = 'planet-label';
+    label.textContent = planetName;
+    
+    // Hide Star Destroyer and Lucrehulk labels visually while keeping them in the DOM
+    if (planetName === 'Imperial Star Destroyer' || planetName === 'Lucrehulk') {
+        label.style.opacity = '0'; // Make invisible but keep it in the DOM for positioning
+        label.style.pointerEvents = 'none'; // Ensure it doesn't interfere with interaction
+    }
+    
+    document.body.appendChild(label); // Add to DOM
+    
+    labels.push({
+        element: label,
+        planetGroup: planetGroup,
+        radius: radius
+    });
+    
+    return label;
+}
