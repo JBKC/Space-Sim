@@ -12,7 +12,13 @@ import { updateControlsDropdown,
     earthDistanceIndicator, 
     moonDistanceIndicator, 
     lastHoveredPlanet, 
-    createPlanetLabel 
+    createPlanetLabel,
+    planetInfo,
+    celestialObjects,
+    explorationCounter,
+    resetExploredObjects,
+    markAsExplored,
+    updateExplorationCounter
 } from '../ui.js';
 import { 
     spaceCamera, 
@@ -766,21 +772,6 @@ import { lucrehulkGroup, lucrehulkCollisionBox } from './solarSystemEnv.js';
 import { asteroidBeltGroup, asteroidCollisionSphere } from './solarSystemEnv.js';
 
 
-// Define all celestial objects that can be discovered
-const celestialObjects = [
-    'mercury',
-    'venus',
-    'earth',
-    'moon',
-    'mars',
-    'jupiter',
-    'saturn',
-    'uranus',
-    'neptune',
-    'imperial star destroyer', // Counts as one object total
-    'lucrehulk'
-];
-
 // Add all elements to scene
 scene.add(skybox);
 scene.add(stars);
@@ -1157,88 +1148,6 @@ export const EARTH_POSITION = earthGroup.position;
 // Create a raycaster for planet detection
 const raycaster = new THREE.Raycaster();
 
-// Create data for popups on all celestial objects
-const planetInfo = {
-    'mercury': {
-        composition: 'Metallic core, silicate crust',
-        atmosphere: 'Thin exosphere',
-        gravity: '38% of Earth'
-    },
-    'venus': {
-        composition: 'Rocky, iron core',
-        atmosphere: 'Thick CO₂, sulfuric acid',
-        gravity: '90% of Earth'
-    },
-    'earth': {
-        composition: 'Iron core, silicate mantle',
-        atmosphere: 'Nitrogen, oxygen',
-        gravity: '9.81 m/s²'
-    },
-    'moon': {
-        composition: 'Rocky, silicate crust',
-        atmosphere: 'Thin exosphere',
-        gravity: '16% of Earth'
-    },
-    'mars': {
-        composition: 'Rocky, iron-nickel core',
-        atmosphere: 'Thin CO₂',
-        gravity: '38% of Earth'
-    },
-    'asteroid belt': {
-        composition: 'Silicate rock, metals, carbon',
-        atmosphere: 'None (vacuum of space)',
-        gravity: 'Negligible'
-    },
-    'jupiter': {
-        composition: 'Hydrogen, helium',
-        atmosphere: 'Dynamic storms',
-        gravity: '250% of Earth'
-    },
-    'saturn': {
-        composition: 'Hydrogen, helium',
-        atmosphere: 'Fast winds, methane',
-        gravity: '107% of Earth'
-    },
-    'uranus': {
-        composition: 'Icy, hydrogen, helium',
-        atmosphere: 'Methane haze',
-        gravity: '89% of Earth'
-    },
-    'neptune': {
-        composition: 'Icy, rocky core',
-        atmosphere: 'Methane clouds',
-        gravity: '114% of Earth'
-    },
-    'imperial star destroyer': {
-        affiliation: 'Galactic Empire',
-        manufacturer: 'Kuat Drive Yards',
-        crew: '40,000'
-    },
-    'lucrehulk': {
-        affiliation: 'Confederacy of Independent Systems',
-        manufacturer: 'Hoersch-Kessel Drive',
-        crew: '200,000'
-    }
-};
-
-// Create exploration counter (number of celestial objects discovered)
-const explorationCounter = document.createElement('div');
-explorationCounter.className = 'exploration-counter';
-explorationCounter.style.position = 'fixed';
-explorationCounter.style.top = '20px';
-explorationCounter.style.right = '20px';
-explorationCounter.style.padding = '10px 15px';
-explorationCounter.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-explorationCounter.style.color = '#4fc3f7';
-explorationCounter.style.fontFamily = 'Orbitron, sans-serif';
-explorationCounter.style.fontSize = '16px';
-explorationCounter.style.borderRadius = '5px';
-explorationCounter.style.border = '1px solid #4fc3f7';
-explorationCounter.style.zIndex = '1000';
-explorationCounter.style.display = 'none'; // Initially hidden until game starts
-document.body.appendChild(explorationCounter);
-
-
 // Core function that detects when the reticle intersects with planets -> shows the info box
 export function checkReticleHover() {
     if (!spacecraft || !camera || getEarthSurfaceActive()) {
@@ -1473,56 +1382,6 @@ export function checkReticleHover() {
         
     }
 }
-
-// Initialize explored objects - resets every time
-let exploredObjects = {};
-// Initialize with all objects unexplored
-function resetExploredObjects() {
-    celestialObjects.forEach(object => {
-        exploredObjects[object] = false;
-    });
-    updateExplorationCounter();
-}
-// Function to mark an object as explored
-function markAsExplored(objectName) {
-    if (objectName && !exploredObjects[objectName]) {
-        exploredObjects[objectName] = true;
-        updateExplorationCounter();
-        // Discovery notification popup removed as requested
-    }
-}
-// Update the exploration counter display
-function updateExplorationCounter() {
-    const count = Object.values(exploredObjects).filter(Boolean).length;
-    const total = Object.keys(exploredObjects).length;
-    explorationCounter.innerHTML = `Celestial Objects Discovered: <span style="color: white; font-weight: bold;">${count}/${total}</span>`;
-    
-    // Check if all objects have been explored
-    if (count === total) {
-        // All objects explored - permanent blue glow effect
-        explorationCounter.style.boxShadow = '0 0 15px 5px #4fc3f7';
-        explorationCounter.style.border = '2px solid #4fc3f7';
-        explorationCounter.style.backgroundColor = 'rgba(0, 20, 40, 0.8)';
-        // Add a congratulatory message
-        explorationCounter.innerHTML = `<span style="color: #4fc3f7; font-weight: bold;">ALL CELESTIAL OBJECTS DISCOVERED</span>`;
-    } 
-    // Otherwise, add temporary visual flourish when a new object is discovered
-    else if (count > 0) {
-        explorationCounter.style.boxShadow = '0 0 10px #4fc3f7';
-        setTimeout(() => {
-            // Only remove the glow if we haven't completed everything
-            if (Object.values(exploredObjects).filter(Boolean).length !== total) {
-                explorationCounter.style.boxShadow = 'none';
-            }
-        }, 2000);
-    }
-}
-// Reset explored objects on startup
-resetExploredObjects();
-
-
-
-
 
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
