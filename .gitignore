@@ -41,7 +41,6 @@ logs/
 *.log
 
 # Large binary files
-*.glb
 *.blend
 *.blend1
 
