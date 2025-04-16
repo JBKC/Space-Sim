@@ -102,30 +102,25 @@ function getAssetNameFromUrl(url) {
         fileName = urlParts[urlParts.length - 2];
     }
     
-    // Check if this is a sub-texture inside a model by looking at several indicators:
-    
-    // 1. URL path contains model directory and then textures
-    const urlPath = url.toLowerCase();
-    const isInModelDir = /models\/.*\/textures\//i.test(urlPath);
-    
-    // 2. Contains typical PBR material naming
-    const hasPBRTerms = /\b(basecolor|diffuse|normal|roughness|metallic|specular|emissive|ao|opacity|albedo)\b/i.test(urlPath);
-    
-    // 3. Has typical file numbers for texture maps
-    const hasTextureNumbers = /(tex|texture|map)[\d_]+\.(jpe?g|png|webp)/i.test(fileName);
-    
-    // 4. Check for common texture size indicators in filenames (1k, 2k, 4k) combined with material type
-    const hasTextureSize = /\b\d+k[-_]?(basecolor|diffuse|normal|roughness|metallic)/i.test(fileName);
-    
-    // If it matches any of these patterns, it's likely a sub-texture
-    const isSubTexture = isInModelDir || hasPBRTerms || hasTextureNumbers || hasTextureSize;
-    
-    // Mark sub-textures with a prefix to easily filter them out
-    if (isSubTexture) {
-        fileName = `__subtexture__${fileName}`;
+    // First, unconditionally add 'subtexture' to the name for any file that looks like a texture inside a model
+    // This ensures they get filtered out in the display
+    if (/\.(jpe?g|png|webp|tga|tif|tiff|bmp|exr|hdr)$/i.test(fileName) && 
+        (/models\//i.test(url) || /scene\.gltf/i.test(url))) {
+        
+        // Check more specifically for texture naming patterns
+        if (/\b(basecolor|diffuse|normal|roughness|metallic|specular|emissive|ao|opacity|albedo)\b/i.test(fileName)) {
+            console.log(`Detected sub-texture in model (type 1): ${fileName}`);
+            return `subtexture ${fileName.replace(/\.\w+$/, '')}`;
+        }
+        
+        // Check for numeric texture patterns
+        if (/(tex|texture|map)[\d_]+/i.test(fileName)) {
+            console.log(`Detected sub-texture in model (type 2): ${fileName}`);
+            return `subtexture ${fileName.replace(/\.\w+$/, '')}`;
+        }
     }
     
-    // Clean up the name
+    // Clean up the name for regular assets
     fileName = fileName.replace(/\.\w+$/, ''); // Remove file extension
     fileName = fileName.replace(/[-_]/g, ' '); // Replace dashes and underscores with spaces
     fileName = fileName.replace(/(\d+k)/i, (match) => match.toUpperCase()); // Capitalize resolution indicators like 2k
@@ -137,8 +132,8 @@ function getAssetNameFromUrl(url) {
 function trackAsset(name, type, loaded = false, error = false) {
     if (!name) return;
     
-    // Skip sub-textures (they start with __subtexture__)
-    if (name.startsWith('__subtexture__')) {
+    // Skip sub-textures (they start with 'subtexture')
+    if (name.toLowerCase().startsWith('subtexture')) {
         return;
     }
     
@@ -426,7 +421,15 @@ function updateDetailedAssetDisplay() {
     
     // Get assets and ensure we're filtering out sub-textures
     const assetEntries = Object.entries(loadingStats.individualAssets)
-        .filter(([name]) => !name.startsWith('__subtexture__'));
+        .filter(([name]) => {
+            // Rigorously filter out all sub-textures or any textures with names matching common PBR patterns
+            return !(
+                name.startsWith('__subtexture__') || 
+                name.toLowerCase().includes('subtexture') ||
+                /\b(basecolor|diffuse|normal|roughness|metallic|specular|emissive|ao|opacity|albedo)\b/i.test(name) ||
+                /(tex|texture|map)[\d_]+/i.test(name)
+            );
+        });
     
     // Count textures and models
     const textureCount = assetEntries.filter(([_, info]) => info.type === 'texture').length;
@@ -499,4 +502,4 @@ export {
     getAssetNameFromUrl,
     trackAsset,
     updateDetailedAssetDisplay
-}; 
+};
