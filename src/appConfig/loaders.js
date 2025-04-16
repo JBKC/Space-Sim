@@ -1,10 +1,15 @@
 // Assets and textures loading manager
 
 import * as THREE from 'three';
+import config from './config.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+
 
 // Initialize THREE.js loading managers to track progress
 let loadingManager = new THREE.LoadingManager();
 let textureLoadingManager = new THREE.LoadingManager();
+// Create a texture loader that tries multiple paths
+const loader = new GLTFLoader();
 
 // Store loading stats
 const loadingStats = {
@@ -25,6 +30,55 @@ function setupLoadingManagerHandlers() {
 
 // Initial setup of handlers
 setupLoadingManagerHandlers();
+
+
+///// ASSET LOADERS /////
+
+
+// General model loading function
+export function loadModel(modelName, onSuccess, onProgress, onError) {
+    console.log(`Loading model: ${modelName}`);
+    console.log('Current config paths:', {
+        assets: config.ASSETS_PATH,
+        models: config.models.path,
+        env: config.ENV
+    });
+    
+    // Define alternative paths to try
+    const paths = [
+        `src/assets/models/${modelName}/scene.gltf`,
+        `${config.models.path}/${modelName}/scene.gltf`,
+        `/src/assets/models/${modelName}/scene.gltf`,
+        `/assets/models/${modelName}/scene.gltf`,
+        `${modelName}/scene.gltf`
+    ];
+    
+    // Try the first path
+    tryLoadModelPath(0);
+    
+    function tryLoadModelPath(index) {
+        if (index >= paths.length) {
+            console.error(`All paths failed for ${modelName}`);
+            if (onError) onError(new Error(`Failed to load ${modelName} after trying all paths`));
+            return;
+        }
+        
+        const path = paths[index];
+        console.log(`Trying path ${index+1} for ${modelName}: ${path}`);
+        
+        loader.load(
+            path,
+            onSuccess,
+            onProgress,
+            (error) => {
+                console.error(`Path ${index+1} failed for ${modelName} (${path}):`, error);
+                // Try the next path
+                tryLoadModelPath(index + 1);
+            }
+        );
+    }
+}
+
 
 // Create an enhanced texture loader that tries multiple paths
 function createEnhancedTextureLoader(config) {
@@ -114,6 +168,12 @@ function createEnhancedTextureLoader(config) {
     
     return textureLoader;
 }
+
+
+
+
+///// STATS / DISPLAY /////
+
 
 // Function to reset loading stats when changing scenes
 function resetLoadingStats() {

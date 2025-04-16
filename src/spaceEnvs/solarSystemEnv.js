@@ -3,8 +3,14 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-import { loadingManager, textureLoadingManager, createEnhancedTextureLoader } from '../appConfig/loaders.js';
-import config from '../appConfig/config.js';
+import { 
+    loadingManager, 
+    textureLoadingManager, 
+    createEnhancedTextureLoader,
+    loadModel
+ } from '../appConfig/loaders.js';
+
+ import config from '../appConfig/config.js';
 
 // Create a texture loader that tries multiple paths
 const textureLoader = createEnhancedTextureLoader(config);
@@ -14,49 +20,7 @@ export const planetGroups = [];
 const cloudTexture = textureLoader.load(`${config.textures.path}/Earth-clouds.png`);
 const collisionMaterialInvisible = new THREE.MeshBasicMaterial({ visible: false });
 
-// General asset loading function
-function loadModel(modelName, onSuccess, onProgress, onError) {
-    console.log(`Loading model: ${modelName}`);
-    console.log('Current config paths:', {
-        assets: config.ASSETS_PATH,
-        models: config.models.path,
-        env: config.ENV
-    });
-    
-    // Define alternative paths to try
-    const paths = [
-        `src/assets/models/${modelName}/scene.gltf`,
-        `${config.models.path}/${modelName}/scene.gltf`,
-        `/src/assets/models/${modelName}/scene.gltf`,
-        `/assets/models/${modelName}/scene.gltf`,
-        `${modelName}/scene.gltf`
-    ];
-    
-    // Try the first path
-    tryLoadModelPath(0);
-    
-    function tryLoadModelPath(index) {
-        if (index >= paths.length) {
-            console.error(`All paths failed for ${modelName}`);
-            if (onError) onError(new Error(`Failed to load ${modelName} after trying all paths`));
-            return;
-        }
-        
-        const path = paths[index];
-        console.log(`Trying path ${index+1} for ${modelName}: ${path}`);
-        
-        loader.load(
-            path,
-            onSuccess,
-            onProgress,
-            (error) => {
-                console.error(`Path ${index+1} failed for ${modelName} (${path}):`, error);
-                // Try the next path
-                tryLoadModelPath(index + 1);
-            }
-        );
-    }
-}
+
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
