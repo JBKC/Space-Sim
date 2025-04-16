@@ -68,9 +68,54 @@ export function createSpacecraft(scene) {
         }
     };
     
+    // Function to try multiple paths for loading a model
+    function tryLoadWithMultiplePaths(modelFile, onSuccess, onProgress, onError) {
+        console.log(`Attempting to load ${modelFile}`);
+        console.log('Current config paths:', {
+            assets: config.ASSETS_PATH,
+            models: config.models.path,
+            env: config.ENV
+        });
+        
+        // Define several possible paths to try
+        const paths = [
+            `${config.models.path}/${modelFile}`,
+            `src/assets/models/${modelFile}`,
+            `/src/assets/models/${modelFile}`,
+            `/assets/models/${modelFile}`,
+            `${modelFile}`
+        ];
+        
+        // Try the paths one by one
+        function tryNextPath(index) {
+            if (index >= paths.length) {
+                console.error(`All paths failed for ${modelFile}`);
+                if (onError) onError(new Error(`Failed to load ${modelFile} after trying all paths`));
+                return;
+            }
+            
+            const path = paths[index];
+            console.log(`Trying path ${index+1} for ${modelFile}: ${path}`);
+            
+            loader.load(
+                path,
+                onSuccess,
+                onProgress,
+                (error) => {
+                    console.error(`Path ${index+1} failed for ${modelFile}:`, error);
+                    // Try the next path
+                    tryNextPath(index + 1);
+                }
+            );
+        }
+        
+        // Start trying paths
+        tryNextPath(0);
+    }
+    
     // Create a promise to load the model (async operation that will load the model when called - we don't want it to block)
     const loadModel = new Promise((resolve, reject) => {
-        loadModel(
+        tryLoadWithMultiplePaths(
             'xwing_axespoints.glb',
             (gltf) => {
                 const model = gltf.scene;
@@ -289,7 +334,7 @@ export function createSpacecraft(scene) {
     
     // Do the same for the cockpit (first person view)
     const loadCockpitModel = new Promise((resolve, reject) => {
-        loadModel(
+        tryLoadWithMultiplePaths(
             'x-wing_cockpit/scene.gltf',
             (gltf) => {
                 const model = gltf.scene;

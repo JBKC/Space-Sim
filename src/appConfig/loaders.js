@@ -52,11 +52,11 @@ export function loadModel(modelName, onSuccess, onProgress, onError) {
         `/assets/models/${modelName}/scene.gltf`,
         `${modelName}/scene.gltf`,
         // Alternate paths
-        `${config.models.path}/${modelName}`,
-        `src/assets/models/${modelName}`,
-        `/src/assets/models/${modelName}`,
-        `/assets/models/${modelName}`,
-        `${modelName}`
+        // `${config.models.path}/${modelName}`,
+        // `src/assets/models/${modelName}`,
+        // `/src/assets/models/${modelName}`,
+        // `/assets/models/${modelName}`,
+        // `${modelName}`
     ];
     
     // Try the first path
