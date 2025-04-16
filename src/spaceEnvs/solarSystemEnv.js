@@ -545,7 +545,7 @@ loadModel(
     },
     (error) => {
         console.error('Error loading Star Destroyer 2:', error);
-        starDestroyerGroup.add(placeholder);
+        // starDestroyerGroup.add(placeholder);
     }
 );
 

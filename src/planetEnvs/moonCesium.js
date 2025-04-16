@@ -415,31 +415,11 @@ function createplanetSphere() {
 
 ///// CESIUM TILES INITIALIZATION /////
 
-// Load environment variables
-if (typeof process !== 'undefined' && process.versions && process.versions.node) {
-  const dotenv = await import('dotenv');
-  dotenv.config();
-}
-
 // Pull CESIUM API key from environment variables or localStorage
 let apiKey = localStorage.getItem('ionApiKey') || import.meta.env.VITE_CESIUM_ACCESS_TOKEN || 'YOUR_CESIUM_TOKEN_HERE';
 
-// Fallback for local development if no .env variable is found
-if (!apiKey && typeof process !== 'undefined' && process.versions && process.versions.node) {
-  try {
-      // Only attempt to import fs in a Node.js environment
-      const fs = await import('fs/promises').catch(() => {
-          console.warn('fs/promises module not available');
-          return { readFile: () => Promise.reject(new Error('fs not available')) };
-      });
-      
-      const configData = await fs.readFile('./config.json', 'utf8');
-      const config = JSON.parse(configData);
-      apiKey = config.cesiumAccessToken || apiKey;
-  } catch (error) {
-      console.warn('Failed to load config.json, using localStorage or default token:', error);
-  }
-}
+// No need to attempt Node.js file loading in browser context - this causes build issues
+console.log('Using Cesium API Key for Moon scene:', apiKey ? 'Key available' : 'No key available');
 
 const params = {
     ionAssetId: '2684829', // moon

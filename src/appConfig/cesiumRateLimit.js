@@ -23,28 +23,33 @@ export function configureCesiumRequestScheduler(options = {}) {
     Cesium.RequestScheduler.maximumRequestsPerServer = config.maximumRequestsPerServer;
     Cesium.RequestScheduler.throttleRequestsByServer = config.throttleRequestsByServer;
     
-    // Configure tile request throttling
-    if (Cesium && typeof Cesium.TileRequestThrottleParameters !== 'undefined') {
-        // Configure high priority request parameters
-        Cesium.TileRequestThrottleParameters.priorityHeightLimit = config.priorityHeightLimit;
-        
-        // These options may exist depending on your Cesium version
-        if (Cesium.TileRequestThrottleParameters.highPriorityLimit !== undefined) {
-            Cesium.TileRequestThrottleParameters.highPriorityLimit = 
-                Math.min(config.maximumRequestsPerServer, 6);
+    // Configure tile request throttling if the feature is available in this Cesium version
+    try {
+        // Check if TileRequestThrottleParameters exists in this Cesium version
+        if (Cesium.TileRequestThrottleParameters) {
+            // Configure high priority request parameters
+            Cesium.TileRequestThrottleParameters.priorityHeightLimit = config.priorityHeightLimit;
+            
+            // These options may exist depending on your Cesium version
+            if ('highPriorityLimit' in Cesium.TileRequestThrottleParameters) {
+                Cesium.TileRequestThrottleParameters.highPriorityLimit = 
+                    Math.min(config.maximumRequestsPerServer, 6);
+            }
+            
+            if ('mediumPriorityLimit' in Cesium.TileRequestThrottleParameters) {
+                Cesium.TileRequestThrottleParameters.mediumPriorityLimit = 
+                    Math.min(config.maximumRequestsPerServer - 2, 4);
+            }
+            
+            if ('lowPriorityLimit' in Cesium.TileRequestThrottleParameters) {
+                Cesium.TileRequestThrottleParameters.lowPriorityLimit = 
+                    Math.min(config.maximumRequestsPerServer - 4, 2);
+            }
+        } else {
+            console.warn('Cesium.TileRequestThrottleParameters not available in this version of Cesium');
         }
-        
-        if (Cesium.TileRequestThrottleParameters.mediumPriorityLimit !== undefined) {
-            Cesium.TileRequestThrottleParameters.mediumPriorityLimit = 
-                Math.min(config.maximumRequestsPerServer - 2, 4);
-        }
-        
-        if (Cesium.TileRequestThrottleParameters.lowPriorityLimit !== undefined) {
-            Cesium.TileRequestThrottleParameters.lowPriorityLimit = 
-                Math.min(config.maximumRequestsPerServer - 4, 2);
-        }
-    } else {
-        console.warn('Cesium.TileRequestThrottleParameters not available in this version of Cesium');
+    } catch (error) {
+        console.warn('Error configuring TileRequestThrottleParameters:', error.message);
     }
     
     // Configure per-server request limits if available
