@@ -11,7 +11,7 @@ import { resetMovementInputs } from './movement.js';
 // AXES: x = yaw, y = pitch, z = roll
 
 // Function to create and return the spacecraft with all its attributes
-export function createSpacecraft(scene, preloadedXwingGltf, preloadedCockpitGltf) {
+export function createSpacecraft(scene) {
     // X-wing spacecraft
     const spacecraft = new THREE.Group();
     spacecraft.name = 'spacecraft';
@@ -45,222 +45,284 @@ export function createSpacecraft(scene, preloadedXwingGltf, preloadedCockpitGltf
         roughness: 0.3           // Fairly smooth
     });
     
-    // This group holds the visual X-wing model
-    const xWingModel = new THREE.Group();
-    xWingModel.name = 'xWingModel';
-
-    // --- Initialize X-Wing from Preloaded Data --- 
-    if (preloadedXwingGltf) {
-        console.log("Initializing X-Wing using preloaded model...");
-        const model = preloadedXwingGltf.scene; // Access the scene from the loaded GLTF
-        
-        // Scale and add the model
-        model.scale.set(1, 1, 1);
-        xWingModel.add(model);
-        
-        ///// Initialize Model Components (engine color, wings, etc.) /////
-        // (Existing code for traversing and finding elements)
-        console.log("===== CHECKING FOR ENGINE ELEMENTS =====");
-        model.traverse((child) => {
-            if (child.isMesh) {
-                // ONLY color these exact elements - nothing else
-                const engineElements = [
-                    'RightWingBottomEngineAndGreebles_3',
-                    'RightWingTopEngineAndGreebles_3',
-                    'LeftWingBottomEngineAndGreebles_3',
-                    'LeftWingTopEngineAndGreebles_3'
-                ];
-                
-                // Only color if exact name match
-                if (engineElements.includes(child.name)) {
-                    console.log(`✓ Found element: ${child.name}`);
-                    child.material = purplePinkMaterial.clone();
-                }
+    // Load the X-Wing glTF model
+    const loader = new GLTFLoader(loadingManager);
+    const xWingModel = new THREE.Group(); // This will hold the loaded model
+    xWingModel.name = 'xWingModel'; // Set a name for the model
+    
+    // Debug object to track engine effects issues
+    window.engineEffectsDebug = {
+        xWingModel: xWingModel,
+        checkContrails: function() {
+            console.log("DEBUG CONTRAILS GLOBAL CHECK");
+            console.log("xWingModel exists:", !!this.xWingModel);
+            console.log("xWingModel userData:", this.xWingModel?.userData);
+            console.log("Contrails:", this.xWingModel?.userData?.contrails);
+            if (this.xWingModel?.userData?.contrails) {
+                Object.keys(this.xWingModel.userData.contrails).forEach(key => {
+                    const contrail = this.xWingModel.userData.contrails[key];
+                    console.log(`Contrail ${key}:`, contrail.mesh);
+                });
             }
-        });
-
-        ///// Find Wings /////
-        
-        // Create an object to track these elements
-        const wings = {
-            topLeft: null,
-            bottomLeft: null,
-            topRight: null,
-            bottomRight: null,
-        };
-        
-
-        // Find the Root object
-        console.log("===== CHECKING FOR WING ELEMENTS =====");
-
-        model.traverse((child) => {
-            if (child.name === 'Root') {
-                console.log("Found Root object");
+            return "Check console for results";
+        }
+    };
+    
+    // Create a promise to load the model using the registry
+    const loadModel = new Promise((resolve, reject) => {
+        loadModelFromRegistry(
+            'spacecraft', // Category from modelRegistry.js
+            'xwing',      // Name from modelRegistry.js
+            (gltf) => { // onSuccess callback
+                const model = gltf.scene;
                 
-                // Look for X-Wing under Root
-                child.children.forEach(xwingChild => {
-                    if (xwingChild.name === 'X-Wing') {
-                        console.log("Found X-Wing under Root with", xwingChild.children.length, "children");
+                // Scale and position the model appropriately
+                model.scale.set(1, 1, 1);
+                // Add the model to our x-wing group
+                xWingModel.add(model);
+
+                ///// Initialize Model Components (engine color, wings, etc.) /////
+                // (Existing code for traversing and finding elements)
+                console.log("===== CHECKING FOR ENGINE ELEMENTS =====");
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        // ONLY color these exact elements - nothing else
+                        const engineElements = [
+                            'RightWingBottomEngineAndGreebles_3',
+                            'RightWingTopEngineAndGreebles_3',
+                            'LeftWingBottomEngineAndGreebles_3',
+                            'LeftWingTopEngineAndGreebles_3'
+                        ];
                         
-                        // Try to match the wings directly
-                        xwingChild.children.forEach(wingChild => {
-                            // These are the exact names from the image
-                            if (wingChild.name === 'LeftWingTop') {
-                                wings.topLeft = wingChild;
-                                console.log('✓ Found element: LeftWingTop');
-                            }
-                            if (wingChild.name === 'LeftWingBottom') {
-                                wings.bottomLeft = wingChild;
-                                console.log('✓ Found element: LeftWingBottom');
-                            }
-                            if (wingChild.name === 'RightWingTop') {
-                                wings.topRight = wingChild;
-                                console.log('✓ Found element: RightWingTop');
-                            }
-                            if (wingChild.name === 'RightWingBottom') {
-                                wings.bottomRight = wingChild;
-                                console.log('✓ Found element: RightWingBottom');
-                            }
-                            
-                            if (wingChild.name === 'WingRotation') {
-                                console.log("Found WingRotation object, checking its children");
-                                wingChild.children.forEach(rotationChild => {
-                                    console.log("  Rotation child:", rotationChild.name);
-                                    if (rotationChild.name === 'LeftWingTop') wings.topLeft = rotationChild;
-                                    if (rotationChild.name === 'LeftWingBottom') wings.bottomLeft = rotationChild;
-                                    if (rotationChild.name === 'RightWingTop') wings.topRight = rotationChild;
-                                    if (rotationChild.name === 'RightWingBottom') wings.bottomRight = rotationChild;
+                        // Only color if exact name match
+                        if (engineElements.includes(child.name)) {
+                            console.log(`✓ Found element: ${child.name}`);
+                            child.material = purplePinkMaterial.clone();
+                        }
+                    }
+                });
+
+                ///// Find Wings /////
+                
+                // Create an object to track these elements
+                const wings = {
+                    topLeft: null,
+                    bottomLeft: null,
+                    topRight: null,
+                    bottomRight: null,
+                };
+                
+
+                // Find the Root object
+                console.log("===== CHECKING FOR WING ELEMENTS =====");
+
+                model.traverse((child) => {
+                    if (child.name === 'Root') {
+                        console.log("Found Root object");
+                        
+                        // Look for X-Wing under Root
+                        child.children.forEach(xwingChild => {
+                            if (xwingChild.name === 'X-Wing') {
+                                console.log("Found X-Wing under Root with", xwingChild.children.length, "children");
+                                
+                                // Try to match the wings directly
+                                xwingChild.children.forEach(wingChild => {
+                                    // These are the exact names from the image
+                                    if (wingChild.name === 'LeftWingTop') {
+                                        wings.topLeft = wingChild;
+                                        console.log('✓ Found element: LeftWingTop');
+                                    }
+                                    if (wingChild.name === 'LeftWingBottom') {
+                                        wings.bottomLeft = wingChild;
+                                        console.log('✓ Found element: LeftWingBottom');
+                                    }
+                                    if (wingChild.name === 'RightWingTop') {
+                                        wings.topRight = wingChild;
+                                        console.log('✓ Found element: RightWingTop');
+                                    }
+                                    if (wingChild.name === 'RightWingBottom') {
+                                        wings.bottomRight = wingChild;
+                                        console.log('✓ Found element: RightWingBottom');
+                                    }
+                                    
+                                    if (wingChild.name === 'WingRotation') {
+                                        console.log("Found WingRotation object, checking its children");
+                                        wingChild.children.forEach(rotationChild => {
+                                            console.log("  Rotation child:", rotationChild.name);
+                                            if (rotationChild.name === 'LeftWingTop') wings.topLeft = rotationChild;
+                                            if (rotationChild.name === 'LeftWingBottom') wings.bottomLeft = rotationChild;
+                                            if (rotationChild.name === 'RightWingTop') wings.topRight = rotationChild;
+                                            if (rotationChild.name === 'RightWingBottom') wings.bottomRight = rotationChild;
+                                        });
+                                    }
                                 });
                             }
                         });
                     }
                 });
-            }
-        });
 
-        // Store wings reference for later use in the export
-        xWingModel.userData.wings = wings;
+                // Store wings reference for later use in the export
+                xWingModel.userData.wings = wings;
 
 
-        // Explicitly set wings to open position after model is loaded
-        if (wings.topLeft && wings.topRight && wings.bottomLeft && wings.bottomRight) {
-            console.log("Setting initial wing position to OPEN");
+                // Explicitly set wings to open position after model is loaded
+                if (wings.topLeft && wings.topRight && wings.bottomLeft && wings.bottomRight) {
+                    console.log("Setting initial wing position to OPEN");
+                    
+                    // Set to open position (X shape)
+                    wings.topRight.rotation.y = OPEN_ANGLE;
+                    wings.bottomRight.rotation.y = -OPEN_ANGLE;
+                    wings.topLeft.rotation.y = -OPEN_ANGLE;
+                    wings.bottomLeft.rotation.y = OPEN_ANGLE;
+                    
+                    // Set the animation state to open
+                    animationState = 'open';
+                }
             
-            // Set to open position (X shape)
-            wings.topRight.rotation.y = OPEN_ANGLE;
-            wings.bottomRight.rotation.y = -OPEN_ANGLE;
-            wings.topLeft.rotation.y = -OPEN_ANGLE;
-            wings.bottomLeft.rotation.y = OPEN_ANGLE;
-            
-            // Set the animation state to open
-            animationState = 'open';
-        }
-    
-        
-        ///// Find Exhausts and Turrets /////
+                
+                ///// Find Exhausts and Turrets /////
 
-        // Check specifically for the exhaust and turret elements
-        console.log("===== CHECKING FOR EXHAUST AND TURRET ELEMENTS =====");
-        const exhaustAndTurretElements = [
-            'exhaust_LB',
-            'exhaust_LT',
-            'exhaust_RB',
-            'exhaust_RT',
-            'turret_LB',
-            'turret_LT',
-            'turret_RB',
-            'turret_RT'
-        ];
-        
-        // Create an object to track these elements
-        const exhaustAndTurretObjects = {
-            exhaust_LB: null,
-            exhaust_LT: null,
-            exhaust_RB: null,
-            exhaust_RT: null,
-            turret_LB: null,
-            turret_LT: null,
-            turret_RB: null,
-            turret_RT: null
-        };
-        
-        // Search for the elements in the model
-        model.traverse((child) => {
-            if (exhaustAndTurretElements.includes(child.name)) {
-                console.log(`✓ Found element: ${child.name}`);
-                exhaustAndTurretObjects[child.name] = child;
-            }
-        });
-    
-        xWingModel.userData.exhaustAndTurret = exhaustAndTurretObjects; // Store references
-
-        
-        ///// Create Engine Boost Effects /////
-
-        // Create material + shape
-        console.log("Creating exhaust flames");
-        const contrails = {};
-        
-        const flameMaterial = new THREE.MeshBasicMaterial({
-            color: 0xff00ff,
-            transparent: true,
-            side: THREE.DoubleSide
-        });
-        
-        // Create a boost trail for each exhaust
-        Object.keys(exhaustAndTurretObjects).forEach(key => {
-            if (key.startsWith('exhaust_') && exhaustAndTurretObjects[key]) {
-                const exhaust = exhaustAndTurretObjects[key];
-                console.log(`Creating flame trail for ${key}`);
+                // Check specifically for the exhaust and turret elements
+                console.log("===== CHECKING FOR EXHAUST AND TURRET ELEMENTS =====");
+                const exhaustAndTurretElements = [
+                    'exhaust_LB',
+                    'exhaust_LT',
+                    'exhaust_RB',
+                    'exhaust_RT',
+                    'turret_LB',
+                    'turret_LT',
+                    'turret_RB',
+                    'turret_RT'
+                ];
                 
-                const FLAME_SIZE = 6;
-                
-                // Create a flame group to hold both parts
-                const flameGroup = new THREE.Group();
-                
-                // Primary (outer) flame
-                const primaryFlameGeometry = new THREE.ConeGeometry(0.3, FLAME_SIZE, 16, 1);
-                const primaryFlameMesh = new THREE.Mesh(primaryFlameGeometry, flameMaterial);
-                primaryFlameMesh.material.opacity = 0.3
-                primaryFlameMesh.rotation.x = -Math.PI / 2;
-                primaryFlameMesh.position.set(0, 0, -FLAME_SIZE/2);
-                primaryFlameMesh.userData.initialScale = 1.0;
-                // primaryFlameMesh.userData.pulseFactor = 0;
-                
-                // Secondary (inner) flame - smaller and brighter
-                const secondaryFlameGeometry = new THREE.ConeGeometry(0.3, FLAME_SIZE * 0.7, 16, 1);
-                const secondaryFlameMesh = new THREE.Mesh(secondaryFlameGeometry, flameMaterial.clone());
-                secondaryFlameMesh.material.opacity = 1.0;
-                secondaryFlameMesh.rotation.x = -Math.PI / 2;
-                secondaryFlameMesh.position.set(0, 0, -FLAME_SIZE/2);
-                
-                // Add both flames to the group
-                flameGroup.add(primaryFlameMesh);
-                flameGroup.add(secondaryFlameMesh);
-                
-                // Add group to exhaust
-                exhaust.add(flameGroup);
-                
-                // Store reference to the group
-                contrails[key] = {
-                    mesh: flameGroup,
+                // Create an object to track these elements
+                const exhaustAndTurretObjects = {
+                    exhaust_LB: null,
+                    exhaust_LT: null,
+                    exhaust_RB: null,
+                    exhaust_RT: null,
+                    turret_LB: null,
+                    turret_LT: null,
+                    turret_RB: null,
+                    turret_RT: null
                 };
-            }
-        });
-        
-        // Store contrails for later updates
-        xWingModel.userData.contrails = contrails;
-        
-        
-        // Add the initialized model group to the main spacecraft group immediately
-        spacecraft.add(xWingModel);
-        console.log("X-Wing model added to spacecraft group from preloaded data.");
+                
+                // Search for the elements in the model
+                model.traverse((child) => {
+                    if (exhaustAndTurretElements.includes(child.name)) {
+                        console.log(`✓ Found element: ${child.name}`);
+                        exhaustAndTurretObjects[child.name] = child;
+                    }
+                });
+            
+                xWingModel.userData.exhaustAndTurret = exhaustAndTurretObjects; // Store references
 
-        // Set initial wing position immediately since the model is already loaded
+                
+                ///// Create Engine Boost Effects /////
+
+                // Create material + shape
+                console.log("Creating exhaust flames");
+                const contrails = {};
+                
+                const flameMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xff00ff,
+                    transparent: true,
+                    side: THREE.DoubleSide
+                });
+                
+                // Create a boost trail for each exhaust
+                Object.keys(exhaustAndTurretObjects).forEach(key => {
+                    if (key.startsWith('exhaust_') && exhaustAndTurretObjects[key]) {
+                        const exhaust = exhaustAndTurretObjects[key];
+                        console.log(`Creating flame trail for ${key}`);
+                        
+                        const FLAME_SIZE = 6;
+                        
+                        // Create a flame group to hold both parts
+                        const flameGroup = new THREE.Group();
+                        
+                        // Primary (outer) flame
+                        const primaryFlameGeometry = new THREE.ConeGeometry(0.3, FLAME_SIZE, 16, 1);
+                        const primaryFlameMesh = new THREE.Mesh(primaryFlameGeometry, flameMaterial);
+                        primaryFlameMesh.material.opacity = 0.3
+                        primaryFlameMesh.rotation.x = -Math.PI / 2;
+                        primaryFlameMesh.position.set(0, 0, -FLAME_SIZE/2);
+                        primaryFlameMesh.userData.initialScale = 1.0;
+                        // primaryFlameMesh.userData.pulseFactor = 0;
+                        
+                        // Secondary (inner) flame - smaller and brighter
+                        const secondaryFlameGeometry = new THREE.ConeGeometry(0.3, FLAME_SIZE * 0.7, 16, 1);
+                        const secondaryFlameMesh = new THREE.Mesh(secondaryFlameGeometry, flameMaterial.clone());
+                        secondaryFlameMesh.material.opacity = 1.0;
+                        secondaryFlameMesh.rotation.x = -Math.PI / 2;
+                        secondaryFlameMesh.position.set(0, 0, -FLAME_SIZE/2);
+                        
+                        // Add both flames to the group
+                        flameGroup.add(primaryFlameMesh);
+                        flameGroup.add(secondaryFlameMesh);
+                        
+                        // Add group to exhaust
+                        exhaust.add(flameGroup);
+                        
+                        // Store reference to the group
+                        contrails[key] = {
+                            mesh: flameGroup,
+                        };
+                    }
+                });
+                
+                // Store contrails for later updates
+                xWingModel.userData.contrails = contrails;
+                
+                
+                // Resolve the promise when setup is complete
+                resolve(gltf);
+            },
+            (xhr) => { // onProgress callback (optional)
+                console.log(`Loading X-Wing: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
+            },
+            (error) => { // onError callback
+                console.error('Error loading X-Wing model from registry:', error);
+                reject(error); // Reject the promise on error
+            }
+        );
+    });
+    
+    // Do the same for the cockpit (first person view)
+    const loadCockpitModel = new Promise((resolve, reject) => {
+        modelLoader(
+            'x-wing_cockpit/scene.gltf',
+            (gltf) => {
+                const model = gltf.scene;
+                model.scale.set(1, 1, 1);
+                cockpit.add(model);
+                cockpit.name = 'cockpitModel';
+                cockpitLoaded = true;
+                resolve(cockpit);
+            },
+            (xhr) => {
+                console.log('Cockpit: ' + (xhr.loaded / xhr.total * 100) + '% loaded');
+            },
+            (error) => {
+                console.error('An error happened loading the cockpit model:', error);
+                reject(error);
+            }
+        );
+    });
+    
+
+    ///// Load 3rd and 1st person models /////
+
+    // 3rd person
+    loadModel.then(() => {
+        spacecraft.add(xWingModel); // Add the group containing the loaded model
+        console.log("X-Wing model added to spacecraft group.");
+        // Additional setup after model is added, if needed
+        // e.g., setting initial wing position
         if (xWingModel.userData.wings) {
             const wings = xWingModel.userData.wings;
              if (wings.topLeft && wings.topRight && wings.bottomLeft && wings.bottomRight) {
-                console.log("Setting initial wing position to OPEN (immediately)");
+                console.log("Setting initial wing position to OPEN (after load)");
                 wings.topRight.rotation.y = OPEN_ANGLE;
                 wings.bottomRight.rotation.y = -OPEN_ANGLE;
                 wings.topLeft.rotation.y = -OPEN_ANGLE;
@@ -269,67 +331,116 @@ export function createSpacecraft(scene, preloadedXwingGltf, preloadedCockpitGltf
             }
         }
 
-    } else {
-        console.error("🚨 Preloaded X-Wing model data not provided to createSpacecraft!");
-        // Optionally, add fallback loading here if needed, but ideally preloading should succeed
-    }
-    // --- End X-Wing Initialization ---
+    }).catch(error => {
+        console.error("Promise rejected for X-Wing model loading:", error);
+        // Handle the error, maybe add a placeholder or log failure
+    });
+    
+    // 1st person
+    loadCockpitModel.then(() => {
+        console.log("Cockpit model loaded successfully");
+    }).catch(error => {
+        console.error("Failed to load cockpit model:", error);
+    });
+    
 
-    // --- Initialize Cockpit from Preloaded Data --- 
-    if (preloadedCockpitGltf) {
-        console.log("Initializing Cockpit using preloaded model...");
-        const cockpitModel = preloadedCockpitGltf.scene;
-        cockpitModel.scale.set(1, 1, 1); // Adjust scale if needed
-        cockpit.add(cockpitModel); // Add to the cockpit group
-        cockpitLoaded = true;
-        console.log("Cockpit model added to cockpit group from preloaded data.");
-    } else {
-        console.error("🚨 Preloaded Cockpit model data not provided to createSpacecraft!");
-        // Optionally add fallback loading
-    }
-    // --- End Cockpit Initialization ---
+    // Create a reticle that's attached to the spacecraft
+    console.log("Creating reticle");
+    const reticleComponent = createReticle(scene, spacecraft);
 
-    // --- Cockpit View Toggle Logic --- 
+    // Store reticle references
+    spacecraft.userData.reticle = reticleComponent.reticle;
+    spacecraft.userData.updateReticle = reticleComponent.update;
+
+    // Confirm reticle creation
+    if (reticleComponent && reticleComponent.reticle) {
+        console.log("✅ Reticle successfully created and attached to spacecraft");
+    } else {
+        console.error("❌ Failed to create or attach reticle");
+    }
+    
+    // Function to toggle and track between first-person and third-person views
     function toggleView(camera, callback) {
+        if (!cockpitLoaded) {
+            console.warn("Cockpit model not yet loaded. Cannot switch to first-person view.");
+            return;
+        }
+        
+        console.log("⭐ TOGGLING VIEW - Before: isFirstPersonView =", isFirstPersonView);
         isFirstPersonView = !isFirstPersonView;
-        console.log(`Toggling view to: ${isFirstPersonView ? 'First-Person' : 'Third-Person'}`);
+        console.log("⭐ TOGGLING VIEW - After: isFirstPersonView =", isFirstPersonView);
+        console.log("*** TOGGLED VIEW: isFirstPersonView is now:", isFirstPersonView, " ***");
         
-        // Hide/show cockpit model
-        if (cockpit) {
-            cockpit.visible = isFirstPersonView;
-        }
-        
-        // Hide/show third-person model (xWingModel group)
-        if (xWingModel) {
-            xWingModel.visible = !isFirstPersonView;
-        }
-        
-        // Trigger reticle update to potentially adjust position/scale
-        if (updateReticle) {
-            updateReticle(keys.up, keys.down); // Use current boost/slow state
-        }
+        if (isFirstPersonView) {
+            // Switch to first-person view
+            console.log("Switching to first-person view");
+            
+            // Remove X-wing model from spacecraft
+            const xWing = spacecraft.getObjectByName('xWingModel');
+            console.log("Found xWingModel in spacecraft:", xWing ? "Yes" : "No");
+            if (xWing) {
+                console.log("Removing xWingModel from spacecraft. Contrails available:", xWing.userData?.contrails ? "Yes" : "No");
+                spacecraft.remove(xWing);
+            }
+            
+            // Add cockpit model to spacecraft
+            spacecraft.add(cockpit);
+            
+            // Position cockpit correctly for first-person view
+            cockpit.position.set(0, 0, 0);
+            cockpit.rotation.set(0, 0, 0);
+            
+            // Adjust the cockpit to be centered on camera
+            const cockpitModel = cockpit.getObjectByName('cockpitModel');
+            if (cockpitModel) {
+                cockpitModel.position.set(0, 0, 0); // distance between the camera and the cockpit - set in camera.js
+                console.log("Cockpit model positioned");
+            } else {
+                console.warn("Cockpit model not found");
+            }
+            
 
-        // Optional: Call a callback function after toggling
-        if (callback) {
+        } else {
+            // Switch back to third-person view
+            console.log("Switching to third-person view");
+            
+            // Remove cockpit model from spacecraft
+            spacecraft.remove(cockpit);
+            
+            // Add X-wing model back to spacecraft
+            loadModel.then(() => {
+                console.log("Adding xWingModel back to spacecraft. Contrails available:", xWingModel.userData?.contrails ? "Yes" : "No");
+                
+                // Log contrail details before adding the model back
+                if (xWingModel.userData?.contrails) {
+                    console.log("FLAMES:", Object.keys(xWingModel.userData.contrails).length, "found");
+                }
+                
+                spacecraft.add(xWingModel);
+                
+                // Trigger update of engine effects right after adding the model
+                // Pass the current boosting state to updateEngineEffects
+                setTimeout(() => {
+                    if (typeof updateEngineEffects === 'function') {
+                        // Use the imported keys object to determine boosting state
+                        const isCurrentlyBoosting = keys && keys.up;
+                        // console.log("Forcing engine effects update after view switch, boosting state:", isCurrentlyBoosting, "keys.up:", keys?.up);
+                        updateEngineEffects(isCurrentlyBoosting);
+                    }
+                }, 100);
+            });
+            
+        }
+        
+        // Call the callback with the current state if provided
+        if (typeof callback === 'function') {
+            console.log("Calling toggleView callback with isFirstPersonView:", isFirstPersonView);
             callback(isFirstPersonView);
         }
+        
+        return isFirstPersonView;
     }
 
-    // --- Reticle Creation --- 
-    // Moved reticle creation *outside* the xWingModel init block
-    // Ensure it's created even if preloading fails (though it might be misplaced)
-    console.log("Creating reticle");
-    const reticleComponents = createReticle(scene, spacecraft); // Attach to main spacecraft group
-    const reticle = reticleComponents?.reticle; // Use optional chaining
-    const updateReticle = reticleComponents?.update;
-    // Store reticle update function on the main spacecraft group's userData
-    spacecraft.userData.reticle = reticle;
-    spacecraft.userData.updateReticle = updateReticle;
-    if (reticle) {
-        console.log("✅ Reticle successfully created and associated with spacecraft");
-    } else {
-        console.warn("🚨 Reticle creation failed or component not found");
-    }
 
     /////// WING ANIMATION SYSTEM ///////
 
@@ -514,26 +625,21 @@ export function createSpacecraft(scene, preloadedXwingGltf, preloadedCockpitGltf
     // Return an object containing the spacecraft and all necessary attributes and methods
     // Note - referred to as spacecraftComponents in setup.js
     return {
-        spacecraft,         // The main THREE.Group for the entire spacecraft
-        cockpit,            // The THREE.Group for the cockpit view elements
-        reticle,            // The reticle mesh object
-        updateReticle,      // Function to update the reticle
-        toggleView,         // Function to toggle between 1st/3rd person view
-        updateAnimations: (deltaTime) => { // Function to update wing/other animations
-            if (mixer) mixer.update(deltaTime);
-        },
+        // attributes
+        spacecraft,
+        cockpit,
+        reticle: reticleComponent.reticle,
+        updateReticle: reticleComponent.update,
+
+        // methods
+        toggleView,
+        updateAnimations,
         setWingsOpen: wingAnimationController.setWingsOpen,
         toggleWings: wingAnimationController.toggleWings,
         setWingsPosition: wingAnimationController.setWingsPosition,
-        updateEngineEffects,// Function to update engine visuals
-        isFirstPersonView: () => isFirstPersonView, // Function to check current view mode
-        // Include wing references if available (safely accessed)
-        topRightWing: xWingModel?.userData?.wings?.topRight,
-        bottomRightWing: xWingModel?.userData?.wings?.bottomRight,
-        topLeftWing: xWingModel?.userData?.wings?.topLeft,
-        bottomLeftWing: xWingModel?.userData?.wings?.bottomLeft,
-        // Pass materials if they were successfully extracted
-        engineGlowMaterial: xWingModel?.userData?.engineGlowMaterial,
-        lightMaterial: xWingModel?.userData?.lightMaterial
+        updateEngineEffects,
+
+        get isFirstPersonView() {return isFirstPersonView},
+
     };
 }
