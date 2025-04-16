@@ -6,14 +6,14 @@
 
 // Define environment variables directly for browser usage
 const ENV = 'development';
-const ASSETS_PATH = '/src/assets';
+const ASSETS_PATH = '/src/assets/';
 const DRACO_PATH = '/src/assets/draco/';
 const APP_TITLE = 'PLANETARY - Development';
 const API_URL = 'http://localhost:3000/api';
 
 // Function to ensure paths have correct format (no double slashes, etc.)
 const formatPath = (path) => {
-  // Remove leading slash if present
+  // Remove leading slash if present for relative paths in browser environment
   const cleanPath = path.startsWith('/') ? path.substring(1) : path;
   // Ensure path ends with a slash
   return cleanPath.endsWith('/') ? cleanPath : `${cleanPath}/`;

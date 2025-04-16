@@ -1,9 +1,19 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import dotenv from 'dotenv';
+import { copyFileSync, mkdirSync, existsSync } from 'fs';
+import { dirname } from 'path';
 
 // Load the environment variables from .env.development
 dotenv.config({ path: '.env.development' });
+
+// Function to ensure directory exists
+function ensureDirectoryExistence(filePath) {
+  const dir = dirname(filePath);
+  if (existsSync(dir)) return true;
+  ensureDirectoryExistence(dir);
+  mkdirSync(dir);
+}
 
 export default defineConfig({
   server: {
@@ -16,6 +26,12 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     sourcemap: true,
+    assetsInlineLimit: 0,
+    rollupOptions: {
+      external: [
+        /^src\/assets\/.*/,
+      ],
+    },
   },
   resolve: {
     alias: {
@@ -27,8 +43,6 @@ export default defineConfig({
   optimizeDeps: {
     include: ['three', '3d-tiles-renderer'],
   },
-  // Set up asset handling explicitly
   assetsInclude: ['**/*.gltf', '**/*.glb', '**/*.jpg', '**/*.png', '**/*.jpeg'],
-  // Public directory for static assets that don't need processing
   publicDir: 'public',
 });

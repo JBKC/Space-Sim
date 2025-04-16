@@ -2561,19 +2561,30 @@ export function checkReticleHover() {
 // Enhanced model loading function that tries multiple path formats
 function loadModelWithFallback(modelName, primaryPath, onSuccess, onProgress, onError) {
     console.log(`Attempting to load ${modelName} from: ${primaryPath}`);
+    console.log('Current config paths:', {
+        assets: config.ASSETS_PATH,
+        models: config.models.path,
+        env: config.ENV
+    });
     
     // Define alternative paths to try if the primary path fails - consider environment
     const alternativePaths = [
         // First try based on environment variable
         `${config.ASSETS_PATH}models/${modelName}/scene.gltf`,
-        // Try prod path format
-        `assets/models/${modelName}/scene.gltf`,
-        // Try with relative path as fallback
+        // Try with standard path format
         `src/assets/models/${modelName}/scene.gltf`,
         // Try with complete path from config
         `${config.models.path}/${modelName}/scene.gltf`,
         // Try without starting slash
-        `${config.models.path}${modelName}/scene.gltf`
+        `${config.models.path}${modelName}/scene.gltf`,
+        // Try absolute URL format
+        `/src/assets/models/${modelName}/scene.gltf`,
+        // Try with assets folder directly
+        `/assets/models/${modelName}/scene.gltf`,
+        // Try just the model name
+        `${modelName}/scene.gltf`,
+        // Try a more complete alternate path
+        `src/assets/models/${modelName}/scene.gltf`
     ];
     
     // Try the primary path first
