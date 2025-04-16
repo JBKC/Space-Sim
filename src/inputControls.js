@@ -140,7 +140,7 @@ export function initControls(isEarthSurfaceActive, isMoonSurfaceActive) {
                 // Only trigger the view toggle on initial key press
                 if (!prevKeys.c) {
                     isViewToggleRequested = true;
-                    console.log('View toggle requested');
+                    // console.log('View toggle requested');
                 }
                 break;
             case 'r': 
@@ -148,7 +148,7 @@ export function initControls(isEarthSurfaceActive, isMoonSurfaceActive) {
                 // Only trigger reset on initial key press
                 if (!prevKeys.r) {
                     isResetPositionRequested = true;
-                    console.log('Reset position requested');
+                    // console.log('Reset position requested');
                 }
                 break;
             case 'escape': 
@@ -156,7 +156,7 @@ export function initControls(isEarthSurfaceActive, isMoonSurfaceActive) {
                 // Only trigger exit on initial key press
                 if (!prevKeys.escape) {
                     isExitSurfaceRequested = true;
-                    console.log('Exit surface requested');
+                    // console.log('Exit surface requested');
                 }
                 break;
             case 'enter':

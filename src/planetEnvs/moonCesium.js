@@ -742,7 +742,7 @@ export function update(isBoosting, deltaTime = 0.016) {
         if (getViewToggleRequested() && spacecraft && spacecraft.toggleView) {
             console.log('===== TOGGLE COCKPIT VIEW =====');
             spacecraft.toggleView(camera, (isFirstPerson) => {
-                console.log(`Resetting moon camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
+                // console.log(`Resetting moon camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
                 // Reset camera state with new view mode if needed
                 camera.position.copy(camera.position);
                 camera.quaternion.copy(camera.quaternion);
@@ -845,7 +845,7 @@ export function resetPosition() {
         return;
     }
 
-    console.log("Resetting spacecraft position to moon starting point");
+    // console.log("Resetting spacecraft position to moon starting point");
     
     // Set initial position of craft using the same constants
     const position = latLonToCartesian(SPACECRAFT_INITIAL_LAT, SPACECRAFT_INITIAL_LON, SPACECRAFT_INITIAL_HEIGHT);

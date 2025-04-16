@@ -632,14 +632,11 @@ export function createSpacecraft(scene) {
             return;
         }
         
-        console.log("⭐ TOGGLING VIEW - Before: isFirstPersonView =", isFirstPersonView);
+        // console.log("⭐ TOGGLING VIEW - Before: isFirstPersonView =", isFirstPersonView);
         isFirstPersonView = !isFirstPersonView;
-        console.log("⭐ TOGGLING VIEW - After: isFirstPersonView =", isFirstPersonView);
-        console.log("*** TOGGLED VIEW: isFirstPersonView is now:", isFirstPersonView, " ***");
-        
+
         if (isFirstPersonView) {
             // Switch to first-person view
-            console.log("Switching to first-person view");
             
             // Remove X-wing model from spacecraft
             const xWing = spacecraft.getObjectByName('xWingModel');

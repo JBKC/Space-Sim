@@ -80,10 +80,10 @@ import {
 
 
 
-/// IS THIS FLUFF????
+/////////////// GENERAL GAME INITIALIZATION ///////////////
+
 
 let isAnimating = false;
-
 
 // Added delta time calculation for smoother animations
 let lastFrameTime = 0;
