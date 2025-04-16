@@ -5,7 +5,7 @@
 
 // Spacecraft
 import xwingModel from '@models/xwing_axespoints.glb';
-import xwingCockpitModel from '@models/x-wing_cockpit/scene.gltf';
+import xwingCockpitModel from '@models/x-wing_cockpit.glb';
 
 // Ships
 import starDestroyerIModel from '@models/star_wars_imperial-class_star_destroyer/scene.gltf';
