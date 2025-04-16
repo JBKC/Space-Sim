@@ -509,10 +509,15 @@ collisionBox2.position.set(-7000, 2000, 0);
 collisionBox2.name = "starDestroyer2Collision";
 starDestroyerGroup.add(collisionBox2);
 
-// Load first Star Destroyer using the registry
+// Load 2 Star Destroyer models using GLTFLoader
+
+// Load the first Star Destroyer
+console.log('Loading First Star Destroyer from registry');
+
+// Load first Star Destroyer using registry
 loadModelFromRegistry(
-    'ships', // Category
-    'starDestroyerII', // Name from modelRegistry.js
+    'ships', 
+    'starDestroyerII',
     
     // Success callback
     (gltf) => {
@@ -524,14 +529,14 @@ loadModelFromRegistry(
         console.log('First Imperial Star Destroyer loaded successfully from registry');
     },
     (xhr) => {
-        // console.log(`Loading Star Destroyer 1: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
+        console.log(`Loading Star Destroyer: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
     },
     (error) => {
-        console.error('Error loading Star Destroyer 1 from registry:', error);
+        console.error('Error loading Star Destroyer from registry:', error);
     }
 );
 
-// Load second Star Destroyer using the registry
+// Load second Star Destroyer using registry
 loadModelFromRegistry(
     'ships',
     'starDestroyerII',
@@ -544,7 +549,7 @@ loadModelFromRegistry(
         console.log('Second Imperial Star Destroyer loaded successfully from registry');
     },
     (xhr) => {
-        // console.log(`Loading Star Destroyer 2: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
+        console.log(`Loading Star Destroyer 2: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
     },
     (error) => {
         console.error('Error loading Star Destroyer 2 from registry:', error);
@@ -609,10 +614,13 @@ const radius = 55000;           // Radius of the belt
 const asteroidScale = 200;
 asteroidBeltGroup.position.set(0, 0, 0);
 
-// Load asteroid models using the registry
+// Load asteroid models
+console.log('Loading asteroids from registry');
+
+// Use the model registry for asteroid loading
 loadModelFromRegistry(
-    'environment', // Category
-    'asteroidPack', // Name from modelRegistry.js
+    'environment',
+    'asteroidPack',
     (gltf) => {
         console.log('Asteroid pack loaded successfully from registry');
         const asteroidModel = gltf.scene;
@@ -654,7 +662,7 @@ loadModelFromRegistry(
         }
     },
     (xhr) => {
-        // console.log(`Loading asteroids: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
+        console.log(`Loading asteroids: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
     },
     (error) => {
         console.error('Error loading asteroid model from registry:', error);
