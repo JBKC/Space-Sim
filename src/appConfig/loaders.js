@@ -192,8 +192,20 @@ function loadModelFromRegistry(category, name, onSuccess, onProgress, onError) {
     }
 
     console.log(`Loading model from registry: ${category}/${name} from ${modelPath}`);
+    
+    // Check if this is a gltf file inside a directory
+    if (modelPath.endsWith('scene.gltf')) {
+        // Extract the base directory from the path
+        const basePath = modelPath.substring(0, modelPath.lastIndexOf('/') + 1);
+        console.log(`Setting resource path for GLTF model: ${basePath}`);
+        
+        // Set the resource path for the loader to correctly resolve referenced files
+        gltfLoader.setResourcePath(basePath);
+    }
+    
     gltfLoader.load(modelPath, onSuccess, onProgress, onError);
 }
+
 
 
 ///// STATS / DISPLAY /////

@@ -11,7 +11,6 @@ import xwingCockpitModel from '@models/x-wing_cockpit/scene.gltf';
 import starDestroyerIModel from '@models/star_wars_imperial-class_star_destroyer/scene.gltf';
 import starDestroyerIIModel from '@models/star_wars_imperial_ii_star_destroyer/scene.gltf';
 import lucrehulkModel from '@models/lucrehulk/scene.gltf';
-import deathStarModel from '@models/death star/scene.gltf';
 
 // Environment
 import asteroidPackModel from '@models/asteroids_pack_metallic_version/scene.gltf';
@@ -26,7 +25,6 @@ export const models = {
     starDestroyerI: starDestroyerIModel,
     starDestroyerII: starDestroyerIIModel,
     lucrehulk: lucrehulkModel,
-    deathStar: deathStarModel
   },
   environment: {
     asteroidPack: asteroidPackModel
