@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { createRateLimitedGameLoader } from './appConfig/gameLoader.js';
-import { loadingManager, textureLoadingManager, updateAssetDisplay, resetLoadingStats } from './appConfig/loaders.js';
+import { loadingManager, textureLoadingManager, updateAssetDisplay, resetLoadingStats, updateDetailedAssetDisplay } from './appConfig/loaders.js';
 
 // Import state environment functions
 import { 
@@ -77,9 +77,6 @@ import {
     getHyperspaceState,
     getControlsToggleRequested
 } from './inputControls.js';
-
-// Import the new asset status manager functions
-import { subscribeToAssetStatus } from './appConfig/assetStatusManager.js';
 
 
 
@@ -161,8 +158,8 @@ document.body.appendChild(fpsDisplay);
 // Create an asset loader display
 const assetDisplay = document.createElement('div');
 assetDisplay.id = 'asset-display';
-// Update styles: bottom-right, text-align right, add max-height and overflow
-assetDisplay.style.cssText = 'position:absolute; bottom:10px; right:10px; width: 250px; max-height: 150px; overflow-y: auto; background:rgba(0,0,0,0.7); color:#fff; font-family:monospace; font-size:12px; padding:8px; border-radius:5px; z-index:10000; text-align: right; display:none;'; 
+assetDisplay.style.cssText = 'position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#0fa;font-family:monospace;font-size:14px;font-weight:bold;padding:5px 10px;border-radius:5px;z-index:10000;'; // Moved to right side
+assetDisplay.innerHTML = 'Assets: 0/0<br>Textures: 0/0';
 document.body.appendChild(assetDisplay);
 
 // Initialize variables for FPS calculation
@@ -605,71 +602,11 @@ function animate(currentTime = 0) {
 
 }
 
-// Function to update the detailed asset display
-function updateDetailedAssetDisplay(assets) {
-  if (!assetDisplay) return;
-
-  // Sort assets: pending/loading first, then loaded, then error
-  const sortedAssets = assets.sort((a, b) => {
-      const statusOrder = { 'pending': 0, 'loading': 1, 'loaded': 2, 'error': 3 };
-      return statusOrder[a.status] - statusOrder[b.status];
-  });
-
-  assetDisplay.innerHTML = ''; // Clear previous content
-  if (sortedAssets.length === 0) {
-      assetDisplay.style.display = 'none';
-      return;
-  }
-
-  // assetDisplay.style.display = 'block'; // Ensure visible when there are assets
-
-  sortedAssets.forEach(asset => {
-    const item = document.createElement('div');
-    item.textContent = asset.name;
-    switch (asset.status) {
-      case 'loaded':
-        item.style.color = '#0f0'; // Green
-        item.textContent += ' ✓'; // Add checkmark
-        break;
-      case 'error':
-        item.style.color = '#f00'; // Red
-        item.textContent += ' ✗'; // Add cross
-        break;
-      case 'loading':
-        item.style.color = '#ff0'; // Yellow
-        item.textContent += '...'; // Add ellipsis
-        break;
-      case 'pending':
-      default:
-        item.style.color = '#fff'; // White
-    }
-    assetDisplay.appendChild(item);
-  });
-  
-  // Scroll to bottom if overflowing
-  assetDisplay.scrollTop = assetDisplay.scrollHeight;
-}
-
-// Subscribe the display updater to the status manager
-subscribeToAssetStatus(updateDetailedAssetDisplay);
-
-// Show/hide display based on overall loading manager state
-loadingManager.onStart = function ( url, itemsLoaded, itemsTotal ) {
-    console.log('Loading started...');
-    assetDisplay.style.display = 'block'; // Show when loading starts
-};
-
-loadingManager.onLoad = function ( ) {
-    console.log('Loading complete!');
-    // Optional: Hide after a short delay when loading finishes
-    // setTimeout(() => { assetDisplay.style.display = 'none'; }, 2000);
-};
-
-loadingManager.onError = function ( url ) {
-    console.error('There was an error loading ' + url);
-    // Keep display open on error
-    assetDisplay.style.display = 'block'; 
-};
+// Initialize the detailed asset display
+document.addEventListener('DOMContentLoaded', () => {
+    // Call once to create the element
+    updateDetailedAssetDisplay();
+});
 
 
 

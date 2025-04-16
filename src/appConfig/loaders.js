@@ -5,8 +5,6 @@ import config from './config.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { getTexture } from './textureRegistry.js';
 import { getModel } from './modelRegistry.js'; // Import model registry helper
-// Import asset status manager functions
-import { registerAsset, updateAssetStatus, resetAssetStatus } from './assetStatusManager.js';
 
 // Initialize THREE.js loading managers to track progress
 let loadingManager = new THREE.LoadingManager();
@@ -17,20 +15,120 @@ const gltfLoader = new GLTFLoader(loadingManager);
 // Store loading stats
 const loadingStats = {
     assets: { loaded: 0, total: 0 },
-    textures: { loaded: 0, total: 0 }
+    textures: { loaded: 0, total: 0 },
+    // Track individual assets by name
+    individualAssets: {}
 };
 
 // Set up onProgress handlers for the loading managers
 function setupLoadingManagerHandlers() {
+    loadingManager.onStart = function(url) {
+        const assetName = getAssetNameFromUrl(url);
+        if (assetName) {
+            trackAsset(assetName, 'model', false);
+        }
+    };
+
+    loadingManager.onLoad = function() {
+        updateAssetDisplay(loadingStats.assets.loaded, loadingStats.assets.total, 'assets');
+    };
+    
     loadingManager.onProgress = function(url, itemsLoaded, itemsTotal) {
-        // Remove call to old display function
-        // updateAssetDisplay(itemsLoaded, itemsTotal, 'assets');
+        // Update counters
+        loadingStats.assets.loaded = itemsLoaded;
+        loadingStats.assets.total = itemsTotal;
+        
+        // Update specific asset status
+        const assetName = getAssetNameFromUrl(url);
+        if (assetName) {
+            trackAsset(assetName, 'model', true);
+        }
+        
+        updateAssetDisplay(itemsLoaded, itemsTotal, 'assets');
+    };
+    
+    loadingManager.onError = function(url) {
+        console.error('Error loading asset:', url);
+        const assetName = getAssetNameFromUrl(url);
+        if (assetName) {
+            trackAsset(assetName, 'model', false, true);
+        }
+    };
+    
+    textureLoadingManager.onStart = function(url) {
+        const textureName = getAssetNameFromUrl(url);
+        if (textureName) {
+            trackAsset(textureName, 'texture', false);
+        }
+    };
+
+    textureLoadingManager.onLoad = function() {
+        updateAssetDisplay(loadingStats.textures.loaded, loadingStats.textures.total, 'textures');
     };
     
     textureLoadingManager.onProgress = function(url, itemsLoaded, itemsTotal) {
-        // Remove call to old display function
-        // updateAssetDisplay(itemsLoaded, itemsTotal, 'textures');
+        // Update counters
+        loadingStats.textures.loaded = itemsLoaded;
+        loadingStats.textures.total = itemsTotal;
+        
+        // Update specific texture status
+        const textureName = getAssetNameFromUrl(url);
+        if (textureName) {
+            trackAsset(textureName, 'texture', true);
+        }
+        
+        updateAssetDisplay(itemsLoaded, itemsTotal, 'textures');
     };
+    
+    textureLoadingManager.onError = function(url) {
+        console.error('Error loading texture:', url);
+        const textureName = getAssetNameFromUrl(url);
+        if (textureName) {
+            trackAsset(textureName, 'texture', false, true);
+        }
+    };
+}
+
+// Helper to extract asset name from URL
+function getAssetNameFromUrl(url) {
+    if (!url) return 'unknown';
+    
+    // Extract the file name from the URL
+    const urlParts = url.split('/');
+    let fileName = urlParts[urlParts.length - 1];
+    
+    // For gltf models, use the directory name instead (more descriptive)
+    if (fileName === 'scene.gltf' && urlParts.length > 1) {
+        fileName = urlParts[urlParts.length - 2];
+    }
+    
+    // Clean up the name
+    fileName = fileName.replace(/\.\w+$/, ''); // Remove file extension
+    fileName = fileName.replace(/[-_]/g, ' '); // Replace dashes and underscores with spaces
+    fileName = fileName.replace(/(\d+k)/i, (match) => match.toUpperCase()); // Capitalize resolution indicators like 2k
+    
+    return fileName;
+}
+
+// Track individual asset loading status
+function trackAsset(name, type, loaded = false, error = false) {
+    if (!name) return;
+    
+    // Create entry if it doesn't exist
+    if (!loadingStats.individualAssets[name]) {
+        loadingStats.individualAssets[name] = {
+            type,
+            loaded: false,
+            error: false
+        };
+    }
+    
+    // Update status
+    loadingStats.individualAssets[name].loaded = loaded;
+    loadingStats.individualAssets[name].error = error;
+    
+    // Update the display
+    updateDetailedAssetDisplay();
 }
 
 // Initial setup of handlers
@@ -41,72 +139,37 @@ setupLoadingManagerHandlers();
 
 // Standard texture loader using explicit imports
 function loadTexture(category, name, onLoad) {
-    const texturePath = getTexture(category, name);
-    const assetId = `texture:${category}/${name}`; // Unique ID for tracking
-    const displayName = `${name} Texture`; // User-friendly name
-
-    registerAsset(assetId, displayName);
-    updateAssetStatus(assetId, 'loading');
-
-    if (!texturePath) {
+    const texture = getTexture(category, name);
+    
+    if (!texture) {
         console.error(`Texture not found: ${category}/${name}`);
-        updateAssetStatus(assetId, 'error');
         return new THREE.Texture(); // Return empty texture
     }
-
-    // Use a dedicated loader instance to avoid conflicts if multiple loads happen
-    const loaderInstance = new THREE.TextureLoader(textureLoadingManager);
-
-    const threeTexture = loaderInstance.load(
-        texturePath,
-        (loadedTexture) => {
-            updateAssetStatus(assetId, 'loaded');
-            if (onLoad) onLoad(loadedTexture);
-        },
-        undefined, // onProgress - TextureLoader doesn't support detailed progress
-        (error) => {
-            console.error(`Error loading texture ${assetId}:`, error);
-            updateAssetStatus(assetId, 'error');
-            // Don't call original onLoad on error
-        }
+    
+    console.log(`Loading texture: ${category}/${name} from registry`);
+    
+    // If we're using the direct import, we don't need textureLoader.load
+    // Just create a THREE.js texture from the imported URL
+    const threeTexture = new THREE.TextureLoader(textureLoadingManager).load(
+        texture, 
+        onLoad
     );
-
+    
     return threeTexture;
 }
 
 // Standard model loader using explicit imports
 function loadModelFromRegistry(category, name, onSuccess, onProgress, onError) {
     const modelPath = getModel(category, name);
-    const assetId = `model:${category}/${name}`; // Unique ID
-    const displayName = `${name} Model`; // User-friendly name
-
-    registerAsset(assetId, displayName);
-    updateAssetStatus(assetId, 'loading');
 
     if (!modelPath) {
         console.error(`Model not found in registry: ${category}/${name}`);
-        updateAssetStatus(assetId, 'error');
         if (onError) onError(new Error(`Model not found in registry: ${category}/${name}`));
         return;
     }
 
-    gltfLoader.load(
-        modelPath,
-        (gltf) => {
-            updateAssetStatus(assetId, 'loaded');
-            if (onSuccess) onSuccess(gltf);
-        },
-        (xhr) => { // onProgress
-            // Optional: Can update status to 'loading' with percentage here if needed
-            // updateAssetStatus(assetId, 'loading'); 
-            if (onProgress) onProgress(xhr);
-        },
-        (error) => {
-            console.error(`Error loading model ${assetId}:`, error);
-            updateAssetStatus(assetId, 'error');
-            if (onError) onError(error);
-        }
-    );
+    console.log(`Loading model from registry: ${category}/${name} from ${modelPath}`);
+    gltfLoader.load(modelPath, onSuccess, onProgress, onError);
 }
 
 // General model loading function (OLD - Keep for compatibility during transition)
@@ -267,25 +330,23 @@ function resetLoadingStats() {
     
     // Set up the event handlers for the new managers
     setupLoadingManagerHandlers();
-    
-    // Call the new asset status reset function
-    resetAssetStatus(); // Reset the detailed asset tracker
 
-    // Reset all counters to zero (keep for old display logic if needed)
+    // Reset all counters to zero
     loadingStats.assets.loaded = 0;
     loadingStats.assets.total = 0;
     loadingStats.textures.loaded = 0;
     loadingStats.textures.total = 0;
+    loadingStats.individualAssets = {}; // Clear individual asset tracking
     
-    // Update the display with reset values (keep for old display logic if needed)
-    // updateAssetDisplay(0, 0, 'assets');
-    // updateAssetDisplay(0, 0, 'textures');
+    // Update the display with reset values
+    updateAssetDisplay(0, 0, 'assets');
+    updateAssetDisplay(0, 0, 'textures');
+    updateDetailedAssetDisplay();
     
-    console.log("Loading stats AND detailed asset status reset for new scene.");
+    console.log("Loading stats reset for new scene - created new loading managers");
 }
 
-// Comment out the old generic asset display function
-/*
+// Function to update the asset display
 function updateAssetDisplay(loaded, total, type) {
     // Update the appropriate counter
     if (type === 'assets') {
@@ -300,7 +361,7 @@ function updateAssetDisplay(loaded, total, type) {
     const assetDisplay = document.getElementById('asset-display');
     if (!assetDisplay) return;
     
-    // Update the display
+    // Update the summary display (keep for compatibility)
     assetDisplay.innerHTML = `Assets: ${loadingStats.assets.loaded}/${loadingStats.assets.total}<br>` +
                            `Textures: ${loadingStats.textures.loaded}/${loadingStats.textures.total}`;
     
@@ -315,17 +376,102 @@ function updateAssetDisplay(loaded, total, type) {
     } else {
         assetDisplay.style.color = '#0fa'; // Default teal
     }
+    
+    // Update the detailed display
+    updateDetailedAssetDisplay();
 }
-*/
+
+// Function to update the detailed asset display
+function updateDetailedAssetDisplay() {
+    // Get or create the detailed asset display element
+    let detailedAssetDisplay = document.getElementById('detailed-asset-display');
+    
+    if (!detailedAssetDisplay) {
+        detailedAssetDisplay = document.createElement('div');
+        detailedAssetDisplay.id = 'detailed-asset-display';
+        detailedAssetDisplay.style.cssText = 'position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.7);color:#fff;font-family:monospace;font-size:14px;font-weight:bold;padding:10px;border-radius:5px;z-index:10000;text-align:right;max-height:50vh;overflow-y:auto;max-width:40vw;';
+        document.body.appendChild(detailedAssetDisplay);
+    }
+    
+    // Check if we have any assets to display
+    const assetEntries = Object.entries(loadingStats.individualAssets);
+    
+    if (assetEntries.length === 0) {
+        detailedAssetDisplay.innerHTML = '<div style="text-align:center;">No assets loading</div>';
+        return;
+    }
+    
+    // Create HTML for the detailed display
+    let html = '<div style="text-align:center;margin-bottom:5px;font-size:16px;border-bottom:1px solid #555;padding-bottom:3px;">Loading Assets</div>';
+    
+    // Sort by type (textures first, then models) and then by name
+    assetEntries.sort((a, b) => {
+        if (a[1].type !== b[1].type) {
+            return a[1].type === 'texture' ? -1 : 1;
+        }
+        return a[0].localeCompare(b[0]);
+    });
+    
+    // Group by type
+    const byType = {
+        texture: [],
+        model: []
+    };
+    
+    assetEntries.forEach(([name, info]) => {
+        byType[info.type]?.push([name, info]);
+    });
+    
+    // Add textures section if any
+    if (byType.texture.length > 0) {
+        html += '<div style="margin-top:5px;font-size:15px;color:#aaa;">Textures:</div>';
+        
+        byType.texture.forEach(([name, info]) => {
+            const color = info.error ? '#f55' : (info.loaded ? '#5f5' : '#fff');
+            const icon = info.error ? '❌' : (info.loaded ? '✓' : '⋯');
+            html += `<div style="color:${color};margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${icon} ${name}</div>`;
+        });
+    }
+    
+    // Add models section if any
+    if (byType.model.length > 0) {
+        html += '<div style="margin-top:8px;font-size:15px;color:#aaa;">Models:</div>';
+        
+        byType.model.forEach(([name, info]) => {
+            const color = info.error ? '#f55' : (info.loaded ? '#5f5' : '#fff');
+            const icon = info.error ? '❌' : (info.loaded ? '✓' : '⋯');
+            html += `<div style="color:${color};margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${icon} ${name}</div>`;
+        });
+    }
+    
+    // Update the display
+    detailedAssetDisplay.innerHTML = html;
+    
+    // Show/hide based on loading status
+    const isLoading = assetEntries.some(([_, info]) => !info.loaded && !info.error);
+    const hasErrors = assetEntries.some(([_, info]) => info.error);
+    
+    if (isLoading || hasErrors) {
+        detailedAssetDisplay.style.display = 'block';
+    } else {
+        // Hide after a delay when all assets are loaded
+        setTimeout(() => {
+            detailedAssetDisplay.style.display = 'none';
+        }, 2000);
+    }
+}
 
 // Export the loading managers and functions for use in other modules
 export { 
     loadingManager, 
     textureLoadingManager, 
-    createEnhancedTextureLoader, // Keep old texture loader for compatibility
+    createEnhancedTextureLoader, 
     loadTexture, 
     loadModelFromRegistry, 
-    modelLoader, // Keep old model loader for compatibility
-    // Remove the old updateAssetDisplay from exports
-    resetLoadingStats, // Keep exporting this, it now calls resetAssetStatus
+    modelLoader, 
+    updateAssetDisplay,
+    resetLoadingStats,
+    getAssetNameFromUrl,
+    trackAsset,
+    updateDetailedAssetDisplay
 }; 
