@@ -12,15 +12,13 @@ import {
 
  import config from '../appConfig/config.js';
 
-// Use standard TextureLoader
-const textureLoader = new THREE.TextureLoader(textureLoadingManager);
+// Create a texture loader that tries multiple paths
 const loader = new GLTFLoader();
 
 export const planetGroups = [];
 // Use the new explicit texture loading for Earth clouds 
 const cloudTexture = loadTextureFromRegistry('planets', 'earthClouds');
 const collisionMaterialInvisible = new THREE.MeshBasicMaterial({ visible: false });
-
 
 
 

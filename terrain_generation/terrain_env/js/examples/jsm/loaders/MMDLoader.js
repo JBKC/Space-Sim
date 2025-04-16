@@ -1182,13 +1182,13 @@ class MaterialBuilder {
 					// fileNames[ 0 ]: mapFileName
 					// fileNames[ 1 ]: matcapFileName( optional )
 
-					params.map = this._loadTexture( fileNames[ 0 ], textures );
+					params.map = this._loadTextureFromRegistry( fileNames[ 0 ], textures );
 
 					if ( fileNames.length > 1 ) {
 
 						const extension = fileNames[ 1 ].slice( - 4 ).toLowerCase();
 
-						params.matcap = this._loadTexture(
+						params.matcap = this._loadTextureFromRegistry(
 							fileNames[ 1 ],
 							textures
 						);
@@ -1207,7 +1207,7 @@ class MaterialBuilder {
 					? 'toon00.bmp'
 					: data.toonTextures[ material.toonIndex ].fileName;
 
-				params.gradientMap = this._loadTexture(
+				params.gradientMap = this._loadTextureFromRegistry(
 					toonFileName,
 					textures,
 					{
@@ -1231,7 +1231,7 @@ class MaterialBuilder {
 
 				if ( material.textureIndex !== - 1 ) {
 
-					params.map = this._loadTexture( data.textures[ material.textureIndex ], textures );
+					params.map = this._loadTextureFromRegistry( data.textures[ material.textureIndex ], textures );
 
 					// Since PMX spec don't have standard to list map files except color map and env map,
 					// we need to save file name for further mapping, like matching normal map file names after model loaded.
@@ -1244,7 +1244,7 @@ class MaterialBuilder {
 
 				if ( material.envTextureIndex !== - 1 && ( material.envFlag === 1 || material.envFlag == 2 ) ) {
 
-					params.matcap = this._loadTexture(
+					params.matcap = this._loadTextureFromRegistry(
 						data.textures[ material.envTextureIndex ],
 						textures
 					);
@@ -1274,7 +1274,7 @@ class MaterialBuilder {
 
 				}
 
-				params.gradientMap = this._loadTexture(
+				params.gradientMap = this._loadTextureFromRegistry(
 					toonFileName,
 					textures,
 					{
@@ -1392,7 +1392,7 @@ class MaterialBuilder {
 
 	}
 
-	_loadTexture( filePath, textures, params, onProgress, onError ) {
+	_loadTextureFromRegistry( filePath, textures, params, onProgress, onError ) {
 
 		params = params || {};
 

@@ -147,7 +147,7 @@ class MD2CharacterComplex {
 
 		const scope = this;
 
-		function loadTextures( baseUrl, textureUrls ) {
+		function loadTextureFromRegistrys( baseUrl, textureUrls ) {
 
 			const textureLoader = new TextureLoader();
 			const textures = [];
@@ -183,8 +183,8 @@ class MD2CharacterComplex {
 
 		// SKINS
 
-		this.skinsBody = loadTextures( config.baseUrl + 'skins/', config.skins );
-		this.skinsWeapon = loadTextures( config.baseUrl + 'skins/', weaponsTextures );
+		this.skinsBody = loadTextureFromRegistrys( config.baseUrl + 'skins/', config.skins );
+		this.skinsWeapon = loadTextureFromRegistrys( config.baseUrl + 'skins/', weaponsTextures );
 
 		// BODY
 

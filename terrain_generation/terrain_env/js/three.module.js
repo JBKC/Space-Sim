@@ -24471,7 +24471,7 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, utils,
 
 			} else {
 
-				uploadTexture( textureProperties, texture, slot );
+				uploadTextureFromRegistry( textureProperties, texture, slot );
 				return;
 
 			}
@@ -24488,7 +24488,7 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, utils,
 
 		if ( texture.version > 0 && textureProperties.__version !== texture.version ) {
 
-			uploadTexture( textureProperties, texture, slot );
+			uploadTextureFromRegistry( textureProperties, texture, slot );
 			return;
 
 		}
@@ -24503,7 +24503,7 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, utils,
 
 		if ( texture.version > 0 && textureProperties.__version !== texture.version ) {
 
-			uploadTexture( textureProperties, texture, slot );
+			uploadTextureFromRegistry( textureProperties, texture, slot );
 			return;
 
 		}
@@ -24705,7 +24705,7 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, utils,
 
 	}
 
-	function uploadTexture( textureProperties, texture, slot ) {
+	function uploadTextureFromRegistry( textureProperties, texture, slot ) {
 
 		let textureType = _gl.TEXTURE_2D;
 
@@ -24923,7 +24923,7 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, utils,
 
 							} else {
 
-								console.warn( 'THREE.WebGLRenderer: Attempt to load unsupported compressed texture format in .uploadTexture()' );
+								console.warn( 'THREE.WebGLRenderer: Attempt to load unsupported compressed texture format in .uploadTextureFromRegistry()' );
 
 							}
 
@@ -24971,7 +24971,7 @@ function WebGLTextures( _gl, extensions, state, properties, capabilities, utils,
 
 							} else {
 
-								console.warn( 'THREE.WebGLRenderer: Attempt to load unsupported compressed texture format in .uploadTexture()' );
+								console.warn( 'THREE.WebGLRenderer: Attempt to load unsupported compressed texture format in .uploadTextureFromRegistry()' );
 
 							}
 
@@ -43782,7 +43782,7 @@ class CompressedTextureLoader extends Loader {
 
 		let loaded = 0;
 
-		function loadTexture( i ) {
+		function loadTextureFromRegistry( i ) {
 
 			loader.load( url[ i ], function ( buffer ) {
 
@@ -43817,7 +43817,7 @@ class CompressedTextureLoader extends Loader {
 
 			for ( let i = 0, il = url.length; i < il; ++ i ) {
 
-				loadTexture( i );
+				loadTextureFromRegistry( i );
 
 			}
 
@@ -43983,7 +43983,7 @@ class CubeTextureLoader extends Loader {
 
 		let loaded = 0;
 
-		function loadTexture( i ) {
+		function loadTextureFromRegistry( i ) {
 
 			loader.load( urls[ i ], function ( image ) {
 
@@ -44005,7 +44005,7 @@ class CubeTextureLoader extends Loader {
 
 		for ( let i = 0; i < urls.length; ++ i ) {
 
-			loadTexture( i );
+			loadTextureFromRegistry( i );
 
 		}
 

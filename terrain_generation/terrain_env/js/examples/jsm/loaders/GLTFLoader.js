@@ -1347,7 +1347,7 @@ class GLTFTextureBasisUExtension {
 
 	}
 
-	loadTexture( textureIndex ) {
+	loadTextureFromRegistry( textureIndex ) {
 
 		const parser = this.parser;
 		const json = parser.json;
@@ -1378,7 +1378,7 @@ class GLTFTextureBasisUExtension {
 
 		}
 
-		return parser.loadTextureImage( textureIndex, extension.source, loader );
+		return parser.loadTextureFromRegistryImage( textureIndex, extension.source, loader );
 
 	}
 
@@ -1399,7 +1399,7 @@ class GLTFTextureWebPExtension {
 
 	}
 
-	loadTexture( textureIndex ) {
+	loadTextureFromRegistry( textureIndex ) {
 
 		const name = this.name;
 		const parser = this.parser;
@@ -1426,7 +1426,7 @@ class GLTFTextureWebPExtension {
 
 		return this.detectSupport().then( function ( isSupported ) {
 
-			if ( isSupported ) return parser.loadTextureImage( textureIndex, extension.source, loader );
+			if ( isSupported ) return parser.loadTextureFromRegistryImage( textureIndex, extension.source, loader );
 
 			if ( json.extensionsRequired && json.extensionsRequired.indexOf( name ) >= 0 ) {
 
@@ -1435,7 +1435,7 @@ class GLTFTextureWebPExtension {
 			}
 
 			// Fall back to PNG or JPEG.
-			return parser.loadTexture( textureIndex );
+			return parser.loadTextureFromRegistry( textureIndex );
 
 		} );
 
@@ -1484,7 +1484,7 @@ class GLTFTextureAVIFExtension {
 
 	}
 
-	loadTexture( textureIndex ) {
+	loadTextureFromRegistry( textureIndex ) {
 
 		const name = this.name;
 		const parser = this.parser;
@@ -1511,7 +1511,7 @@ class GLTFTextureAVIFExtension {
 
 		return this.detectSupport().then( function ( isSupported ) {
 
-			if ( isSupported ) return parser.loadTextureImage( textureIndex, extension.source, loader );
+			if ( isSupported ) return parser.loadTextureFromRegistryImage( textureIndex, extension.source, loader );
 
 			if ( json.extensionsRequired && json.extensionsRequired.indexOf( name ) >= 0 ) {
 
@@ -1520,7 +1520,7 @@ class GLTFTextureAVIFExtension {
 			}
 
 			// Fall back to PNG or JPEG.
-			return parser.loadTexture( textureIndex );
+			return parser.loadTextureFromRegistry( textureIndex );
 
 		} );
 
@@ -2844,7 +2844,7 @@ class GLTFParser {
 				case 'texture':
 					dependency = this._invokeOne( function ( ext ) {
 
-						return ext.loadTexture && ext.loadTexture( index );
+						return ext.loadTextureFromRegistry && ext.loadTextureFromRegistry( index );
 
 					} );
 					break;
@@ -3113,7 +3113,7 @@ class GLTFParser {
 	 * @param {number} textureIndex
 	 * @return {Promise<THREE.Texture|null>}
 	 */
-	loadTexture( textureIndex ) {
+	loadTextureFromRegistry( textureIndex ) {
 
 		const json = this.json;
 		const options = this.options;
@@ -3130,11 +3130,11 @@ class GLTFParser {
 
 		}
 
-		return this.loadTextureImage( textureIndex, sourceIndex, loader );
+		return this.loadTextureFromRegistryImage( textureIndex, sourceIndex, loader );
 
 	}
 
-	loadTextureImage( textureIndex, sourceIndex, loader ) {
+	loadTextureFromRegistryImage( textureIndex, sourceIndex, loader ) {
 
 		const parser = this;
 		const json = this.json;

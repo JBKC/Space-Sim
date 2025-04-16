@@ -428,7 +428,7 @@ class MaterialParser {
 
 			if ( ! path ) return;
 
-			const texture = this.loadTexture( path );
+			const texture = this.loadTextureFromRegistry( path );
 
 			if ( node.widthWrappingMode !== undefined ) texture.wrapS = this.getWrappingType( node.widthWrappingMode );
 			if ( node.heightWrappingMode !== undefined ) texture.wrapT = this.getWrappingType( node.heightWrappingMode );
@@ -499,7 +499,7 @@ class MaterialParser {
 				const path = this.getTexturePathByIndex( mapData.imageIndex, textures );
 				if ( ! path ) return;
 
-				const texture = this.loadTexture( path );
+				const texture = this.loadTextureFromRegistry( path );
 
 				if ( mapData.wrap !== undefined ) texture.wrapS = this.getWrappingType( mapData.wrap.w );
 				if ( mapData.wrap !== undefined ) texture.wrapT = this.getWrappingType( mapData.wrap.h );
@@ -676,7 +676,7 @@ class MaterialParser {
 
 		if ( connections.envMap ) {
 
-			const envMap = this.loadTexture( connections.envMap );
+			const envMap = this.loadTextureFromRegistry( connections.envMap );
 
 			if ( attributes.transparent && attributes.opacity < 0.999 ) {
 
@@ -723,7 +723,7 @@ class MaterialParser {
 
 	}
 
-	loadTexture( path ) {
+	loadTextureFromRegistry( path ) {
 
 		if ( ! path ) return null;
 

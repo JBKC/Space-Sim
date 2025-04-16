@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import config from './appConfig/config.js';
-import { loadingManager, textureLoadingManager, loadModelFromRegistry } from './appConfig/loaders.js';
+import { loadingManager, textureLoadingManager, loadModelFromRegistry, } from './appConfig/loaders.js';
 import { createReticle } from './reticle.js';
 import { keys } from './inputControls.js';
 import { resetMovementInputs } from './movement.js';

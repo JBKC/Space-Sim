@@ -351,7 +351,7 @@ class MaterialCreator {
 			if ( params[ mapType ] ) return; // Keep the first encountered texture
 
 			const texParams = scope.getTextureParams( value, params );
-			const map = scope.loadTexture( resolveURL( scope.baseUrl, texParams.url ) );
+			const map = scope.loadTextureFromRegistry( resolveURL( scope.baseUrl, texParams.url ) );
 
 			map.repeat.copy( texParams.scale );
 			map.offset.copy( texParams.offset );
@@ -541,7 +541,7 @@ class MaterialCreator {
 
 	}
 
-	loadTexture( url, mapping, onLoad, onProgress, onError ) {
+	loadTextureFromRegistry( url, mapping, onLoad, onProgress, onError ) {
 
 		const manager = ( this.manager !== undefined ) ? this.manager : DefaultLoadingManager;
 		let loader = manager.getHandler( url );

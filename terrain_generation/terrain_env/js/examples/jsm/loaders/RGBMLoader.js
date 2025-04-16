@@ -40,7 +40,7 @@ class RGBMLoader extends DataTextureLoader {
 
 		const scope = this;
 
-		function loadTexture( i ) {
+		function loadTextureFromRegistry( i ) {
 
 			scope.load( urls[ i ], function ( image ) {
 
@@ -62,7 +62,7 @@ class RGBMLoader extends DataTextureLoader {
 
 		for ( let i = 0; i < urls.length; ++ i ) {
 
-			loadTexture( i );
+			loadTextureFromRegistry( i );
 
 		}
 

@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { TilesRenderer, CesiumIonAuthPlugin, GLTFExtensionsPlugin } from '3d-tiles-renderer';
+import { TilesRenderer } from '3d-tiles-renderer/src/three/TilesRenderer.js';
+import { CesiumIonAuthPlugin } from '3d-tiles-renderer/src/plugins/three/CesiumIonAuthPlugin.js';
+import { GLTFExtensionsPlugin } from '3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 
 import {
@@ -49,7 +51,6 @@ const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(0), 64, 64);
 env.mapping = THREE.EquirectangularReflectionMapping;
 env.needsUpdate = true;
 scene.environment = env;
-const textureLoader = new THREE.TextureLoader(textureLoadingManager);
 
 // Renderer setuo
 const renderer = new THREE.WebGLRenderer({ 

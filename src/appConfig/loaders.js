@@ -195,6 +195,10 @@ function loadModelFromRegistry(category, name, onSuccess, onProgress, onError) {
     gltfLoader.load(modelPath, onSuccess, onProgress, onError);
 }
 
+
+///// STATS / DISPLAY /////
+
+
 // Function to reset loading stats when changing scenes
 function resetLoadingStats() {
     // Create brand new loading managers for the new scene

@@ -364,7 +364,7 @@ class FBXTreeParser {
 	// Parse individual node in FBXTree.Objects.Texture
 	parseTexture( textureNode, images ) {
 
-		const texture = this.loadTexture( textureNode, images );
+		const texture = this.loadTextureFromRegistry( textureNode, images );
 
 		texture.ID = textureNode.id;
 
@@ -405,7 +405,7 @@ class FBXTreeParser {
 	}
 
 	// load a texture specified as a blob or data URI, or via an external URL using TextureLoader
-	loadTexture( textureNode, images ) {
+	loadTextureFromRegistry( textureNode, images ) {
 
 		let fileName;
 

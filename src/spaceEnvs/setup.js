@@ -56,9 +56,6 @@ import {
 
 const scene = new THREE.Scene();
 const renderer = new THREE.WebGLRenderer();
-// Use standard TextureLoader
-const textureLoader = new THREE.TextureLoader(textureLoadingManager);
-// const loader = new GLTFLoader();
 
 // Get space container so we render scene to the correct DOM (document object model) element within the browser
 document.getElementById('space-container').appendChild(renderer.domElement);

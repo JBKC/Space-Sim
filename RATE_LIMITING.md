@@ -56,7 +56,7 @@ const textureLoadingLimiter = createGroupLimiter({
 });
 
 // Use the limiter directly
-textureLoadingLimiter.schedule(() => loadTexture('texture1.jpg'));
+textureLoadingLimiter.schedule(() => loadTextureFromRegistry('texture1.jpg'));
 ```
 
 ### `rateLimitedFetch(url, options)`
@@ -114,15 +114,15 @@ batchProcess(items, (item) => {
 import { rateLimit } from './src/rateLimit.js';
 
 // Assuming this is your texture loading function
-function loadTexture(textureUrl) {
+function loadTextureFromRegistry(textureUrl) {
   // Existing texture loading logic
 }
 
 // Create rate-limited version
-const rateLimitedLoadTexture = rateLimit(loadTexture, 'api');
+const rateLimitedloadTextureFromRegistry = rateLimit(loadTextureFromRegistry, 'api');
 
 // Use the rate-limited version when loading textures
-const planetTexture = await rateLimitedLoadTexture('planet_texture1.jpg');
+const planetTexture = await rateLimitedloadTextureFromRegistry('planet_texture1.jpg');
 ```
 
 ### 2. Throttling Keyboard/Mouse Input

@@ -1,8 +1,10 @@
 import * as THREE from 'three';
-import { TilesRenderer, CesiumIonAuthPlugin, GLTFExtensionsPlugin } from '3d-tiles-renderer';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { TilesRenderer } from '3d-tiles-renderer/src/three/TilesRenderer.js';
+import { CesiumIonAuthPlugin } from '3d-tiles-renderer/src/plugins/three/CesiumIonAuthPlugin.js';
+import { GLTFExtensionsPlugin } from '3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
-import { loadingManager, textureLoadingManager, loadTextureFromRegistry } from '../appConfig/loaders.js';
+
+import { loadingManager, textureLoadingManager } from '../appConfig/loaders.js';
 import { configureCesiumRequestScheduler, optimizeTerrainLoading } from '../appConfig/cesiumRateLimit.js';
 import config from '../appConfig/config.js';
 import { warningElement } from '../ui.js';
@@ -45,9 +47,6 @@ const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(0), 64, 64);
 env.mapping = THREE.EquirectangularReflectionMapping;
 env.needsUpdate = true;
 scene.environment = env;
-
-// Use standard TextureLoader
-const textureLoader = new THREE.TextureLoader(textureLoadingManager);
 
 // Renderer setuo
 const renderer = new THREE.WebGLRenderer({ 
@@ -319,9 +318,6 @@ export { tiles };
 ///////////////////// SCENE LIGHTING /////////////////////
 
 function setupEarthLighting() {
-    if (!textureLoader) {
-        textureLoader = new THREE.TextureLoader(textureLoadingManager);
-    }
 
     // Add a main directional sun positioned using lat/lon coordinates
     earthSun = new THREE.DirectionalLight(earthSunConfig.color, earthSunConfig.intensity);
