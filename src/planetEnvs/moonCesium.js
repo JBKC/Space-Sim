@@ -38,6 +38,7 @@ import {
     setMoonTransition
 } from '../stateEnv.js';
 
+
 ///////////////////// GENERAL INITIALIZATION /////////////////////
 
 const scene = new THREE.Scene();
@@ -174,7 +175,7 @@ export {
 };
 
 
-///////////////////// MOON-SPECIFIC INITIALIZATION PART 1 /////////////////////
+///////////////////// MOON-SPECIFIC INITIALIZATION /////////////////////
 
 let moonSun, moonSunTarget; // Main directional light and its target
 let planetSphere; // This is the Earth seen from the moon
@@ -224,8 +225,195 @@ const planetConfig = {
     visible: true            // Whether the sphere is visible
 };
 
+// Convert Cesium coordinates to Cartesian (local) coordinates
+function latLonToCartesian(lat, lon, height) {
+    const moonRadius = 1737.4 * 1000;
+    const radius = moonRadius + height;
+    const phi = THREE.MathUtils.degToRad(90 - lat);
+    const theta = THREE.MathUtils.degToRad(lon);
+    const x = radius * Math.sin(phi) * Math.cos(theta);
+    const y = radius * Math.cos(phi);
+    const z = radius * Math.sin(phi) * Math.sin(theta);
+    return new THREE.Vector3(x, y, z);
+}
 
-// CESIUM INITIALIZATION //
+///// SCENE LIGHTING /////
+
+// Define the lighting params
+function setupMoonLighting() {
+    // Create basic ambient light
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    scene.add(ambientLight);
+    
+    // Add hemisphere light for more natural illumination
+    const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.5);
+    scene.add(hemisphereLight);
+    
+    // Setup player sun directional light
+    moonSun = new THREE.DirectionalLight(
+        moonSunConfig.color, 
+        moonSunConfig.intensity
+    );
+    
+    // Configure shadows
+    moonSun.castShadow = true;
+    moonSun.shadow.mapSize.width = 2048;
+    moonSun.shadow.mapSize.height = 2048;
+    moonSun.shadow.camera.near = 0.5;
+    moonSun.shadow.camera.far = 50000;
+    moonSun.shadow.camera.left = -3000;
+    moonSun.shadow.camera.right = 3000;
+    moonSun.shadow.camera.top = 3000;
+    moonSun.shadow.camera.bottom = -3000;
+    moonSun.shadow.bias = -0.0001;
+    
+    // Setup target for the sun to point at
+    moonSunTarget = new THREE.Object3D();
+    scene.add(moonSunTarget);
+    moonSun.target = moonSunTarget;
+    
+    // Add sun to scene
+    scene.add(moonSun);
+    
+    // Initial update of light positions will happen in the first updatemoonLighting call
+}
+
+// Ensure the light always follows the spacecraft
+function updatemoonLighting() {
+    if (!spacecraft || !moonSun || !moonSunTarget) return;
+    
+    const spacecraftPosition = spacecraft.position.clone();
+    
+    // Position the sun based on mode (fixed = fixed in space but still points at the spacecraft)
+    if (moonSunConfig.fixedPosition) {
+        // Use global coordinates for fixed position
+        moonSun.position.copy(latLonToCartesian(
+            moonSunConfig.position.lat,
+            moonSunConfig.position.lon,
+            moonSunConfig.position.height
+        ));
+    } else {
+        // Use player-relative position
+        const playerUp = new THREE.Vector3(0, 1, 0).applyQuaternion(spacecraft.quaternion).normalize();
+        moonSun.position.copy(spacecraftPosition).add(playerUp.multiplyScalar(moonSunConfig.position.height));
+    }
+    
+    // Always point at the player with optional offset
+    moonSunTarget.position.copy(spacecraftPosition).add(
+        new THREE.Vector3(moonSunConfig.targetOffset.x, moonSunConfig.targetOffset.y, moonSunConfig.targetOffset.z)
+    );
+    
+    // Update matrices
+    moonSunTarget.updateMatrixWorld();
+    moonSun.target = moonSunTarget;
+    moonSun.updateMatrixWorld(true);
+}
+
+
+///// CREATE EARTH VISIBLE FROM MOON SURFACE /////
+
+function createplanetSphere() {
+  if (!spacecraft) {
+    console.warn("Cannot create reference sphere: spacecraft not initialized");
+    return;
+  }
+
+  // --- Calculate placement parameters directly --- 
+  // Get the initial spacecraft position and orientation
+  const initialPosition = latLonToCartesian(
+    SPACECRAFT_INITIAL_LAT, 
+    SPACECRAFT_INITIAL_LON, 
+    SPACECRAFT_INITIAL_HEIGHT
+  );
+  
+  // Create a direction vector pointing forward from spacecraft's initial orientation
+  const forward = new THREE.Vector3(0, 0, 1);
+  forward.applyEuler(SPACECRAFT_INITIAL_ROTATION);
+  
+  // Create side and up vectors for initial orientation
+  const up = new THREE.Vector3(0, 1, 0);
+  up.applyEuler(SPACECRAFT_INITIAL_ROTATION);
+  const right = new THREE.Vector3().crossVectors(forward, up).normalize();
+  
+  // Apply polar coordinates from config
+  let targetPosition = new THREE.Vector3();
+  const angleRad = THREE.MathUtils.degToRad(planetConfig.polar.angle);
+  const pitchRad = THREE.MathUtils.degToRad(planetConfig.polar.pitch);
+  
+  // Calculate direction with polar coordinates relative to initial forward
+  targetPosition.copy(forward);
+  targetPosition.applyAxisAngle(up, angleRad); // Apply horizontal angle
+  targetPosition.applyAxisAngle(right, pitchRad); // Apply vertical pitch
+  
+  // Scale to distance and add to initial spacecraft position
+  targetPosition.multiplyScalar(planetConfig.distance);
+  targetPosition.add(initialPosition);
+
+  // Calculate rotation from config
+  const sphereRotation = new THREE.Euler(
+    THREE.MathUtils.degToRad(planetConfig.rotation.x),
+    THREE.MathUtils.degToRad(planetConfig.rotation.y),
+    THREE.MathUtils.degToRad(planetConfig.rotation.z)
+  );
+  // --- End placement calculation --- 
+
+  // Create geometry and material with Earth texture
+  const geometry = new THREE.SphereGeometry(planetConfig.radius, 32, 32);
+  
+  // Load Earth texture from skybox folder
+  const earthTexture = textureLoader.load(`${config.textures.path}/2k_earth_daymap.jpg`, (texture) => {
+    if (planetSphere && planetSphere.material) {
+      planetSphere.material.needsUpdate = true; // Might not be needed if material isn't reassigned, but safe
+    }
+  });
+  
+  // Create atmosphere material around sphere
+  const material = new THREE.MeshPhongMaterial({ 
+    map: earthTexture,
+    shininess: 0,           // No shininess for a more matte appearance
+    specular: 0x000000,     // No specular highlights
+    reflectivity: 0,        // No reflections
+    emissive: 0x000000,     // No emission
+    emissiveIntensity: 0,   // No emission intensity
+    opacity: 1.0,           // Fully opaque
+    color: 0x606060
+  });
+  
+  // Add a slight blue rim glow by adjusting material properties
+  material.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <dithering_fragment>',
+      `
+      #include <dithering_fragment>
+      // Simple atmospheric effect - add slight blue tint at the edges
+      float edgeFactor = 1.0 - abs(dot(vNormal, vec3(0.0, 0.0, 1.0)));
+      edgeFactor = smoothstep(0.3, 1.0, edgeFactor) * 0.3; // Control intensity here (0.3 is subtle)
+      gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.5, 0.7, 1.0), edgeFactor);
+      `
+    );
+  };
+  
+  // Create mesh
+  planetSphere = new THREE.Mesh(geometry, material);
+  
+  // --- Apply calculated placement --- 
+  planetSphere.position.copy(targetPosition);
+  planetSphere.rotation.copy(sphereRotation);
+  planetSphere.visible = planetConfig.visible;
+  // --- End applying placement --- 
+  
+  // Enable shadows on the Earth sphere
+  planetSphere.castShadow = true;
+  planetSphere.receiveShadow = true;
+    
+  // Add to scene
+  scene.add(planetSphere);
+  
+  console.log(`Reference sphere created at [${targetPosition.x.toFixed(2)}, ${targetPosition.y.toFixed(2)}, ${targetPosition.z.toFixed(2)}] relative to initial position, distance: ${planetConfig.distance}`);
+}
+
+
+///// CESIUM TILES INITIALIZATION /////
 
 // Load environment variables
 if (typeof process !== 'undefined' && process.versions && process.versions.node) {
@@ -259,6 +447,81 @@ const params = {
     reload: reinstantiateTiles,
 };
 
+
+function setupTiles() {
+    tiles.fetchOptions.mode = 'cors';
+    tiles.registerPlugin(new GLTFExtensionsPlugin({
+        dracoLoader: new DRACOLoader().setDecoderPath(config.DRACO_PATH)
+    }));
+    
+    // Configure Cesium's request scheduler for optimal tile loading performance
+    const requestController = configureCesiumRequestScheduler({
+        maximumRequestsPerServer: 6,  // Slightly lower limit for moon's more detailed tileset
+        throttleRequestsByServer: true,
+        perServerRequestLimit: 10,     // Additional limit for newer Cesium versions
+        requestQueueSize: 120          // Increased queue size for moon's complex tileset
+    });
+    
+    // Store the controller for potential later use
+    tiles.userData = tiles.userData || {};
+    tiles.userData.requestController = requestController;
+    
+    // Log the current status of the request scheduler
+    console.log('Cesium RequestScheduler configured for moon:', requestController.getStatus());
+    
+    // Temporarily boost tile request limits during initial load
+    requestController.temporaryBoost(10000); // 10-second boost for initial loading of moon's complex tileset
+    
+    tiles.onLoadModel = (model) => {
+        model.traverse((node) => {
+            if (node.isMesh) {
+                node.receiveShadow = true;
+                if (node.material) {
+                    if (Array.isArray(node.material)) {
+                        node.material.forEach(mat => {
+                            mat.shadowSide = THREE.FrontSide;
+                            mat.needsUpdate = true;
+                        });
+                    } else {
+                        node.material.shadowSide = THREE.FrontSide;
+                        node.material.needsUpdate = true;
+                    }
+                }
+            }
+        });
+        console.log("Loaded moon moon model with shadow settings");
+    };
+    
+    scene.add(tiles.group);
+}
+
+function reinstantiateTiles() {
+    if (tiles) {
+        scene.remove(tiles.group);
+        tiles.dispose();
+        tiles = null;
+    }
+
+    localStorage.setItem('ionApiKey', params.ionAccessToken);
+
+    tiles = new TilesRenderer();
+    tiles.registerPlugin(new CesiumIonAuthPlugin({ apiToken: params.ionAccessToken, assetId: params.ionAssetId }));
+    tiles.addEventListener('load-tile-set', () => {
+        const sphere = new THREE.Sphere();
+        tiles.getBoundingSphere(sphere);
+        console.log('moon bounding sphere center:', sphere.center);
+        console.log('moon bounding sphere radius:', sphere.radius);
+        console.log('moon tileset loaded successfully');
+        
+    });
+    tiles.addEventListener('error', (error) => {
+        console.error('Tileset loading error:', error);
+    });
+
+    setupTiles();
+}
+
+export { tiles };
 
 
 ///////////////////// SCENE CORE FUNCTIONALITY /////////////////////
@@ -414,8 +677,6 @@ function initSpacecraft() {
     scene.add(spacecraft);
 }
 
-
-
 /// CORE INITIALIZATION FUNCTION ///
 export function init() {
     
@@ -455,7 +716,6 @@ export function init() {
         tiles 
     };
 }
-
 
 /// CORE STATE UPDATE FUNCTION ///
 export function update(isBoosting, deltaTime = 0.016) {
@@ -593,272 +853,6 @@ export function resetPosition() {
 }
 
 
-///////////////////// MOON-SPECIFIC INITIALIZATION PART 2 /////////////////////
-
-
-// Convert Cesium coordinates to Cartesian (local) coordinates
-function latLonToCartesian(lat, lon, height) {
-    const moonRadius = 1737.4 * 1000;
-    const radius = moonRadius + height;
-    const phi = THREE.MathUtils.degToRad(90 - lat);
-    const theta = THREE.MathUtils.degToRad(lon);
-    const x = radius * Math.sin(phi) * Math.cos(theta);
-    const y = radius * Math.cos(phi);
-    const z = radius * Math.sin(phi) * Math.sin(theta);
-    return new THREE.Vector3(x, y, z);
-}
-
-function setupTiles() {
-    tiles.fetchOptions.mode = 'cors';
-    tiles.registerPlugin(new GLTFExtensionsPlugin({
-        dracoLoader: new DRACOLoader().setDecoderPath(config.DRACO_PATH)
-    }));
-    
-    // Configure Cesium's request scheduler for optimal tile loading performance
-    const requestController = configureCesiumRequestScheduler({
-        maximumRequestsPerServer: 6,  // Slightly lower limit for moon's more detailed tileset
-        throttleRequestsByServer: true,
-        perServerRequestLimit: 10,     // Additional limit for newer Cesium versions
-        requestQueueSize: 120          // Increased queue size for moon's complex tileset
-    });
-    
-    // Store the controller for potential later use
-    tiles.userData = tiles.userData || {};
-    tiles.userData.requestController = requestController;
-    
-    // Log the current status of the request scheduler
-    console.log('Cesium RequestScheduler configured for moon:', requestController.getStatus());
-    
-    // Temporarily boost tile request limits during initial load
-    requestController.temporaryBoost(10000); // 10-second boost for initial loading of moon's complex tileset
-    
-    tiles.onLoadModel = (model) => {
-        model.traverse((node) => {
-            if (node.isMesh) {
-                node.receiveShadow = true;
-                if (node.material) {
-                    if (Array.isArray(node.material)) {
-                        node.material.forEach(mat => {
-                            mat.shadowSide = THREE.FrontSide;
-                            mat.needsUpdate = true;
-                        });
-                    } else {
-                        node.material.shadowSide = THREE.FrontSide;
-                        node.material.needsUpdate = true;
-                    }
-                }
-            }
-        });
-        console.log("Loaded moon moon model with shadow settings");
-    };
-    
-    scene.add(tiles.group);
-}
-
-function reinstantiateTiles() {
-    if (tiles) {
-        scene.remove(tiles.group);
-        tiles.dispose();
-        tiles = null;
-    }
-
-    localStorage.setItem('ionApiKey', params.ionAccessToken);
-
-    tiles = new TilesRenderer();
-    tiles.registerPlugin(new CesiumIonAuthPlugin({ apiToken: params.ionAccessToken, assetId: params.ionAssetId }));
-    tiles.addEventListener('load-tile-set', () => {
-        const sphere = new THREE.Sphere();
-        tiles.getBoundingSphere(sphere);
-        console.log('moon bounding sphere center:', sphere.center);
-        console.log('moon bounding sphere radius:', sphere.radius);
-        console.log('moon tileset loaded successfully');
-        
-    });
-    tiles.addEventListener('error', (error) => {
-        console.error('Tileset loading error:', error);
-    });
-
-    setupTiles();
-}
-
-export { tiles };
-
-///////////////////// SCENE LIGHTING /////////////////////
-
-// Define the lighting params
-function setupMoonLighting() {
-    // Create basic ambient light
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-    scene.add(ambientLight);
-    
-    // Add hemisphere light for more natural illumination
-    const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.5);
-    scene.add(hemisphereLight);
-    
-    // Setup player sun directional light
-    moonSun = new THREE.DirectionalLight(
-        moonSunConfig.color, 
-        moonSunConfig.intensity
-    );
-    
-    // Configure shadows
-    moonSun.castShadow = true;
-    moonSun.shadow.mapSize.width = 2048;
-    moonSun.shadow.mapSize.height = 2048;
-    moonSun.shadow.camera.near = 0.5;
-    moonSun.shadow.camera.far = 50000;
-    moonSun.shadow.camera.left = -3000;
-    moonSun.shadow.camera.right = 3000;
-    moonSun.shadow.camera.top = 3000;
-    moonSun.shadow.camera.bottom = -3000;
-    moonSun.shadow.bias = -0.0001;
-    
-    // Setup target for the sun to point at
-    moonSunTarget = new THREE.Object3D();
-    scene.add(moonSunTarget);
-    moonSun.target = moonSunTarget;
-    
-    // Add sun to scene
-    scene.add(moonSun);
-    
-    // Initial update of light positions will happen in the first updatemoonLighting call
-}
-
-// Ensure the light always follows the spacecraft
-function updatemoonLighting() {
-    if (!spacecraft || !moonSun || !moonSunTarget) return;
-    
-    const spacecraftPosition = spacecraft.position.clone();
-    
-    // Position the sun based on mode (fixed = fixed in space but still points at the spacecraft)
-    if (moonSunConfig.fixedPosition) {
-        // Use global coordinates for fixed position
-        moonSun.position.copy(latLonToCartesian(
-            moonSunConfig.position.lat,
-            moonSunConfig.position.lon,
-            moonSunConfig.position.height
-        ));
-    } else {
-        // Use player-relative position
-        const playerUp = new THREE.Vector3(0, 1, 0).applyQuaternion(spacecraft.quaternion).normalize();
-        moonSun.position.copy(spacecraftPosition).add(playerUp.multiplyScalar(moonSunConfig.position.height));
-    }
-    
-    // Always point at the player with optional offset
-    moonSunTarget.position.copy(spacecraftPosition).add(
-        new THREE.Vector3(moonSunConfig.targetOffset.x, moonSunConfig.targetOffset.y, moonSunConfig.targetOffset.z)
-    );
-    
-    // Update matrices
-    moonSunTarget.updateMatrixWorld();
-    moonSun.target = moonSunTarget;
-    moonSun.updateMatrixWorld(true);
-}
-
-
-
-
-///////////////////// CREATE EARTH VISIBLE FROM MOON SURFACE /////////////////////
-
-function createplanetSphere() {
-  if (!spacecraft) {
-    console.warn("Cannot create reference sphere: spacecraft not initialized");
-    return;
-  }
-
-  // --- Calculate placement parameters directly --- 
-  // Get the initial spacecraft position and orientation
-  const initialPosition = latLonToCartesian(
-    SPACECRAFT_INITIAL_LAT, 
-    SPACECRAFT_INITIAL_LON, 
-    SPACECRAFT_INITIAL_HEIGHT
-  );
-  
-  // Create a direction vector pointing forward from spacecraft's initial orientation
-  const forward = new THREE.Vector3(0, 0, 1);
-  forward.applyEuler(SPACECRAFT_INITIAL_ROTATION);
-  
-  // Create side and up vectors for initial orientation
-  const up = new THREE.Vector3(0, 1, 0);
-  up.applyEuler(SPACECRAFT_INITIAL_ROTATION);
-  const right = new THREE.Vector3().crossVectors(forward, up).normalize();
-  
-  // Apply polar coordinates from config
-  let targetPosition = new THREE.Vector3();
-  const angleRad = THREE.MathUtils.degToRad(planetConfig.polar.angle);
-  const pitchRad = THREE.MathUtils.degToRad(planetConfig.polar.pitch);
-  
-  // Calculate direction with polar coordinates relative to initial forward
-  targetPosition.copy(forward);
-  targetPosition.applyAxisAngle(up, angleRad); // Apply horizontal angle
-  targetPosition.applyAxisAngle(right, pitchRad); // Apply vertical pitch
-  
-  // Scale to distance and add to initial spacecraft position
-  targetPosition.multiplyScalar(planetConfig.distance);
-  targetPosition.add(initialPosition);
-
-  // Calculate rotation from config
-  const sphereRotation = new THREE.Euler(
-    THREE.MathUtils.degToRad(planetConfig.rotation.x),
-    THREE.MathUtils.degToRad(planetConfig.rotation.y),
-    THREE.MathUtils.degToRad(planetConfig.rotation.z)
-  );
-  // --- End placement calculation --- 
-
-  // Create geometry and material with Earth texture
-  const geometry = new THREE.SphereGeometry(planetConfig.radius, 32, 32);
-  
-  // Load Earth texture from skybox folder
-  const earthTexture = textureLoader.load(`${config.textures.path}/2k_earth_daymap.jpg`, (texture) => {
-    if (planetSphere && planetSphere.material) {
-      planetSphere.material.needsUpdate = true; // Might not be needed if material isn't reassigned, but safe
-    }
-  });
-  
-  // Create atmosphere material around sphere
-  const material = new THREE.MeshPhongMaterial({ 
-    map: earthTexture,
-    shininess: 0,           // No shininess for a more matte appearance
-    specular: 0x000000,     // No specular highlights
-    reflectivity: 0,        // No reflections
-    emissive: 0x000000,     // No emission
-    emissiveIntensity: 0,   // No emission intensity
-    opacity: 1.0,           // Fully opaque
-    color: 0x606060
-  });
-  
-  // Add a slight blue rim glow by adjusting material properties
-  material.onBeforeCompile = (shader) => {
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <dithering_fragment>',
-      `
-      #include <dithering_fragment>
-      // Simple atmospheric effect - add slight blue tint at the edges
-      float edgeFactor = 1.0 - abs(dot(vNormal, vec3(0.0, 0.0, 1.0)));
-      edgeFactor = smoothstep(0.3, 1.0, edgeFactor) * 0.3; // Control intensity here (0.3 is subtle)
-      gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.5, 0.7, 1.0), edgeFactor);
-      `
-    );
-  };
-  
-  // Create mesh
-  planetSphere = new THREE.Mesh(geometry, material);
-  
-  // --- Apply calculated placement --- 
-  planetSphere.position.copy(targetPosition);
-  planetSphere.rotation.copy(sphereRotation);
-  planetSphere.visible = planetConfig.visible;
-  // --- End applying placement --- 
-  
-  // Enable shadows on the Earth sphere
-  planetSphere.castShadow = true;
-  planetSphere.receiveShadow = true;
-    
-  // Add to scene
-  scene.add(planetSphere);
-  
-  console.log(`Reference sphere created at [${targetPosition.x.toFixed(2)}, ${targetPosition.y.toFixed(2)}, ${targetPosition.z.toFixed(2)}] relative to initial position, distance: ${planetConfig.distance}`);
-}
 
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;

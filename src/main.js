@@ -92,9 +92,6 @@ let lastFrameTime = 0;
 window.resetEarthInitialized = function() {
     setEarthInitialized(false);
     console.log('Reset Earth surface initialization state');
-    
-    // Also reset the Washington initialization flag
-    resetSanFranInitialized();
 };
 
 // Add resetMoonInitialized function
