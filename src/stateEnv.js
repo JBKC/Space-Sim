@@ -79,6 +79,11 @@ export function setEarthSurfaceActive(active) {
         if (isFirstPersonView) {
             scheduleDoubleViewToggle();
         }
+    } else {
+        // If exiting Earth and in first-person view, also schedule a double toggle
+        if (isFirstPersonView) {
+            scheduleDoubleViewToggle();
+        }
     }
     return isEarthSurfaceActive;
 }
@@ -89,6 +94,11 @@ export function setMoonSurfaceActive(active) {
     if (active) {
         moonTransition = false;
         // If entering Moon and in first-person view, schedule a double toggle to fix view
+        if (isFirstPersonView) {
+            scheduleDoubleViewToggle();
+        }
+    } else {
+        // If exiting Moon and in first-person view, also schedule a double toggle
         if (isFirstPersonView) {
             scheduleDoubleViewToggle();
         }
@@ -117,9 +127,20 @@ export function toggleFirstPersonView() {
     return isFirstPersonView;
 }
 
-// FAILSAFE FUNCTION that simulates a double toggle of the view to fix camera issues when entering a planet in first-person view
+// FAILSAFE FUNCTION that simulates a double toggle of the view to fix camera issues when entering or exiting a planet in first-person view
 function scheduleDoubleViewToggle() {
-    console.log("Scheduling double key press of 'C' to fix first-person camera position");
+    // Determine if we're entering or exiting a planet based on the current surface active state
+    const enteringEarth = isEarthSurfaceActive && !isMoonSurfaceActive;
+    const enteringMoon = !isEarthSurfaceActive && isMoonSurfaceActive;
+    const exitingEarth = !isEarthSurfaceActive && earthTransition;
+    const exitingMoon = !isMoonSurfaceActive && moonTransition;
+    
+    const contextMessage = enteringEarth ? 'entering Earth' :
+                           enteringMoon ? 'entering Moon' :
+                           exitingEarth ? 'exiting Earth' :
+                           exitingMoon ? 'exiting Moon' : 'transitioning';
+    
+    console.log(`Scheduling double key press of 'C' to fix first-person camera position while ${contextMessage}`);
     
     // Map for key codes
     const KEY_CODES = { 'c': 67 };
@@ -168,13 +189,13 @@ function scheduleDoubleViewToggle() {
     
     // Execute the double toggle
     setTimeout(async () => {
-        console.log("⚡ Simulating first 'C' key press to toggle view");
+        console.log(`⚡ Simulating first 'C' key press to toggle view while ${contextMessage}`);
         await pressKey('c');
         
         setTimeout(async () => {
-            console.log("⚡ Simulating second 'C' key press to toggle view back");
+            console.log(`⚡ Simulating second 'C' key press to toggle view back while ${contextMessage}`);
             await pressKey('c');
-            console.log("✅ Double toggle completed");
+            console.log(`✅ Double toggle completed for ${contextMessage}`);
         }, 100);    // delay between key presses
     }, 1000); // delay after transition starts
 }
