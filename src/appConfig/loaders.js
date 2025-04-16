@@ -5,6 +5,8 @@ import config from './config.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { getTexture } from './textureRegistry.js';
 import { getModel } from './modelRegistry.js'; // Import model registry helper
+// Import asset status manager functions
+import { registerAsset, updateAssetStatus, resetAssetStatus } from './assetStatusManager.js';
 
 // Initialize THREE.js loading managers to track progress
 let loadingManager = new THREE.LoadingManager();
@@ -13,41 +15,20 @@ let textureLoadingManager = new THREE.LoadingManager();
 const gltfLoader = new GLTFLoader(loadingManager);
 
 // Store loading stats
-// const loadingStats = {
-//     assets: { loaded: 0, total: 0 },
-//     textures: { loaded: 0, total: 0 }
-// };
+const loadingStats = {
+    assets: { loaded: 0, total: 0 },
+    textures: { loaded: 0, total: 0 }
+};
 
-// New structure to track individual asset status
-let loadingAssetStatus = {}; // { assetName: 'loading' | 'loaded' }
-
-// Function to notify main.js about status updates
-let onAssetStatusUpdateCallback = () => {};
-export function setAssetStatusUpdateCallback(callback) {
-    onAssetStatusUpdateCallback = callback;
-}
-
-// Helper to update status and notify
-function updateAssetStatus(name, status) {
-    loadingAssetStatus[name] = status;
-    onAssetStatusUpdateCallback(loadingAssetStatus);
-}
-
-// Set up onProgress handlers for the loading managers (Less useful now)
+// Set up onProgress handlers for the loading managers
 function setupLoadingManagerHandlers() {
-    // loadingManager.onProgress = function(url, itemsLoaded, itemsTotal) {
-    //     // updateAssetDisplay(itemsLoaded, itemsTotal, 'assets');
-    // };
-    // loadingManager.onLoad = function() {
-    //     console.log('Main loading manager complete.');
-    // };
+    loadingManager.onProgress = function(url, itemsLoaded, itemsTotal) {
+        updateAssetDisplay(itemsLoaded, itemsTotal, 'assets');
+    };
     
-    // textureLoadingManager.onProgress = function(url, itemsLoaded, itemsTotal) {
-    //     // updateAssetDisplay(itemsLoaded, itemsTotal, 'textures');
-    // };
-    // textureLoadingManager.onLoad = function() {
-    //     console.log('Texture loading manager complete.');
-    // };
+    textureLoadingManager.onProgress = function(url, itemsLoaded, itemsTotal) {
+        updateAssetDisplay(itemsLoaded, itemsTotal, 'textures');
+    };
 }
 
 // Initial setup of handlers
@@ -58,87 +39,77 @@ setupLoadingManagerHandlers();
 
 // Standard texture loader using explicit imports
 export function loadTexture(category, name, onLoad) {
-    const assetName = `Texture: ${category}/${name}`;
     const texturePath = getTexture(category, name);
-    
+    const assetId = `texture:${category}/${name}`; // Unique ID for tracking
+    const displayName = `${name} Texture`; // User-friendly name
+
+    registerAsset(assetId, displayName);
+    updateAssetStatus(assetId, 'loading');
+
     if (!texturePath) {
         console.error(`Texture not found: ${category}/${name}`);
-        updateAssetStatus(assetName, 'error'); // Mark as error
+        updateAssetStatus(assetId, 'error');
         return new THREE.Texture(); // Return empty texture
     }
-    
-    console.log(`Loading texture: ${category}/${name} from registry`);
-    updateAssetStatus(assetName, 'loading');
-    
-    // Use the THREE.TextureLoader directly for imported URLs
-    const threeTexture = new THREE.TextureLoader(textureLoadingManager).load(
-        texturePath, 
-        (loadedTexture) => { // Wrap onLoad to update status
-            updateAssetStatus(assetName, 'loaded');
-            if (onLoad) onLoad(loadedTexture); // Call original onLoad if provided
+
+    // Use a dedicated loader instance to avoid conflicts if multiple loads happen
+    const loaderInstance = new THREE.TextureLoader(textureLoadingManager);
+
+    const threeTexture = loaderInstance.load(
+        texturePath,
+        (loadedTexture) => {
+            updateAssetStatus(assetId, 'loaded');
+            if (onLoad) onLoad(loadedTexture);
         },
-        undefined, // onProgress - not easily trackable per asset here
-        (error) => { // onError
-             console.error(`Error loading texture ${assetName}:`, error);
-             updateAssetStatus(assetName, 'error');
+        undefined, // onProgress - TextureLoader doesn't support detailed progress
+        (error) => {
+            console.error(`Error loading texture ${assetId}:`, error);
+            updateAssetStatus(assetId, 'error');
+            // Don't call original onLoad on error
         }
     );
-    
+
     return threeTexture;
 }
 
 // Standard model loader using explicit imports
 export function loadModelFromRegistry(category, name, onSuccess, onProgress, onError) {
-    const assetName = `Model: ${category}/${name}`;
     const modelPath = getModel(category, name);
+    const assetId = `model:${category}/${name}`; // Unique ID
+    const displayName = `${name} Model`; // User-friendly name
+
+    registerAsset(assetId, displayName);
+    updateAssetStatus(assetId, 'loading');
 
     if (!modelPath) {
         console.error(`Model not found in registry: ${category}/${name}`);
-        updateAssetStatus(assetName, 'error');
+        updateAssetStatus(assetId, 'error');
         if (onError) onError(new Error(`Model not found in registry: ${category}/${name}`));
         return;
     }
 
-    console.log(`Loading model from registry: ${category}/${name} from ${modelPath}`);
-    updateAssetStatus(assetName, 'loading');
-    
     gltfLoader.load(
-        modelPath, 
-        (gltf) => { // Wrap onSuccess
-            updateAssetStatus(assetName, 'loaded');
+        modelPath,
+        (gltf) => {
+            updateAssetStatus(assetId, 'loaded');
             if (onSuccess) onSuccess(gltf);
-        }, 
-        onProgress, // Keep original onProgress
-        (error) => { // Wrap onError
-            console.error(`Error loading model ${assetName}:`, error);
-            updateAssetStatus(assetName, 'error');
+        },
+        (xhr) => { // onProgress
+            // Optional: Can update status to 'loading' with percentage here if needed
+            // updateAssetStatus(assetId, 'loading'); 
+            if (onProgress) onProgress(xhr);
+        },
+        (error) => {
+            console.error(`Error loading model ${assetId}:`, error);
+            updateAssetStatus(assetId, 'error');
             if (onError) onError(error);
         }
     );
 }
 
 // General model loading function (OLD - Keep for compatibility during transition)
-export function modelLoader(modelName, onSuccess, onProgress, onError) {
+function modelLoader(modelName, onSuccess, onProgress, onError) {
     console.warn("Using OLD modelLoader with path guessing for:", modelName);
-    const assetName = `Model (Old): ${modelName}`;
-    updateAssetStatus(assetName, 'loading'); // Track old loads too
-    
-    // Function to wrap callbacks
-    const wrapSuccess = (gltf) => {
-        updateAssetStatus(assetName, 'loaded');
-        if (onSuccess) onSuccess(gltf);
-    };
-    const wrapError = (error) => {
-        console.error(`Error loading model (Old) ${assetName}:`, error);
-        updateAssetStatus(assetName, 'error');
-        if (onError) onError(error);
-    };
-    const wrapFinalError = (error) => {
-        console.error(`Final Error loading model (Old) ${assetName}:`, error);
-        updateAssetStatus(assetName, 'error');
-        if (onError) onError(error); 
-    }
-
     console.log(`Loading model: ${modelName}`);
     console.log('Current config paths:', {
         assets: config.ASSETS_PATH,
@@ -170,7 +141,7 @@ export function modelLoader(modelName, onSuccess, onProgress, onError) {
     function tryLoadModelPath(index) {
         if (index >= paths.length) {
             console.error(`All paths failed for ${modelName}`);
-            wrapFinalError(new Error(`Failed to load ${modelName} after trying all paths`));
+            if (onError) onError(new Error(`Failed to load ${modelName} after trying all paths`));
             return;
         }
         
@@ -179,70 +150,178 @@ export function modelLoader(modelName, onSuccess, onProgress, onError) {
         
         gltfLoader.load(
             path,
-            wrapSuccess, // Use wrapped success
+            onSuccess,
             onProgress,
             (error) => {
                 console.warn(`Path ${index+1} failed for ${modelName} (${path}):`, error);
-                // Don't mark as error yet, just try next path
+                // Try the next path
                 tryLoadModelPath(index + 1);
             }
         );
     }
 
+    // Iterate through paths
     tryLoadModelPath(0);
 }
 
-// createEnhancedTextureLoader (OLD - Keep for compatibility, but needs updating if used)
+// Create an enhanced texture loader that tries multiple paths
 function createEnhancedTextureLoader(config) {
-    console.warn("Using OLD createEnhancedTextureLoader");
     const textureLoader = new THREE.TextureLoader(textureLoadingManager);
+    
+    // Override the load method to try multiple paths
     const originalLoadMethod = textureLoader.load;
-
+    
     textureLoader.load = function(path, onLoad, onProgress, onError) {
-        const assetName = `Texture (Old): ${path.split('/').pop()}`;
-        updateAssetStatus(assetName, 'loading');
-
-        const wrapLoad = (loadedTexture) => {
-            updateAssetStatus(assetName, 'loaded');
-            if (onLoad) onLoad(loadedTexture);
-        };
-        const wrapError = (error) => {
-             console.error(`Error loading texture (Old) ${assetName}:`, error);
-             updateAssetStatus(assetName, 'error');
-             if (onError) onError(error);
-        };
-
-        return originalLoadMethod.call(this, path, wrapLoad, onProgress, (error) => {
-            console.warn(`Failed texture (Old) primary path: ${path}`, error);
-            // ... (existing fallback logic, calling wrapLoad/wrapError on alternatives) ...
-            // Ensure wrapError is called if all fallbacks fail
-        });
+        console.log(`Attempting to load texture: ${path}`);
+        
+        // If the path looks like it's using config.textures, try to extract the texture name
+        let textureName = path;
+        let isFromTexturesPath = false;
+        let isFromSkyboxPath = false;
+        
+        if (typeof path === 'string') {
+            if (path.includes(config?.textures?.path)) {
+                isFromTexturesPath = true;
+                textureName = path.split('/').pop();
+            } else if (path.includes(config?.textures?.skybox)) {
+                isFromSkyboxPath = true;
+                textureName = path.split('/').pop();
+            }
+        }
+        
+        // Try the original path first
+        return originalLoadMethod.call(
+            this, 
+            path,
+            onLoad,
+            onProgress,
+            // On error, try alternative paths
+            (error) => {
+                console.warn(`Failed to load texture from primary path: ${path}`, error);
+                
+                // Generate alternative paths to try
+                const alternativePaths = [];
+                
+                if (isFromTexturesPath) {
+                    alternativePaths.push(
+                        `src/assets/textures/${textureName}`,
+                        `/src/assets/textures/${textureName}`,
+                        `/assets/textures/${textureName}`,
+                        `assets/textures/${textureName}`,
+                        `textures/${textureName}`
+                    );
+                } else if (isFromSkyboxPath) {
+                    alternativePaths.push(
+                        `src/assets/textures/skybox/${textureName}`,
+                        `/src/assets/textures/skybox/${textureName}`,
+                        `/assets/textures/skybox/${textureName}`,
+                        `assets/textures/skybox/${textureName}`,
+                        `textures/skybox/${textureName}`
+                    );
+                }
+                
+                console.log(`Trying ${alternativePaths.length} alternative paths for texture: ${textureName}`);
+                
+                // Try alternative paths recursively
+                tryNextPath(0);
+                
+                function tryNextPath(index) {
+                    if (index >= alternativePaths.length) {
+                        console.error(`All paths failed for texture: ${textureName}`);
+                        if (onError) onError(new Error(`Failed to load texture after trying all paths: ${textureName}`));
+                        return;
+                    }
+                    
+                    const altPath = alternativePaths[index];
+                    console.log(`Trying alternative path ${index+1} for texture: ${altPath}`);
+                    
+                    originalLoadMethod.call(
+                        textureLoader,
+                        altPath,
+                        onLoad,
+                        onProgress,
+                        (altError) => {
+                            console.warn(`Alternative path ${index+1} failed for texture: ${altPath}`, altError);
+                            tryNextPath(index + 1);
+                        }
+                    );
+                }
+            }
+        );
     };
+    
     return textureLoader;
 }
 
 
 ///// STATS / DISPLAY /////
 
+
 // Function to reset loading stats when changing scenes
 function resetLoadingStats() {
-    // Reset individual asset tracking
-    loadingAssetStatus = {};
-    onAssetStatusUpdateCallback(loadingAssetStatus); // Notify UI to clear
+    // Create brand new loading managers for the new scene
+    loadingManager = new THREE.LoadingManager();
+    textureLoadingManager = new THREE.LoadingManager();
     
-    console.log("Loading asset status reset for new scene");
+    // Set up the event handlers for the new managers
+    setupLoadingManagerHandlers();
     
-    // Recreate managers if needed, or just ensure they are clean
-    // loadingManager = new THREE.LoadingManager();
-    // textureLoadingManager = new THREE.LoadingManager();
-    // setupLoadingManagerHandlers();
+    // Call the new asset status reset function
+    resetAssetStatus(); // Reset the detailed asset tracker
+
+    // Reset all counters to zero (keep for old display logic if needed)
+    loadingStats.assets.loaded = 0;
+    loadingStats.assets.total = 0;
+    loadingStats.textures.loaded = 0;
+    loadingStats.textures.total = 0;
+    
+    // Update the display with reset values (keep for old display logic if needed)
+    // updateAssetDisplay(0, 0, 'assets');
+    // updateAssetDisplay(0, 0, 'textures');
+    
+    console.log("Loading stats AND detailed asset status reset for new scene.");
 }
 
-// OLD updateAssetDisplay function (no longer used by registry loaders)
+// Function to update the asset display
 function updateAssetDisplay(loaded, total, type) {
-     console.warn("OLD updateAssetDisplay called - should migrate away");
-    // ... (keep existing code for now) ...
+    // Update the appropriate counter
+    if (type === 'assets') {
+        loadingStats.assets.loaded = loaded;
+        loadingStats.assets.total = total;
+    } else if (type === 'textures') {
+        loadingStats.textures.loaded = loaded;
+        loadingStats.textures.total = total;
+    }
+    
+    // Get the asset display element
+    const assetDisplay = document.getElementById('asset-display');
+    if (!assetDisplay) return;
+    
+    // Update the display
+    assetDisplay.innerHTML = `Assets: ${loadingStats.assets.loaded}/${loadingStats.assets.total}<br>` +
+                           `Textures: ${loadingStats.textures.loaded}/${loadingStats.textures.total}`;
+    
+    // Set color based on completion
+    const assetsComplete = loadingStats.assets.loaded === loadingStats.assets.total;
+    const texturesComplete = loadingStats.textures.loaded === loadingStats.textures.total;
+    
+    if (assetsComplete && texturesComplete) {
+        assetDisplay.style.color = '#0f0'; // Green when everything is loaded
+    } else if (loadingStats.assets.loaded > 0 || loadingStats.textures.loaded > 0) {
+        assetDisplay.style.color = '#ff0'; // Yellow during loading
+    } else {
+        assetDisplay.style.color = '#0fa'; // Default teal
+    }
 }
 
 // Export the loading managers and functions for use in other modules
-export { loadingManager, textureLoadingManager, setAssetStatusUpdateCallback, loadTexture, loadModelFromRegistry, modelLoader, createEnhancedTextureLoader, updateAssetDisplay, resetLoadingStats }; 
+export { 
+    loadingManager, 
+    textureLoadingManager, 
+    createEnhancedTextureLoader, // Keep old texture loader for compatibility
+    loadTexture, 
+    loadModelFromRegistry, 
+    modelLoader, // Keep old model loader for compatibility
+    updateAssetDisplay, // Keep old display function for now
+    resetLoadingStats, // Keep exporting this, it now calls resetAssetStatus
+}; 
