@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { loadingManager, textureLoadingManager, resetLoadingStats, createEnhancedTextureLoader } from '../appConfig/loaders.js';
+import { loadingManager, textureLoadingManager, resetLoadingStats, createEnhancedTextureLoader, loadModelFromRegistry, modelLoader, updateAssetDisplay, loadTexture } from '../appConfig/loaders.js';
 import config from '../appConfig/config.js';
 
 import { updateSpaceMovement, resetMovementInputs } from '../movement.js';
@@ -208,10 +208,11 @@ export function renderScene() {
 
 
 // Initialize spacecraft in the scene
-function initSpacecraft() {
+// Modify to accept preloaded models
+function initSpacecraft(preloadedXwingGltf, preloadedCockpitGltf) {
 
-    // Create a spacecraft object to pull all the attributes and methods from the createSpacecraft function
-    const spacecraftComponents = createSpacecraft(scene);
+    // Create a spacecraft object - NOTE: Pass preloaded models to createSpacecraft
+    const spacecraftComponents = createSpacecraft(scene, preloadedXwingGltf, preloadedCockpitGltf);
 
     // Expose attributes from the spacecraftComponents object
     spacecraft = spacecraftComponents.spacecraft;
@@ -264,7 +265,8 @@ function initSpacecraft() {
 }
 
 /// CORE INITIALIZATION FUNCTION ///
-export function init() {
+// Make init asynchronous to await preloading
+export async function init() {
 
     console.log("Space initialization started");
     
@@ -273,8 +275,35 @@ export function init() {
         return { scene, camera, renderer };
     }
 
-    // Add spacecraft (and reticle) to scene
-    initSpacecraft();
+    // --- PRELOAD SPACECRAFT and COCKPIT MODELS --- 
+    console.log("Preloading spacecraft and cockpit models...");
+    let preloadedXwingGltf = null;
+    let preloadedCockpitGltf = null;
+
+    try {
+        // Use Promise.all to load both models concurrently
+        const [xwingGltf, cockpitGltf] = await Promise.all([
+            new Promise((resolve, reject) => {
+                loadModelFromRegistry('spacecraft', 'xwing', resolve, null, reject);
+            }),
+            new Promise((resolve, reject) => {
+                loadModelFromRegistry('spacecraft', 'xwingCockpit', resolve, null, reject);
+            })
+        ]);
+        
+        preloadedXwingGltf = xwingGltf;
+        preloadedCockpitGltf = cockpitGltf;
+        console.log("✅ Spacecraft and Cockpit models preloaded successfully.");
+
+    } catch (error) {
+        console.error("🚨 Failed to preload critical models:", error);
+        // Decide how to handle failure - maybe show an error message and stop?
+        // For now, we'll continue, but spacecraft/cockpit might be missing.
+    }
+    // --- END PRELOADING ---
+
+    // Add spacecraft (and reticle) to scene, passing preloaded models
+    initSpacecraft(preloadedXwingGltf, preloadedCockpitGltf);
 
     onWindowResize();
     window.addEventListener('resize', onWindowResize, false);
