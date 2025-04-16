@@ -102,6 +102,29 @@ function getAssetNameFromUrl(url) {
         fileName = urlParts[urlParts.length - 2];
     }
     
+    // Check if this is a sub-texture inside a model by looking at several indicators:
+    
+    // 1. URL path contains model directory and then textures
+    const urlPath = url.toLowerCase();
+    const isInModelDir = /models\/.*\/textures\//i.test(urlPath);
+    
+    // 2. Contains typical PBR material naming
+    const hasPBRTerms = /\b(basecolor|diffuse|normal|roughness|metallic|specular|emissive|ao|opacity|albedo)\b/i.test(urlPath);
+    
+    // 3. Has typical file numbers for texture maps
+    const hasTextureNumbers = /(tex|texture|map)[\d_]+\.(jpe?g|png|webp)/i.test(fileName);
+    
+    // 4. Check for common texture size indicators in filenames (1k, 2k, 4k) combined with material type
+    const hasTextureSize = /\b\d+k[-_]?(basecolor|diffuse|normal|roughness|metallic)/i.test(fileName);
+    
+    // If it matches any of these patterns, it's likely a sub-texture
+    const isSubTexture = isInModelDir || hasPBRTerms || hasTextureNumbers || hasTextureSize;
+    
+    // Mark sub-textures with a prefix to easily filter them out
+    if (isSubTexture) {
+        fileName = `__subtexture__${fileName}`;
+    }
+    
     // Clean up the name
     fileName = fileName.replace(/\.\w+$/, ''); // Remove file extension
     fileName = fileName.replace(/[-_]/g, ' '); // Replace dashes and underscores with spaces
@@ -113,6 +136,11 @@ function getAssetNameFromUrl(url) {
 // Track individual asset loading status
 function trackAsset(name, type, loaded = false, error = false) {
     if (!name) return;
+    
+    // Skip sub-textures (they start with __subtexture__)
+    if (name.startsWith('__subtexture__')) {
+        return;
+    }
     
     // Create entry if it doesn't exist
     if (!loadingStats.individualAssets[name]) {
@@ -396,16 +424,23 @@ function updateDetailedAssetDisplay() {
     // Always show the display
     detailedAssetDisplay.style.display = 'block';
     
-    // Check if we have any assets to display
-    const assetEntries = Object.entries(loadingStats.individualAssets);
+    // Get assets and ensure we're filtering out sub-textures
+    const assetEntries = Object.entries(loadingStats.individualAssets)
+        .filter(([name]) => !name.startsWith('__subtexture__'));
+    
+    // Count textures and models
+    const textureCount = assetEntries.filter(([_, info]) => info.type === 'texture').length;
+    const modelCount = assetEntries.filter(([_, info]) => info.type === 'model').length;
     
     if (assetEntries.length === 0) {
-        detailedAssetDisplay.innerHTML = '<div style="text-align:center;">No assets loading</div>';
+        detailedAssetDisplay.innerHTML = '<div style="text-align:center;">No assets loaded</div>';
         return;
     }
     
     // Create HTML for the detailed display
-    let html = '<div style="text-align:center;margin-bottom:5px;font-size:16px;border-bottom:1px solid #555;padding-bottom:3px;">Loading Assets</div>';
+    let html = '<div style="text-align:center;margin-bottom:5px;font-size:16px;border-bottom:1px solid #555;padding-bottom:3px;">' +
+               `Assets: ${textureCount + modelCount}` +
+               '</div>';
     
     // Sort by type (textures first, then models) and then by name
     assetEntries.sort((a, b) => {
@@ -427,7 +462,7 @@ function updateDetailedAssetDisplay() {
     
     // Add textures section if any
     if (byType.texture.length > 0) {
-        html += '<div style="margin-top:5px;font-size:15px;color:#aaa;">Textures:</div>';
+        html += `<div style="margin-top:5px;font-size:15px;color:#aaa;">Textures (${byType.texture.length}):</div>`;
         
         byType.texture.forEach(([name, info]) => {
             const color = info.error ? '#f55' : (info.loaded ? '#5f5' : '#fff');
@@ -438,7 +473,7 @@ function updateDetailedAssetDisplay() {
     
     // Add models section if any
     if (byType.model.length > 0) {
-        html += '<div style="margin-top:8px;font-size:15px;color:#aaa;">Models:</div>';
+        html += `<div style="margin-top:8px;font-size:15px;color:#aaa;">Models (${byType.model.length}):</div>`;
         
         byType.model.forEach(([name, info]) => {
             const color = info.error ? '#f55' : (info.loaded ? '#5f5' : '#fff');
