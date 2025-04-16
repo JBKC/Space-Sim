@@ -3,8 +3,8 @@
 import * as THREE from 'three';
 
 // Initialize THREE.js loading managers to track progress
-const loadingManager = new THREE.LoadingManager();
-const textureLoadingManager = new THREE.LoadingManager();
+let loadingManager = new THREE.LoadingManager();
+let textureLoadingManager = new THREE.LoadingManager();
 
 // Store loading stats
 const loadingStats = {
@@ -12,8 +12,29 @@ const loadingStats = {
     textures: { loaded: 0, total: 0 }
 };
 
+// Set up onProgress handlers for the loading managers
+function setupLoadingManagerHandlers() {
+    loadingManager.onProgress = function(url, itemsLoaded, itemsTotal) {
+        updateAssetDisplay(itemsLoaded, itemsTotal, 'assets');
+    };
+    
+    textureLoadingManager.onProgress = function(url, itemsLoaded, itemsTotal) {
+        updateAssetDisplay(itemsLoaded, itemsTotal, 'textures');
+    };
+}
+
+// Initial setup of handlers
+setupLoadingManagerHandlers();
+
 // Function to reset loading stats when changing scenes
 function resetLoadingStats() {
+    // Create brand new loading managers for the new scene
+    loadingManager = new THREE.LoadingManager();
+    textureLoadingManager = new THREE.LoadingManager();
+    
+    // Set up the event handlers for the new managers
+    setupLoadingManagerHandlers();
+
     // Reset all counters to zero
     loadingStats.assets.loaded = 0;
     loadingStats.assets.total = 0;
@@ -24,7 +45,7 @@ function resetLoadingStats() {
     updateAssetDisplay(0, 0, 'assets');
     updateAssetDisplay(0, 0, 'textures');
     
-    console.log("Loading stats reset for new scene");
+    console.log("Loading stats reset for new scene - created new loading managers");
 }
 
 // Function to update the asset display
@@ -58,15 +79,6 @@ function updateAssetDisplay(loaded, total, type) {
         assetDisplay.style.color = '#0fa'; // Default teal
     }
 }
-
-// Set up onProgress handlers for the loading managers
-loadingManager.onProgress = function(url, itemsLoaded, itemsTotal) {
-    updateAssetDisplay(itemsLoaded, itemsTotal, 'assets');
-};
-
-textureLoadingManager.onProgress = function(url, itemsLoaded, itemsTotal) {
-    updateAssetDisplay(itemsLoaded, itemsTotal, 'textures');
-};
 
 // Export the loading managers and functions for use in other modules
 export { loadingManager, textureLoadingManager, updateAssetDisplay, resetLoadingStats }; 
