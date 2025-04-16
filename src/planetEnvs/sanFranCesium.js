@@ -377,7 +377,7 @@ function setupEarthLighting() {
     scene.add(earthSun);
     
     // Ambient lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Increased for more even illumination
+    const ambientLight = new THREE.AmbientLight(0xffffff, 2.0); // Increased for more even illumination
     scene.add(ambientLight);
     
 }
@@ -567,10 +567,14 @@ function createBasePlane() {
 ///////////////////// COLLISION DETECTION (base plane only) /////////////////////
 
    
+// Track initialization time to prevent early collisions
+let initializationTime = Date.now();
+const COLLISION_SAFETY_PERIOD = 2000; // 2 seconds safety after initialization
+
 // Function to display a temporary collision warning message
 function showCollisionWarning(message = "COLLISION") {
 // Safety check: Don't show warnings during initialization safety period
-if (Date.now() - initializationTime < COLLISION_SAFETY_PERIOD) {
+if (initializationTime && Date.now() - initializationTime < COLLISION_SAFETY_PERIOD) {
     console.log(`Suppressing "${message}" warning during safety period. Remaining time:`, 
                 Math.round((COLLISION_SAFETY_PERIOD - (Date.now() - initializationTime))/1000) + "s");
     return; // Exit without showing warning
@@ -636,114 +640,8 @@ const flashWarning = () => {
 flashWarning();
 }
    
-function checkCollisionInDirection(direction, terrainMeshes) {
-    if (!spacecraft || !terrainMeshes || terrainMeshes.length === 0) return null;
-    
-    const rayDirection = direction.clone().normalize();
-    raycaster.set(spacecraft.position, rayDirection);
-    raycaster.near = 0;
-    raycaster.far = 0.5; // Increased from 0.1 to 0.5 to better detect building collisions
-    
-    const intersects = raycaster.intersectObjects(terrainMeshes, false);
-    if (intersects.length > 0) {
-        return intersects[0];
-    }
-    
-    return null;
-}
 
-function checkTerrainCollision() {
-    if (!tiles || !tiles.group) {
-        console.log("Tiles or tiles.group not available yet");
-        return false;
-    }
 
-    spacecraftBoundingSphere.center.copy(spacecraft.position);
-    spacecraftBoundingSphere.radius = 0.5; // Slightly larger radius to detect buildings better
-
-    const terrainMeshes = [];
-    tiles.group.traverse((object) => {
-        if (object.isMesh && object.geometry) {
-            object.updateWorldMatrix(true, false);
-            if (!object.geometry.boundingSphere) {
-                try {
-                    object.geometry.computeBoundingSphere();
-                    if (!object.geometry.boundingSphere) return;
-                } catch (e) {
-                    console.error("Error computing bounding sphere:", e);
-                    return;
-                }
-            }
-            const meshSphere = new THREE.Sphere();
-            meshSphere.copy(object.geometry.boundingSphere).applyMatrix4(object.matrixWorld);
-            if (spacecraftBoundingSphere.intersectsSphere(meshSphere)) {
-                terrainMeshes.push(object);
-            }
-        }
-    });
-
-    if (terrainMeshes.length === 0) {
-        return false;
-    }
-
-    // Create a helper function to check if we're colliding with the base plane
-    // to avoid confusing building collisions with base plane collisions
-    const isBasePlaneCollision = (object) => {
-        return object === basePlane || (object.name && object.name === "basePlane");
-    };
-
-    try {
-        // Check multiple directions to better detect collisions
-        const directions = [
-            new THREE.Vector3(0, 0, 1),   // Forward
-            new THREE.Vector3(0, 0, -1),  // Backward
-            new THREE.Vector3(1, 0, 0),   // Right
-            new THREE.Vector3(-1, 0, 0),  // Left
-            new THREE.Vector3(0, -1, 0),  // Down
-        ];
-        
-        directions.forEach(dir => dir.applyQuaternion(spacecraft.quaternion));
-        
-        let collisionDetected = false;
-        
-        for (const direction of directions) {
-            const intersection = checkCollisionInDirection(direction, terrainMeshes);
-            if (intersection && intersection.distance) {
-                const distanceToSurface = intersection.distance;
-                
-                // Make sure we're not colliding with the base plane
-                if (intersection.object && isBasePlaneCollision(intersection.object)) {
-                    continue; // Skip base plane collisions
-                }
-                
-                // Debug output
-                console.log(`Terrain collision check: distance=${distanceToSurface.toFixed(3)}, direction=${direction.toArray().map(v => v.toFixed(2))}, object=${intersection.object.uuid.substring(0,8)}`);
-                
-                if (distanceToSurface < 0.1) { // Slightly larger threshold for building detection
-                    let normal = intersection.normal || 
-                        (intersection.point ? new THREE.Vector3().subVectors(intersection.point, new THREE.Vector3(0, 0, 0)).normalize() : 
-                        direction.clone().negate().normalize());
-                    
-                    const pushFactor = 1; 
-                    collisionOffset.copy(normal).multiplyScalar(0.2 * pushFactor);
-                    spacecraft.position.add(collisionOffset);
-                    
-                    // Show collision warning message but don't reset position
-                    showCollisionWarning("BUILDING COLLISION");
-                    
-                    console.log("Building collision detected, showing warning but not resetting position");
-                    collisionDetected = true;
-                    break; // Exit after first collision is handled
-                }
-            }
-        }
-        
-        return collisionDetected;
-    } catch (error) {
-        console.error("Error in terrain collision detection:", error);
-        return false;
-    }
-}
 
 // Function to check if the spacecraft has collided with the base plane
 function checkBasePlaneCollision() {
@@ -934,6 +832,9 @@ export function init() {
 
     console.log("--- Starting Earth Initialization --- ");
 
+    // Reset the initialization time to prevent early collisions
+    initializationTime = Date.now();
+    
     if (getEarthInitialized()) {
         console.warn("Earth already marked as initialized, but running init() again after cleanup. This might indicate a state mismatch.");
         // Force reset flag just in case
