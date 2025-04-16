@@ -4,7 +4,6 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { updateMovement, keys } from './movement.js';
 import { createSpacecraft } from './spacecraft.js';
 import { createReticle, setReticleVisibility } from './reticle.js';
-import { fireLaser, updateLasers, clearAllLasers } from './laser.js';
 import { updateControlsDropdown } from './ui.js';
 import { 
     spaceCamera, 
@@ -552,10 +551,7 @@ export function update(isBoosting, isHyperspace, deltaTime = 0.016) {
         updateMovement(isBoosting, isHyperspace);
         updateCamera(camera, isHyperspace);
         
-        // Handle laser updates
-        if (typeof updateLasers === 'function') {
-            updateLasers(deltaTime);
-        }
+
 
         // Update spacecraft effects
         if (updateEngineEffects) {

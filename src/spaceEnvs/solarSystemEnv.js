@@ -7,7 +7,7 @@ import {
     loadingManager, 
     textureLoadingManager, 
     createEnhancedTextureLoader,
-    loadModel
+    modelLoader
  } from '../appConfig/loaders.js';
 
  import config from '../appConfig/config.js';
@@ -501,7 +501,7 @@ const starDestroyerModelPath = `${config.models.path}/star_wars_imperial_ii_star
 console.log('Loading First Star Destroyer from:', starDestroyerModelPath);
 
 // Load first Star Destroyer
-loadModel(
+modelLoader(
     'star_wars_imperial_ii_star_destroyer',
     
     // Success callback
@@ -522,7 +522,7 @@ loadModel(
 );
 
 // Load second Star Destroyer
-loadModel(
+modelLoader(
     'star_wars_imperial_ii_star_destroyer',
     (gltf) => {
         const secondStarDestroyer = gltf.scene;
@@ -562,7 +562,7 @@ const lucrehulkModelPath = `${config.models.path}/lucrehulk/scene.gltf`;
 console.log('Loading Lucrehulk from:', lucrehulkModelPath);
 
 // Load Lucrehulk
-loadModel(
+modelLoader(
     'lucrehulk',
     
     // Success callback
@@ -607,7 +607,7 @@ const asteroidsModelPath = `${config.models.path}/asteroids_pack_metallic_versio
 console.log('Loading asteroids from:', asteroidsModelPath);
 
 // Call the general asset loading function, applied to asteroids
-loadModel(
+modelLoader(
     'asteroids_pack_metallic_version',
     (gltf) => {
         console.log('Asteroid pack loaded successfully');

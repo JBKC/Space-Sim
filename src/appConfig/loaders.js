@@ -35,7 +35,7 @@ setupLoadingManagerHandlers();
 
 
 // General model loading function
-export function loadModel(modelName, onSuccess, onProgress, onError) {
+export function modelLoader(modelName, onSuccess, onProgress, onError) {
     console.log(`Loading model: ${modelName}`);
     console.log('Current config paths:', {
         assets: config.ASSETS_PATH,
@@ -43,24 +43,25 @@ export function loadModel(modelName, onSuccess, onProgress, onError) {
         env: config.ENV
     });
     
-    // Define alternative paths to try
+    // Define paths to try
     const paths = [
-        // Default path
+
+        // Spacecraft has different format (.glb directly without the scene.gltf) - ATTEMPT TO LOAD FIRST
+        `${config.models.path}/${modelName}`,
+        `src/assets/models/${modelName}`,
+        `/src/assets/models/${modelName}`,
+        `/assets/models/${modelName}`,
+        `${modelName}`,
+
+        // Other assets
         `src/assets/models/${modelName}/scene.gltf`,
         `${config.models.path}/${modelName}/scene.gltf`,
         `/src/assets/models/${modelName}/scene.gltf`,
         `/assets/models/${modelName}/scene.gltf`,
         `${modelName}/scene.gltf`,
-        // Alternate paths
-        // `${config.models.path}/${modelName}`,
-        // `src/assets/models/${modelName}`,
-        // `/src/assets/models/${modelName}`,
-        // `/assets/models/${modelName}`,
-        // `${modelName}`
+
     ];
-    
-    // Try the first path
-    tryLoadModelPath(0);
+
     
     function tryLoadModelPath(index) {
         if (index >= paths.length) {
@@ -77,12 +78,15 @@ export function loadModel(modelName, onSuccess, onProgress, onError) {
             onSuccess,
             onProgress,
             (error) => {
-                console.error(`Path ${index+1} failed for ${modelName} (${path}):`, error);
+                console.warn(`Path ${index+1} failed for ${modelName} (${path}):`, error);
                 // Try the next path
                 tryLoadModelPath(index + 1);
             }
         );
     }
+
+    // Iterate through paths
+    tryLoadModelPath(0);
 }
 
 // Create an enhanced texture loader that tries multiple paths
@@ -118,7 +122,7 @@ function createEnhancedTextureLoader(config) {
             onProgress,
             // On error, try alternative paths
             (error) => {
-                console.error(`Failed to load texture from primary path: ${path}`, error);
+                console.warn(`Failed to load texture from primary path: ${path}`, error);
                 
                 // Generate alternative paths to try
                 const alternativePaths = [];
@@ -162,7 +166,7 @@ function createEnhancedTextureLoader(config) {
                         onLoad,
                         onProgress,
                         (altError) => {
-                            console.error(`Alternative path ${index+1} failed for texture: ${altPath}`, altError);
+                            console.warn(`Alternative path ${index+1} failed for texture: ${altPath}`, altError);
                             tryNextPath(index + 1);
                         }
                     );
