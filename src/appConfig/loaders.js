@@ -246,113 +246,81 @@ function updateAssetDisplay(loaded, total, type) {
         loadingStats.textures.total = total;
     }
     
-    // Get the asset display element
-    const assetDisplay = document.getElementById('asset-display');
-    if (!assetDisplay) return;
+    // Get the asset display element (optional, could remove if #asset-display is no longer used)
+    // const assetDisplay = document.getElementById('asset-display');
+    // if (!assetDisplay) return;
     
-    // Update the summary display (keep for compatibility)
-    assetDisplay.innerHTML = `Assets: ${loadingStats.assets.loaded}/${loadingStats.assets.total}<br>` +
-                           `Textures: ${loadingStats.textures.loaded}/${loadingStats.textures.total}`;
+    // REMOVED: Update the summary display (keep for compatibility)
+    // assetDisplay.innerHTML = `Assets: ${loadingStats.assets.loaded}/${loadingStats.assets.total}<br>` +
+    //                        `Textures: ${loadingStats.textures.loaded}/${loadingStats.textures.total}`;
     
-    // Set color based on completion
-    const assetsComplete = loadingStats.assets.loaded === loadingStats.assets.total;
-    const texturesComplete = loadingStats.textures.loaded === loadingStats.textures.total;
+    // REMOVED: Set color based on completion - This logic is moved to updateDetailedAssetDisplay
+    // const assetsComplete = loadingStats.assets.loaded === loadingStats.assets.total;
+    // const texturesComplete = loadingStats.textures.loaded === loadingStats.textures.total;
+    // ... color setting logic removed ...
     
-    if (assetsComplete && texturesComplete) {
-        assetDisplay.style.color = '#0f0'; // Green when everything is loaded
-    } else if (loadingStats.assets.loaded > 0 || loadingStats.textures.loaded > 0) {
-        assetDisplay.style.color = '#ff0'; // Yellow during loading
-    } else {
-        assetDisplay.style.color = '#0fa'; // Default teal
-    }
-    
-    // Update the detailed display
+    // Update the detailed display (which now shows the summary)
     updateDetailedAssetDisplay();
 }
 
-// Function to update the detailed asset display
+// Function to update the detailed asset display (now repurposed for summary)
 function updateDetailedAssetDisplay() {
-    // Get or create the detailed asset display element
-    let detailedAssetDisplay = document.getElementById('detailed-asset-display');
+    // Get or create the display element (using the 'detailed' ID for consistency, though it shows summary now)
+    let summaryDisplay = document.getElementById('detailed-asset-display');
     
-    if (!detailedAssetDisplay) {
-        detailedAssetDisplay = document.createElement('div');
-        detailedAssetDisplay.id = 'detailed-asset-display';
-        detailedAssetDisplay.style.cssText = 'position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.7);color:#fff;font-family:monospace;font-size:14px;font-weight:bold;padding:10px;border-radius:5px;z-index:10000;text-align:right;max-height:50vh;overflow-y:auto;max-width:40vw;';
-        document.body.appendChild(detailedAssetDisplay);
+    if (!summaryDisplay) {
+        summaryDisplay = document.createElement('div');
+        summaryDisplay.id = 'detailed-asset-display'; // Keep ID for potential CSS rules
+        summaryDisplay.style.cssText = 'position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.7);color:#fff;font-family:monospace;font-size:14px;font-weight:bold;padding:10px;border-radius:5px;z-index:10000;text-align:right;'; // Removed max-height/width/overflow
+        document.body.appendChild(summaryDisplay);
     }
     
     // Always show the display
-    detailedAssetDisplay.style.display = 'block';
+    summaryDisplay.style.display = 'block';
     
-    // Get assets and ensure we're filtering out sub-textures
-    const assetEntries = Object.entries(loadingStats.individualAssets)
-        .filter(([name]) => {
-            // Rigorously filter out all sub-textures or any textures with names matching common PBR patterns
-            return !(
-                name.startsWith('__subtexture__') || 
-                name.toLowerCase().includes('subtexture') ||
-                /\b(basecolor|diffuse|normal|roughness|metallic|specular|emissive|ao|opacity|albedo)\b/i.test(name) ||
-                /(tex|texture|map)[\d_]+/i.test(name)
-            );
-        });
+    // Calculate remaining models and textures
+    const totalModels = loadingStats.assets.total;
+    const totalTextures = loadingStats.textures.total;
+    const remainingModels = totalModels - loadingStats.assets.loaded;
+    const remainingTextures = totalTextures - loadingStats.textures.loaded;
+
+    let modelStatus = '';
+    let textureStatus = '';
     
-    // Count textures and models
-    const textureCount = assetEntries.filter(([_, info]) => info.type === 'texture').length;
-    const modelCount = assetEntries.filter(([_, info]) => info.type === 'model').length;
-    
-    if (assetEntries.length === 0) {
-        detailedAssetDisplay.innerHTML = '<div style="text-align:center;">No assets loaded</div>';
-        return;
+    // Determine model status string
+    if (remainingModels > 0) {
+        modelStatus = `${remainingModels} models remaining`;
+    } else if (totalModels > 0) {
+        modelStatus = 'All models loaded';
     }
     
-    // Create HTML for the detailed display
-    let html = '<div style="text-align:center;margin-bottom:5px;font-size:16px;border-bottom:1px solid #555;padding-bottom:3px;">' +
-               `Assets: ${textureCount + modelCount}` +
-               '</div>';
-    
-    // Sort by type (textures first, then models) and then by name
-    assetEntries.sort((a, b) => {
-        if (a[1].type !== b[1].type) {
-            return a[1].type === 'texture' ? -1 : 1;
-        }
-        return a[0].localeCompare(b[0]);
-    });
-    
-    // Group by type
-    const byType = {
-        texture: [],
-        model: []
-    };
-    
-    assetEntries.forEach(([name, info]) => {
-        byType[info.type]?.push([name, info]);
-    });
-    
-    // Add textures section if any
-    if (byType.texture.length > 0) {
-        html += `<div style="margin-top:5px;font-size:15px;color:#aaa;">Textures (${byType.texture.length}):</div>`;
-        
-        byType.texture.forEach(([name, info]) => {
-            const color = info.error ? '#f55' : (info.loaded ? '#5f5' : '#fff');
-            const icon = info.error ? '❌' : (info.loaded ? '✓' : '⋯');
-            html += `<div style="color:${color};margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${icon} ${name}</div>`;
-        });
+    // Determine texture status string
+    if (remainingTextures > 0) {
+        textureStatus = `${remainingTextures} textures remaining`;
+    } else if (totalTextures > 0) {
+        textureStatus = 'All textures loaded';
     }
-    
-    // Add models section if any
-    if (byType.model.length > 0) {
-        html += `<div style="margin-top:8px;font-size:15px;color:#aaa;">Models (${byType.model.length}):</div>`;
-        
-        byType.model.forEach(([name, info]) => {
-            const color = info.error ? '#f55' : (info.loaded ? '#5f5' : '#fff');
-            const icon = info.error ? '❌' : (info.loaded ? '✓' : '⋯');
-            html += `<div style="color:${color};margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${icon} ${name}</div>`;
-        });
+
+    // Combine status lines
+    const statusLines = [modelStatus, textureStatus].filter(line => line !== "");
+    let displayText = statusLines.join('<br>');
+    if (displayText === "" && (totalModels > 0 || totalTextures > 0)) {
+         // If lines are empty but we expect assets, show initial loading state
+         displayText = 'Loading...';
+    } else if (displayText === "") {
+         // If nothing is expected to load yet
+         displayText = 'Ready'; // Or maybe just empty?
     }
-    
+
+    // Determine color (Green only if EVERYTHING is loaded)
+    let displayColor = '#fff'; // Default white
+    if (remainingModels === 0 && remainingTextures === 0 && (totalModels > 0 || totalTextures > 0)) {
+        displayColor = '#0f0'; // Green
+    }
+
     // Update the display
-    detailedAssetDisplay.innerHTML = html;
+    summaryDisplay.innerHTML = displayText;
+    summaryDisplay.style.color = displayColor;
 }
 
 // Export the loading managers and functions for use in other modules

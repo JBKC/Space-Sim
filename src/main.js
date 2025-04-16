@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { createRateLimitedGameLoader } from './appConfig/gameLoader.js';
-import { loadingManager, textureLoadingManager, updateAssetDisplay, resetLoadingStats, updateDetailedAssetDisplay } from './appConfig/loaders.js';
+import { loadingManager, textureLoadingManager, resetLoadingStats, updateDetailedAssetDisplay } from './appConfig/loaders.js';
 
 // Import state environment functions
 import { 
@@ -128,7 +128,6 @@ function startGame() {
     // show optimization stats
     stats.dom.style.display = 'block';
     fpsDisplay.style.display = 'block';
-    assetDisplay.style.display = 'block';
     
     // Show the controls prompt and initialize dropdown state
     showControlsPrompt();
@@ -154,13 +153,6 @@ fpsDisplay.id = 'fps-display';
 fpsDisplay.style.cssText = 'position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.6);color:#0ff;font-family:monospace;font-size:16px;font-weight:bold;padding:5px 10px;border-radius:5px;z-index:10000;display:none;'; // Start hidden
 fpsDisplay.textContent = 'FPS: 0';
 document.body.appendChild(fpsDisplay);
-
-// Create an asset loader display
-const assetDisplay = document.createElement('div');
-assetDisplay.id = 'asset-display';
-assetDisplay.style.cssText = 'position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#0fa;font-family:monospace;font-size:14px;font-weight:bold;padding:5px 10px;border-radius:5px;z-index:10000;'; // Moved to right side
-assetDisplay.innerHTML = 'Assets: 0/0<br>Textures: 0/0';
-document.body.appendChild(assetDisplay);
 
 // Initialize variables for FPS calculation
 let frameCount = 0;
