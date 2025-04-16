@@ -35,14 +35,11 @@ setupLoadingManagerHandlers();
 ///// ASSET LOADERS /////
 
 // Standard texture loader using explicit imports
-export function loadTexture(category, name, onLoad, onError) {
+function loadTexture(category, name, onLoad) {
     const texture = getTexture(category, name);
     
     if (!texture) {
         console.error(`Texture not found: ${category}/${name}`);
-        if (onError) {
-            onError(new Error(`Texture not found: ${category}/${name}`));
-        }
         return new THREE.Texture(); // Return empty texture
     }
     
@@ -52,9 +49,7 @@ export function loadTexture(category, name, onLoad, onError) {
     // Just create a THREE.js texture from the imported URL
     const threeTexture = new THREE.TextureLoader(textureLoadingManager).load(
         texture, 
-        onLoad,
-        undefined, // No progress callback
-        onError
+        onLoad
     );
     
     return threeTexture;

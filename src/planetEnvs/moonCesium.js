@@ -7,8 +7,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import {
     textureLoadingManager, 
     loadingManager, 
-    createEnhancedTextureLoader,
-    loadTexture
+    createEnhancedTextureLoader
 } from '../appConfig/loaders.js';
 import { configureCesiumRequestScheduler, optimizeTerrainLoading } from '../appConfig/cesiumRateLimit.js';
 import config from '../appConfig/config.js';
@@ -365,8 +364,8 @@ function createplanetSphere() {
   // Create geometry and material with Earth texture
   const geometry = new THREE.SphereGeometry(planetConfig.radius, 32, 32);
   
-  // Load Earth texture using the new explicit texture registry
-  const earthTexture = loadTexture('planets', 'earth', (texture) => {
+  // Load Earth texture from skybox folder
+  const earthTexture = textureLoader.load(`${config.textures.path}/2k_earth_daymap.jpg`, (texture) => {
     if (planetSphere && planetSphere.material) {
       planetSphere.material.needsUpdate = true; // Might not be needed if material isn't reassigned, but safe
     }
