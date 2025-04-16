@@ -393,6 +393,9 @@ function updateDetailedAssetDisplay() {
         document.body.appendChild(detailedAssetDisplay);
     }
     
+    // Always show the display
+    detailedAssetDisplay.style.display = 'block';
+    
     // Check if we have any assets to display
     const assetEntries = Object.entries(loadingStats.individualAssets);
     
@@ -446,19 +449,6 @@ function updateDetailedAssetDisplay() {
     
     // Update the display
     detailedAssetDisplay.innerHTML = html;
-    
-    // Show/hide based on loading status
-    const isLoading = assetEntries.some(([_, info]) => !info.loaded && !info.error);
-    const hasErrors = assetEntries.some(([_, info]) => info.error);
-    
-    if (isLoading || hasErrors) {
-        detailedAssetDisplay.style.display = 'block';
-    } else {
-        // Hide after a delay when all assets are loaded
-        setTimeout(() => {
-            detailedAssetDisplay.style.display = 'none';
-        }, 2000);
-    }
 }
 
 // Export the loading managers and functions for use in other modules
