@@ -35,7 +35,7 @@ setupLoadingManagerHandlers();
 ///// ASSET LOADERS /////
 
 // Standard texture loader using explicit imports
-export function loadTexture(category, name, onLoad) {
+function loadTexture(category, name, onLoad) {
     const texture = getTexture(category, name);
     
     if (!texture) {
