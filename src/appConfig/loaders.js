@@ -44,21 +44,22 @@ export function modelLoader(modelName, onSuccess, onProgress, onError) {
     });
     
     // Define paths to try
+    // NOTE - just because one path works in development doesn't mean it will work in production
     const paths = [
 
         // Spacecraft has different format (.glb directly without the scene.gltf) - ATTEMPT TO LOAD FIRST
         `${config.models.path}/${modelName}`,
-        // `src/assets/models/${modelName}`,
-        // `/src/assets/models/${modelName}`,
-        // `/assets/models/${modelName}`,
-        // `${modelName}`,
+        `src/assets/models/${modelName}`,
+        `/src/assets/models/${modelName}`,
+        `/assets/models/${modelName}`,
+        `${modelName}`,
 
         // Other assets
         `src/assets/models/${modelName}/scene.gltf`,
-        // `${config.models.path}/${modelName}/scene.gltf`,
-        // `/src/assets/models/${modelName}/scene.gltf`,
-        // `/assets/models/${modelName}/scene.gltf`,
-        // `${modelName}/scene.gltf`,
+        `${config.models.path}/${modelName}/scene.gltf`,
+        `/src/assets/models/${modelName}/scene.gltf`,
+        `/assets/models/${modelName}/scene.gltf`,
+        `${modelName}/scene.gltf`,
 
     ];
 
