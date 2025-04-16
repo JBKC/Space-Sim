@@ -7,6 +7,7 @@ import { loadingManager, textureLoadingManager } from './appConfig/loaders.js';
 import { createReticle } from './reticle.js';
 import { keys } from './inputControls.js';
 import { resetMovementInputs } from './movement.js';
+import { getFirstPersonView, setFirstPersonView, toggleFirstPersonView } from './stateEnv.js';
 
 // AXES: x = yaw, y = pitch, z = roll
 
@@ -21,7 +22,7 @@ export function createSpacecraft(scene) {
     cockpit.name = 'cockpit';
     
     // Flag to track view mode (false = third-person, true = first-person)
-    let isFirstPersonView = false;
+    // Moved to stateEnv.js
     let cockpitLoaded = false;
     
     // Wing animation system
@@ -362,12 +363,12 @@ export function createSpacecraft(scene) {
             return;
         }
         
-        console.log("⭐ TOGGLING VIEW - Before: isFirstPersonView =", isFirstPersonView);
-        isFirstPersonView = !isFirstPersonView;
-        console.log("⭐ TOGGLING VIEW - After: isFirstPersonView =", isFirstPersonView);
-        console.log("*** TOGGLED VIEW: isFirstPersonView is now:", isFirstPersonView, " ***");
+        console.log("⭐ TOGGLING VIEW - Before: isFirstPersonView =", getFirstPersonView());
+        toggleFirstPersonView();
+        console.log("⭐ TOGGLING VIEW - After: isFirstPersonView =", getFirstPersonView());
+        console.log("*** TOGGLED VIEW: isFirstPersonView is now:", getFirstPersonView(), " ***");
         
-        if (isFirstPersonView) {
+        if (getFirstPersonView()) {
             // Switch to first-person view
             console.log("Switching to first-person view");
             
@@ -430,11 +431,11 @@ export function createSpacecraft(scene) {
         
         // Call the callback with the current state if provided
         if (typeof callback === 'function') {
-            console.log("Calling toggleView callback with isFirstPersonView:", isFirstPersonView);
-            callback(isFirstPersonView);
+            console.log("Calling toggleView callback with isFirstPersonView:", getFirstPersonView());
+            callback(getFirstPersonView());
         }
         
-        return isFirstPersonView;
+        return getFirstPersonView();
     }
 
 
@@ -635,7 +636,7 @@ export function createSpacecraft(scene) {
         setWingsPosition: wingAnimationController.setWingsPosition,
         updateEngineEffects,
 
-        get isFirstPersonView() {return isFirstPersonView},
+        get isFirstPersonView() {return getFirstPersonView()},
 
     };
 }

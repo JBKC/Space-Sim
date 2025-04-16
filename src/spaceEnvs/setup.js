@@ -3,9 +3,12 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { loadingManager, textureLoadingManager } from '../appConfig/loaders.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 
 import { updateSpaceMovement, resetMovementInputs } from '../movement.js';
 import { createSpacecraft } from '../spacecraft.js';
+import { createReticle } from '../reticle.js';
 import { 
     updateControlsDropdown, 
     planetInfo, 
@@ -40,13 +43,16 @@ import {
     setMoonSurfaceActive,
     getSpaceInitialized,
     setSpaceInitialized,
+    getEarthInitialized,
     setEarthInitialized,
+    getMoonInitialized,
     setMoonInitialized,
     getEarthTransition,
     getMoonTransition,
     setEarthTransition,
     setMoonTransition
 } from '../stateEnv.js';
+import { setGlobalSpacecraft, setGlobalCamera } from '../appConfig/globals.js';
 
 
 
@@ -207,10 +213,11 @@ export function renderScene() {
 
 // Initialize spacecraft in the scene
 function initSpacecraft() {
+    console.log("Initializing spacecraft");
 
     // Create a spacecraft object to pull all the attributes and methods from the createSpacecraft function
     const spacecraftComponents = createSpacecraft(scene);
-
+    
     // Expose attributes from the spacecraftComponents object
     spacecraft = spacecraftComponents.spacecraft;
     cockpit = spacecraftComponents.cockpit;
@@ -225,12 +232,15 @@ function initSpacecraft() {
     spacecraft.setWingsPosition = spacecraftComponents.setWingsPosition;
     updateEngineEffects = spacecraftComponents.updateEngineEffects;
     
+    // Register global references for view toggling
+    setGlobalSpacecraft(spacecraft);
+    setGlobalCamera(camera);
+    
     // Store the isFirstPersonView state for camera logic
     spacecraft.isFirstPersonView = function() {
         // Add a direct reference to the spacecraftComponents object
         return this._spacecraftComponents ? this._spacecraftComponents.isFirstPersonView : false;
     };
-
 
     // Store a direct reference to the spacecraftComponents
     spacecraft._spacecraftComponents = spacecraftComponents;
@@ -258,7 +268,6 @@ function initSpacecraft() {
     spacecraft.name = 'spacecraft';
     scene.add(spacecraft);
     console.log("Spacecraft initialized");
-
 }
 
 /// CORE INITIALIZATION FUNCTION ///
