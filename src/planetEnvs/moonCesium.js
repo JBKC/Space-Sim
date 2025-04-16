@@ -38,8 +38,6 @@ import {
     setMoonTransition
 } from '../stateEnv.js';
 
-// Add import for globals
-import { setGlobalSpacecraft, setGlobalCamera } from '../appConfig/globals.js';
 
 ///////////////////// GENERAL INITIALIZATION /////////////////////
 
@@ -623,8 +621,10 @@ function cleanupMoonResources() {
 
 // Initialize spacecraft in the scene
 function initSpacecraft() {
+
+    // Create a spacecraft object to pull all the attributes and methods from the createSpacecraft function
     const spacecraftComponents = createSpacecraft(scene);
-    
+
     // Log successful object creation
     console.log("Moon spacecraft components created:", 
                 spacecraftComponents ? "Success" : "Failed",
@@ -668,16 +668,13 @@ function initSpacecraft() {
         console.warn("Reticle not found in spacecraft components");
     }
 
+
     const position = latLonToCartesian(SPACECRAFT_INITIAL_LAT, SPACECRAFT_INITIAL_LON, SPACECRAFT_INITIAL_HEIGHT);
     spacecraft.position.copy(position);
     spacecraft.quaternion.setFromEuler(SPACECRAFT_INITIAL_ROTATION);
 
     spacecraft.name = 'spacecraft';
     scene.add(spacecraft);
-
-    // Register global references for view toggling
-    setGlobalSpacecraft(spacecraft);
-    setGlobalCamera(camera);
 }
 
 /// CORE INITIALIZATION FUNCTION ///
@@ -742,7 +739,7 @@ export function update(isBoosting, deltaTime = 0.016) {
         if (getViewToggleRequested() && spacecraft && spacecraft.toggleView) {
             console.log('===== TOGGLE COCKPIT VIEW =====');
             spacecraft.toggleView(camera, (isFirstPerson) => {
-                // console.log(`Resetting moon camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
+                console.log(`Resetting moon camera state for ${isFirstPerson ? 'cockpit' : 'third-person'} view`);
                 // Reset camera state with new view mode if needed
                 camera.position.copy(camera.position);
                 camera.quaternion.copy(camera.quaternion);
@@ -845,7 +842,7 @@ export function resetPosition() {
         return;
     }
 
-    // console.log("Resetting spacecraft position to moon starting point");
+    console.log("Resetting spacecraft position to moon starting point");
     
     // Set initial position of craft using the same constants
     const position = latLonToCartesian(SPACECRAFT_INITIAL_LAT, SPACECRAFT_INITIAL_LON, SPACECRAFT_INITIAL_HEIGHT);

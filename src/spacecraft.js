@@ -7,7 +7,6 @@ import { loadingManager, textureLoadingManager } from './appConfig/loaders.js';
 import { createReticle } from './reticle.js';
 import { keys } from './inputControls.js';
 import { resetMovementInputs } from './movement.js';
-import { getFirstPersonView, setFirstPersonView, toggleFirstPersonView } from './stateEnv.js';
 
 // AXES: x = yaw, y = pitch, z = roll
 
@@ -22,7 +21,7 @@ export function createSpacecraft(scene) {
     cockpit.name = 'cockpit';
     
     // Flag to track view mode (false = third-person, true = first-person)
-    // Moved to stateEnv.js
+    let isFirstPersonView = false;
     let cockpitLoaded = false;
     
     // Wing animation system
@@ -363,15 +362,20 @@ export function createSpacecraft(scene) {
             return;
         }
         
-        // console.log("⭐ TOGGLINcG VIEW - Before: isFirstPersonView =", getFirstPersonView());
-        toggleFirstPersonView();
+        console.log("⭐ TOGGLING VIEW - Before: isFirstPersonView =", isFirstPersonView);
+        isFirstPersonView = !isFirstPersonView;
+        console.log("⭐ TOGGLING VIEW - After: isFirstPersonView =", isFirstPersonView);
+        console.log("*** TOGGLED VIEW: isFirstPersonView is now:", isFirstPersonView, " ***");
         
-        if (getFirstPersonView()) {
+        if (isFirstPersonView) {
             // Switch to first-person view
+            console.log("Switching to first-person view");
             
             // Remove X-wing model from spacecraft
             const xWing = spacecraft.getObjectByName('xWingModel');
+            console.log("Found xWingModel in spacecraft:", xWing ? "Yes" : "No");
             if (xWing) {
+                console.log("Removing xWingModel from spacecraft. Contrails available:", xWing.userData?.contrails ? "Yes" : "No");
                 spacecraft.remove(xWing);
             }
             
@@ -386,6 +390,7 @@ export function createSpacecraft(scene) {
             const cockpitModel = cockpit.getObjectByName('cockpitModel');
             if (cockpitModel) {
                 cockpitModel.position.set(0, 0, 0); // distance between the camera and the cockpit - set in camera.js
+                console.log("Cockpit model positioned");
             } else {
                 console.warn("Cockpit model not found");
             }
@@ -393,12 +398,14 @@ export function createSpacecraft(scene) {
 
         } else {
             // Switch back to third-person view
+            console.log("Switching to third-person view");
             
             // Remove cockpit model from spacecraft
             spacecraft.remove(cockpit);
             
             // Add X-wing model back to spacecraft
             loadModel.then((model) => {
+                console.log("Adding xWingModel back to spacecraft. Contrails available:", model.userData?.contrails ? "Yes" : "No");
                 
                 // Log contrail details before adding the model back
                 if (model.userData?.contrails) {
@@ -423,10 +430,11 @@ export function createSpacecraft(scene) {
         
         // Call the callback with the current state if provided
         if (typeof callback === 'function') {
-            callback(getFirstPersonView());
+            console.log("Calling toggleView callback with isFirstPersonView:", isFirstPersonView);
+            callback(isFirstPersonView);
         }
         
-        return getFirstPersonView();
+        return isFirstPersonView;
     }
 
 
@@ -627,7 +635,7 @@ export function createSpacecraft(scene) {
         setWingsPosition: wingAnimationController.setWingsPosition,
         updateEngineEffects,
 
-        get isFirstPersonView() {return getFirstPersonView()},
+        get isFirstPersonView() {return isFirstPersonView},
 
     };
 }

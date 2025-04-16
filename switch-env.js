@@ -21,7 +21,7 @@ if (!targetEnv || (targetEnv !== 'dev' && targetEnv !== 'prod')) {
   process.exit(1);
 }
 
-console.log(`Switching to ${targetEnv === 'dev' ? 'development' : 'production'} environment...`);
+// console.log(`Switching to ${targetEnv === 'dev' ? 'development' : 'production'} environment...`);
 
 // Execute the appropriate build command
 const buildCommand = targetEnv === 'dev' ? 'npm run build:dev' : 'npm run build:prod';

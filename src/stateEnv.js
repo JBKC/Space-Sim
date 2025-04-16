@@ -1,5 +1,4 @@
 // State management for Environments
-import { getGlobalSpacecraft, getGlobalCamera } from './appConfig/globals.js';
 
 // What environment is currently initialized?
 let spaceInitialized = false;
@@ -48,10 +47,6 @@ export function getMoonTransition() {
     return moonTransition;
 }
 
-export function getFirstPersonView() {
-    return isFirstPersonView;
-}
-
 
 ////// SET CURRENT STATES //////
 
@@ -75,15 +70,6 @@ export function setEarthSurfaceActive(active) {
 
     if (active) {
         earthTransition = false;
-        // If entering Earth and in first-person view, schedule a double toggle to fix view
-        if (isFirstPersonView) {
-            scheduleDoubleViewToggle();
-        }
-    } else {
-        // If exiting Earth and in first-person view, also schedule a double toggle
-        if (isFirstPersonView) {
-            scheduleDoubleViewToggle();
-        }
     }
     return isEarthSurfaceActive;
 }
@@ -93,15 +79,6 @@ export function setMoonSurfaceActive(active) {
 
     if (active) {
         moonTransition = false;
-        // If entering Moon and in first-person view, schedule a double toggle to fix view
-        if (isFirstPersonView) {
-            scheduleDoubleViewToggle();
-        }
-    } else {
-        // If exiting Moon and in first-person view, also schedule a double toggle
-        if (isFirstPersonView) {
-            scheduleDoubleViewToggle();
-        }
     }
     return isMoonSurfaceActive;
 }
@@ -115,87 +92,4 @@ export function setEarthTransition(value) {
 export function setMoonTransition(value) {
     moonTransition = !!value; // Ensure boolean
     return moonTransition;
-}
-
-export function setFirstPersonView(value) {
-    isFirstPersonView = !!value; // Ensure boolean
-    return isFirstPersonView;
-}
-
-export function toggleFirstPersonView() {
-    isFirstPersonView = !isFirstPersonView;
-    return isFirstPersonView;
-}
-
-// FAILSAFE FUNCTION that simulates a double toggle of the view to fix camera issues when entering or exiting a planet in first-person view
-function scheduleDoubleViewToggle() {
-    // Determine if we're entering or exiting a planet based on the current surface active state
-    const enteringEarth = isEarthSurfaceActive && !isMoonSurfaceActive;
-    const enteringMoon = !isEarthSurfaceActive && isMoonSurfaceActive;
-    const exitingEarth = !isEarthSurfaceActive && earthTransition;
-    const exitingMoon = !isMoonSurfaceActive && moonTransition;
-    
-    const contextMessage = enteringEarth ? 'entering Earth' :
-                           enteringMoon ? 'entering Moon' :
-                           exitingEarth ? 'exiting Earth' :
-                           exitingMoon ? 'exiting Moon' : 'transitioning';
-    
-    console.log(`Scheduling double key press of 'C' to fix first-person camera position while ${contextMessage}`);
-    
-    // Map for key codes
-    const KEY_CODES = { 'c': 67 };
-    
-    // Helper function to simulate keyboard events
-    const simulateKeyEvent = (eventType, key) => {
-        const keyCode = KEY_CODES[key.toLowerCase()];
-        
-        try {
-            // Create the event with appropriate properties
-            const event = new KeyboardEvent(eventType, {
-                bubbles: true,
-                cancelable: true,
-                key: key,
-                code: 'Key' + key.toUpperCase(),
-                keyCode: keyCode,
-                which: keyCode,
-                shiftKey: false,
-                ctrlKey: false,
-                altKey: false,
-                metaKey: false
-            });
-            
-            // Dispatch the event
-            document.dispatchEvent(event);
-            return true;
-        } catch (error) {
-            console.error('Error simulating keyboard event:', error);
-            return false;
-        }
-    };
-    
-    // Helper function to press and release a key
-    const pressKey = (key) => {
-        return new Promise(resolve => {
-            // Press down
-            simulateKeyEvent('keydown', key);
-            
-            // Release after a short delay
-            setTimeout(() => {
-                simulateKeyEvent('keyup', key);
-                resolve();
-            }, 100);
-        });
-    };
-    
-    // Execute the double toggle
-    setTimeout(async () => {
-        console.log(`⚡ Simulating first 'C' key press to toggle view while ${contextMessage}`);
-        await pressKey('c');
-        
-        setTimeout(async () => {
-            console.log(`⚡ Simulating second 'C' key press to toggle view back while ${contextMessage}`);
-            await pressKey('c');
-            console.log(`✅ Double toggle completed for ${contextMessage}`);
-        }, 100);    // delay between key presses
-    }, 1000); // delay after transition starts
 }

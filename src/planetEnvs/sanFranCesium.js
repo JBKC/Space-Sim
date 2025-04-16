@@ -39,9 +39,6 @@ import {
     setEarthTransition
 } from '../stateEnv.js';
 
-// Add import for globals
-import { setGlobalSpacecraft, setGlobalCamera } from '../appConfig/globals.js';
-
 ///////////////////// GENERAL INITIALIZATION /////////////////////
 
 const scene = new THREE.Scene();
@@ -773,8 +770,10 @@ function cleanupEarthResources() {
 
 // Initialize spacecraft in the scene
 function initSpacecraft() {
+
+    // Create a spacecraft object to pull all the attributes and methods from the createSpacecraft function
     const spacecraftComponents = createSpacecraft(scene);
-    
+
     // Log successful object creation
     console.log("San Francisco spacecraft components created:", 
                 spacecraftComponents ? "Success" : "Failed",
@@ -834,10 +833,6 @@ function initSpacecraft() {
 
     spacecraft.name = 'spacecraft';
     scene.add(spacecraft);
-
-    // Register global references for view toggling
-    setGlobalSpacecraft(spacecraft);
-    setGlobalCamera(camera);
 }
 
 export function init() {
