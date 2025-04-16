@@ -3,10 +3,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-import { loadingManager, textureLoadingManager } from '../appConfig/loaders.js';
+import { loadingManager, textureLoadingManager, createEnhancedTextureLoader } from '../appConfig/loaders.js';
 import config from '../appConfig/config.js';
 
-const textureLoader = new THREE.TextureLoader(textureLoadingManager);
+// Create a texture loader that tries multiple paths
+const textureLoader = createEnhancedTextureLoader(config);
 const loader = new GLTFLoader();
 
 export const planetGroups = [];

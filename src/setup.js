@@ -839,7 +839,8 @@ export function exitMoonSurface() {
 
 ///////////////////// Solar System Setup /////////////////////
 
-const textureLoader = new THREE.TextureLoader(textureLoadingManager);
+// Use enhanced texture loader that tries multiple paths when loading fails
+const textureLoader = createEnhancedTextureLoader(config);
 
 // Skybox setup
 const skyboxTexture = textureLoader.load(`${config.textures.skybox}/galaxy5.jpeg`);
