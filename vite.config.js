@@ -36,6 +36,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
+      '@assets': resolve(__dirname, 'src/assets'),
+      '@textures': resolve(__dirname, 'src/assets/textures'),
       'three': resolve(__dirname, 'node_modules/three'),
       '3d-tiles-renderer': resolve(__dirname, 'node_modules/3d-tiles-renderer'),
     },

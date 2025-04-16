@@ -7,7 +7,8 @@ import {
     loadingManager, 
     textureLoadingManager, 
     createEnhancedTextureLoader,
-    modelLoader
+    modelLoader,
+    loadTexture
  } from '../appConfig/loaders.js';
 
  import config from '../appConfig/config.js';
@@ -17,7 +18,8 @@ const textureLoader = createEnhancedTextureLoader(config);
 const loader = new GLTFLoader();
 
 export const planetGroups = [];
-const cloudTexture = textureLoader.load(`${config.textures.path}/Earth-clouds.png`);
+// Use the new explicit texture loading for Earth clouds 
+const cloudTexture = loadTexture('planets', 'earthClouds');
 const collisionMaterialInvisible = new THREE.MeshBasicMaterial({ visible: false });
 
 
@@ -27,7 +29,8 @@ const collisionMaterialInvisible = new THREE.MeshBasicMaterial({ visible: false 
 
 
 ///// Skybox
-const skyboxTexture = textureLoader.load(`${config.textures.skybox}/galaxy5.jpeg`);
+// Use the new explicit texture loading for skybox
+const skyboxTexture = loadTexture('skybox', 'galaxy');
 const skyboxGeometry = new THREE.BoxGeometry(250000, 250000, 250000);
 const skyboxMaterial = new THREE.MeshBasicMaterial({
     map: skyboxTexture,
@@ -90,7 +93,8 @@ export const sunGroup = new THREE.Group();
 
 const sunRadius = 10000;
 const sunGeometry = new THREE.SphereGeometry(sunRadius, 64, 64);
-const sunTexture = textureLoader.load(`${config.textures.path}/2k_sun.jpg`);
+// Use the new explicit texture loading for sun
+const sunTexture = loadTexture('planets', 'sun');
 const sunMaterial = new THREE.MeshStandardMaterial({
     map: sunTexture,
     emissive: 0xffffff,
@@ -163,7 +167,8 @@ sunGroup.position.set(0, 0, 0);
 export const mercuryGroup = new THREE.Group();
 const mercuryRadius = 1000;
 const mercuryGeometry = new THREE.SphereGeometry(mercuryRadius, 32, 32);
-const mercuryTexture = textureLoader.load(`${config.textures.path}/2k_mercury.jpg`);
+// Use the new explicit texture loading for Mercury
+const mercuryTexture = loadTexture('planets', 'mercury');
 const mercuryMaterial = new THREE.MeshStandardMaterial({
     map: mercuryTexture,
     side: THREE.FrontSide,

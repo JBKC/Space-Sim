@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import config from './config.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { getTexture } from './textureRegistry.js';
 
 // Initialize THREE.js loading managers to track progress
 let loadingManager = new THREE.LoadingManager();
@@ -33,6 +34,26 @@ setupLoadingManagerHandlers();
 
 ///// ASSET LOADERS /////
 
+// Standard texture loader using explicit imports
+export function loadTexture(category, name, onLoad) {
+    const texture = getTexture(category, name);
+    
+    if (!texture) {
+        console.error(`Texture not found: ${category}/${name}`);
+        return new THREE.Texture(); // Return empty texture
+    }
+    
+    console.log(`Loading texture: ${category}/${name} from registry`);
+    
+    // If we're using the direct import, we don't need textureLoader.load
+    // Just create a THREE.js texture from the imported URL
+    const threeTexture = new THREE.TextureLoader(textureLoadingManager).load(
+        texture, 
+        onLoad
+    );
+    
+    return threeTexture;
+}
 
 // General model loading function
 export function modelLoader(modelName, onSuccess, onProgress, onError) {
@@ -238,4 +259,4 @@ function updateAssetDisplay(loaded, total, type) {
 }
 
 // Export the loading managers and functions for use in other modules
-export { loadingManager, textureLoadingManager, createEnhancedTextureLoader, updateAssetDisplay, resetLoadingStats }; 
+export { loadingManager, textureLoadingManager, createEnhancedTextureLoader, loadTexture, updateAssetDisplay, resetLoadingStats }; 
