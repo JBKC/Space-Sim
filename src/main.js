@@ -158,8 +158,9 @@ document.body.appendChild(fpsDisplay);
 // Create an asset loader display
 const assetDisplay = document.createElement('div');
 assetDisplay.id = 'asset-display';
-assetDisplay.style.cssText = 'position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.7);color:#ccc;font-family:monospace;font-size:12px;padding:8px 12px;border-radius:5px;z-index:10000;max-height:150px;overflow-y:auto;display:none;';
-assetDisplay.innerHTML = 'Loading assets...';
+// Adjusted styles for bottom right position
+assetDisplay.style.cssText = 'position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,0.7); color:#ccc; font-family:monospace; font-size:12px; padding:8px 12px; border-radius:5px; z-index:10000; max-height: 150px; overflow-y: auto; display:none;'; // Start hidden
+assetDisplay.innerHTML = 'Loading assets...'; // Initial placeholder text
 document.body.appendChild(assetDisplay);
 
 // Initialize variables for FPS calculation
