@@ -359,86 +359,67 @@ export function createSpacecraft(scene) {
         console.error("❌ Failed to create or attach reticle");
     }
     
-    // Function to toggle and track between first-person and third-person views
-    function toggleView(camera, callback) {
-        if (!cockpitLoaded) {
-            console.warn("Cockpit model not yet loaded. Cannot switch to first-person view.");
-            return;
-        }
-        
-        console.log("⭐ TOGGLING VIEW - Before: isFirstPersonView =", isFirstPersonView);
+    // Toggle between first-person and third-person view
+    function toggleView() {
         isFirstPersonView = !isFirstPersonView;
-        console.log("⭐ TOGGLING VIEW - After: isFirstPersonView =", isFirstPersonView);
-        console.log("*** TOGGLED VIEW: isFirstPersonView is now:", isFirstPersonView, " ***");
-        
+        console.log("Toggle View: Now", isFirstPersonView ? "First-Person" : "Third-Person");
+
         if (isFirstPersonView) {
-            // Switch to first-person view
-            console.log("Switching to first-person view");
-            
-            // Remove X-wing model from spacecraft
-            const xWing = spacecraft.getObjectByName('xWingModel');
-            console.log("Found xWingModel in spacecraft:", xWing ? "Yes" : "No");
-            if (xWing) {
-                console.log("Removing xWingModel from spacecraft. Contrails available:", xWing.userData?.contrails ? "Yes" : "No");
-                spacecraft.remove(xWing);
-            }
-            
-            // Add cockpit model to spacecraft
-            spacecraft.add(cockpit);
-            
-            // Position cockpit correctly for first-person view
-            cockpit.position.set(0, 0, 0);
-            cockpit.rotation.set(0, 0, 0);
-            
-            // Adjust the cockpit to be centered on camera
-            const cockpitModel = cockpit.getObjectByName('cockpitModel');
-            if (cockpitModel) {
-                cockpitModel.position.set(0, 0, 0); // distance between the camera and the cockpit - set in camera.js
-                console.log("Cockpit model positioned");
+            // Switch to first-person: Hide main model, show cockpit
+            console.log("Hiding xWingModel");
+            xWingModel.visible = false; // Hide the external model
+
+            if (!cockpitLoaded) {
+                console.log("Cockpit not loaded, initiating load...");
+                // Load cockpit model using the registry if not already loaded
+                loadModelFromRegistry(
+                    'spacecraft', // Category
+                    'xwingCockpit', // Name from modelRegistry.js
+                    (gltf) => {
+                        const loadedCockpit = gltf.scene;
+                        console.log("Cockpit model loaded successfully from registry");
+                        loadedCockpit.scale.set(1, 1, 1); // Adjust scale if needed
+                        loadedCockpit.position.set(0, 0, 0); // Adjust position relative to spacecraft group if needed
+                        loadedCockpit.rotation.set(0, 0, 0); // Adjust rotation if needed
+                        cockpit.add(loadedCockpit); // Add to the cockpit group
+                        cockpit.visible = true; // Ensure cockpit group is visible
+                        cockpitLoaded = true;
+                        spacecraft.add(cockpit); // Add cockpit group to the main spacecraft group
+                        console.log("Cockpit model added to scene");
+                    },
+                    (xhr) => {
+                        // console.log(`Loading Cockpit: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
+                    },
+                    (error) => {
+                        console.error('Error loading Cockpit model from registry:', error);
+                    }
+                );
             } else {
-                console.warn("Cockpit model not found");
+                console.log("Cockpit already loaded, making visible");
+                cockpit.visible = true; // Just make the existing cockpit visible
+                if (!cockpit.parent) {
+                    spacecraft.add(cockpit); // Re-add if removed
+                }
             }
             
+            // Trigger reticle update immediately
+            if (reticle && updateReticle) {
+                updateReticle(keys.up, keys.down); // Use current movement state
+            }
 
         } else {
-            // Switch back to third-person view
-            console.log("Switching to third-person view");
-            
-            // Remove cockpit model from spacecraft
-            spacecraft.remove(cockpit);
-            
-            // Add X-wing model back to spacecraft
-            loadModel.then(() => {
-                console.log("Adding xWingModel back to spacecraft. Contrails available:", xWingModel.userData?.contrails ? "Yes" : "No");
-                
-                // Log contrail details before adding the model back
-                if (xWingModel.userData?.contrails) {
-                    console.log("FLAMES:", Object.keys(xWingModel.userData.contrails).length, "found");
-                }
-                
-                spacecraft.add(xWingModel);
-                
-                // Trigger update of engine effects right after adding the model
-                // Pass the current boosting state to updateEngineEffects
-                setTimeout(() => {
-                    if (typeof updateEngineEffects === 'function') {
-                        // Use the imported keys object to determine boosting state
-                        const isCurrentlyBoosting = keys && keys.up;
-                        // console.log("Forcing engine effects update after view switch, boosting state:", isCurrentlyBoosting, "keys.up:", keys?.up);
-                        updateEngineEffects(isCurrentlyBoosting);
-                    }
-                }, 100);
-            });
-            
+            // Switch to third-person: Hide cockpit, show main model
+            console.log("Showing xWingModel, hiding cockpit");
+            cockpit.visible = false; // Hide cockpit
+            // Consider removing cockpit from spacecraft group to save resources if needed
+            // if (cockpit.parent) spacecraft.remove(cockpit);
+            xWingModel.visible = true; // Show external model
         }
         
-        // Call the callback with the current state if provided
-        if (typeof callback === 'function') {
-            console.log("Calling toggleView callback with isFirstPersonView:", isFirstPersonView);
-            callback(isFirstPersonView);
-        }
-        
-        return isFirstPersonView;
+        // Ensure reticle visibility matches view mode (should be handled by reticle logic)
+        // Update camera state (fov, offsets) based on the new view
+        resetMovementInputs(); // Reset movement inputs to prevent sudden camera jumps
+        // updateCamera(camera, false); // Update camera immediately (might need access to camera/isHyperspace)
     }
 
 

@@ -509,15 +509,10 @@ collisionBox2.position.set(-7000, 2000, 0);
 collisionBox2.name = "starDestroyer2Collision";
 starDestroyerGroup.add(collisionBox2);
 
-// Load 2 Star Destroyer models using GLTFLoader
-
-// Load the first Star Destroyer
-const starDestroyerModelPath = `${config.models.path}/star_wars_imperial_ii_star_destroyer/scene.gltf`;
-console.log('Loading First Star Destroyer from:', starDestroyerModelPath);
-
-// Load first Star Destroyer
-modelLoader(
-    'star_wars_imperial_ii_star_destroyer',
+// Load first Star Destroyer using the registry
+loadModelFromRegistry(
+    'ships', // Category
+    'starDestroyerII', // Name from modelRegistry.js
     
     // Success callback
     (gltf) => {
@@ -526,33 +521,33 @@ modelLoader(
         starDestroyer.rotation.y = Math.PI;
         starDestroyer.position.copy(collisionBox1.position);
         starDestroyerGroup.add(starDestroyer);
-        console.log('First Imperial Star Destroyer loaded successfully');
+        console.log('First Imperial Star Destroyer loaded successfully from registry');
     },
     (xhr) => {
-        console.log(`Loading Star Destroyer: ${(xhr.loaded / xhr.total) * 100}% loaded`);
+        // console.log(`Loading Star Destroyer 1: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
     },
     (error) => {
-        console.error('Error loading Star Destroyer:', error);
+        console.error('Error loading Star Destroyer 1 from registry:', error);
     }
 );
 
-// Load second Star Destroyer
-modelLoader(
-    'star_wars_imperial_ii_star_destroyer',
+// Load second Star Destroyer using the registry
+loadModelFromRegistry(
+    'ships',
+    'starDestroyerII',
     (gltf) => {
         const secondStarDestroyer = gltf.scene;
         secondStarDestroyer.scale.set(8, 8, 8);
         secondStarDestroyer.rotation.y = Math.PI;
         secondStarDestroyer.position.copy(collisionBox2.position);
         starDestroyerGroup.add(secondStarDestroyer);
-        console.log('Second Imperial Star Destroyer loaded successfully');
+        console.log('Second Imperial Star Destroyer loaded successfully from registry');
     },
     (xhr) => {
-        console.log(`Loading Star Destroyer 2: ${(xhr.loaded / xhr.total) * 100}% loaded`);
+        // console.log(`Loading Star Destroyer 2: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
     },
     (error) => {
-        console.error('Error loading Star Destroyer 2:', error);
-        // starDestroyerGroup.add(placeholder);
+        console.error('Error loading Star Destroyer 2 from registry:', error);
     }
 );
 
@@ -614,15 +609,12 @@ const radius = 55000;           // Radius of the belt
 const asteroidScale = 200;
 asteroidBeltGroup.position.set(0, 0, 0);
 
-// Load asteroid models
-const asteroidsModelPath = `${config.models.path}/asteroids_pack_metallic_version/scene.gltf`;
-console.log('Loading asteroids from:', asteroidsModelPath);
-
-// Call the general asset loading function, applied to asteroids
-modelLoader(
-    'asteroids_pack_metallic_version',
+// Load asteroid models using the registry
+loadModelFromRegistry(
+    'environment', // Category
+    'asteroidPack', // Name from modelRegistry.js
     (gltf) => {
-        console.log('Asteroid pack loaded successfully');
+        console.log('Asteroid pack loaded successfully from registry');
         const asteroidModel = gltf.scene;
 
         // Apply random orientation to give impression of dense belt
@@ -662,10 +654,10 @@ modelLoader(
         }
     },
     (xhr) => {
-        console.log(`Loading asteroids: ${(xhr.loaded / xhr.total) * 100}% loaded`);
+        // console.log(`Loading asteroids: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
     },
     (error) => {
-        console.error('Error loading asteroid model:', error);
+        console.error('Error loading asteroid model from registry:', error);
     }
 );
 

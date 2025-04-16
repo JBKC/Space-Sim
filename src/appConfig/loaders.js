@@ -23,11 +23,13 @@ const loadingStats = {
 // Set up onProgress handlers for the loading managers
 function setupLoadingManagerHandlers() {
     loadingManager.onProgress = function(url, itemsLoaded, itemsTotal) {
-        updateAssetDisplay(itemsLoaded, itemsTotal, 'assets');
+        // Remove call to old display function
+        // updateAssetDisplay(itemsLoaded, itemsTotal, 'assets');
     };
     
     textureLoadingManager.onProgress = function(url, itemsLoaded, itemsTotal) {
-        updateAssetDisplay(itemsLoaded, itemsTotal, 'textures');
+        // Remove call to old display function
+        // updateAssetDisplay(itemsLoaded, itemsTotal, 'textures');
     };
 }
 
@@ -38,7 +40,7 @@ setupLoadingManagerHandlers();
 ///// ASSET LOADERS /////
 
 // Standard texture loader using explicit imports
-export function loadTexture(category, name, onLoad) {
+function loadTexture(category, name, onLoad) {
     const texturePath = getTexture(category, name);
     const assetId = `texture:${category}/${name}`; // Unique ID for tracking
     const displayName = `${name} Texture`; // User-friendly name
@@ -73,7 +75,7 @@ export function loadTexture(category, name, onLoad) {
 }
 
 // Standard model loader using explicit imports
-export function loadModelFromRegistry(category, name, onSuccess, onProgress, onError) {
+function loadModelFromRegistry(category, name, onSuccess, onProgress, onError) {
     const modelPath = getModel(category, name);
     const assetId = `model:${category}/${name}`; // Unique ID
     const displayName = `${name} Model`; // User-friendly name
@@ -282,7 +284,8 @@ function resetLoadingStats() {
     console.log("Loading stats AND detailed asset status reset for new scene.");
 }
 
-// Function to update the asset display
+// Comment out the old generic asset display function
+/*
 function updateAssetDisplay(loaded, total, type) {
     // Update the appropriate counter
     if (type === 'assets') {
@@ -313,6 +316,7 @@ function updateAssetDisplay(loaded, total, type) {
         assetDisplay.style.color = '#0fa'; // Default teal
     }
 }
+*/
 
 // Export the loading managers and functions for use in other modules
 export { 
@@ -322,6 +326,6 @@ export {
     loadTexture, 
     loadModelFromRegistry, 
     modelLoader, // Keep old model loader for compatibility
-    updateAssetDisplay, // Keep old display function for now
+    // Remove the old updateAssetDisplay from exports
     resetLoadingStats, // Keep exporting this, it now calls resetAssetStatus
 }; 
