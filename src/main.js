@@ -416,8 +416,6 @@ function animate(currentTime = 0) {
         if (isEarthSurfaceActive && !isMoonSurfaceActive) {
             
             try {
-                // Reset movement inputs immediately to prevent stuck key states
-                resetMovementInputs();
                 
                 // Detect if we just entered Earth's surface using the transition flag
                 if (getEarthTransition()) {
@@ -426,6 +424,24 @@ function animate(currentTime = 0) {
                     // Show transition before initializing Earth surface
                     showEarthTransition(() => {
                         resetMovementInputs();
+
+                        // Hide all other scene elements
+                        hideSpaceScene();
+                        if (moonRenderer && moonRenderer.domElement) {
+                            moonRenderer.domElement.style.display = 'none';
+                            // If moon renderer is still in the DOM, remove it
+                            if (document.body.contains(moonRenderer.domElement)) {
+                                document.body.removeChild(moonRenderer.domElement);
+                            }
+                        }
+
+                        if (moonRenderer && moonRenderer.domElement) {
+                            moonRenderer.domElement.style.display = 'none';
+                            // If moon renderer is still in the DOM, remove it
+                            if (document.body.contains(moonRenderer.domElement)) {
+                                document.body.removeChild(moonRenderer.domElement);
+                            }
+                        }
                         
                         // Initialize Earth once the transition is complete
                         if (!getEarthInitialized()) {
@@ -447,8 +463,6 @@ function animate(currentTime = 0) {
                             // Set transition flag to false AFTER initialization and scheduling reset
                             setEarthTransition(false);
                             console.log('Earth transition complete, flag set to false');
-
-                            hideSpaceScene();
 
                             // Show Earth surface message
                             document.body.appendChild(earthMsg);
@@ -501,8 +515,18 @@ function animate(currentTime = 0) {
                     
                     // Show transition before initializing Moon surface
                     showMoonTransition(() => {
-                        resetMovementInputs();         
-
+                        resetMovementInputs();
+                        
+                        // Hide all other scene elements
+                        hideSpaceScene();
+                        if (earthRenderer && earthRenderer.domElement) {
+                            earthRenderer.domElement.style.display = 'none';
+                            // If earth renderer is still in the DOM, remove it
+                            if (document.body.contains(earthRenderer.domElement)) {
+                                document.body.removeChild(earthRenderer.domElement);
+                            }
+                        }
+                        
                         // Initialize scene if not already initialized
                         if (!getMoonInitialized()) {
                             console.log('Initializing Moon surface');
@@ -525,7 +549,6 @@ function animate(currentTime = 0) {
                             setMoonTransition(false);
                             console.log('Moon transition complete, flag set to false');
 
-                            hideSpaceScene();
 
                             // Show moon surface message
                             document.body.appendChild(moonMsg);

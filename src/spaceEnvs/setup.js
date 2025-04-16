@@ -462,6 +462,15 @@ export function exitEarthSurface() {
     setEarthSurfaceActive(false);
     setEarthTransition(true); // Set transition flag to TRUE on exit
     
+    // Explicitly clean up the earth renderer DOM element
+    const earthRenderer = window.earthRenderer || document.querySelector('canvas.earth-renderer');
+    if (earthRenderer) {
+        earthRenderer.style.display = 'none';
+        if (document.body.contains(earthRenderer)) {
+            document.body.removeChild(earthRenderer);
+        }
+    }
+    
     // Update the controls dropdown to show hyperspace option again
     updateControlsDropdown(false, false);
     
@@ -527,6 +536,15 @@ export function exitMoonSurface() {
     console.log("Exiting Moon's surface");
     setMoonSurfaceActive(false);
     setMoonTransition(true); // Set transition flag to TRUE on exit
+    
+    // Explicitly clean up the moon renderer DOM element
+    const moonRenderer = window.moonRenderer || document.querySelector('canvas.moon-renderer');
+    if (moonRenderer) {
+        moonRenderer.style.display = 'none';
+        if (document.body.contains(moonRenderer)) {
+            document.body.removeChild(moonRenderer);
+        }
+    }
     
     // Remove the persistent surface message if it exists
     const persistentMessage = document.getElementById('moon-surface-message');
