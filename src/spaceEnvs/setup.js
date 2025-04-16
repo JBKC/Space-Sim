@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { loadingManager, textureLoadingManager } from '../appConfig/loaders.js';
+import { loadingManager, textureLoadingManager, resetLoadingStats } from '../appConfig/loaders.js';
 
 import { updateSpaceMovement, resetMovementInputs } from '../movement.js';
 import { createSpacecraft } from '../spacecraft.js';
@@ -494,6 +494,8 @@ export function exitEarthSurface() {
         earthGroup.position.z + directionVector.z * (earthRadius * 4)
     );
 
+    // Reset loading stats for space scene
+    resetLoadingStats();
     
     // Show the space container again
     const spaceContainer = document.getElementById('space-container');
@@ -563,6 +565,8 @@ export function exitMoonSurface() {
     // Reset spacecraft rotation to look toward the center of the solar system
     spacecraft.lookAt(new THREE.Vector3(0, 0, 0));
 
+    // Reset loading stats for space scene
+    resetLoadingStats();
     
     // Show the space container again
     const spaceContainer = document.getElementById('space-container');

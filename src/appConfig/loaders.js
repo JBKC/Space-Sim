@@ -1,3 +1,5 @@
+// Assets and textures loading manager
+
 import * as THREE from 'three';
 
 // Initialize THREE.js loading managers to track progress
@@ -9,6 +11,21 @@ const loadingStats = {
     assets: { loaded: 0, total: 0 },
     textures: { loaded: 0, total: 0 }
 };
+
+// Function to reset loading stats when changing scenes
+function resetLoadingStats() {
+    // Reset all counters to zero
+    loadingStats.assets.loaded = 0;
+    loadingStats.assets.total = 0;
+    loadingStats.textures.loaded = 0;
+    loadingStats.textures.total = 0;
+    
+    // Update the display with reset values
+    updateAssetDisplay(0, 0, 'assets');
+    updateAssetDisplay(0, 0, 'textures');
+    
+    console.log("Loading stats reset for new scene");
+}
 
 // Function to update the asset display
 function updateAssetDisplay(loaded, total, type) {
@@ -51,5 +68,5 @@ textureLoadingManager.onProgress = function(url, itemsLoaded, itemsTotal) {
     updateAssetDisplay(itemsLoaded, itemsTotal, 'textures');
 };
 
-// Export the loading managers and function for use in other modules
-export { loadingManager, textureLoadingManager, updateAssetDisplay }; 
+// Export the loading managers and functions for use in other modules
+export { loadingManager, textureLoadingManager, updateAssetDisplay, resetLoadingStats }; 

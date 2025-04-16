@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { createRateLimitedGameLoader } from './appConfig/gameLoader.js';
-import { loadingManager, textureLoadingManager, updateAssetDisplay } from './appConfig/loaders.js';
+import { loadingManager, textureLoadingManager, updateAssetDisplay, resetLoadingStats } from './appConfig/loaders.js';
 
 // Import state environment functions
 import {
@@ -80,12 +80,9 @@ import {
 
 
 
-/////////////// GENERAL GAME INITIALIZATION ///////////////
-
+/////////////// GENERAL INITIALIZATION ///////////////
 
 let isAnimating = false;
-
-// Added delta time calculation for smoother animations
 let lastFrameTime = 0;
 
 // Make the reset functions available globally to avoid circular imports
@@ -360,6 +357,10 @@ function animate(currentTime = 0) {
                 // Initialize space scene (pulled from setup.js)
                 if (!isSpaceInitialized) {
                     console.log('Initializing Outer Space');
+                    
+                    // Reset loading stats for new scene
+                    resetLoadingStats();
+                    
                     const spaceObjects = initSpace();
                     setSpaceInitialized(true);
                     console.log('Space initialized successfully', spaceObjects);
@@ -417,6 +418,9 @@ function animate(currentTime = 0) {
                 // Detect if we just entered Earth's surface using the transition flag
                 if (getEarthTransition()) {
                     console.log('🌏 EARTH TRANSITION......');
+
+                    // Reset loading stats for new scene
+                    resetLoadingStats();
 
                     // Show transition before initializing Earth surface
                     showEarthTransition(() => {
@@ -509,6 +513,9 @@ function animate(currentTime = 0) {
                 // Check if moonTransition = true (transition needed, not already on surface)
                 if (getMoonTransition()) {
                     console.log('🌑 MOON TRANSITION......');
+                    
+                    // Reset loading stats for new scene
+                    resetLoadingStats();
                     
                     // Show transition before initializing Moon surface
                     showMoonTransition(() => {
