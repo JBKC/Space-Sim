@@ -580,7 +580,7 @@ function checkBasePlaneCollision() {
         return false;
     }
 
-    // First check: Ray intersection with base plane
+    // First check: Spacecraft intersection with base plane
     const downDirection = new THREE.Vector3(0, -1, 0);
     downDirection.applyQuaternion(spacecraft.quaternion);
     

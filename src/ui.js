@@ -253,3 +253,25 @@ moonMsg.style.zIndex = '9999';
 moonMsg.style.boxShadow = '0 0 10px rgba(79, 195, 247, 0.3)'; // Added subtle blue glow
 moonMsg.style.border = '1px solid rgba(79, 195, 247, 0.3)'; // Added subtle border
 moonMsg.innerHTML = 'MOON SURFACE<br>Press ESC to return to space<br>Press R to reset position';
+
+
+///// Collision Warning /////
+export const warningElement = document.createElement('div');
+warningElement.id = 'collision-warning';
+warningElement.textContent = "WASTED";
+warningElement.style.position = 'fixed';
+warningElement.style.top = '40%'; // Moved up from 50% to 40% to appear higher on screen
+warningElement.style.left = '50%';
+warningElement.style.transform = 'translate(-50%, -50%)';
+warningElement.style.color = '#ff0000';
+warningElement.style.fontFamily = 'Orbitron, sans-serif';
+warningElement.style.fontSize = '32px';
+warningElement.style.fontWeight = 'bold';
+warningElement.style.zIndex = '10000';
+warningElement.style.textShadow = '0 0 10px rgba(255, 0, 0, 0.7)';
+warningElement.style.padding = '20px';
+warningElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+warningElement.style.borderRadius = '5px';
+warningElement.style.opacity = '1';
+warningElement.style.transition = 'opacity 0.5s ease-out';
+
