@@ -6,21 +6,19 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { 
     loadingManager, 
     textureLoadingManager, 
-    createEnhancedTextureLoader,
-    modelLoader,
     loadModelFromRegistry,
-    loadTexture
+    loadTextureFromRegistry
  } from '../appConfig/loaders.js';
 
  import config from '../appConfig/config.js';
 
-// Create a texture loader that tries multiple paths
-const textureLoader = createEnhancedTextureLoader(config);
+// Use standard TextureLoader
+const textureLoader = new THREE.TextureLoader(textureLoadingManager);
 const loader = new GLTFLoader();
 
 export const planetGroups = [];
 // Use the new explicit texture loading for Earth clouds 
-const cloudTexture = loadTexture('planets', 'earthClouds');
+const cloudTexture = loadTextureFromRegistry('planets', 'earthClouds');
 const collisionMaterialInvisible = new THREE.MeshBasicMaterial({ visible: false });
 
 
@@ -31,7 +29,7 @@ const collisionMaterialInvisible = new THREE.MeshBasicMaterial({ visible: false 
 
 ///// Skybox
 // Use the new explicit texture loading for skybox
-const skyboxTexture = loadTexture('skybox', 'galaxy');
+const skyboxTexture = loadTextureFromRegistry('skybox', 'galaxy');
 const skyboxGeometry = new THREE.BoxGeometry(250000, 250000, 250000);
 const skyboxMaterial = new THREE.MeshBasicMaterial({
     map: skyboxTexture,
@@ -95,7 +93,7 @@ export const sunGroup = new THREE.Group();
 const sunRadius = 10000;
 const sunGeometry = new THREE.SphereGeometry(sunRadius, 64, 64);
 // Use the new explicit texture loading for sun
-const sunTexture = loadTexture('planets', 'sun');
+const sunTexture = loadTextureFromRegistry('planets', 'sun');
 const sunMaterial = new THREE.MeshStandardMaterial({
     map: sunTexture,
     emissive: 0xffffff,
@@ -169,7 +167,7 @@ export const mercuryGroup = new THREE.Group();
 const mercuryRadius = 1000;
 const mercuryGeometry = new THREE.SphereGeometry(mercuryRadius, 32, 32);
 // Use the new explicit texture loading for Mercury
-const mercuryTexture = loadTexture('planets', 'mercury');
+const mercuryTexture = loadTextureFromRegistry('planets', 'mercury');
 const mercuryMaterial = new THREE.MeshStandardMaterial({
     map: mercuryTexture,
     side: THREE.FrontSide,
@@ -191,7 +189,7 @@ export const venusGroup = new THREE.Group();
 const venusRadius = 2000;
 const venusGeometry = new THREE.SphereGeometry(venusRadius, 32, 32);
 // Use the new explicit texture loading for Venus
-const venusTexture = loadTexture('planets', 'venus');
+const venusTexture = loadTextureFromRegistry('planets', 'venus');
 const venusMaterial = new THREE.MeshStandardMaterial({
     map: venusTexture,
     side: THREE.FrontSide,
@@ -236,7 +234,7 @@ export const earthGroup = new THREE.Group();
 export const earthRadius = 2000;
 const earthGeometry = new THREE.SphereGeometry(earthRadius, 64, 64);
 // Use the new explicit texture loading for Earth
-const earthTexture = loadTexture('planets', 'earth');
+const earthTexture = loadTextureFromRegistry('planets', 'earth');
 const earthMaterial = new THREE.MeshStandardMaterial({
     map: earthTexture,
     side: THREE.FrontSide,
@@ -279,7 +277,7 @@ export const moonGroup = new THREE.Group();
 export const moonRadius = 500;
 const moonGeometry = new THREE.SphereGeometry(moonRadius, 32, 32);
 // Use the new explicit texture loading for Moon
-const moonTexture = loadTexture('planets', 'moon');
+const moonTexture = loadTextureFromRegistry('planets', 'moon');
 const moonMaterial = new THREE.MeshStandardMaterial({
     map: moonTexture,
     side: THREE.FrontSide,
@@ -316,7 +314,7 @@ export const marsGroup = new THREE.Group();
 const marsRadius = 1500;
 const marsGeometry = new THREE.SphereGeometry(marsRadius, 32, 32);
 // Use the new explicit texture loading for Mars
-const marsTexture = loadTexture('planets', 'mars');
+const marsTexture = loadTextureFromRegistry('planets', 'mars');
 const marsMaterial = new THREE.MeshStandardMaterial({
     map: marsTexture,
     side: THREE.FrontSide,
@@ -331,7 +329,7 @@ const marsCollisionGeometry = new THREE.SphereGeometry(marsRadius * 1.5, 16, 16)
 export const marsCollisionSphere = new THREE.Mesh(marsCollisionGeometry, collisionMaterialInvisible);
 marsGroup.add(marsCollisionSphere);
 
-const redCloudTexture = loadTexture('planets', 'earthClouds');
+const redCloudTexture = loadTextureFromRegistry('planets', 'earthClouds');
 const marsCloudMaterial = new THREE.MeshStandardMaterial({
     map: redCloudTexture,
     transparent: true,
@@ -350,7 +348,7 @@ export const jupiterGroup = new THREE.Group();
 const jupiterRadius = 4500;
 const jupiterGeometry = new THREE.SphereGeometry(jupiterRadius, 32, 32);
 // Use the new explicit texture loading for Jupiter
-const jupiterTexture = loadTexture('planets', 'jupiter');
+const jupiterTexture = loadTextureFromRegistry('planets', 'jupiter');
 const jupiterMaterial = new THREE.MeshStandardMaterial({
     map: jupiterTexture,
     side: THREE.FrontSide,
@@ -373,7 +371,7 @@ export const saturnGroup = new THREE.Group();
 const saturnRadius = 4000;
 const saturnGeometry = new THREE.SphereGeometry(saturnRadius, 32, 32);
 // Use the new explicit texture loading for Saturn
-const saturnTexture = loadTexture('planets', 'saturn');
+const saturnTexture = loadTextureFromRegistry('planets', 'saturn');
 const saturnMaterial = new THREE.MeshStandardMaterial({
     map: saturnTexture,
     side: THREE.FrontSide,
@@ -391,7 +389,7 @@ saturnGroup.add(saturnCollisionSphere);
 
 // Create 2 concentric Saturn rings
 // Use the new explicit texture loading for Saturn's rings
-const ringTexture = loadTexture('planets', 'saturnRing');
+const ringTexture = loadTextureFromRegistry('planets', 'saturnRing');
 
 const ringOuterRadius = 8000;
 const ringInnerRadius = 6000;
@@ -451,7 +449,7 @@ export const uranusGroup = new THREE.Group();
 const uranusRadius = 3000;
 const uranusGeometry = new THREE.SphereGeometry(uranusRadius, 32, 32);
 // Use the new explicit texture loading for Uranus
-const uranusTexture = loadTexture('planets', 'uranus');
+const uranusTexture = loadTextureFromRegistry('planets', 'uranus');
 const uranusMaterial = new THREE.MeshStandardMaterial({
     map: uranusTexture,
     side: THREE.FrontSide,
@@ -473,7 +471,7 @@ export const neptuneGroup = new THREE.Group();
 const neptuneRadius = 3000;
 const neptuneGeometry = new THREE.SphereGeometry(neptuneRadius, 32, 32);
 // Use the new explicit texture loading for Neptune
-const neptuneTexture = loadTexture('planets', 'neptune');
+const neptuneTexture = loadTextureFromRegistry('planets', 'neptune');
 const neptuneMaterial = new THREE.MeshStandardMaterial({
     map: neptuneTexture,
     side: THREE.FrontSide,

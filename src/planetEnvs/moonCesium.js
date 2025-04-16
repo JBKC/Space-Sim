@@ -1,14 +1,11 @@
 import * as THREE from 'three';
-import { TilesRenderer } from '3d-tiles-renderer/src/three/TilesRenderer.js';
-import { CesiumIonAuthPlugin } from '3d-tiles-renderer/src/plugins/three/CesiumIonAuthPlugin.js';
-import { GLTFExtensionsPlugin } from '3d-tiles-renderer/src/plugins/three/GLTFExtensionsPlugin.js';
+import { TilesRenderer, CesiumIonAuthPlugin, GLTFExtensionsPlugin } from '3d-tiles-renderer';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 
 import {
     textureLoadingManager, 
     loadingManager, 
-    createEnhancedTextureLoader,
-    loadTexture
+    loadTextureFromRegistry
 } from '../appConfig/loaders.js';
 import { configureCesiumRequestScheduler, optimizeTerrainLoading } from '../appConfig/cesiumRateLimit.js';
 import config from '../appConfig/config.js';
@@ -52,7 +49,7 @@ const env = new THREE.DataTexture(new Uint8Array(64 * 64 * 4).fill(0), 64, 64);
 env.mapping = THREE.EquirectangularReflectionMapping;
 env.needsUpdate = true;
 scene.environment = env;
-const textureLoader = createEnhancedTextureLoader(config);
+const textureLoader = new THREE.TextureLoader(textureLoadingManager);
 
 // Renderer setuo
 const renderer = new THREE.WebGLRenderer({ 
@@ -366,7 +363,7 @@ function createplanetSphere() {
   const geometry = new THREE.SphereGeometry(planetConfig.radius, 32, 32);
   
   // Load Earth texture using the texture registry
-  const earthTexture = loadTexture('planets', 'earth', (texture) => {
+  const earthTexture = loadTextureFromRegistry('planets', 'earth', (texture) => {
     if (planetSphere && planetSphere.material) {
       planetSphere.material.needsUpdate = true;
     }

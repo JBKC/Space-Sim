@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { loadingManager, textureLoadingManager, resetLoadingStats, createEnhancedTextureLoader } from '../appConfig/loaders.js';
+import { loadingManager, textureLoadingManager, resetLoadingStats } from '../appConfig/loaders.js';
 import config from '../appConfig/config.js';
 
 import { updateSpaceMovement, resetMovementInputs } from '../movement.js';
@@ -56,8 +56,8 @@ import {
 
 const scene = new THREE.Scene();
 const renderer = new THREE.WebGLRenderer();
-// Create a texture loader that tries multiple paths
-const textureLoader = createEnhancedTextureLoader(config);
+// Use standard TextureLoader
+const textureLoader = new THREE.TextureLoader(textureLoadingManager);
 // const loader = new GLTFLoader();
 
 // Get space container so we render scene to the correct DOM (document object model) element within the browser
