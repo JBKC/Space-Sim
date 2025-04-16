@@ -8,6 +8,7 @@ import {
     textureLoadingManager, 
     createEnhancedTextureLoader,
     modelLoader,
+    loadModelFromRegistry,
     loadTexture
  } from '../appConfig/loaders.js';
 
@@ -570,14 +571,10 @@ lucrehulkCollisionBox.rotation.x = Math.PI / 2; // Rotate to make the circular f
 lucrehulkCollisionBox.name = "lucrehulkCollision";
 lucrehulkGroup.add(lucrehulkCollisionBox);
 
-// Load the Lucrehulk model using GLTFLoader
-const lucrehulkModelPath = `${config.models.path}/lucrehulk/scene.gltf`;
-
-console.log('Loading Lucrehulk from:', lucrehulkModelPath);
-
-// Load Lucrehulk
-modelLoader(
-    'lucrehulk',
+// Load Lucrehulk using the registry
+loadModelFromRegistry(
+    'ships', // Category from modelRegistry.js
+    'lucrehulk', // Name from modelRegistry.js
     
     // Success callback
     (gltf) => {
@@ -585,15 +582,16 @@ modelLoader(
         lucrehulkModel.scale.set(100, 100, 100);
         lucrehulkModel.rotation.y = Math.PI;
         lucrehulkGroup.add(lucrehulkModel);
-        console.log('Lucrehulk battleship loaded successfully');
+        console.log('Lucrehulk battleship loaded successfully from registry');
     },
-    (xhr) => {
-        console.log(`Loading Star Destroyer: ${(xhr.loaded / xhr.total) * 100}% loaded`);
+    (xhr) => { // onProgress callback (optional)
+        console.log(`Loading Lucrehulk: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
     },
-    (error) => {
-        console.error('Error loading Star Destroyer:', error);
+    (error) => { // onError callback
+        console.error('Error loading Lucrehulk from registry:', error);
     }
 );
+
 // Add to planet groups between Venus and Earth orbits
 planetGroups.push({ group: lucrehulkGroup, z: 35000 });
 

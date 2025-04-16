@@ -38,6 +38,7 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
       '@assets': resolve(__dirname, 'src/assets'),
       '@textures': resolve(__dirname, 'src/assets/textures'),
+      '@models': resolve(__dirname, 'src/assets/models'),
       'three': resolve(__dirname, 'node_modules/three'),
       '3d-tiles-renderer': resolve(__dirname, 'node_modules/3d-tiles-renderer'),
     },

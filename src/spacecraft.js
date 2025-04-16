@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import config from './appConfig/config.js';
-import { loadingManager, textureLoadingManager, modelLoader } from './appConfig/loaders.js';
+import { loadingManager, textureLoadingManager, loadModelFromRegistry, modelLoader } from './appConfig/loaders.js';
 import { createReticle } from './reticle.js';
 import { keys } from './inputControls.js';
 import { resetMovementInputs } from './movement.js';
@@ -68,11 +68,12 @@ export function createSpacecraft(scene) {
         }
     };
     
-    // Create a promise to load the model (async operation that will load the model when called - we don't want it to block)
+    // Create a promise to load the model using the registry
     const loadModel = new Promise((resolve, reject) => {
-        modelLoader(
-            'xwing_axespoints.glb',
-            (gltf) => {
+        loadModelFromRegistry(
+            'spacecraft', // Category from modelRegistry.js
+            'xwing',      // Name from modelRegistry.js
+            (gltf) => { // onSuccess callback
                 const model = gltf.scene;
                 
                 // Scale and position the model appropriately
@@ -80,8 +81,8 @@ export function createSpacecraft(scene) {
                 // Add the model to our x-wing group
                 xWingModel.add(model);
 
-                ///// Change Engine Color /////
-
+                ///// Initialize Model Components (engine color, wings, etc.) /////
+                // (Existing code for traversing and finding elements)
                 console.log("===== CHECKING FOR ENGINE ELEMENTS =====");
                 model.traverse((child) => {
                     if (child.isMesh) {
@@ -100,7 +101,6 @@ export function createSpacecraft(scene) {
                         }
                     }
                 });
-
 
                 ///// Find Wings /////
                 
@@ -275,14 +275,15 @@ export function createSpacecraft(scene) {
                 xWingModel.userData.contrails = contrails;
                 
                 
-                resolve(xWingModel);
+                // Resolve the promise when setup is complete
+                resolve(gltf);
             },
-            (xhr) => {
-                console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+            (xhr) => { // onProgress callback (optional)
+                console.log(`Loading X-Wing: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
             },
-            (error) => {
-                console.error('An error happened loading the X-Wing model:', error);
-                reject(error);
+            (error) => { // onError callback
+                console.error('Error loading X-Wing model from registry:', error);
+                reject(error); // Reject the promise on error
             }
         );
     });
@@ -313,18 +314,26 @@ export function createSpacecraft(scene) {
     ///// Load 3rd and 1st person models /////
 
     // 3rd person
-    loadModel.then((model) => {
-        
-        spacecraft.add(model);
-        
-        // Position spacecraft after model is loaded (for space scene)
-        spacecraft.position.set(40000, 40000, 40000);
-        const centerPoint = new THREE.Vector3(0, 0, 10000);
-        spacecraft.lookAt(centerPoint);
-        
+    loadModel.then(() => {
+        spacecraft.add(xWingModel); // Add the group containing the loaded model
+        console.log("X-Wing model added to spacecraft group.");
+        // Additional setup after model is added, if needed
+        // e.g., setting initial wing position
+        if (xWingModel.userData.wings) {
+            const wings = xWingModel.userData.wings;
+             if (wings.topLeft && wings.topRight && wings.bottomLeft && wings.bottomRight) {
+                console.log("Setting initial wing position to OPEN (after load)");
+                wings.topRight.rotation.y = OPEN_ANGLE;
+                wings.bottomRight.rotation.y = -OPEN_ANGLE;
+                wings.topLeft.rotation.y = -OPEN_ANGLE;
+                wings.bottomLeft.rotation.y = OPEN_ANGLE;
+                animationState = 'open';
+            }
+        }
 
     }).catch(error => {
-        console.error("Failed to load X-Wing model:", error);
+        console.error("Promise rejected for X-Wing model loading:", error);
+        // Handle the error, maybe add a placeholder or log failure
     });
     
     // 1st person
@@ -399,15 +408,15 @@ export function createSpacecraft(scene) {
             spacecraft.remove(cockpit);
             
             // Add X-wing model back to spacecraft
-            loadModel.then((model) => {
-                console.log("Adding xWingModel back to spacecraft. Contrails available:", model.userData?.contrails ? "Yes" : "No");
+            loadModel.then(() => {
+                console.log("Adding xWingModel back to spacecraft. Contrails available:", xWingModel.userData?.contrails ? "Yes" : "No");
                 
                 // Log contrail details before adding the model back
-                if (model.userData?.contrails) {
-                    console.log("FLAMES:", Object.keys(model.userData.contrails).length, "found");
+                if (xWingModel.userData?.contrails) {
+                    console.log("FLAMES:", Object.keys(xWingModel.userData.contrails).length, "found");
                 }
                 
-                spacecraft.add(model);
+                spacecraft.add(xWingModel);
                 
                 // Trigger update of engine effects right after adding the model
                 // Pass the current boosting state to updateEngineEffects

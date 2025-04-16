@@ -4,12 +4,13 @@ import * as THREE from 'three';
 import config from './config.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { getTexture } from './textureRegistry.js';
+import { getModel } from './modelRegistry.js'; // Import model registry helper
 
 // Initialize THREE.js loading managers to track progress
 let loadingManager = new THREE.LoadingManager();
 let textureLoadingManager = new THREE.LoadingManager();
-// Create a texture loader that tries multiple paths
-const loader = new GLTFLoader();
+// Create GLTF loader instance outside the function
+const gltfLoader = new GLTFLoader(loadingManager);
 
 // Store loading stats
 const loadingStats = {
@@ -55,8 +56,23 @@ function loadTexture(category, name, onLoad) {
     return threeTexture;
 }
 
-// General model loading function
-export function modelLoader(modelName, onSuccess, onProgress, onError) {
+// Standard model loader using explicit imports
+function loadModelFromRegistry(category, name, onSuccess, onProgress, onError) {
+    const modelPath = getModel(category, name);
+
+    if (!modelPath) {
+        console.error(`Model not found in registry: ${category}/${name}`);
+        if (onError) onError(new Error(`Model not found in registry: ${category}/${name}`));
+        return;
+    }
+
+    console.log(`Loading model from registry: ${category}/${name} from ${modelPath}`);
+    gltfLoader.load(modelPath, onSuccess, onProgress, onError);
+}
+
+// General model loading function (OLD - Keep for compatibility during transition)
+function modelLoader(modelName, onSuccess, onProgress, onError) {
+    console.warn("Using OLD modelLoader with path guessing for:", modelName);
     console.log(`Loading model: ${modelName}`);
     console.log('Current config paths:', {
         assets: config.ASSETS_PATH,
@@ -95,7 +111,7 @@ export function modelLoader(modelName, onSuccess, onProgress, onError) {
         const path = paths[index];
         console.log(`Trying path ${index+1} for ${modelName}: ${path}`);
         
-        loader.load(
+        gltfLoader.load(
             path,
             onSuccess,
             onProgress,
@@ -259,4 +275,4 @@ function updateAssetDisplay(loaded, total, type) {
 }
 
 // Export the loading managers and functions for use in other modules
-export { loadingManager, textureLoadingManager, createEnhancedTextureLoader, loadTexture, updateAssetDisplay, resetLoadingStats }; 
+export { loadingManager, textureLoadingManager, createEnhancedTextureLoader, loadTexture, loadModelFromRegistry, modelLoader, updateAssetDisplay, resetLoadingStats }; 
