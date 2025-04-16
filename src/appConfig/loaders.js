@@ -4,7 +4,6 @@ import * as THREE from 'three';
 import config from './config.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-
 // Initialize THREE.js loading managers to track progress
 let loadingManager = new THREE.LoadingManager();
 let textureLoadingManager = new THREE.LoadingManager();
@@ -46,11 +45,18 @@ export function loadModel(modelName, onSuccess, onProgress, onError) {
     
     // Define alternative paths to try
     const paths = [
+        // Default path
         `src/assets/models/${modelName}/scene.gltf`,
         `${config.models.path}/${modelName}/scene.gltf`,
         `/src/assets/models/${modelName}/scene.gltf`,
         `/assets/models/${modelName}/scene.gltf`,
-        `${modelName}/scene.gltf`
+        `${modelName}/scene.gltf`,
+        // Alternate paths
+        `${config.models.path}/${modelName}`,
+        `src/assets/models/${modelName}`,
+        `/src/assets/models/${modelName}`,
+        `/assets/models/${modelName}`,
+        `${modelName}`
     ];
     
     // Try the first path
@@ -78,7 +84,6 @@ export function loadModel(modelName, onSuccess, onProgress, onError) {
         );
     }
 }
-
 
 // Create an enhanced texture loader that tries multiple paths
 function createEnhancedTextureLoader(config) {
@@ -168,8 +173,6 @@ function createEnhancedTextureLoader(config) {
     
     return textureLoader;
 }
-
-
 
 
 ///// STATS / DISPLAY /////
