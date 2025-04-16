@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { createRateLimitedGameLoader } from './appConfig/gameLoader.js';
-import { loadingManager, textureLoadingManager, updateAssetDisplay, resetLoadingStats } from './appConfig/loaders.js';
+import { loadingManager, textureLoadingManager, updateAssetDisplay, resetLoadingStats, setAssetStatusUpdateCallback } from './appConfig/loaders.js';
 
 // Import state environment functions
 import {
@@ -158,8 +158,8 @@ document.body.appendChild(fpsDisplay);
 // Create an asset loader display
 const assetDisplay = document.createElement('div');
 assetDisplay.id = 'asset-display';
-assetDisplay.style.cssText = 'position:absolute;bottom:45px;left:10px;background:rgba(0,0,0,0.6);color:#0fa;font-family:monospace;font-size:14px;font-weight:bold;padding:5px 10px;border-radius:5px;z-index:10000;display:none;'; // Start hidden
-assetDisplay.innerHTML = 'Assets: 0/0<br>Textures: 0/0';
+assetDisplay.style.cssText = 'position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.7);color:#ccc;font-family:monospace;font-size:12px;padding:8px 12px;border-radius:5px;z-index:10000;max-height:150px;overflow-y:auto;display:none;';
+assetDisplay.innerHTML = 'Loading assets...';
 document.body.appendChild(assetDisplay);
 
 // Initialize variables for FPS calculation
@@ -601,6 +601,56 @@ function animate(currentTime = 0) {
     stats.end();
 
 }
+
+// Function to update the detailed asset display
+function updateDetailedAssetDisplay(assetStatus) {
+    const displayElement = document.getElementById('asset-display');
+    if (!displayElement) return;
+
+    const assetEntries = Object.entries(assetStatus);
+
+    if (assetEntries.length === 0) {
+        displayElement.style.display = 'none'; // Hide if nothing is loading
+        return;
+    }
+
+    displayElement.style.display = 'block'; // Show if there are assets
+
+    let htmlContent = '';
+    let allLoaded = true;
+    assetEntries.forEach(([name, status]) => {
+        let color = 'white';
+        let statusText = 'Loading...';
+        if (status === 'loaded') {
+            color = '#0f0'; // Green
+            statusText = 'Loaded';
+        } else if (status === 'error') {
+            color = '#f00'; // Red
+            statusText = 'Error';
+            allLoaded = false;
+        } else { // 'loading'
+            allLoaded = false;
+        }
+        // Simple display: Name (Status)
+        // htmlContent += `<div style="color: ${color}; margin-bottom: 2px;">${name}</div>`; 
+         // More detailed display
+         htmlContent += `<div style="color: ${color}; margin-bottom: 3px; white-space: nowrap;">${name} <span style="float: right; margin-left: 10px;">[${statusText}]</span></div>`;
+    });
+
+    displayElement.innerHTML = htmlContent;
+
+    // Optional: Hide the display shortly after everything is loaded
+    if (allLoaded) {
+        setTimeout(() => {
+             if (Object.keys(assetStatus).length > 0 && Object.values(assetStatus).every(s => s === 'loaded' || s === 'error')) {
+               displayElement.style.display = 'none';
+             }
+        }, 2000); // Hide after 2 seconds of being fully loaded
+    }
+}
+
+// Register the update function with the loader system
+setAssetStatusUpdateCallback(updateDetailedAssetDisplay);
 
 
 
