@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { createRateLimitedGameLoader } from './appConfig/gameLoader.js';
-import { loadingManager, textureLoadingManager, resetLoadingStats, updateDetailedAssetDisplay } from './appConfig/loaders.js';
+import { loadingManager, textureLoadingManager, resetLoadingStats, updateAssetDisplay } from './appConfig/loaders.js';
 
 // Import state environment functions
 import { 
@@ -597,7 +597,7 @@ function animate(currentTime = 0) {
 // Initialize the detailed asset display
 document.addEventListener('DOMContentLoaded', () => {
     // Call once to create the element
-    updateDetailedAssetDisplay();
+    updateAssetDisplay();
 });
 
 

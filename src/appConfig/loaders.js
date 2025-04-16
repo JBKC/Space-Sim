@@ -20,6 +20,59 @@ const loadingStats = {
     individualAssets: {}
 };
 
+
+///// ASSET LOADERS /////
+
+// Standard texture loader using explicit imports
+function loadTextureFromRegistry(category, name, onLoad) {
+    const texture = getTexture(category, name);
+    
+    if (!texture) {
+        console.error(`Texture not found: ${category}/${name}`);
+        return new THREE.Texture(); // Return empty texture
+    }
+    
+    console.log(`Loading texture: ${category}/${name} from registry`);
+    
+    // If we're using the direct import, we don't need textureLoader.load
+    // Just create a THREE.js texture from the imported URL
+    const threeTexture = new THREE.TextureLoader(textureLoadingManager).load(
+        texture, 
+        onLoad
+    );
+    
+    return threeTexture;
+}
+
+// Standard model loader using explicit imports
+function loadModelFromRegistry(category, name, onSuccess, onProgress, onError) {
+    const modelPath = getModel(category, name);
+
+    if (!modelPath) {
+        console.error(`Model not found in registry: ${category}/${name}`);
+        if (onError) onError(new Error(`Model not found in registry: ${category}/${name}`));
+        return;
+    }
+
+    console.log(`Loading model from registry: ${category}/${name} from ${modelPath}`);
+    
+    // Check if this is a gltf file inside a directory
+    if (modelPath.endsWith('scene.gltf')) {
+        // Extract the base directory from the path
+        const basePath = modelPath.substring(0, modelPath.lastIndexOf('/') + 1);
+        console.log(`Setting resource path for GLTF model: ${basePath}`);
+        
+        // Set the resource path for the loader to correctly resolve referenced files
+        gltfLoader.setResourcePath(basePath);
+    }
+    
+    gltfLoader.load(modelPath, onSuccess, onProgress, onError);
+}
+
+
+
+///// ASSET STATS / DISPLAY /////
+
 // Set up onProgress handlers for the loading managers
 function setupLoadingManagerHandlers() {
     loadingManager.onStart = function(url) {
@@ -151,65 +204,11 @@ function trackAsset(name, type, loaded = false, error = false) {
     loadingStats.individualAssets[name].error = error;
     
     // Update the display
-    updateDetailedAssetDisplay();
+    updateAssetDisplay();
 }
 
 // Initial setup of handlers
 setupLoadingManagerHandlers();
-
-
-///// ASSET LOADERS /////
-
-// Standard texture loader using explicit imports
-function loadTextureFromRegistry(category, name, onLoad) {
-    const texture = getTexture(category, name);
-    
-    if (!texture) {
-        console.error(`Texture not found: ${category}/${name}`);
-        return new THREE.Texture(); // Return empty texture
-    }
-    
-    console.log(`Loading texture: ${category}/${name} from registry`);
-    
-    // If we're using the direct import, we don't need textureLoader.load
-    // Just create a THREE.js texture from the imported URL
-    const threeTexture = new THREE.TextureLoader(textureLoadingManager).load(
-        texture, 
-        onLoad
-    );
-    
-    return threeTexture;
-}
-
-// Standard model loader using explicit imports
-function loadModelFromRegistry(category, name, onSuccess, onProgress, onError) {
-    const modelPath = getModel(category, name);
-
-    if (!modelPath) {
-        console.error(`Model not found in registry: ${category}/${name}`);
-        if (onError) onError(new Error(`Model not found in registry: ${category}/${name}`));
-        return;
-    }
-
-    console.log(`Loading model from registry: ${category}/${name} from ${modelPath}`);
-    
-    // Check if this is a gltf file inside a directory
-    if (modelPath.endsWith('scene.gltf')) {
-        // Extract the base directory from the path
-        const basePath = modelPath.substring(0, modelPath.lastIndexOf('/') + 1);
-        console.log(`Setting resource path for GLTF model: ${basePath}`);
-        
-        // Set the resource path for the loader to correctly resolve referenced files
-        gltfLoader.setResourcePath(basePath);
-    }
-    
-    gltfLoader.load(modelPath, onSuccess, onProgress, onError);
-}
-
-
-
-///// STATS / DISPLAY /////
-
 
 // Function to reset loading stats when changing scenes
 function resetLoadingStats() {
@@ -230,12 +229,12 @@ function resetLoadingStats() {
     // Update the display with reset values
     updateAssetDisplay(0, 0, 'assets');
     updateAssetDisplay(0, 0, 'textures');
-    updateDetailedAssetDisplay();
+    updateAssetDisplay();
     
     console.log("Loading stats reset for new scene - created new loading managers");
 }
 
-// Function to update the asset display
+// Function to update the asset counter
 function updateAssetDisplay(loaded, total, type) {
     // Update the appropriate counter
     if (type === 'assets') {
@@ -245,27 +244,7 @@ function updateAssetDisplay(loaded, total, type) {
         loadingStats.textures.loaded = loaded;
         loadingStats.textures.total = total;
     }
-    
-    // Get the asset display element (optional, could remove if #asset-display is no longer used)
-    // const assetDisplay = document.getElementById('asset-display');
-    // if (!assetDisplay) return;
-    
-    // REMOVED: Update the summary display (keep for compatibility)
-    // assetDisplay.innerHTML = `Assets: ${loadingStats.assets.loaded}/${loadingStats.assets.total}<br>` +
-    //                        `Textures: ${loadingStats.textures.loaded}/${loadingStats.textures.total}`;
-    
-    // REMOVED: Set color based on completion - This logic is moved to updateDetailedAssetDisplay
-    // const assetsComplete = loadingStats.assets.loaded === loadingStats.assets.total;
-    // const texturesComplete = loadingStats.textures.loaded === loadingStats.textures.total;
-    // ... color setting logic removed ...
-    
-    // Update the detailed display (which now shows the summary)
-    updateDetailedAssetDisplay();
-}
 
-// Function to update the detailed asset display (now repurposed for summary)
-function updateDetailedAssetDisplay() {
-    // Get or create the display element (using the 'detailed' ID for consistency, though it shows summary now)
     let summaryDisplay = document.getElementById('detailed-asset-display');
     
     if (!summaryDisplay) {
@@ -321,7 +300,9 @@ function updateDetailedAssetDisplay() {
     // Update the display
     summaryDisplay.innerHTML = displayText;
     summaryDisplay.style.color = displayColor;
+    
 }
+
 
 // Export the loading managers and functions for use in other modules
 export { 
@@ -333,5 +314,4 @@ export {
     resetLoadingStats,
     getAssetNameFromUrl,
     trackAsset,
-    updateDetailedAssetDisplay
 };
