@@ -575,7 +575,7 @@ loadModelFromRegistry(
     // Success callback
     (gltf) => {
         const lucrehulkModel = gltf.scene;
-        lucrehulkModel.scale.set(100, 100, 100);
+        lucrehulkModel.scale.set(300, 300, 300);
         lucrehulkModel.rotation.y = Math.PI;
         lucrehulkGroup.add(lucrehulkModel);
         console.log('Lucrehulk battleship loaded successfully from registry');

@@ -5,15 +5,15 @@
 
 // Spacecraft
 import xwingModel from '@models/xwing_axespoints.glb';
-import xwingCockpitModel from '@models/x-wing_cockpit.glb';
+import xwingCockpitModel from '@models/x-wing_cockpit_highres.glb';
 
 // Ships
-import starDestroyerIModel from '@models/star_wars_imperial-class_star_destroyer/scene.gltf';
-import starDestroyerIIModel from '@models/star_wars_imperial_ii_star_destroyer/scene.gltf';
-import lucrehulkModel from '@models/lucrehulk/scene.gltf';
+import starDestroyerIModel from '@models/imperial_star_destroyer_highres.glb';
+import starDestroyerIIModel from '@models/imperial_star_destroyer_highres.glb';
+import lucrehulkModel from '@models/lucrehulk.glb';
 
 // Environment
-import asteroidPackModel from '@models/asteroids_pack_metallic_version/scene.gltf';
+import asteroidPackModel from '@models/asteroids_highres.glb';
 
 // Group into categories
 export const models = {
