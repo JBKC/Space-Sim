@@ -48,17 +48,17 @@ export function modelLoader(modelName, onSuccess, onProgress, onError) {
 
         // Spacecraft has different format (.glb directly without the scene.gltf) - ATTEMPT TO LOAD FIRST
         `${config.models.path}/${modelName}`,
-        `src/assets/models/${modelName}`,
-        `/src/assets/models/${modelName}`,
-        `/assets/models/${modelName}`,
-        `${modelName}`,
+        // `src/assets/models/${modelName}`,
+        // `/src/assets/models/${modelName}`,
+        // `/assets/models/${modelName}`,
+        // `${modelName}`,
 
         // Other assets
         `src/assets/models/${modelName}/scene.gltf`,
-        `${config.models.path}/${modelName}/scene.gltf`,
-        `/src/assets/models/${modelName}/scene.gltf`,
-        `/assets/models/${modelName}/scene.gltf`,
-        `${modelName}/scene.gltf`,
+        // `${config.models.path}/${modelName}/scene.gltf`,
+        // `/src/assets/models/${modelName}/scene.gltf`,
+        // `/assets/models/${modelName}/scene.gltf`,
+        // `${modelName}/scene.gltf`,
 
     ];
 
