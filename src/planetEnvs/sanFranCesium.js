@@ -7,6 +7,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { loadingManager, textureLoadingManager } from '../appConfig/loaders.js';
 import { configureCesiumRequestScheduler, optimizeTerrainLoading } from '../appConfig/cesiumRateLimit.js';
 import config from '../appConfig/config.js';
+import { warningElement } from '../ui.js';
 
 import { updateSanFranMovement, resetMovementInputs } from '../movement.js';
 import { createSpacecraft } from '../spacecraft.js';
@@ -569,87 +570,17 @@ function createBasePlane() {
    
 // Track initialization time to prevent early collisions
 let initializationTime = Date.now();
-const COLLISION_SAFETY_PERIOD = 2000; // 2 seconds safety after initialization
+const COLLISION_GRACE_PERIOD = 2000; // 2 seconds safety after initialization
 
-// Function to display a temporary collision warning message
-function showCollisionWarning(message = "COLLISION") {
-// Safety check: Don't show warnings during initialization safety period
-if (initializationTime && Date.now() - initializationTime < COLLISION_SAFETY_PERIOD) {
-    console.log(`Suppressing "${message}" warning during safety period. Remaining time:`, 
-                Math.round((COLLISION_SAFETY_PERIOD - (Date.now() - initializationTime))/1000) + "s");
-    return; // Exit without showing warning
-}
 
-// Check if a warning message already exists and remove it
-const existingWarning = document.getElementById('collision-warning');
-if (existingWarning) {
-    document.body.removeChild(existingWarning);
-}
-
-// Create warning element
-const warningElement = document.createElement('div');
-warningElement.id = 'collision-warning';
-warningElement.textContent = message;
-
-// Style the warning
-warningElement.style.position = 'fixed';
-warningElement.style.top = '40%'; // Moved up from 50% to 40% to appear higher on screen
-warningElement.style.left = '50%';
-warningElement.style.transform = 'translate(-50%, -50%)';
-warningElement.style.color = '#ff0000';
-warningElement.style.fontFamily = 'Orbitron, sans-serif';
-warningElement.style.fontSize = '32px';
-warningElement.style.fontWeight = 'bold';
-warningElement.style.zIndex = '10000';
-warningElement.style.textShadow = '0 0 10px rgba(255, 0, 0, 0.7)';
-warningElement.style.padding = '20px';
-warningElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-warningElement.style.borderRadius = '5px';
-warningElement.style.opacity = '1';
-warningElement.style.transition = 'opacity 0.5s ease-out';
-
-// Add to DOM
-document.body.appendChild(warningElement);
-
-// Flash the warning by changing opacity
-let flashCount = 0;
-const maxFlashes = 3;
-
-const flashWarning = () => {
-    if (flashCount >= maxFlashes) {
-    // Remove warning after flashing
-    setTimeout(() => {
-        if (warningElement.parentNode) {
-        warningElement.style.opacity = '0';
-        setTimeout(() => {
-            if (warningElement.parentNode) {
-            document.body.removeChild(warningElement);
-            }
-        }, 500);
-        }
-    }, 200);
-    return;
-    }
-    
-    warningElement.style.opacity = warningElement.style.opacity === '1' ? '0.3' : '1';
-    flashCount++;
-    setTimeout(flashWarning, 200);
-};
-
-// Start flashing
-flashWarning();
-}
    
-
-
-
 // Function to check if the spacecraft has collided with the base plane
 function checkBasePlaneCollision() {
     if (!spacecraft || !basePlane) {
         return false;
     }
 
-    // Create a downward ray from the spacecraft position
+    // First check: Ray intersection with base plane
     const downDirection = new THREE.Vector3(0, -1, 0);
     downDirection.applyQuaternion(spacecraft.quaternion);
     
@@ -662,7 +593,7 @@ function checkBasePlaneCollision() {
         console.log("Base plane collision detected at distance:", intersects[0].distance);
         
         // Show collision warning
-        showCollisionWarning("GROUND COLLISION");
+        showCollisionWarning();
         
         // Reset spacecraft position
         resetPosition();
@@ -670,14 +601,93 @@ function checkBasePlaneCollision() {
         return true;
     }
     
+    // Second check: Negative Z direction relative to base plane
+    // Get the grid coordinate system that contains the base plane
+    const gridSystem = window.gridCoordinateSystem;
+    if (gridSystem) {
+        // Create a vector in local space representing the "forward" direction relative to the grid
+        const localForward = new THREE.Vector3(0, 0, 1);
+        
+        // Get the world-space velocity direction of the spacecraft
+        const velocityDirection = new THREE.Vector3();
+        if (spacecraft.userData && spacecraft.userData.velocity) {
+            velocityDirection.copy(spacecraft.userData.velocity).normalize();
+        } else {
+            // If no velocity available, use the spacecraft's forward direction
+            const spacecraftForward = new THREE.Vector3(0, 0, 1);
+            spacecraftForward.applyQuaternion(spacecraft.quaternion);
+            velocityDirection.copy(spacecraftForward);
+        }
+        
+        // Transform gridSystem's local forward vector to world space
+        const worldForward = localForward.clone();
+        worldForward.applyQuaternion(gridSystem.quaternion);
+        
+        // Dot product gives projection of velocity onto forward axis
+        // Negative value means heading in the negative Z direction relative to grid
+        const dotProduct = velocityDirection.dot(worldForward);
+        
+        if (dotProduct < -0.7) { // Threshold value to detect significant negative Z movement
+            console.log("Negative Z direction detected relative to base plane, dot product:", dotProduct);
+            
+            // Show collision warning
+            showCollisionWarning();
+            
+            // Reset spacecraft position
+            resetPosition();
+            
+            return true;
+        }
+    }
+    
     return false;
 }
 
+// Function to display a temporary collision message
+function showCollisionWarning() {
 
-   
+    // Safety check: Don't show warnings during initialization grace period
+    if (initializationTime && Date.now() - initializationTime < COLLISION_GRACE_PERIOD) {
+        return; // Exit without showing warning
+    }
 
-   
+    // Check if a warning message already exists and remove it
+    const existingWarning = document.getElementById('collision-warning');
+    if (existingWarning) {
+        document.body.removeChild(existingWarning);
+    }
 
+    // Add to DOM (imported from ui.js)
+    document.body.appendChild(warningElement);
+
+    // Flash the warning by changing opacity
+    let flashCount = 0;
+    const maxFlashes = 3;
+
+    const flashWarning = () => {
+        if (flashCount >= maxFlashes) {
+        // Remove warning after flashing
+        setTimeout(() => {
+            if (warningElement.parentNode) {
+            warningElement.style.opacity = '0';
+            setTimeout(() => {
+                if (warningElement.parentNode) {
+                document.body.removeChild(warningElement);
+                }
+            }, 500);
+            }
+        }, 200);
+        return;
+        }
+        
+        warningElement.style.opacity = warningElement.style.opacity === '1' ? '0.3' : '1';
+        flashCount++;
+        setTimeout(flashWarning, 200);
+    };
+
+    // Start flashing
+    flashWarning();
+}
 
    
 
