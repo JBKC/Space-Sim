@@ -67,6 +67,10 @@ const LUCREHULK_POSITION = 35000;
 const LUCREHULK_SIZE = 300;
 const LUCREHULK_DIMENSIONS = [5000, 5000, 2000];
 
+const DEATH_STAR_POSITION = 25000;
+const DEATH_STAR_SIZE = 100;
+const DEATH_STAR_DIMENSIONS = [5000, 5000, 2000];
+
 // Asteroid belt properties
 const ASTEROID_BELT_RADIUS = 55000;
 const ASTEROID_COLLISION_RADIUS = 3000;
@@ -684,6 +688,48 @@ loadModelFromRegistry(
 planetGroups.push({ group: lucrehulkGroup, z: LUCREHULK_POSITION * universalScaleFactor });
 
 
+// --- Death Star Setup ---
+export const deathStarGroup = new THREE.Group();
+deathStarGroup.name = "deathStar"; // Add name for reference
+
+// Create collision sphere for the Death Star (for efficient raycast detection)
+const deathStarCollisionGeometry = new THREE.SphereGeometry(
+    DEATH_STAR_DIMENSIONS[0] * universalScaleFactor * 0.5, // Using half of the dimension as radius
+    32
+);
+export const deathStarCollisionSphere = new THREE.Mesh(deathStarCollisionGeometry, collisionMaterialInvisible);
+deathStarCollisionSphere.name = "deathStarCollision";
+deathStarGroup.add(deathStarCollisionSphere);
+
+// Load Death Star using the registry
+loadModelFromRegistry(
+    'ships', // Category from modelRegistry.js
+    'deathStar', // Name from modelRegistry.js
+    
+    // Success callback
+    (gltf) => {
+        const deathStarModel = gltf.scene;
+        deathStarModel.scale.set(
+            DEATH_STAR_SIZE * universalScaleFactor, 
+            DEATH_STAR_SIZE * universalScaleFactor, 
+            DEATH_STAR_SIZE * universalScaleFactor
+        );
+        // Rotate to show the main superlaser dish
+        deathStarModel.rotation.x = Math.PI * 0.1;
+        deathStarModel.rotation.y = Math.PI * 0.7;
+        deathStarGroup.add(deathStarModel);
+        console.log('Death Star loaded successfully from registry');
+    },
+    (xhr) => { // onProgress callback (optional)
+        console.log(`Loading Death Star: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
+    },
+    (error) => { // onError callback
+        console.error('Error loading Death Star from registry:', error);
+    }
+);
+
+// Add to planet groups between Mercury and Venus
+planetGroups.push({ group: deathStarGroup, z: DEATH_STAR_POSITION * universalScaleFactor });
 
 
 // --- Asteroid Belt Setup ---

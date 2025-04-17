@@ -857,6 +857,7 @@ import { uranusGroup, uranusCollisionSphere } from './solarSystemEnv.js';
 import { neptuneGroup, neptuneCollisionSphere } from './solarSystemEnv.js';
 import { starDestroyerGroup, collisionBox1, collisionBox2 } from './solarSystemEnv.js';
 import { lucrehulkGroup, lucrehulkCollisionBox } from './solarSystemEnv.js';
+import { deathStarGroup, deathStarCollisionSphere } from './solarSystemEnv.js';
 
 import { asteroidBeltGroup, asteroidCollisionSphere } from './solarSystemEnv.js';
 
@@ -873,7 +874,8 @@ const celestialObjects = [
     'uranus',
     'neptune',
     'imperial star destroyer', // Counts as one object total
-    'lucrehulk'
+    'lucrehulk',
+    'death star'
 ];
 
 // Add all elements to scene
@@ -892,6 +894,7 @@ scene.add(uranusGroup);
 scene.add(neptuneGroup);
 scene.add(starDestroyerGroup);
 scene.add(lucrehulkGroup);
+scene.add(deathStarGroup);
 
 // Asteroid belt NOT a part of the planetGroups array
 scene.add(asteroidBeltGroup);
@@ -1109,7 +1112,8 @@ const labelData = [
     { group: uranusGroup, name: 'Uranus', radius: 3000 },
     { group: neptuneGroup, name: 'Neptune', radius: 3000 },
     { group: starDestroyerGroup, name: 'Imperial Star Destroyer', radius: 5000 },
-    { group: lucrehulkGroup, name: 'Lucrehulk', radius: 5000 }
+    { group: lucrehulkGroup, name: 'Lucrehulk', radius: 5000 },
+    { group: deathStarGroup, name: 'Death Star', radius: 5000 }
 ];
 
 // Create and store label elements
@@ -1120,7 +1124,7 @@ labelData.forEach(planet => {
     label.textContent = planet.name;
     
     // Hide Star Destroyer and Lucrehulk labels visually while keeping them in the DOM
-    if (planet.name === 'Imperial Star Destroyer' || planet.name === 'Lucrehulk') {
+    if (planet.name === 'Imperial Star Destroyer' || planet.name === 'Lucrehulk' || planet.name === 'Death Star') {
         label.style.opacity = '0'; // Make invisible but keep it in the DOM for positioning
         label.style.pointerEvents = 'none'; // Ensure it doesn't interfere with interaction
     }
@@ -1360,7 +1364,8 @@ export function checkReticleHover() {
         { name: 'neptune', mesh: neptuneCollisionSphere },
         { name: 'imperial star destroyer', mesh: collisionBox1 },
         { name: 'imperial star destroyer', mesh: collisionBox2 },
-        { name: 'lucrehulk', mesh: lucrehulkCollisionBox }
+        { name: 'lucrehulk', mesh: lucrehulkCollisionBox },
+        { name: 'death star', mesh: deathStarCollisionSphere }
     ];
     
     // Flag to track if we're hovering over any celestial body (called planet for ease)
@@ -1439,6 +1444,7 @@ export function checkReticleHover() {
                             case 'neptune': planetGroup = neptuneGroup; break;
                             case 'imperial star destroyer': planetGroup = starDestroyerGroup; break;
                             case 'lucrehulk': planetGroup = lucrehulkGroup; break;
+                            case 'death star': planetGroup = deathStarGroup; break;
                         }
                         
                         // Check if this label corresponds to the detected planet
@@ -1515,6 +1521,7 @@ export function checkReticleHover() {
                             case 'neptune': planetGroup = neptuneGroup; break;
                             case 'imperial star destroyer': planetGroup = starDestroyerGroup; break;
                             case 'lucrehulk': planetGroup = lucrehulkGroup; break;
+                            case 'death star': planetGroup = deathStarGroup; break;
                         }
                         
                         if (planetGroup) {
