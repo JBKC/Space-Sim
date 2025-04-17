@@ -6,6 +6,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { getTexture } from './textureRegistry.js';
 import { getModel } from './modelRegistry.js'; // Import model registry helper
 
+// Universal scaling factor for the entire solar system scene
+export let universalScaleFactor = 1.0;
+
 // Initialize THREE.js loading managers to track progress
 let loadingManager = new THREE.LoadingManager();
 let textureLoadingManager = new THREE.LoadingManager();
