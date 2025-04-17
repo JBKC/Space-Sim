@@ -146,6 +146,11 @@ export const planetInfo = {
         affiliation: 'Confederacy of Independent Systems',
         manufacturer: 'Hoersch-Kessel Drive',
         crew: '200,000'
+    },
+    'death star': {
+        affiliation: 'Galactic Empire',
+        manufacturer: 'Imperial Military Research Department',
+        crew: '1,700,000'
     }
 };
 
