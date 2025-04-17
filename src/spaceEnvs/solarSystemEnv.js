@@ -67,9 +67,9 @@ const LUCREHULK_POSITION = 35000;
 const LUCREHULK_SIZE = 300;
 const LUCREHULK_DIMENSIONS = [5000, 5000, 2000];
 
-const DEATH_STAR_POSITION = 25000;
+const DEATH_STAR_POSITION = 90000;
 const DEATH_STAR_SIZE = 100;
-const DEATH_STAR_DIMENSIONS = [5000, 5000, 2000];
+const DEATH_STAR_RADIUS = 10000;
 
 // Asteroid belt properties
 const ASTEROID_BELT_RADIUS = 55000;
@@ -694,7 +694,7 @@ deathStarGroup.name = "deathStar"; // Add name for reference
 
 // Create collision sphere for the Death Star (for efficient raycast detection)
 const deathStarCollisionGeometry = new THREE.SphereGeometry(
-    DEATH_STAR_DIMENSIONS[0] * universalScaleFactor * 0.5, // Using half of the dimension as radius
+    DEATH_STAR_RADIUS * universalScaleFactor * 0.5, // Using half of the dimension as radius
     32
 );
 export const deathStarCollisionSphere = new THREE.Mesh(deathStarCollisionGeometry, collisionMaterialInvisible);

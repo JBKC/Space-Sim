@@ -11,7 +11,7 @@ import xwingCockpitModel from '@models/x-wing_cockpit_highres.glb';
 import starDestroyerIModel from '@models/imperial_star_destroyer_highres.glb';
 import starDestroyerIIModel from '@models/imperial_star_destroyer_highres.glb';
 import lucrehulkModel from '@models/lucrehulk.glb';
-import deathStarModel from '@models/death_star.glb';
+import deathStarModel from '@models/death_star_highres.glb';
 
 // Environment
 import asteroidPackModel from '@models/asteroids_highres.glb';
