@@ -13,6 +13,71 @@ import {
 
  import config from '../appConfig/config.js';
 
+/////////////////////////////////////////////////////////////////////////
+// SIZE AND SCALE CONSTANTS
+/////////////////////////////////////////////////////////////////////////
+
+// Global scales
+const SKYBOX_SIZE = 250000;
+const STAR_SIZE = 25;
+const STAR_RANGE = 500000;
+const STAR_COUNT = 1000000;
+
+// Sun properties
+const SUN_RADIUS = 10000;
+const SUN_LIGHT_RANGE = 35000;
+
+// Planet radii
+const MERCURY_RADIUS = 1000;
+const VENUS_RADIUS = 2000; 
+const EARTH_RADIUS = 2000;
+const MOON_RADIUS = 500;
+const MARS_RADIUS = 1500;
+const JUPITER_RADIUS = 4500;
+const SATURN_RADIUS = 4000;
+const URANUS_RADIUS = 3000;
+const NEPTUNE_RADIUS = 3000;
+
+// Orbit distances (z-position)
+const MERCURY_ORBIT = 20000;
+const VENUS_ORBIT = 27000;
+const EARTH_ORBIT = 40000;
+const MARS_ORBIT = 50000;
+const JUPITER_ORBIT = 60000;
+const SATURN_ORBIT = 80000;
+const URANUS_ORBIT = 95000;
+const NEPTUNE_ORBIT = 110000;
+
+// Moon orbit properties
+const MOON_ORBIT_RADIUS = 5000;
+
+// Saturn ring properties
+const SATURN_RING_OUTER = 8000;
+const SATURN_RING_INNER = 6000;
+const SATURN_RING_OUTER2 = 5200;
+const SATURN_RING_INNER2 = 4400;
+
+// Star Wars ships properties
+const STAR_DESTROYER_POSITION = 70000;
+const STAR_DESTROYER_SIZE = 8;
+const STAR_DESTROYER_DIMENSIONS = [10000, 3000, 8000];
+const STAR_DESTROYER_OFFSET = [-7000, 2000, 0];
+
+const LUCREHULK_POSITION = 35000;
+const LUCREHULK_SIZE = 300;
+const LUCREHULK_DIMENSIONS = [5000, 5000, 2000];
+
+// Asteroid belt properties
+const ASTEROID_BELT_RADIUS = 55000;
+const ASTEROID_COLLISION_RADIUS = 3000;
+const ASTEROID_BASE_SCALE = 200;
+const ASTEROID_COUNT = 100;
+const ASTEROID_HEIGHT_VARIATION = 5000;
+
+// Atmosphere properties
+const ATMOSPHERE_THICKNESS = 50;
+const CLOUD_OFFSET = 5;
+
 // Create a texture loader that tries multiple paths
 const loader = new GLTFLoader();
 
@@ -21,18 +86,15 @@ export const planetGroups = [];
 const cloudTexture = loadTextureFromRegistry('planets', 'earthClouds');
 const collisionMaterialInvisible = new THREE.MeshBasicMaterial({ visible: false });
 
-
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 
 ///// Skybox
 // Use the new explicit texture loading for skybox
 const skyboxTexture = loadTextureFromRegistry('skybox', 'galaxy');
 const skyboxGeometry = new THREE.BoxGeometry(
-    250000 * universalScaleFactor,
-    250000 * universalScaleFactor,
-    250000 * universalScaleFactor
+    SKYBOX_SIZE * universalScaleFactor,
+    SKYBOX_SIZE * universalScaleFactor,
+    SKYBOX_SIZE * universalScaleFactor
 );
 const skyboxMaterial = new THREE.MeshBasicMaterial({
     map: skyboxTexture,
@@ -47,8 +109,8 @@ skybox.position.set(0, 0, 0); // Ensure centered at origin
 
 ///// Stars
 const starGeometry = new THREE.BufferGeometry();
-export const starCount = 1000000;
-export const starRange = 500000 * universalScaleFactor;
+export const starCount = STAR_COUNT;
+export const starRange = STAR_RANGE * universalScaleFactor;
 export const starPositions = new Float32Array(starCount * 3);
 export const starColors = new Float32Array(starCount * 3);
 export const starSizes = new Float32Array(starCount);
@@ -81,7 +143,7 @@ starGeometry.setAttribute('size', new THREE.BufferAttribute(starSizes, 1));
 
 const starMaterial = new THREE.PointsMaterial({ 
     color: 0xffffff,
-    size: 25 * universalScaleFactor,
+    size: STAR_SIZE * universalScaleFactor,
     vertexColors: true, // Use the color attribute
     sizeAttenuation: true, // Make distant stars smaller
     transparent: true,
@@ -93,7 +155,7 @@ export const stars = new THREE.Points(starGeometry, starMaterial);
 // --- Sun Setup ---
 export const sunGroup = new THREE.Group();
 
-const sunRadius = 10000 * universalScaleFactor;
+const sunRadius = SUN_RADIUS * universalScaleFactor;
 const sunGeometry = new THREE.SphereGeometry(sunRadius, 64, 64);
 // Use the new explicit texture loading for sun
 const sunTexture = loadTextureFromRegistry('planets', 'sun');
@@ -158,7 +220,7 @@ const halo = new THREE.Mesh(haloGeometry, haloMaterial);
 sunGroup.add(halo);
 
 // Sun light
-const sunLight = new THREE.PointLight(0xffffdd, 1.2, 35000 * universalScaleFactor); // Slightly more focused with a warmer color
+const sunLight = new THREE.PointLight(0xffffdd, 1.2, SUN_LIGHT_RANGE * universalScaleFactor); // Slightly more focused with a warmer color
 sunLight.castShadow = true; // Enable shadow casting
 sunLight.shadow.bias = -0.0001; // Reduce shadow acne
 sunGroup.add(sunLight);
@@ -167,7 +229,7 @@ sunGroup.position.set(0, 0, 0);
 
 // --- Mercury Setup ---
 export const mercuryGroup = new THREE.Group();
-const mercuryRadius = 1000 * universalScaleFactor;
+const mercuryRadius = MERCURY_RADIUS * universalScaleFactor;
 const mercuryGeometry = new THREE.SphereGeometry(mercuryRadius, 32, 32);
 // Use the new explicit texture loading for Mercury
 const mercuryTexture = loadTextureFromRegistry('planets', 'mercury');
@@ -185,11 +247,11 @@ const mercuryCollisionGeometry = new THREE.SphereGeometry(mercuryRadius * 1.5, 1
 export const mercuryCollisionSphere = new THREE.Mesh(mercuryCollisionGeometry, collisionMaterialInvisible);
 mercuryGroup.add(mercuryCollisionSphere);
 
-planetGroups.push({ group: mercuryGroup, z: 20000 * universalScaleFactor });
+planetGroups.push({ group: mercuryGroup, z: MERCURY_ORBIT * universalScaleFactor });
 
 // --- Venus Setup ---
 export const venusGroup = new THREE.Group();
-const venusRadius = 2000 * universalScaleFactor;
+const venusRadius = VENUS_RADIUS * universalScaleFactor;
 const venusGeometry = new THREE.SphereGeometry(venusRadius, 32, 32);
 // Use the new explicit texture loading for Venus
 const venusTexture = loadTextureFromRegistry('planets', 'venus');
@@ -207,7 +269,7 @@ const venusCollisionGeometry = new THREE.SphereGeometry(venusRadius * 1.5, 16, 1
 export const venusCollisionSphere = new THREE.Mesh(venusCollisionGeometry, collisionMaterialInvisible);
 venusGroup.add(venusCollisionSphere);
 
-const venusAtmosphereThickness = 50 * universalScaleFactor;
+const venusAtmosphereThickness = ATMOSPHERE_THICKNESS * universalScaleFactor;
 const venusAtmosphereRadius = venusRadius + venusAtmosphereThickness;
 const venusAtmosphereGeometry = new THREE.SphereGeometry(venusAtmosphereRadius, 64, 64);
 const venusAtmosphereMaterial = new THREE.MeshStandardMaterial({
@@ -226,15 +288,15 @@ const venusCloudMaterial = new THREE.MeshStandardMaterial({
     side: THREE.DoubleSide,
     color: 0x8B8000
 });
-const venusCloudGeometry = new THREE.SphereGeometry(venusAtmosphereRadius + 5 * universalScaleFactor, 64, 64);
+const venusCloudGeometry = new THREE.SphereGeometry(venusAtmosphereRadius + CLOUD_OFFSET * universalScaleFactor, 64, 64);
 export const venusCloudMesh = new THREE.Mesh(venusCloudGeometry, venusCloudMaterial);
 venusGroup.add(venusCloudMesh);
-planetGroups.push({ group: venusGroup, z: 27000 * universalScaleFactor });
+planetGroups.push({ group: venusGroup, z: VENUS_ORBIT * universalScaleFactor });
 
 
 // --- Earth Setup ---
 export const earthGroup = new THREE.Group();
-export const earthRadius = 2000 * universalScaleFactor;
+export const earthRadius = EARTH_RADIUS * universalScaleFactor;
 const earthGeometry = new THREE.SphereGeometry(earthRadius, 64, 64);
 // Use the new explicit texture loading for Earth
 const earthTexture = loadTextureFromRegistry('planets', 'earth');
@@ -252,7 +314,7 @@ const earthCollisionGeometry = new THREE.SphereGeometry(earthRadius * 1.5, 16, 1
 export const earthCollisionSphere = new THREE.Mesh(earthCollisionGeometry, collisionMaterialInvisible);
 earthGroup.add(earthCollisionSphere);
 
-const atmosphereThickness = 50 * universalScaleFactor;
+const atmosphereThickness = ATMOSPHERE_THICKNESS * universalScaleFactor;
 const atmosphereRadius = earthRadius + atmosphereThickness;
 const atmosphereGeometry = new THREE.SphereGeometry(atmosphereRadius, 64, 64);
 const atmosphereMaterial = new THREE.MeshStandardMaterial({
@@ -269,15 +331,15 @@ const earthCloudMaterial = new THREE.MeshStandardMaterial({
     opacity: 0.5,
     side: THREE.DoubleSide
 });
-const earthCloudGeometry = new THREE.SphereGeometry(atmosphereRadius + 5 * universalScaleFactor, 64, 64);
+const earthCloudGeometry = new THREE.SphereGeometry(atmosphereRadius + CLOUD_OFFSET * universalScaleFactor, 64, 64);
 export const earthCloudMesh = new THREE.Mesh(earthCloudGeometry, earthCloudMaterial);
 earthGroup.add(earthCloudMesh);
-planetGroups.push({ group: earthGroup, z: 40000 * universalScaleFactor });
+planetGroups.push({ group: earthGroup, z: EARTH_ORBIT * universalScaleFactor });
 
 
 // --- Moon Setup ---
 export const moonGroup = new THREE.Group();
-export const moonRadius = 500 * universalScaleFactor;
+export const moonRadius = MOON_RADIUS * universalScaleFactor;
 const moonGeometry = new THREE.SphereGeometry(moonRadius, 32, 32);
 // Use the new explicit texture loading for Moon
 const moonTexture = loadTextureFromRegistry('planets', 'moon');
@@ -296,7 +358,7 @@ export const moonCollisionSphere = new THREE.Mesh(moonCollisionGeometry, collisi
 moonGroup.add(moonCollisionSphere);
 
 // Position the Moon globally, but still relative to Earth's orbit
-export const moonOrbitRadius = 5000 * universalScaleFactor;
+export const moonOrbitRadius = MOON_ORBIT_RADIUS * universalScaleFactor;
 export const moonAngle = Math.random() * Math.PI * 2; // Random angle in radians
 
 
@@ -314,7 +376,7 @@ export function updateMoonPosition() {
 
 // --- Mars Setup ---
 export const marsGroup = new THREE.Group();
-const marsRadius = 1500 * universalScaleFactor;
+const marsRadius = MARS_RADIUS * universalScaleFactor;
 const marsGeometry = new THREE.SphereGeometry(marsRadius, 32, 32);
 // Use the new explicit texture loading for Mars
 const marsTexture = loadTextureFromRegistry('planets', 'mars');
@@ -340,15 +402,15 @@ const marsCloudMaterial = new THREE.MeshStandardMaterial({
     side: THREE.DoubleSide,
     color: 0x3B2A2A
 });
-const marsCloudGeometry = new THREE.SphereGeometry(marsRadius + 5 * universalScaleFactor, 64, 64);
+const marsCloudGeometry = new THREE.SphereGeometry(marsRadius + CLOUD_OFFSET * universalScaleFactor, 64, 64);
 export const marsCloudMesh = new THREE.Mesh(marsCloudGeometry, marsCloudMaterial);
 marsGroup.add(marsCloudMesh);
-planetGroups.push({ group: marsGroup, z: 50000 * universalScaleFactor });
+planetGroups.push({ group: marsGroup, z: MARS_ORBIT * universalScaleFactor });
 
 
 // --- Jupiter Setup ---
 export const jupiterGroup = new THREE.Group();
-const jupiterRadius = 4500 * universalScaleFactor;
+const jupiterRadius = JUPITER_RADIUS * universalScaleFactor;
 const jupiterGeometry = new THREE.SphereGeometry(jupiterRadius, 32, 32);
 // Use the new explicit texture loading for Jupiter
 const jupiterTexture = loadTextureFromRegistry('planets', 'jupiter');
@@ -366,12 +428,12 @@ const jupiterCollisionGeometry = new THREE.SphereGeometry(jupiterRadius * 1.5, 1
 export const jupiterCollisionSphere = new THREE.Mesh(jupiterCollisionGeometry, collisionMaterialInvisible);
 jupiterGroup.add(jupiterCollisionSphere);
 
-planetGroups.push({ group: jupiterGroup, z: 60000 * universalScaleFactor });
+planetGroups.push({ group: jupiterGroup, z: JUPITER_ORBIT * universalScaleFactor });
 
 
 // --- Saturn Setup ---
 export const saturnGroup = new THREE.Group();
-const saturnRadius = 4000 * universalScaleFactor;
+const saturnRadius = SATURN_RADIUS * universalScaleFactor;
 const saturnGeometry = new THREE.SphereGeometry(saturnRadius, 32, 32);
 // Use the new explicit texture loading for Saturn
 const saturnTexture = loadTextureFromRegistry('planets', 'saturn');
@@ -394,8 +456,8 @@ saturnGroup.add(saturnCollisionSphere);
 // Use the new explicit texture loading for Saturn's rings
 const ringTexture = loadTextureFromRegistry('planets', 'saturnRing');
 
-const ringOuterRadius = 8000 * universalScaleFactor;
-const ringInnerRadius = 6000 * universalScaleFactor;
+const ringOuterRadius = SATURN_RING_OUTER * universalScaleFactor;
+const ringInnerRadius = SATURN_RING_INNER * universalScaleFactor;
 const tubeRadius = (ringOuterRadius - ringInnerRadius) / 2;
 const ringRadius = ringInnerRadius + tubeRadius;
 // Torus geometry
@@ -421,8 +483,8 @@ saturnRings.rotation.x = Math.PI / 2;  // Align with Saturn's equator
 saturnGroup.add(saturnRings);
 
 // Add a second, smaller ring
-const ringOuterRadius2 = 5200 * universalScaleFactor;
-const ringInnerRadius2 = 4400 * universalScaleFactor;
+const ringOuterRadius2 = SATURN_RING_OUTER2 * universalScaleFactor;
+const ringInnerRadius2 = SATURN_RING_INNER2 * universalScaleFactor;
 const tubeRadius2 = (ringOuterRadius2 - ringInnerRadius2) / 2;
 const ringRadius2 = ringInnerRadius2 + tubeRadius2;
 const ringGeometry2 = new THREE.TorusGeometry(
@@ -444,12 +506,12 @@ const saturnRings2 = new THREE.Mesh(ringGeometry2, ringMaterial2);
 saturnRings2.rotation.x = Math.PI / 2;  // Align with Saturn's equator
 saturnGroup.add(saturnRings2);
 
-planetGroups.push({ group: saturnGroup, z: 80000 * universalScaleFactor });
+planetGroups.push({ group: saturnGroup, z: SATURN_ORBIT * universalScaleFactor });
 
 
 // --- Uranus Setup ---
 export const uranusGroup = new THREE.Group();
-const uranusRadius = 3000 * universalScaleFactor;
+const uranusRadius = URANUS_RADIUS * universalScaleFactor;
 const uranusGeometry = new THREE.SphereGeometry(uranusRadius, 32, 32);
 // Use the new explicit texture loading for Uranus
 const uranusTexture = loadTextureFromRegistry('planets', 'uranus');
@@ -467,11 +529,11 @@ const uranusCollisionGeometry = new THREE.SphereGeometry(uranusRadius * 1.5, 16,
 export const uranusCollisionSphere = new THREE.Mesh(uranusCollisionGeometry, collisionMaterialInvisible);
 uranusGroup.add(uranusCollisionSphere);
 
-planetGroups.push({ group: uranusGroup, z: 95000 * universalScaleFactor });
+planetGroups.push({ group: uranusGroup, z: URANUS_ORBIT * universalScaleFactor });
 
 // --- Neptune Setup ---
 export const neptuneGroup = new THREE.Group();
-const neptuneRadius = 3000 * universalScaleFactor;
+const neptuneRadius = NEPTUNE_RADIUS * universalScaleFactor;
 const neptuneGeometry = new THREE.SphereGeometry(neptuneRadius, 32, 32);
 // Use the new explicit texture loading for Neptune
 const neptuneTexture = loadTextureFromRegistry('planets', 'neptune');
@@ -489,7 +551,7 @@ const neptuneCollisionGeometry = new THREE.SphereGeometry(neptuneRadius * 1.5, 1
 export const neptuneCollisionSphere = new THREE.Mesh(neptuneCollisionGeometry, collisionMaterialInvisible);
 neptuneGroup.add(neptuneCollisionSphere);
 
-planetGroups.push({ group: neptuneGroup, z: 110000 * universalScaleFactor });
+planetGroups.push({ group: neptuneGroup, z: NEPTUNE_ORBIT * universalScaleFactor });
 
 
 /////// Star Wars elements are still part of the planetGroups array (as they have)
@@ -500,9 +562,9 @@ starDestroyerGroup.name = "imperialStarDestroyer"; // Add name for reference
 
 // Create the collision boxes that define the positions of the Star Destroyers (and then load the assets into them afterwards)
 const collisionGeometry = new THREE.BoxGeometry(
-    10000 * universalScaleFactor, 
-    3000 * universalScaleFactor, 
-    8000 * universalScaleFactor
+    STAR_DESTROYER_DIMENSIONS[0] * universalScaleFactor, 
+    STAR_DESTROYER_DIMENSIONS[1] * universalScaleFactor, 
+    STAR_DESTROYER_DIMENSIONS[2] * universalScaleFactor
 );
 export const collisionBox1 = new THREE.Mesh(collisionGeometry, collisionMaterialInvisible);
 collisionBox1.position.set(0, 0, 0);
@@ -510,7 +572,11 @@ collisionBox1.name = "starDestroyer1Collision";
 starDestroyerGroup.add(collisionBox1);
 
 export const collisionBox2 = new THREE.Mesh(collisionGeometry, collisionMaterialInvisible);
-collisionBox2.position.set(-7000 * universalScaleFactor, 2000 * universalScaleFactor, 0);
+collisionBox2.position.set(
+    STAR_DESTROYER_OFFSET[0] * universalScaleFactor, 
+    STAR_DESTROYER_OFFSET[1] * universalScaleFactor, 
+    STAR_DESTROYER_OFFSET[2]
+);
 collisionBox2.name = "starDestroyer2Collision";
 starDestroyerGroup.add(collisionBox2);
 
@@ -527,7 +593,11 @@ loadModelFromRegistry(
     // Success callback
     (gltf) => {
         const starDestroyer = gltf.scene;
-        starDestroyer.scale.set(8 * universalScaleFactor, 8 * universalScaleFactor, 8 * universalScaleFactor);
+        starDestroyer.scale.set(
+            STAR_DESTROYER_SIZE * universalScaleFactor, 
+            STAR_DESTROYER_SIZE * universalScaleFactor, 
+            STAR_DESTROYER_SIZE * universalScaleFactor
+        );
         starDestroyer.rotation.y = Math.PI;
         starDestroyer.position.copy(collisionBox1.position);
         starDestroyerGroup.add(starDestroyer);
@@ -547,7 +617,11 @@ loadModelFromRegistry(
     'starDestroyerII',
     (gltf) => {
         const secondStarDestroyer = gltf.scene;
-        secondStarDestroyer.scale.set(8 * universalScaleFactor, 8 * universalScaleFactor, 8 * universalScaleFactor);
+        secondStarDestroyer.scale.set(
+            STAR_DESTROYER_SIZE * universalScaleFactor, 
+            STAR_DESTROYER_SIZE * universalScaleFactor, 
+            STAR_DESTROYER_SIZE * universalScaleFactor
+        );
         secondStarDestroyer.rotation.y = Math.PI;
         secondStarDestroyer.position.copy(collisionBox2.position);
         starDestroyerGroup.add(secondStarDestroyer);
@@ -562,7 +636,7 @@ loadModelFromRegistry(
 );
 
 // Add to planet groups between Jupiter and Saturn
-planetGroups.push({ group: starDestroyerGroup, z: 70000 * universalScaleFactor });
+planetGroups.push({ group: starDestroyerGroup, z: STAR_DESTROYER_POSITION * universalScaleFactor });
 
 
 // --- Lucrehulk Setup ---
@@ -571,9 +645,9 @@ lucrehulkGroup.name = "lucrehulk"; // Add name for reference
 
 // Create collision box for the Lucrehulk (for efficient raycast detection)
 const lucrehulkCollisionGeometry = new THREE.CylinderGeometry(
-    5000 * universalScaleFactor, 
-    5000 * universalScaleFactor, 
-    2000 * universalScaleFactor, 
+    LUCREHULK_DIMENSIONS[0] * universalScaleFactor, 
+    LUCREHULK_DIMENSIONS[1] * universalScaleFactor, 
+    LUCREHULK_DIMENSIONS[2] * universalScaleFactor, 
     32
 );
 export const lucrehulkCollisionBox = new THREE.Mesh(lucrehulkCollisionGeometry, collisionMaterialInvisible);
@@ -590,9 +664,9 @@ loadModelFromRegistry(
     (gltf) => {
         const lucrehulkModel = gltf.scene;
         lucrehulkModel.scale.set(
-            300 * universalScaleFactor, 
-            300 * universalScaleFactor, 
-            300 * universalScaleFactor
+            LUCREHULK_SIZE * universalScaleFactor, 
+            LUCREHULK_SIZE * universalScaleFactor, 
+            LUCREHULK_SIZE * universalScaleFactor
         );
         lucrehulkModel.rotation.y = Math.PI;
         lucrehulkGroup.add(lucrehulkModel);
@@ -607,7 +681,7 @@ loadModelFromRegistry(
 );
 
 // Add to planet groups between Venus and Earth orbits
-planetGroups.push({ group: lucrehulkGroup, z: 35000 * universalScaleFactor });
+planetGroups.push({ group: lucrehulkGroup, z: LUCREHULK_POSITION * universalScaleFactor });
 
 
 
@@ -618,14 +692,14 @@ export const asteroidBeltGroup = new THREE.Group();
 asteroidBeltGroup.name = "asteroidBelt";
 
 // Create a collision box for the asteroid belt center for hover detection
-const asteroidCollisionGeometry = new THREE.SphereGeometry(3000 * universalScaleFactor, 32, 32);
+const asteroidCollisionGeometry = new THREE.SphereGeometry(ASTEROID_COLLISION_RADIUS * universalScaleFactor, 32, 32);
 export const asteroidCollisionSphere = new THREE.Mesh(asteroidCollisionGeometry, collisionMaterialInvisible);
 asteroidBeltGroup.add(asteroidCollisionSphere);
 
 // Asteroid properties
-const asteroidCount = 100;
-const radius = 55000 * universalScaleFactor;           // Radius of the belt
-const asteroidScale = 200 * universalScaleFactor;
+const asteroidCount = ASTEROID_COUNT;
+const radius = ASTEROID_BELT_RADIUS * universalScaleFactor;           // Radius of the belt
+const asteroidScale = ASTEROID_BASE_SCALE * universalScaleFactor;
 asteroidBeltGroup.position.set(0, 0, 0);
 
 // Load asteroid models
@@ -651,7 +725,7 @@ loadModelFromRegistry(
 
             const xFlat = Math.cos(angle) * randomRadius;
             const zFlat = Math.sin(angle) * randomRadius;
-            const yFlat = (Math.random() - 0.5) * 5000 * universalScaleFactor;
+            const yFlat = (Math.random() - 0.5) * ASTEROID_HEIGHT_VARIATION * universalScaleFactor;
 
             // Apply tilt around X
             const yTiltX = yFlat * Math.cos(tiltX) - zFlat * Math.sin(tiltX);
@@ -686,3 +760,4 @@ loadModelFromRegistry(
 
 
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
