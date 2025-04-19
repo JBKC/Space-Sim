@@ -3,11 +3,12 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { loadTextureFromRegistry, universalScaleFactor } from '../appConfig/loaders.js';
-import { initVRControllers, updateVRMovement, getControllerDebugInfo } from './movementVR.js';
+import { initVRControllers, updateVRMovement, getControllerDebugInfo, setupCameraRig } from './movementVR.js';
 
 // Core scene elements
 let scene, camera, renderer;
 let spacebox;
+let cameraRig; // NEW: Reference to the camera rig
 
 // Track if the scene is initialized
 let initialized = false;
@@ -66,6 +67,9 @@ export function init() {
     
     // Add window resize handler
     window.addEventListener('resize', onWindowResize, false);
+    
+    // Create camera rig for separating head tracking from movement
+    cameraRig = setupCameraRig(scene, camera);
     
     // Mark as initialized
     initialized = true;

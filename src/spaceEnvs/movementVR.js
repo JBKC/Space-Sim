@@ -9,6 +9,7 @@ const ROTATION_SPEED = 0.3; // Increased by 10x (was 0.03)
 // Track controller inputs and state
 let leftController = null;
 let rightController = null;
+let cameraRig = null; // NEW: Container for camera to separate head movement from position
 let gamepadIndices = {
     button: {
         thumbstick: 3 // Thumbstick button
@@ -64,6 +65,26 @@ export function initVRControllers(renderer) {
     console.log("VR controller listeners initialized");
 }
 
+// NEW: Setup a camera rig system to separate head tracking from position movement
+export function setupCameraRig(scene, camera) {
+    // Create a container for the camera
+    cameraRig = new THREE.Group();
+    scene.add(cameraRig);
+    
+    // Take the camera out of the scene and put it in the rig
+    if (camera.parent) {
+        camera.parent.remove(camera);
+    }
+    cameraRig.add(camera);
+    
+    // Reset camera's local position (head tracking will still work)
+    camera.position.set(0, 0, 0);
+    
+    console.log("Camera rig system created for VR movement separation");
+    
+    return cameraRig;
+}
+
 // Detect the gamepad layout to ensure correct button mapping
 function detectGamepadLayout(gamepad) {
     if (!gamepad) return;
@@ -116,40 +137,61 @@ function detectGamepadLayout(gamepad) {
     console.log("Using gamepad indices:", gamepadIndices);
 }
 
-// Update camera movement based on VR controller inputs
+// Update movement based on VR controller inputs
 export function updateVRMovement(camera, deltaTime = 0.016) {
-    if (!camera) return;
-    
-    // Apply constant forward movement
-    moveForward(camera, FORWARD_SPEED * deltaTime);
-    
-    // Apply rotation from controller inputs
-    if (leftController && leftController.gamepad) {
-        applyLeftControllerRotation(camera, leftController.gamepad);
+    // If we don't have a camera rig yet and we have a camera, try to set one up
+    if (!cameraRig && camera && camera.parent) {
+        setupCameraRig(camera.parent, camera);
     }
     
-    if (rightController && rightController.gamepad) {
-        applyRightControllerRotation(camera, rightController.gamepad);
+    // If we have a rig, move the rig instead of the camera directly
+    // This preserves head tracking while allowing controller-based movement
+    if (cameraRig) {
+        // Apply constant forward movement to the rig
+        moveForward(cameraRig, FORWARD_SPEED * deltaTime);
+        
+        // Apply rotation from controller inputs to the rig
+        if (leftController && leftController.gamepad) {
+            applyLeftControllerRotation(cameraRig, leftController.gamepad);
+        }
+        
+        if (rightController && rightController.gamepad) {
+            applyRightControllerRotation(cameraRig, rightController.gamepad);
+        }
+    } else {
+        console.warn("No camera rig available for VR movement - headset may override movement");
+        
+        // Legacy fallback when no rig is available
+        moveForward(camera, FORWARD_SPEED * deltaTime);
+        
+        // Apply rotation from controller inputs
+        if (leftController && leftController.gamepad) {
+            applyLeftControllerRotation(camera, leftController.gamepad);
+        }
+        
+        if (rightController && rightController.gamepad) {
+            applyRightControllerRotation(camera, rightController.gamepad);
+        }
     }
 }
 
-// Move the camera forward in its current direction
-function moveForward(camera, distance) {
+// Move the object forward in its current direction
+function moveForward(object, distance) {
     // Create a vector pointing forward (negative Z in Three.js)
     const forwardVector = new THREE.Vector3(0, 0, -1);
     
-    // Transform this vector based on the camera's rotation
-    forwardVector.applyQuaternion(camera.quaternion);
+    // Transform this vector based on the object's rotation
+    forwardVector.applyQuaternion(object.quaternion);
     
     // Scale the vector by the desired distance
     forwardVector.multiplyScalar(distance);
     
-    // Move the camera
-    camera.position.add(forwardVector);
+    // Move the object
+    object.position.add(forwardVector);
 }
 
 // Apply rotation from left controller (pitch and roll)
-function applyLeftControllerRotation(camera, gamepad) {
+function applyLeftControllerRotation(object, gamepad) {
     if (!gamepad || !gamepad.axes) return;
     
     // Get thumbstick X and Y values, apply deadzone to prevent drift
@@ -171,16 +213,16 @@ function applyLeftControllerRotation(camera, gamepad) {
             pitchAngle
         );
         
-        // Combine the rotations and apply to camera
+        // Combine the rotations and apply to object
         const combinedQuaternion = new THREE.Quaternion()
             .multiplyQuaternions(rollQuaternion, pitchQuaternion);
             
-        camera.quaternion.premultiply(combinedQuaternion);
+        object.quaternion.premultiply(combinedQuaternion);
     }
 }
 
 // Apply rotation from right controller (yaw)
-function applyRightControllerRotation(camera, gamepad) {
+function applyRightControllerRotation(object, gamepad) {
     if (!gamepad || !gamepad.axes) return;
     
     // Get thumbstick X value, apply deadzone to prevent drift
@@ -194,8 +236,8 @@ function applyRightControllerRotation(camera, gamepad) {
             yawAngle
         );
         
-        // Apply to camera
-        camera.quaternion.premultiply(yawQuaternion);
+        // Apply to object
+        object.quaternion.premultiply(yawQuaternion);
     }
 }
 
