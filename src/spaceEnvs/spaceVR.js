@@ -11,8 +11,8 @@ let spacebox;
 // Track if the scene is initialized
 let initialized = false;
 
-// Constants
-const SKYBOX_SIZE = 250000;
+// Constants - reduced size to fix potential draw distance issues
+const SKYBOX_SIZE = 125000; // Reduced to half the original size
 
 // Initialize the minimal VR scene
 export function init() {
@@ -26,15 +26,19 @@ export function init() {
     // Create scene
     scene = new THREE.Scene();
     
-    // Create perspective camera
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100000);
+    // Create perspective camera with improved near/far planes
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 150000);
     camera.position.set(0, 0, 0);
     
-    // Create renderer
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+    // Create renderer with adjusted settings
+    renderer = new THREE.WebGLRenderer({ 
+        antialias: true,
+        logarithmicDepthBuffer: true // Add logarithmic depth buffer to help with draw distance issues
+    });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.setClearColor(0x000000); // Ensure clear black background
     
     // Enable XR
     renderer.xr.enabled = true;
@@ -75,13 +79,13 @@ function createSpacebox() {
     const skyboxMaterial = new THREE.MeshBasicMaterial({
         map: skyboxTexture,
         side: THREE.BackSide,
-        depthWrite: false,
-        depthTest: false,
-        color: 0x555555
+        color: 0xffffff, // Changed to white for better visibility
+        fog: false // Ensure no fog affects the skybox
     });
     
     spacebox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
     spacebox.position.set(0, 0, 0);
+    spacebox.renderOrder = -1000; // Ensure it renders behind everything else
     scene.add(spacebox);
 }
 
@@ -118,6 +122,15 @@ function clearAllUIElements() {
     if (progressContainer) {
         progressContainer.style.display = 'none';
     }
+    
+    // Find and hide any possible black boxes or unexpected elements
+    const allDivs = document.querySelectorAll('div');
+    allDivs.forEach(div => {
+        // Hide any elements that might be positioned in front of the camera
+        if (div.style.zIndex > 1000 && div.id !== 'space-container') {
+            div.style.display = 'none';
+        }
+    });
     
     console.log("Cleared all UI elements");
 }
@@ -161,14 +174,18 @@ export function startVRMode() {
         // Create and click a VR button
         const vrButton = VRButton.createButton(renderer);
         document.body.appendChild(vrButton);
-        vrButton.click();
         
-        // Remove the button after clicking
-        setTimeout(() => {
-            if (vrButton.parentNode) {
-                vrButton.parentNode.removeChild(vrButton);
-            }
-        }, 1000);
+        // Make sure button is removed from DOM after clicking
+        vrButton.addEventListener('click', () => {
+            // Remove the button right after clicking
+            setTimeout(() => {
+                if (vrButton.parentNode) {
+                    vrButton.parentNode.removeChild(vrButton);
+                }
+            }, 100);
+        });
+        
+        vrButton.click();
     }, 1000);
 }
 
