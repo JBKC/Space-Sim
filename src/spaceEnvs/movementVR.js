@@ -3,8 +3,8 @@
 import * as THREE from 'three';
 
 // Configuration constants
-const FORWARD_SPEED = 100; // Matches the speed in setup.js
-const ROTATION_SPEED = 0.03; // How fast the rotation occurs when using controllers
+const FORWARD_SPEED = 1000; // Increased by 10x (was 100)
+const ROTATION_SPEED = 0.3; // Increased by 10x (was 0.03)
 
 // Track controller inputs and state
 let leftController = null;
