@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { loadTextureFromRegistry, universalScaleFactor } from '../appConfig/loaders.js';
+import { initVRControllers, updateVRMovement, getControllerDebugInfo } from './movementVR.js';
 
 // Core scene elements
 let scene, camera, renderer;
@@ -10,6 +11,9 @@ let spacebox;
 
 // Track if the scene is initialized
 let initialized = false;
+
+// Movement tracking
+let lastFrameTime = 0;
 
 // Constants - reduced size to fix potential draw distance issues
 const SKYBOX_SIZE = 125000; // Reduced to half the original size
@@ -42,6 +46,9 @@ export function init() {
     
     // Enable XR
     renderer.xr.enabled = true;
+    
+    // Initialize VR controllers for movement
+    initVRControllers(renderer);
     
     // Get space container and append renderer
     const container = document.getElementById('space-container');
@@ -142,9 +149,24 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-// Animation loop (empty - no updates needed)
-export function update() {
-    // Nothing to update in this minimal environment
+// Animation loop - update movement based on VR controller inputs
+export function update(timestamp) {
+    // Calculate delta time for smooth movement
+    const deltaTime = (timestamp - lastFrameTime) / 1000;
+    lastFrameTime = timestamp;
+    
+    // Apply VR movement and rotation
+    if (camera) {
+        updateVRMovement(camera, deltaTime);
+    }
+    
+    // Log controller state occasionally (for debugging)
+    if (Math.random() < 0.01) { // Only log about 1% of the time to avoid console spam
+        const debugInfo = getControllerDebugInfo();
+        if (debugInfo.leftController.connected || debugInfo.rightController.connected) {
+            console.log("VR Controller State:", debugInfo);
+        }
+    }
 }
 
 // Render function
@@ -161,7 +183,10 @@ export function startVRMode() {
     
     // Create XR animation loop
     function xrAnimationLoop(timestamp, frame) {
-        // Render the scene (no updates needed)
+        // Update movement based on controllers
+        update(timestamp);
+        
+        // Render the scene
         renderer.render(scene, camera);
     }
     
