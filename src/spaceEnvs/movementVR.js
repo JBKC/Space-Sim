@@ -3,8 +3,8 @@
 import * as THREE from 'three';
 
 // Configuration constants
-const FORWARD_SPEED = 1000; // Increased by 10x (was 100)
-const ROTATION_SPEED = 0.3; // Increased by 10x (was 0.03)
+const FORWARD_SPEED = 1000; // Keeping fast forward speed
+const ROTATION_SPEED = 0.003; // Reduced by 100x (was 0.3) for much less sensitive controls
 
 // Track controller inputs and state
 let leftController = null;
