@@ -4,11 +4,15 @@ import * as THREE from 'three';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { loadTextureFromRegistry, universalScaleFactor } from '../appConfig/loaders.js';
 import { initVRControllers, updateVRMovement, getControllerDebugInfo, setupCameraRig } from './movementVR.js';
+import { createStars, updateStars } from './starsVR.js';
 
 // Core scene elements
 let scene, camera, renderer;
 let spacebox;
-let cameraRig; // NEW: Reference to the camera rig
+let cameraRig; // Reference to the camera rig
+
+// Star system
+let starSystem;
 
 // Track if the scene is initialized
 let initialized = false;
@@ -61,6 +65,11 @@ export function init() {
     
     // Create spacebox (skybox)
     createSpacebox();
+    
+    // Create stars with dynamic brightness
+    starSystem = createStars();
+    scene.add(starSystem.stars);
+    console.log("Added dynamic star system to VR environment");
     
     // Remove any existing planet labels from DOM
     clearAllUIElements();
@@ -162,6 +171,13 @@ export function update(timestamp) {
     // Apply VR movement and rotation
     if (camera) {
         updateVRMovement(camera, deltaTime);
+    }
+    
+    // Update stars brightness based on camera position
+    if (starSystem && starSystem.stars) {
+        // Use cameraRig position for star updates to ensure proper movement tracking
+        const positionForStars = cameraRig ? cameraRig.position : camera.position;
+        updateStars(starSystem.stars, positionForStars);
     }
     
     // Log controller state occasionally (for debugging)
