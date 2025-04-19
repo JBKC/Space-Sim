@@ -40,6 +40,15 @@ import {
     updatePlanetLabels
 } from './spaceEnvs/setup.js';
 
+// Import VR test environment
+import {
+    init as initSpaceVR,
+    update as updateSpaceVR,
+    renderScene as renderSpaceVRScene,
+    startVRMode as startSpaceVRMode,
+    dispose as disposeSpaceVR
+} from './spaceEnvs/spaceVR.js';
+
 // Earth scene imports (set to San Francisco)
 import { 
     init as initEarthSurface, 
@@ -121,12 +130,22 @@ window.updateVRStatus = updateVRStatus;
 // Initialize main menu screen
 document.addEventListener('DOMContentLoaded', () => {
     const exploreButton = document.querySelector('#explore-button');
+    const exploreVRButton = document.querySelector('#explore-vr-button');
+    
     if (exploreButton) {
-        // Use rate-limited version for initial game loading
-        exploreButton.addEventListener('click', () => rateLimitedStartGame('free'));
-        console.log('Space Simulation Started');
+        // Use rate-limited version for initial game loading in normal mode
+        exploreButton.addEventListener('click', () => rateLimitedStartGame('normal'));
+        console.log('Normal mode button initialized');
     } else {
         console.error('Explore button not found!');
+    }
+    
+    if (exploreVRButton) {
+        // Use rate-limited version for initial game loading in VR mode
+        exploreVRButton.addEventListener('click', () => rateLimitedStartGame('vr'));
+        console.log('VR mode button initialized');
+    } else {
+        console.error('Explore VR button not found!');
     }
     
     // Create a debug panel for WebXR in Quest browser
@@ -156,6 +175,7 @@ function createXRDebugPanel() {
     
     // Add a button to toggle the panel
     const toggleButton = document.createElement('button');
+    toggleButton.id = 'xr-debug-button';
     toggleButton.textContent = 'XR Debug';
     toggleButton.style.cssText = `
         position: fixed;
@@ -169,6 +189,7 @@ function createXRDebugPanel() {
         font-family: monospace;
         z-index: 10001;
         cursor: pointer;
+        display: none; /* Initially hidden until VR mode is activated */
     `;
     
     // Toggle debug panel visibility
@@ -252,7 +273,8 @@ function createXRDebugPanel() {
 }
 
 ///// FUNCITON THAT LOADS UP GAME WHEN EXPLORE BUTTON IS PRESSED /////
-function startGame() {
+function startGame(mode = 'normal') {
+    console.log(`Starting game in ${mode} mode`);
 
     // hide welcome screen 
     const welcomeScreen = document.getElementById('welcome-screen');
@@ -260,39 +282,84 @@ function startGame() {
         welcomeScreen.style.display = 'none';
     }
     
-    // show optimization stats
-    stats.dom.style.display = 'block';
-    fpsDisplay.style.display = 'block';
-    
-    // Show the controls prompt and initialize dropdown state
-    showControlsPrompt();
-    updateControlsDropdown(getEarthSurfaceActive(), getMoonSurfaceActive());
-    
-    // Initialize VR status indicator
-    createVRStatusIndicator();
-    
-    // Update XR debug info if available
-    if (typeof window.updateXRDebugInfo === 'function') {
-        window.updateXRDebugInfo();
-    }
-
-    // Check if WebXR is available in the browser
-    if (navigator.xr) {
-        console.log("WebXR is supported in this browser");
+    // Handle UI elements differently based on mode
+    if (mode === 'vr') {
+        // In VR mode, hide all non-VR UI elements
         
-        // The game will start with normal animation loop
-        if (!isAnimating) {
-            isAnimating = true;
-            animate();
+        // Hide optimization stats
+        stats.dom.style.display = 'none';
+        fpsDisplay.style.display = 'none';
+        
+        // Hide controls prompt and dropdown
+        const controlsPrompt = document.getElementById('controls-prompt');
+        if (controlsPrompt) {
+            controlsPrompt.style.display = 'none';
         }
         
-        // We won't automatically enter VR - user needs to click the VR button
-        // The VRButton will handle session creation and switching to XR animation loop
+        const controlsDropdown = document.getElementById('controls-dropdown');
+        if (controlsDropdown) {
+            controlsDropdown.style.display = 'none';
+        }
         
+        // Hide asset loading display
+        const assetDisplay = document.querySelector('.asset-loading-display');
+        if (assetDisplay) {
+            assetDisplay.style.display = 'none';
+        }
+        
+        // Hide coordinates display
+        const coordinates = document.getElementById('coordinates');
+        if (coordinates) {
+            coordinates.style.display = 'none';
+        }
+        
+        // Show only VR-specific UI elements
+        // Initialize VR status indicator
+        createVRStatusIndicator();
+        
+        // Update XR debug info if available
+        if (typeof window.updateXRDebugInfo === 'function') {
+            window.updateXRDebugInfo();
+        }
+        
+        // Make XR debug button visible
+        const xrDebugButton = document.getElementById('xr-debug-button');
+        if (xrDebugButton) {
+            xrDebugButton.style.display = 'block';
+        }
     } else {
-        console.log("WebXR is not supported in this browser - using standard animation");
+        // In normal mode, show standard UI elements
+        stats.dom.style.display = 'block';
+        fpsDisplay.style.display = 'block';
         
-        // Fallback to standard animation loop
+        // Show the controls prompt and initialize dropdown state
+        showControlsPrompt();
+        updateControlsDropdown(getEarthSurfaceActive(), getMoonSurfaceActive());
+        
+        // Hide any existing VR UI elements
+        const vrStatusContainer = document.getElementById('vr-status-container');
+        if (vrStatusContainer) {
+            vrStatusContainer.style.display = 'none';
+        }
+        
+        // Hide XR debug button
+        const xrDebugButton = document.getElementById('xr-debug-button');
+        if (xrDebugButton) {
+            xrDebugButton.style.display = 'none';
+        }
+    }
+
+    // Initialize different scenes based on mode
+    if (mode === 'vr') {
+        console.log("Initializing VR test environment");
+        
+        // Initialize the minimal VR test environment
+        initSpaceVR();
+        
+        // Start VR animation loop for the test environment
+        startSpaceVRMode();
+    } else {
+        // Start animation loop for normal mode
         if (!isAnimating) {
             isAnimating = true;
             animate();
