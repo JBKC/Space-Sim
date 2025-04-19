@@ -7,7 +7,6 @@ import { loadTextureFromRegistry, universalScaleFactor } from '../appConfig/load
 // Core scene elements
 let scene, camera, renderer;
 let spacebox;
-let vrTestMessage;
 
 // Track if the scene is initialized
 let initialized = false;
@@ -51,11 +50,8 @@ export function init() {
     // Create spacebox (skybox)
     createSpacebox();
     
-    // Create a floating VR test mode message
-    createVRTestMessage();
-    
     // Remove any existing planet labels from DOM
-    clearPlanetLabels();
+    clearAllUIElements();
     
     // Add window resize handler
     window.addEventListener('resize', onWindowResize, false);
@@ -89,8 +85,8 @@ function createSpacebox() {
     scene.add(spacebox);
 }
 
-// Remove any existing planet labels
-function clearPlanetLabels() {
+// Remove all UI elements
+function clearAllUIElements() {
     // Remove any existing planet labels from DOM
     const planetLabels = document.querySelectorAll('.planet-label');
     planetLabels.forEach(label => {
@@ -99,7 +95,7 @@ function clearPlanetLabels() {
         }
     });
     
-    // Also hide any planet info boxes
+    // Hide any planet info boxes
     const planetInfoBox = document.querySelector('.planet-info-box');
     if (planetInfoBox) {
         planetInfoBox.style.display = 'none';
@@ -123,59 +119,7 @@ function clearPlanetLabels() {
         progressContainer.style.display = 'none';
     }
     
-    console.log("Cleared all planet labels and related UI elements");
-}
-
-// Create a floating message in the VR environment
-function createVRTestMessage() {
-    // Create a canvas texture for the message
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.width = 512;
-    canvas.height = 256;
-    
-    // Set background color
-    context.fillStyle = 'rgba(0, 0, 40, 0.7)';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Draw border
-    context.strokeStyle = '#4fc3f7';
-    context.lineWidth = 8;
-    context.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
-    
-    // Set text style
-    context.font = 'bold 36px Arial';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    
-    // Draw header
-    context.fillStyle = '#4fc3f7';
-    context.fillText('VR TEST MODE', canvas.width / 2, 60);
-    
-    // Draw description
-    context.font = '24px Arial';
-    context.fillStyle = 'white';
-    context.fillText('You are in a minimal VR test environment', canvas.width / 2, 120);
-    context.fillText('with only the space skybox.', canvas.width / 2, 160);
-    
-    // Create texture from canvas
-    const texture = new THREE.CanvasTexture(canvas);
-    
-    // Create a plane with the texture
-    const geometry = new THREE.PlaneGeometry(2, 1);
-    const material = new THREE.MeshBasicMaterial({ 
-        map: texture, 
-        transparent: true,
-        side: THREE.DoubleSide
-    });
-    
-    vrTestMessage = new THREE.Mesh(geometry, material);
-    
-    // Position the message in front of the camera
-    vrTestMessage.position.set(0, 0, -5);
-    
-    // Add the message to the scene
-    scene.add(vrTestMessage);
+    console.log("Cleared all UI elements");
 }
 
 // Window resize handler
@@ -185,23 +129,9 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-// Animation loop - update the message position to always face the user
-export function update(timestamp) {
-    if (vrTestMessage) {
-        // Ensure the message stays in front of the camera
-        if (camera.position && camera.quaternion) {
-            // Calculate position 5 units in front of camera
-            const distance = 5;
-            const cameraDirection = new THREE.Vector3(0, 0, -1);
-            cameraDirection.applyQuaternion(camera.quaternion);
-            
-            vrTestMessage.position.copy(camera.position);
-            vrTestMessage.position.addScaledVector(cameraDirection, distance);
-            
-            // Make message face the camera
-            vrTestMessage.quaternion.copy(camera.quaternion);
-        }
-    }
+// Animation loop (empty - no updates needed)
+export function update() {
+    // Nothing to update in this minimal environment
 }
 
 // Render function
@@ -213,15 +143,12 @@ export function renderScene() {
 export function startVRMode() {
     console.log("Starting VR mode animation loop");
     
-    // Ensure all planet labels and UI elements are cleared
-    clearPlanetLabels();
+    // Ensure all UI elements are cleared
+    clearAllUIElements();
     
     // Create XR animation loop
     function xrAnimationLoop(timestamp, frame) {
-        // Update message position to face the user
-        update(timestamp);
-        
-        // Render the scene
+        // Render the scene (no updates needed)
         renderer.render(scene, camera);
     }
     
@@ -263,14 +190,6 @@ export function dispose() {
         if (spacebox.material) {
             if (spacebox.material.map) spacebox.material.map.dispose();
             spacebox.material.dispose();
-        }
-    }
-    
-    if (vrTestMessage) {
-        if (vrTestMessage.geometry) vrTestMessage.geometry.dispose();
-        if (vrTestMessage.material) {
-            if (vrTestMessage.material.map) vrTestMessage.material.map.dispose();
-            vrTestMessage.material.dispose();
         }
     }
     
