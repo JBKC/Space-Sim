@@ -280,3 +280,235 @@ warningElement.style.borderRadius = '5px';
 warningElement.style.opacity = '1';
 warningElement.style.transition = 'opacity 0.5s ease-out';
 
+
+// VR Status Indicator
+export function createVRStatusIndicator() {
+    const vrStatusContainer = document.createElement('div');
+    vrStatusContainer.id = 'vr-status-container';
+    vrStatusContainer.style.cssText = `
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        z-index: 1000;
+    `;
+
+    // Create status indicator
+    const vrStatusIndicator = document.createElement('div');
+    vrStatusIndicator.id = 'vr-status-indicator';
+    vrStatusIndicator.style.cssText = `
+        display: flex;
+        align-items: center;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-family: Arial, sans-serif;
+        margin-bottom: 8px;
+        cursor: pointer;
+    `;
+
+    // VR icon (simplified headset shape using CSS)
+    const vrIcon = document.createElement('div');
+    vrIcon.style.cssText = `
+        width: 24px;
+        height: 16px;
+        border: 2px solid white;
+        border-radius: 8px;
+        position: relative;
+        margin-right: 8px;
+    `;
+
+    // VR status text
+    const vrStatusText = document.createElement('span');
+    vrStatusText.id = 'vr-status-text';
+    
+    // VR instructions panel (hidden by default)
+    const vrInstructions = document.createElement('div');
+    vrInstructions.id = 'vr-instructions';
+    vrInstructions.style.cssText = `
+        background: rgba(0, 0, 0, 0.85);
+        color: white;
+        padding: 15px;
+        border-radius: 8px;
+        width: 300px;
+        font-family: Arial, sans-serif;
+        line-height: 1.4;
+        display: none;
+    `;
+    vrInstructions.innerHTML = `
+        <h3 style="margin-top: 0; color: #0ff;">VR Instructions</h3>
+        <p><b>On Quest or other VR device:</b></p>
+        <ol style="padding-left: 20px;">
+            <li>Click the "ENTER VR" button on screen</li>
+            <li>Put on your headset</li>
+            <li>Use controller triggers for acceleration</li>
+            <li>Controller thumbsticks to steer</li>
+        </ol>
+        <p><b>Testing on local network:</b></p>
+        <ol style="padding-left: 20px;">
+            <li>Make sure computer and Quest are on the same WiFi</li>
+            <li>Find your computer's local IP address</li>
+            <li>On Quest browser, go to: http://[your-ip]:5173</li>
+        </ol>
+        <button id="close-vr-instructions" style="
+            background: #0ff;
+            color: black;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        ">Close</button>
+    `;
+
+    // Add event listeners
+    vrStatusIndicator.addEventListener('click', () => {
+        const instructionsEl = document.getElementById('vr-instructions');
+        if (instructionsEl) {
+            instructionsEl.style.display = instructionsEl.style.display === 'none' ? 'block' : 'none';
+        }
+    });
+
+    // Assembly
+    vrStatusIndicator.appendChild(vrIcon);
+    vrStatusIndicator.appendChild(vrStatusText);
+    vrStatusContainer.appendChild(vrStatusIndicator);
+    vrStatusContainer.appendChild(vrInstructions);
+    
+    document.body.appendChild(vrStatusContainer);
+    
+    // Initial check
+    updateVRStatus();
+    
+    // Add close button functionality
+    document.getElementById('close-vr-instructions').addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.getElementById('vr-instructions').style.display = 'none';
+    });
+    
+    return vrStatusContainer;
+}
+
+// Update VR status function (call this when needed)
+export function updateVRStatus() {
+    const statusText = document.getElementById('vr-status-text');
+    const statusIcon = document.getElementById('vr-status-indicator')?.querySelector('div');
+    
+    if (!statusText || !statusIcon) return;
+    
+    // Debug info to console
+    console.log("Checking WebXR support...");
+    console.log("navigator.xr available:", !!navigator.xr);
+    
+    // Update XR debug panel if available
+    if (typeof window.updateXRDebugInfo === 'function') {
+        window.updateXRDebugInfo();
+    }
+    
+    // Check for Quest browser specifically
+    const isQuestBrowser = 
+        navigator.userAgent.includes('Quest') || 
+        navigator.userAgent.includes('Oculus') ||
+        // Sometimes Meta Quest doesn't identify itself in user agent
+        (navigator.userAgent.includes('Mobile VR') && navigator.userAgent.includes('Android'));
+    
+    if (isQuestBrowser) {
+        console.log("Meta Quest browser detected!");
+        
+        // Force VR Ready status for Quest browsers, even without navigator.xr
+        if (window.isInXRSession) {
+            statusText.textContent = 'VR Active (Quest)';
+            statusText.style.color = '#0ff'; // Cyan
+            statusIcon.style.borderColor = '#0ff';
+        } else {
+            statusText.textContent = 'VR Ready (Quest)';
+            statusText.style.color = '#0f0'; // Green
+            statusIcon.style.borderColor = '#0f0';
+        }
+        return;
+    }
+    
+    if (navigator.xr) {
+        // Add debug information
+        console.log("Using isSessionSupported to check VR compatibility");
+        
+        // Queue multiple session type checks for the most comprehensive detection
+        Promise.all([
+            // Primary check for fully immersive VR
+            navigator.xr.isSessionSupported('immersive-vr')
+                .then(supported => {
+                    console.log("immersive-vr support:", supported);
+                    return { type: 'immersive-vr', supported };
+                })
+                .catch(err => {
+                    console.error("Error checking immersive-vr support:", err);
+                    return { type: 'immersive-vr', supported: false, error: err };
+                }),
+                
+            // Some browsers implement this for AR
+            navigator.xr.isSessionSupported('immersive-ar')
+                .then(supported => {
+                    console.log("immersive-ar support:", supported);
+                    return { type: 'immersive-ar', supported };
+                })
+                .catch(err => {
+                    console.error("Error checking immersive-ar support:", err);
+                    return { type: 'immersive-ar', supported: false, error: err };
+                })
+        ])
+        .then(results => {
+            // Get the primary VR support check
+            const immersiveVR = results.find(r => r.type === 'immersive-vr');
+            
+            // If we detected Quest browser, be more optimistic about support
+            if (isQuestBrowser) {
+                statusText.textContent = 'VR Ready (Quest)';
+                statusText.style.color = '#0f0'; // Green
+                statusIcon.style.borderColor = '#0f0';
+                
+                if (window.isInXRSession) {
+                    statusText.textContent = 'VR Active';
+                    statusText.style.color = '#0ff'; // Cyan
+                    statusIcon.style.borderColor = '#0ff';
+                }
+                return;
+            }
+            
+            // Use standard detection logic
+            if (immersiveVR && immersiveVR.supported) {
+                statusText.textContent = 'VR Ready';
+                statusText.style.color = '#0f0'; // Green
+                statusIcon.style.borderColor = '#0f0';
+                
+                // Check if we're in an XR session
+                if (window.isInXRSession) {
+                    statusText.textContent = 'VR Active';
+                    statusText.style.color = '#0ff'; // Cyan
+                    statusIcon.style.borderColor = '#0ff';
+                }
+            } else {
+                // If any XR capability is detected but not full VR, show limited
+                const anyXRSupport = results.some(r => r.supported);
+                
+                if (anyXRSupport) {
+                    statusText.textContent = 'VR Supported (Limited)';
+                    statusText.style.color = '#ff0'; // Yellow
+                    statusIcon.style.borderColor = '#ff0';
+                } else {
+                    statusText.textContent = 'VR Not Supported';
+                    statusText.style.color = '#f00'; // Red
+                    statusIcon.style.borderColor = '#f00';
+                }
+            }
+        });
+    } else {
+        statusText.textContent = 'VR Not Supported';
+        statusText.style.color = '#f00'; // Red
+        statusIcon.style.borderColor = '#f00';
+        console.log("WebXR API not available in this browser");
+    }
+}
+

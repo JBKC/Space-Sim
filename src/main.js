@@ -68,7 +68,9 @@ import {
     updateControlsDropdown,
     toggleControlsDropdown,
     earthMsg,
-    moonMsg
+    moonMsg,
+    createVRStatusIndicator,
+    updateVRStatus
 } from './ui.js';
 
 // Import keyboard control functions
@@ -100,6 +102,18 @@ window.resetMoonInitialized = function() {
 // Expose hyperspace function globally for access from inputControls.js
 window.startHyperspace = startHyperspace;
 
+// Expose the XR animation loop initializer globally
+window.initXRAnimationLoop = function() {
+    console.log("Global initXRAnimationLoop function called");
+    initXRAnimationLoop();
+};
+
+// Store the animation callback for direct access if needed
+window.initXRAnimationLoop._cachedCallback = null;
+
+// Expose functions globally
+window.updateVRStatus = updateVRStatus;
+
 
 
 /////////////// INITLIZATION OF HIGH-LEVEL GAME ELEMENTS ///////////////
@@ -114,7 +128,128 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         console.error('Explore button not found!');
     }
+    
+    // Create a debug panel for WebXR in Quest browser
+    createXRDebugPanel();
 });
+
+// Function to create a debug panel for WebXR diagnostics
+function createXRDebugPanel() {
+    const debugPanel = document.createElement('div');
+    debugPanel.id = 'xr-debug-panel';
+    debugPanel.style.cssText = `
+        position: fixed;
+        bottom: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        color: #0ff;
+        padding: 10px;
+        border-radius: 5px;
+        font-family: monospace;
+        font-size: 12px;
+        max-width: 300px;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 10000;
+        display: none;
+    `;
+    
+    // Add a button to toggle the panel
+    const toggleButton = document.createElement('button');
+    toggleButton.textContent = 'XR Debug';
+    toggleButton.style.cssText = `
+        position: fixed;
+        bottom: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        color: #0ff;
+        border: 1px solid #0ff;
+        border-radius: 5px;
+        padding: 5px 10px;
+        font-family: monospace;
+        z-index: 10001;
+        cursor: pointer;
+    `;
+    
+    // Toggle debug panel visibility
+    toggleButton.addEventListener('click', () => {
+        debugPanel.style.display = debugPanel.style.display === 'none' ? 'block' : 'none';
+        updateXRDebugInfo();
+    });
+    
+    document.body.appendChild(debugPanel);
+    document.body.appendChild(toggleButton);
+    
+    // Function to update the debug panel with WebXR information
+    window.updateXRDebugInfo = function() {
+        if (debugPanel.style.display === 'none') return;
+        
+        const info = [];
+        
+        // Basic WebXR availability
+        info.push(`navigator.xr: ${navigator.xr ? 'Available' : 'Not Available'}`);
+        
+        // User agent
+        info.push(`User Agent: ${navigator.userAgent}`);
+        
+        // Device detection
+        const isQuestBrowser = 
+            navigator.userAgent.includes('Quest') || 
+            navigator.userAgent.includes('Oculus') ||
+            (navigator.userAgent.includes('Mobile VR') && navigator.userAgent.includes('Android'));
+        info.push(`Quest Browser: ${isQuestBrowser ? 'Detected' : 'Not Detected'}`);
+        
+        // Session state
+        info.push(`XR Session Active: ${window.isInXRSession ? 'Yes' : 'No'}`);
+        
+        // Quest special mode
+        if (isQuestBrowser && !navigator.xr) {
+            info.push(`<span style="color:#ff0">Using Quest Special VR Mode</span>`);
+            info.push(`<span style="color:#ff0">This mode bypasses standard WebXR API</span>`);
+        }
+        
+        // Feature detection
+        if (navigator.xr) {
+            // Add async checks that will update later
+            info.push('Checking session support types...');
+            
+            // Get all supported session types
+            Promise.all([
+                checkSessionSupport('inline'),
+                checkSessionSupport('immersive-vr'),
+                checkSessionSupport('immersive-ar')
+            ]).then(results => {
+                // Replace the placeholder with actual results
+                const supportInfo = [
+                    `inline: ${results[0] ? 'Supported' : 'Not Supported'}`,
+                    `immersive-vr: ${results[1] ? 'Supported' : 'Not Supported'}`,
+                    `immersive-ar: ${results[2] ? 'Supported' : 'Not Supported'}`
+                ];
+                
+                // Update the debug panel
+                debugPanel.innerHTML = info.join('<br>') + '<br>Session Types:<br>- ' + supportInfo.join('<br>- ');
+            });
+        }
+        
+        // Initial display
+        debugPanel.innerHTML = info.join('<br>');
+    };
+    
+    // Helper to check session support
+    function checkSessionSupport(type) {
+        if (!navigator.xr) return Promise.resolve(false);
+        
+        return navigator.xr.isSessionSupported(type)
+            .then(supported => {
+                console.log(`XR session type '${type}': ${supported ? 'Supported' : 'Not Supported'}`);
+                return supported;
+            })
+            .catch(err => {
+                console.error(`Error checking '${type}' support:`, err);
+                return false;
+            });
+    }
+}
 
 ///// FUNCITON THAT LOADS UP GAME WHEN EXPLORE BUTTON IS PRESSED /////
 function startGame() {
@@ -132,10 +267,36 @@ function startGame() {
     // Show the controls prompt and initialize dropdown state
     showControlsPrompt();
     updateControlsDropdown(getEarthSurfaceActive(), getMoonSurfaceActive());
+    
+    // Initialize VR status indicator
+    createVRStatusIndicator();
+    
+    // Update XR debug info if available
+    if (typeof window.updateXRDebugInfo === 'function') {
+        window.updateXRDebugInfo();
+    }
 
-    if (!isAnimating) {
-        isAnimating = true;
-        animate();
+    // Check if WebXR is available in the browser
+    if (navigator.xr) {
+        console.log("WebXR is supported in this browser");
+        
+        // The game will start with normal animation loop
+        if (!isAnimating) {
+            isAnimating = true;
+            animate();
+        }
+        
+        // We won't automatically enter VR - user needs to click the VR button
+        // The VRButton will handle session creation and switching to XR animation loop
+        
+    } else {
+        console.log("WebXR is not supported in this browser - using standard animation");
+        
+        // Fallback to standard animation loop
+        if (!isAnimating) {
+            isAnimating = true;
+            animate();
+        }
     }
 }
 
@@ -594,11 +755,425 @@ function animate(currentTime = 0) {
 
 }
 
+// Function to setup XR animation loop for space scene
+function initXRAnimationLoop() {
+    if (!getSpaceInitialized()) {
+        console.warn("Cannot initialize XR loop - space scene not initialized");
+        return;
+    }
+    
+    console.log("Initializing XR animation loop - space scene is initialized");
+    
+    // Stop the regular animation loop
+    isAnimating = false;
+    console.log("Regular animation loop stopped");
+    
+    // Check if we're on Quest browser with no navigator.xr
+    const isQuestBrowser = 
+        navigator.userAgent.includes('Quest') || 
+        navigator.userAgent.includes('Oculus') ||
+        (navigator.userAgent.includes('Mobile VR') && navigator.userAgent.includes('Android'));
+    
+    const usingQuestSpecialMode = isQuestBrowser && !navigator.xr;
+    if (usingQuestSpecialMode) {
+        console.log("Using Quest special mode for XR animation loop");
+        
+        // Set up special rendering for Quest VR mode
+        // Create stereoscopic effect by offsetting camera for left/right eyes
+        spaceRenderer.autoClear = false;
+        
+        // Adjust canvas for side-by-side stereo
+        spaceRenderer.setSize(window.innerWidth, window.innerHeight);
+        
+        // Create a fullscreen VR mode notification
+        const vrNotification = document.createElement('div');
+        vrNotification.id = 'vr-fullscreen-notification';
+        vrNotification.innerHTML = `
+            <div style="text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; max-width: 80%; margin: 0 auto;">
+                <h2 style="color: #00ccff; margin-top: 0;">VR MODE ACTIVATED</h2>
+                <p style="font-size: 20px; margin-bottom: 30px;">For best results:</p>
+                <ol style="text-align: left; font-size: 18px; display: inline-block;">
+                    <li>Hold your Quest in landscape orientation</li>
+                    <li>Center the view on the screen</li>
+                    <li>Look through the lenses normally</li>
+                </ol>
+                <div style="margin-top: 30px; font-size: 24px;">
+                    Stereoscopic 3D is enabled
+                </div>
+            </div>
+        `;
+        vrNotification.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-family: sans-serif;
+            z-index: 10002;
+            background: rgba(0,0,40,0.7);
+            transition: opacity 0.5s ease-in-out;
+        `;
+        document.body.appendChild(vrNotification);
+        
+        // Remove notification after 5 seconds
+        setTimeout(() => {
+            vrNotification.style.opacity = '0';
+            setTimeout(() => vrNotification.remove(), 500);
+        }, 5000);
+        
+        // Create a separate Three.js camera for each eye
+        const leftEyeCamera = spaceCamera.clone();
+        const rightEyeCamera = spaceCamera.clone();
+        
+        // Create a stereo camera setup for our special mode
+        let stereoSeparation = 0.064; // Average human IPD in meters
+        
+        // Add IPD adjustment controls
+        const ipdControls = document.createElement('div');
+        ipdControls.id = 'ipd-controls';
+        ipdControls.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: sans-serif;
+            z-index: 10000;
+            display: none;
+        `;
+        
+        ipdControls.innerHTML = `
+            <div style="text-align: center; margin-bottom: 5px;">IPD Adjustment</div>
+            <div style="display: flex; align-items: center;">
+                <button id="decrease-ipd" style="
+                    background: #333;
+                    color: white;
+                    border: 1px solid #666;
+                    border-radius: 4px;
+                    padding: 5px 10px;
+                    margin-right: 5px;
+                    cursor: pointer;
+                ">−</button>
+                <div id="ipd-value" style="min-width: 40px; text-align: center;">64mm</div>
+                <button id="increase-ipd" style="
+                    background: #333;
+                    color: white;
+                    border: 1px solid #666;
+                    border-radius: 4px;
+                    padding: 5px 10px;
+                    margin-left: 5px;
+                    cursor: pointer;
+                ">+</button>
+            </div>
+        `;
+        
+        document.body.appendChild(ipdControls);
+        
+        // Show IPD controls after VR is activated
+        setTimeout(() => {
+            ipdControls.style.display = 'block';
+        }, 5000); // Show after the full screen notification disappears
+        
+        // Set up IPD adjustment
+        let currentIPD = 64; // Default 64mm
+        
+        document.getElementById('decrease-ipd').addEventListener('click', () => {
+            if (currentIPD > 54) {
+                currentIPD -= 2;
+                stereoSeparation = currentIPD / 1000; // Convert mm to meters
+                document.getElementById('ipd-value').textContent = `${currentIPD}mm`;
+            }
+        });
+        
+        document.getElementById('increase-ipd').addEventListener('click', () => {
+            if (currentIPD < 74) {
+                currentIPD += 2;
+                stereoSeparation = currentIPD / 1000; // Convert mm to meters
+                document.getElementById('ipd-value').textContent = `${currentIPD}mm`;
+            }
+        });
+        
+        // Store the original camera position object for reference
+        const originalCameraPosition = new THREE.Vector3();
+        
+        // Show VR mode activated message
+        const vrActivatedMsg = document.createElement('div');
+        vrActivatedMsg.id = 'vr-activated-message';
+        vrActivatedMsg.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: #00ccff;
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 24px;
+            font-family: sans-serif;
+            text-align: center;
+            z-index: 10000;
+            transition: opacity 2s;
+        `;
+        vrActivatedMsg.textContent = "VR Mode Activated";
+        document.body.appendChild(vrActivatedMsg);
+        
+        // Fade out the message after 2 seconds
+        setTimeout(() => {
+            vrActivatedMsg.style.opacity = 0;
+            // Remove after fade
+            setTimeout(() => vrActivatedMsg.remove(), 2000);
+        }, 2000);
+    }
+    
+    // Create animation callback for XR
+    function xrAnimationCallback(timestamp, xrFrame) {
+        // Begin stats measurement for this frame
+        stats.begin();
+        
+        try {
+            // Calculate delta time in seconds for smooth movement
+            const deltaTime = (timestamp - lastFrameTime) / 1000;
+            lastFrameTime = timestamp;
+            
+            // Update frame counter for custom FPS display
+            frameCount++;
+            
+            // Update numerical FPS display every interval
+            if (timestamp - lastFpsUpdateTime > fpsUpdateInterval) {
+                const fps = Math.round(frameCount / ((timestamp - lastFpsUpdateTime) / 1000));
+                fpsDisplay.textContent = `FPS: ${fps}`;
+                
+                if (fps > 50) {
+                    fpsDisplay.style.color = '#0f0'; // Good FPS - green
+                } else if (fps > 30) {
+                    fpsDisplay.style.color = '#ff0'; // Okay FPS - yellow
+                } else {
+                    fpsDisplay.style.color = '#f00'; // Poor FPS - red
+                }
+                
+                lastFpsUpdateTime = timestamp;
+                frameCount = 0;
+            }
+            
+            // Process XR input if we have an XR frame with input sources
+            if (xrFrame && navigator.xr) {
+                const session = xrFrame.session;
+                if (session && session.inputSources) {
+                    // Process each connected input source (controller)
+                    for (const inputSource of session.inputSources) {
+                        if (inputSource.gamepad) {
+                            const gamepad = inputSource.gamepad;
+                            
+                            // Map controller inputs to keyboard controls
+                            // Trigger: Boost (Up key)
+                            if (gamepad.buttons[0] && gamepad.buttons[0].pressed) {
+                                keys.up = true;
+                            } else {
+                                keys.up = false;
+                            }
+                            
+                            // Thumbstick: Steering
+                            if (gamepad.axes && gamepad.axes.length >= 2) {
+                                // X-axis for left/right
+                                if (gamepad.axes[0] < -0.5) {
+                                    keys.left = true;
+                                    keys.right = false;
+                                } else if (gamepad.axes[0] > 0.5) {
+                                    keys.right = true;
+                                    keys.left = false;
+                                } else {
+                                    keys.left = false;
+                                    keys.right = false;
+                                }
+                                
+                                // Y-axis for forward/backward
+                                if (gamepad.axes[1] < -0.5) {
+                                    keys.up = true;
+                                    keys.down = false;
+                                } else if (gamepad.axes[1] > 0.5) {
+                                    keys.down = true;
+                                    keys.up = false;
+                                } else if (!keys.up) { // Don't override trigger
+                                    keys.down = false;
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (usingQuestSpecialMode) {
+                // For our Quest special mode, rely on existing keyboard/touch controls
+                // User can use smartphone touch controls or keyboard if connected
+                console.log("Using standard input controls in Quest mode");
+            }
+            
+            // Get boost and hyperspace states
+            const isBoosting = getBoostState();
+            const isHyperspace = getHyperspaceState();
+            
+            // Check if controls toggle is requested
+            if (getControlsToggleRequested()) {
+                toggleControlsDropdown();
+            }
+            
+            // Update space scene
+            updateSpace(isBoosting, isHyperspace, deltaTime);
+            
+            // Hyperspace-specific updates
+            if (isHyperspace) {
+                const progressContainer = document.getElementById('hyperspace-progress-container');
+                if (progressContainer && progressContainer.style.display !== 'block') {
+                    progressContainer.style.display = 'block';
+                    progressContainer.style.zIndex = '10000';
+                    progressContainer.style.opacity = '1';
+                    progressContainer.style.visibility = 'visible';
+                }
+                
+                if (typeof updateStreaks === 'function' && streakLines && streakLines.length > 0) {
+                    updateStreaks(deltaTime);
+                }
+            }
+            
+            updateControlsDropdown(getEarthSurfaceActive(), getMoonSurfaceActive());
+            
+            // Get the scene info for rendering
+            const sceneInfo = renderSpaceScene();
+            
+            // If we're using our special Quest mode, handle rendering manually
+            if (usingQuestSpecialMode && sceneInfo) {
+                // Get the original scene and camera
+                const { scene, camera } = sceneInfo;
+                
+                // Log rendering debug info
+                console.log("Rendering stereoscopic view", {
+                    windowWidth: window.innerWidth,
+                    windowHeight: window.innerHeight,
+                    stereoSeparation: stereoSeparation,
+                    camera: camera.position
+                });
+                
+                // Force the canvas to be visible and cover the full screen
+                const canvas = spaceRenderer.domElement;
+                canvas.style.position = 'fixed';
+                canvas.style.top = '0';
+                canvas.style.left = '0';
+                canvas.style.width = '100%';
+                canvas.style.height = '100%';
+                canvas.style.zIndex = '100';
+
+                // Update the camera position and orientation based on game state
+                camera.getWorldPosition(originalCameraPosition);
+                const cameraRotation = camera.quaternion.clone();
+                
+                // Set up for stereoscopic rendering
+                spaceRenderer.setScissorTest(true);
+                
+                // Update both eye cameras to match the main camera's rotation
+                leftEyeCamera.quaternion.copy(cameraRotation);
+                rightEyeCamera.quaternion.copy(cameraRotation);
+                
+                // Calculate eye positions with proper stereo separation
+                // For better stereo effect, we offset perpendicular to the view direction
+                const viewDirection = new THREE.Vector3(0, 0, -1).applyQuaternion(cameraRotation);
+                const rightVector = new THREE.Vector3(1, 0, 0).applyQuaternion(cameraRotation);
+                
+                // Position the left eye camera
+                leftEyeCamera.position.copy(originalCameraPosition);
+                leftEyeCamera.position.addScaledVector(rightVector, -stereoSeparation / 2);
+                
+                // Position the right eye camera
+                rightEyeCamera.position.copy(originalCameraPosition);
+                rightEyeCamera.position.addScaledVector(rightVector, stereoSeparation / 2);
+                
+                // Set up viewports with constants
+                const leftHalf = {
+                    x: 0,
+                    y: 0,
+                    width: Math.floor(window.innerWidth / 2),
+                    height: window.innerHeight
+                };
+                
+                const rightHalf = {
+                    x: Math.floor(window.innerWidth / 2),
+                    y: 0,
+                    width: Math.floor(window.innerWidth / 2),
+                    height: window.innerHeight
+                };
+                
+                // Render left eye
+                spaceRenderer.setScissor(leftHalf.x, leftHalf.y, leftHalf.width, leftHalf.height);
+                spaceRenderer.setViewport(leftHalf.x, leftHalf.y, leftHalf.width, leftHalf.height);
+                spaceRenderer.clear();
+                spaceRenderer.render(scene, leftEyeCamera);
+                
+                // Render right eye
+                spaceRenderer.setScissor(rightHalf.x, rightHalf.y, rightHalf.width, rightHalf.height);
+                spaceRenderer.setViewport(rightHalf.x, rightHalf.y, rightHalf.width, rightHalf.height);
+                spaceRenderer.clear();
+                spaceRenderer.render(scene, rightEyeCamera);
+                
+                // Add a center divider line to help with focusing
+                if (!document.getElementById('vr-center-line')) {
+                    const centerLine = document.createElement('div');
+                    centerLine.id = 'vr-center-line';
+                    centerLine.style.cssText = `
+                        position: fixed;
+                        top: 0;
+                        left: 50%;
+                        width: 1px;
+                        height: 100%;
+                        background-color: rgba(255, 255, 255, 0.3);
+                        z-index: 101;
+                        pointer-events: none;
+                    `;
+                    document.body.appendChild(centerLine);
+                }
+            }
+            // Otherwise let the WebXR API handle it (no explicit render call)
+            
+        } catch (error) {
+            console.error("Error in XR animation loop:", error);
+        }
+        
+        // End stats measurement for this frame
+        stats.end();
+        
+        // Request next frame (fallback for Quest special mode)
+        if (usingQuestSpecialMode && window.isInXRSession) {
+            requestAnimationFrame(xrAnimationCallback);
+        }
+    }
+    
+    // Store the callback for direct access if needed
+    window.initXRAnimationLoop._cachedCallback = xrAnimationCallback;
+    
+    // Start the animation loop
+    if (usingQuestSpecialMode) {
+        // For Quest special mode, we use requestAnimationFrame for better control
+        console.log("Setting up Quest special mode animation using requestAnimationFrame");
+        requestAnimationFrame(xrAnimationCallback);
+    } else {
+        // For standard WebXR, use the renderer's setAnimationLoop
+        console.log("Setting animation loop on space renderer");
+        spaceRenderer.setAnimationLoop(xrAnimationCallback);
+    }
+    
+    console.log("WebXR animation loop initialized for space scene");
+}
+
 // Initialize the detailed asset display
 document.addEventListener('DOMContentLoaded', () => {
     // Call once to create the element
     updateAssetDisplay();
 });
+
+// Global XR session flag
+window.isInXRSession = false;
 
 
 
