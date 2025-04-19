@@ -5,11 +5,13 @@ import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { loadTextureFromRegistry, universalScaleFactor } from '../appConfig/loaders.js';
 import { initVRControllers, updateVRMovement, getControllerDebugInfo, setupCameraRig } from './movementVR.js';
 import { createStars, updateStars } from './starsVR.js';
+import { createCockpit } from './cockpitVR.js';
 
 // Core scene elements
 let scene, camera, renderer;
 let spacebox;
 let cameraRig; // Reference to the camera rig
+let cockpit; // Reference to the cockpit model
 
 // Star system
 let starSystem;
@@ -79,6 +81,11 @@ export function init() {
     
     // Create camera rig for separating head tracking from movement
     cameraRig = setupCameraRig(scene, camera);
+    
+    // Create and add cockpit model to camera rig
+    cockpit = createCockpit();
+    cameraRig.add(cockpit);
+    console.log("Added cockpit model to VR environment");
     
     // Mark as initialized
     initialized = true;
@@ -253,6 +260,20 @@ export function dispose() {
             if (spacebox.material.map) spacebox.material.map.dispose();
             spacebox.material.dispose();
         }
+    }
+    
+    // Clean up cockpit
+    if (cockpit) {
+        cockpit.traverse(child => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+                if (Array.isArray(child.material)) {
+                    child.material.forEach(material => material.dispose());
+                } else {
+                    child.material.dispose();
+                }
+            }
+        });
     }
     
     initialized = false;
