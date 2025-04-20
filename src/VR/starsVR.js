@@ -59,50 +59,60 @@ export function createStars() {
     };
 }
 
-// Update stars brightness based on distance to camera
+// Update stars brightness based on distance to camera but maintain fixed positions
+// Note: cameraPosition parameter is still accepted for brightness calculations,
+// but stars remain fixed in world space
 export function updateStars(stars, cameraPosition) {
     if (!stars || !stars.geometry) return;
     
     const positions = stars.geometry.attributes.position.array;
     const colors = stars.geometry.attributes.color.array;
     
-    // Update star brightness based on distance to camera
+    // Origin point for world space reference (not the camera)
+    const worldOrigin = new THREE.Vector3(0, 0, 0);
+    
+    // Use camera position only for brightness calculation, not for repositioning
     for (let i = 0; i < STAR_COUNT * 3; i += 3) {
-        // Calculate distance from camera to this star
+        // Calculate distance from camera to this star (for brightness)
         const dx = positions[i] - cameraPosition.x;
         const dy = positions[i + 1] - cameraPosition.y;
         const dz = positions[i + 2] - cameraPosition.z;
-        const distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+        const distanceFromCamera = Math.sqrt(dx*dx + dy*dy + dz*dz);
         
-        // Check if star is too far from the camera (beyond view range)
-        if (distance > STAR_RANGE * 0.8) {
-            // Respawn the star in a new random position in a full sphere around the camera
+        // Calculate distance from world origin (for respawning check)
+        const worldDx = positions[i];
+        const worldDy = positions[i + 1];
+        const worldDz = positions[i + 2];
+        const distanceFromOrigin = Math.sqrt(worldDx*worldDx + worldDy*worldDy + worldDz*worldDz);
+        
+        // Only respawn stars that are too far from the WORLD ORIGIN
+        // This keeps the star field fixed in world space instead of following the camera
+        if (distanceFromOrigin > STAR_RANGE) {
+            // Respawn the star in a new random position in world space
             const theta = Math.random() * Math.PI * 2;
             const phi = Math.acos(2 * Math.random() - 1);
-            const radius = STAR_RANGE * 0.4 * Math.pow(Math.random(), 1/3);
+            const radius = STAR_RANGE * 0.8 * Math.pow(Math.random(), 1/3);
             
-            // Position relative to camera
-            positions[i] = cameraPosition.x + radius * Math.sin(phi) * Math.cos(theta);
-            positions[i + 1] = cameraPosition.y + radius * Math.sin(phi) * Math.sin(theta);
-            positions[i + 2] = cameraPosition.z + radius * Math.cos(phi);
+            // Position relative to WORLD ORIGIN (not camera)
+            positions[i] = radius * Math.sin(phi) * Math.cos(theta);
+            positions[i + 1] = radius * Math.sin(phi) * Math.sin(theta);
+            positions[i + 2] = radius * Math.cos(phi);
+            
+            // Recalculate distance after respawn
+            const newDx = positions[i] - cameraPosition.x;
+            const newDy = positions[i + 1] - cameraPosition.y;
+            const newDz = positions[i + 2] - cameraPosition.z;
+            distanceFromCamera = Math.sqrt(newDx*newDx + newDy*newDy + newDz*newDz);
         }
         
-        // Recalculate distance after possible respawn
-        const newDx = positions[i] - cameraPosition.x;
-        const newDy = positions[i + 1] - cameraPosition.y;
-        const newDz = positions[i + 2] - cameraPosition.z;
-        const newDistance = Math.sqrt(newDx*newDx + newDy*newDy + newDz*newDz);
-        
-        // More extreme interpolation based on distance
-        // Stars closer than 8% of range are at full brightness
-        // Stars further than 25% of range are at minimum brightness
+        // Still adjust brightness based on camera distance for visual quality
         const minDistance = STAR_RANGE * 0.08;
         const maxDistance = STAR_RANGE * 0.25;
         let brightness = 1.0;
         
-        if (newDistance > minDistance) {
+        if (distanceFromCamera > minDistance) {
             // More dramatic falloff - distant stars are barely visible (only 5% brightness)
-            brightness = 1.0 - Math.min(1.0, (newDistance - minDistance) / (maxDistance - minDistance)) * 0.95;
+            brightness = 1.0 - Math.min(1.0, (distanceFromCamera - minDistance) / (maxDistance - minDistance)) * 0.95;
         }
         
         // Apply brightness to RGB values
