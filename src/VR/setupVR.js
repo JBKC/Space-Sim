@@ -231,16 +231,16 @@ function updateDebugDisplay(timestamp) {
     
     // Camera rig position
     if (cameraRig) {
-        context.fillText(`Position: X:${cameraRig.position.x.toFixed(2)} Y:${cameraRig.position.y.toFixed(2)} Z:${cameraRig.position.z.toFixed(2)}`, 20, y);
+        // context.fillText(`Position: X:${cameraRig.position.x.toFixed(2)} Y:${cameraRig.position.y.toFixed(2)} Z:${cameraRig.position.z.toFixed(2)}`, 20, y);
         y += lineHeight;
     }
     
     // Controller status
     const controllerInfo = getControllerDebugInfo();
-    context.fillText(`Left Controller: ${controllerInfo.leftController.connected ? 'Connected' : 'Disconnected'}`, 20, y);
+    // context.fillText(`Left Controller: ${controllerInfo.leftController.connected ? 'Connected' : 'Disconnected'}`, 20, y);
     y += lineHeight;
     
-    context.fillText(`Right Controller: ${controllerInfo.rightController.connected ? 'Connected' : 'Disconnected'}`, 20, y);
+    // context.fillText(`Right Controller: ${controllerInfo.rightController.connected ? 'Connected' : 'Disconnected'}`, 20, y);
     y += lineHeight;
     
     // Show boost status
@@ -311,7 +311,7 @@ function loadCockpitModel() {
                     
                     // Set initial position - will be adjusted when XR session starts
                     // We'll use a default height but this will be adjusted based on the user's actual height
-                    cockpit.position.set(0, 0, -0.1);
+                    // cockpit.position.set(0, 0, -0.1);
                     
                     // Create a variable to track if we've done the initial height calibration
                     let hasInitialHeightCalibration = false;
@@ -343,7 +343,7 @@ function loadCockpitModel() {
                                         desiredCockpitHeight = headHeight;
                                         
                                         // FORCE the cockpit position to match the head height exactly
-                                        cockpit.position.y = desiredCockpitHeight;
+                                        cockpit.position.set(0, desiredCockpitHeight, -0.1);
                                         
                                         console.log(`SETTING COCKPIT Y POSITION to ${desiredCockpitHeight.toFixed(4)}m`);
                                         
@@ -486,19 +486,6 @@ export function update(timestamp) {
     // Calculate delta time for smooth movement
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
-    
-    // If we have a calibrated cockpit height, make sure it's enforced every frame
-    if (heightCalibrationComplete && cockpit && desiredCockpitHeight !== null) {
-        // Check if the cockpit height has drifted from our desired value
-        if (Math.abs(cockpit.position.y - desiredCockpitHeight) > 0.001) {
-            // Reset to desired position
-            cockpit.position.y = desiredCockpitHeight;
-            console.log(`Re-enforced cockpit Y position to ${desiredCockpitHeight.toFixed(4)}m`);
-            
-            // Add to debug info
-            setDebugInfo("ENFORCED HEIGHT", `${timestamp.toFixed(0)}ms`);
-        }
-    }
     
     // Update the time uniform for shaders
     if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {
