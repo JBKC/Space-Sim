@@ -8,7 +8,7 @@ import { loadTextureFromRegistry, universalScaleFactor } from '../appConfig/load
 let spaceDustParticles = [];
 let nebulaeClouds = [];
 
-const SPACE_RADIUS = 250000; // Scale of the space environment
+const SPACE_RADIUS = 125000; // Scale of the space environment
 
 const COLORS = {
     deepPurple: new THREE.Color(0x1a0033),
@@ -65,61 +65,173 @@ function createGradientSphere() {
     return spaceGradientSphere;
 }
 
-// 2. Create volumetric nebulae clouds
+// 2. Create volumetric nebulae clouds with procedural mesh generation
 function createNebulaeClouds() {
     const nebulaCount = 8;
-    const nebulaTexture = loadTextureFromRegistry('particle', 'nebula_cloud');
     const createdNebulae = [];
     
+    // Function to create 3D simplex-like noise
+    function simplex3D(x, y, z) {
+        // A simple pseudo-noise function
+        const p = new THREE.Vector3(x, y, z);
+        const f = p.dot(new THREE.Vector3(
+            Math.sin(p.x * 0.013 + p.z * 0.021),
+            Math.sin(p.y * 0.017 + p.x * 0.011),
+            Math.sin(p.z * 0.019 + p.y * 0.013)
+        ));
+        
+        return (Math.sin(f * 4.5) + Math.sin(f * 8.5) * 0.5) * 0.5 + 0.5;
+    }
+    
     for (let i = 0; i < nebulaCount; i++) {
-        // Create a plane for each nebula cloud
-        const size = SPACE_RADIUS * (0.1 + Math.random() * 0.2); // Vary sizes
-        const geometry = new THREE.PlaneGeometry(size, size);
+        // Create a particle-based nebula cloud
+        const size = SPACE_RADIUS * (0.1 + Math.random() * 0.2); // Base size
+        const particles = 500 + Math.floor(Math.random() * 300); // Number of particles
         
         // Pick a color from our palette
         const colors = [
             COLORS.deepPurple, COLORS.indigo, COLORS.lavender,
             COLORS.icyBlue, COLORS.mutedOrange, COLORS.mutedPink
         ];
-        const color = colors[Math.floor(Math.random() * colors.length)];
+        const nebulaColor = colors[Math.floor(Math.random() * colors.length)];
         
-        // Create material with noise texture and transparency
-        const material = new THREE.MeshBasicMaterial({
-            map: nebulaTexture,
-            color: color,
-            transparent: true,
-            opacity: 0.15 + Math.random() * 0.15, // Subtle opacity
-            depthWrite: false,
-            blending: THREE.AdditiveBlending
-        });
+        // Create a 3D grid of particles for volumetric effect
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(particles * 3);
+        const sizes = new Float32Array(particles);
+        const colorArray = new Float32Array(particles * 3);
+        
+        // Nebula center shape parameters (ellipsoid)
+        const axisA = 0.8 + Math.random() * 0.4; // X axis scale
+        const axisB = 0.8 + Math.random() * 0.4; // Y axis scale
+        const axisC = 0.8 + Math.random() * 0.4; // Z axis scale
+        
+        // Create random seed for this nebula
+        const seed = Math.random() * 100;
+        
+        for (let p = 0; p < particles; p++) {
+            // Generate point in an ellipsoid shape with some irregularity
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.random() * Math.PI;
+            
+            // Radius with variation to create irregularity
+            let radius = Math.pow(Math.random(), 0.5); // More particles toward the center
+            
+            // Position in volume
+            const x = radius * Math.sin(phi) * Math.cos(theta) * axisA;
+            const y = radius * Math.sin(phi) * Math.sin(theta) * axisB;
+            const z = radius * Math.cos(phi) * axisC;
+            
+            // Apply noise to create cloudiness
+            const noise = simplex3D(x * 5 + seed, y * 5 + seed, z * 5 + seed);
+            
+            // Skip particles that are outside noise threshold to create cloud-like shape
+            if (noise < 0.4 && radius > 0.2) {
+                continue;
+            }
+            
+            const i3 = p * 3;
+            positions[i3] = x * size;
+            positions[i3 + 1] = y * size;
+            positions[i3 + 2] = z * size;
+            
+            // Vary particle sizes with noise and radius
+            const particleSize = ((1 - radius) * 0.7 + noise * 0.3) * 400;
+            sizes[p] = particleSize * (0.5 + Math.random() * 0.5);
+            
+            // Color with brightness variation
+            const brightness = 0.6 + noise * 0.4;
+            colorArray[i3] = nebulaColor.r * brightness;
+            colorArray[i3 + 1] = nebulaColor.g * brightness;
+            colorArray[i3 + 2] = nebulaColor.b * brightness;
+        }
+        
+        // Remove unused buffer space by creating filtered arrays
+        const validPositions = [];
+        const validSizes = [];
+        const validColors = [];
+        
+        let validCount = 0;
+        for (let p = 0; p < particles; p++) {
+            const i3 = p * 3;
+            // Only include points that were actually assigned
+            if (positions[i3] !== 0 || positions[i3 + 1] !== 0 || positions[i3 + 2] !== 0) {
+                validPositions.push(positions[i3], positions[i3 + 1], positions[i3 + 2]);
+                validSizes.push(sizes[p]);
+                validColors.push(colorArray[i3], colorArray[i3 + 1], colorArray[i3 + 2]);
+                validCount++;
+            }
+        }
+        
+        // Create properly sized arrays
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(validPositions), 3));
+        geometry.setAttribute('size', new THREE.Float32BufferAttribute(new Float32Array(validSizes), 1));
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(validColors), 3));
+        
+        // Create custom material with size attribute and additive blending
+        const material = new THREE.ShaderMaterial({
+            uniforms: {
+                time: { value: 0 }
+            },
+            vertexShader: `
+                attribute float size;
+                attribute vec3 color;
+                varying vec3 vColor;
                 
-        const nebula = new THREE.Mesh(geometry, material);
+                void main() {
+                    vColor = color;
+                    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                    gl_PointSize = size * (300.0 / -mvPosition.z);
+                    gl_Position = projectionMatrix * mvPosition;
+                }
+            `,
+            fragmentShader: `
+                varying vec3 vColor;
+                
+                void main() {
+                    // Create circular points with soft edges
+                    float r = 0.5;
+                    vec2 uv = gl_PointCoord - vec2(0.5);
+                    float strength = 1.0 - smoothstep(r - (r * 0.5), r, length(uv));
+                    
+                    gl_FragColor = vec4(vColor, strength * 0.5);
+                }
+            `,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            transparent: true,
+            vertexColors: true
+        });
         
-        // Position the nebula randomly in space, but far away
+        // Create points system
+        const points = new THREE.Points(geometry, material);
+        
+        // Position the nebula randomly in space
         const distance = SPACE_RADIUS * 0.4;
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(2 * Math.random() - 1);
+        const posTheta = Math.random() * Math.PI * 2;
+        const posPhi = Math.acos(2 * Math.random() - 1);
         
-        nebula.position.x = distance * Math.sin(phi) * Math.cos(theta);
-        nebula.position.y = distance * Math.sin(phi) * Math.sin(theta);
-        nebula.position.z = distance * Math.cos(phi);
+        points.position.x = distance * Math.sin(posPhi) * Math.cos(posTheta);
+        points.position.y = distance * Math.sin(posPhi) * Math.sin(posTheta);
+        points.position.z = distance * Math.cos(posPhi);
         
         // Random rotation
-        nebula.rotation.x = Math.random() * Math.PI;
-        nebula.rotation.y = Math.random() * Math.PI;
-        nebula.rotation.z = Math.random() * Math.PI;
+        points.rotation.x = Math.random() * Math.PI;
+        points.rotation.y = Math.random() * Math.PI;
+        points.rotation.z = Math.random() * Math.PI;
         
         createdNebulae.push({
-            mesh: nebula,
+            mesh: points,
             rotationSpeed: {
                 x: (Math.random() - 0.5) * 0.0001, // Slow rotation
                 y: (Math.random() - 0.5) * 0.0001,
                 z: (Math.random() - 0.5) * 0.0001
-            }
+            },
+            time: 0 // For animation
         });
     }
     
-    console.log(`Created ${nebulaCount} volumetric nebula clouds`);
+    console.log(`Created ${createdNebulae.length} procedural nebula clouds`);
     nebulaeClouds = createdNebulae;
     return createdNebulae[0].mesh; // Return one nebula for export
 }
