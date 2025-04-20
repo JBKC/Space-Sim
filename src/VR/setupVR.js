@@ -93,16 +93,22 @@ export function init() {
         document.body.appendChild(renderer.domElement);
     }
     
-    // Add advanced space environment elements
-    scene.add(spaceGradientSphere);
-    scene.add(nebula);
-    scene.add(particleSystem);
-    scene.add(directionalLightCone);
-    scene.add(galaxyBackdrop);
+    // Create a world container for all fixed environment elements
+    // This separates environment from camera/rig movement
+    const worldEnvironment = new THREE.Group();
+    worldEnvironment.name = 'worldEnvironment';
+    scene.add(worldEnvironment);
+    
+    // Add advanced space environment elements to world container
+    worldEnvironment.add(spaceGradientSphere);
+    worldEnvironment.add(nebula);
+    worldEnvironment.add(particleSystem);
+    worldEnvironment.add(directionalLightCone);
+    worldEnvironment.add(galaxyBackdrop);
     
     // Create stars with dynamic brightness
     starSystem = createStars();
-    scene.add(starSystem.stars);
+    worldEnvironment.add(starSystem.stars); // Add stars to world container, not directly to scene
     console.log("Added dynamic star system to VR environment");
     
     // Remove any existing planet labels from DOM
@@ -283,17 +289,20 @@ export function update(timestamp) {
         updateVRMovement(camera, deltaTime);
     }
     
-    // Update stars brightness based on camera position
+    // Update stars brightness based on camera position, but never reposition them
     if (starSystem && starSystem.stars) {
         // Use cameraRig position for star updates to ensure proper movement tracking
         const positionForStars = cameraRig ? cameraRig.position : camera.position;
-        updateStars(starSystem.stars, positionForStars, false); // Pass false to prevent respawning stars relative to camera
+        updateStars(starSystem.stars, positionForStars, false); // Never respawn stars relative to camera
     }
     
     // Update galaxy backdrop to slowly rotate
     if (galaxyBackdrop) {
         galaxyBackdrop.rotation.z += 0.0001;
     }
+    
+    // Do NOT update any environment element positions to follow the camera
+    // They should remain fixed in world space
     
     // Log controller state occasionally (for debugging)
     if (Math.random() < 0.01) { // Only log about 1% of the time to avoid console spam
