@@ -47,7 +47,7 @@ import {
     renderScene as renderSpaceVRScene,
     startVRMode as startSpaceVRMode,
     dispose as disposeSpaceVR
-} from './spaceEnvs/spaceVR.js';
+} from './VR/setupVR.js';
 
 // Earth scene imports (set to San Francisco)
 import { 
