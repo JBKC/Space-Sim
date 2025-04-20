@@ -323,11 +323,8 @@ function loadCockpitModel() {
                                         
                                         console.log(`Detected user head height: ${headHeight.toFixed(3)}m, adjusting cockpit position`);
                                         
-                                        // Set the global desired height so it will be continually enforced
-                                        desiredCockpitHeight = headHeight;
-                                        
-                                        // FORCE the cockpit position to match the head height exactly
-                                        cockpit.position.y = desiredCockpitHeight;
+                                        // Force the cockpit position to match the head height exactly
+                                        cockpit.position.y = (0, headHeight, -0.1);
                                         
                                         hasInitialHeightCalibration = true;
                                         heightCalibrationComplete = true;
