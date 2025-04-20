@@ -201,11 +201,12 @@ function loadCockpitModel() {
                                         // This adapts the cockpit to the user's seated or standing position
                                         console.log(`Detected user head height: ${headHeight.toFixed(2)}m, adjusting cockpit position`);
                                         
-                                        // Set the cockpit at the same height as the user's head
-                                        cockpit.position.y = 0; // In camera-relative coordinates
+                                        // Actually use the measured head height for the cockpit position
+                                        // The cockpit will be positioned at the same height as the user's head
+                                        cockpit.position.y = headHeight;
                                         
                                         hasInitialHeightCalibration = true;
-                                        console.log("Cockpit position calibrated to user's height");
+                                        console.log("Cockpit position calibrated to user's height:", cockpit.position.y);
                                     }, 500); // Small delay to ensure XR pose is stable
                                 }
                             }
