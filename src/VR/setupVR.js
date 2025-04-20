@@ -329,10 +329,6 @@ function loadCockpitModel() {
                                         hasInitialHeightCalibration = true;
                                         heightCalibrationComplete = true;
                                         
-                                        // Force position update immediately
-                                        setTimeout(() => {
-                                            cockpit.position.y = desiredCockpitHeight;
-                                        }, 200);
                                     }, 500); // Small delay to ensure XR pose is stable
                                 }
                             }
@@ -453,15 +449,15 @@ export function update(timestamp) {
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
     
-    // If we have a calibrated cockpit height, make sure it's enforced every frame
-    if (heightCalibrationComplete && cockpit && desiredCockpitHeight !== null) {
-        // Check if the cockpit height has drifted from our desired value
-        if (Math.abs(cockpit.position.y - desiredCockpitHeight) > 0.001) {
-            // Reset to desired position
-            cockpit.position.y = desiredCockpitHeight;
-            console.log(`Re-enforced cockpit Y position to ${desiredCockpitHeight.toFixed(4)}m`);
-        }
-    }
+    // // If we have a calibrated cockpit height, make sure it's enforced every frame
+    // if (heightCalibrationComplete && cockpit && desiredCockpitHeight !== null) {
+    //     // Check if the cockpit height has drifted from our desired value
+    //     if (Math.abs(cockpit.position.y - desiredCockpitHeight) > 0.001) {
+    //         // Reset to desired position
+    //         cockpit.position.y = desiredCockpitHeight;
+    //         console.log(`Re-enforced cockpit Y position to ${desiredCockpitHeight.toFixed(4)}m`);
+    //     }
+    // }
     
     // Update the time uniform for shaders
     if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {
