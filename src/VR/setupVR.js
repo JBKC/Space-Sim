@@ -3,7 +3,13 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { loadTextureFromRegistry, universalScaleFactor } from '../appConfig/loaders.js';
+import { 
+    loadTextureFromRegistry, 
+    loadModelFromRegistry, 
+    loadingManager,
+    textureLoadingManager,
+    universalScaleFactor 
+} from '../appConfig/loaders.js';
 import { initVRControllers, updateVRMovement, getControllerDebugInfo, setupCameraRig } from './movementVR.js';
 import {
     spaceGradientSphere,
@@ -16,6 +22,7 @@ import {
     createStars,
     updateStars
 } from './spaceEnvVR.js';
+
 
 // Core scene elements
 let scene, camera, renderer;
@@ -136,61 +143,70 @@ export function init() {
 
 // Load X-Wing cockpit model
 function loadCockpitModel() {
-    const loader = new GLTFLoader();
+    // Create an empty group to hold the cockpit model
+    cockpit = new THREE.Group();
+    let cockpitLoaded = false;
     
-    loader.load(
-        // Path to the model
-        '/src/assets/models/x-wing_cockpit_lowres.glb',
-        
-        // Called when the model is loaded
-        function(gltf) {
-            cockpit = gltf.scene;
-            
-            // Scale and position the cockpit around the camera
-            cockpit.scale.set(COCKPIT_SCALE, COCKPIT_SCALE, COCKPIT_SCALE);
-            
-            // Set camera position within cockpit
-            cockpit.position.set(0, 0, 0);
-            
-            // Rotate cockpit 180 degrees around Y-axis to face forward
-            cockpit.rotation.y = Math.PI; // This is a 180-degree rotation in radians
-            
-            // Add the cockpit to the camera rig
-            if (cameraRig) {
-                // Add cockpit to the rig so it moves with the player
-                cameraRig.add(cockpit);
+    // Use loadModelFromRegistry to load the cockpit model
+    const loadCockpitPromise = new Promise((resolve, reject) => {
+        loadModelFromRegistry(
+            'spacecraft',
+            'xwingCockpit',
+            (gltf) => {
+                const model = gltf.scene;
                 
-                // Position it just in front of the camera
-                cockpit.position.z = -0.2;
+                // Scale the model properly
+                model.scale.set(COCKPIT_SCALE, COCKPIT_SCALE, COCKPIT_SCALE);
                 
-                // Ensure cockpit renders with proper materials
-                cockpit.traverse(function(child) {
-                    if (child.isMesh) {
-                        child.material.metalness = 0.3;
-                        child.material.roughness = 0.7;
-                        
-                        // Set renderOrder to ensure cockpit renders after everything else
-                        child.renderOrder = 1000;
-                    }
-                });
+                // Add model to our cockpit group
+                cockpit.add(model);
+                cockpit.name = 'cockpitModel';
                 
-                console.log("X-Wing cockpit model loaded and added to camera rig");
-            } else {
-                console.error("Camera rig not available, cockpit not attached");
+                // Rotate cockpit 180 degrees around Y-axis to face forward
+                cockpit.rotation.y = Math.PI; // This is a 180-degree rotation in radians
+                
+                // If cameraRig exists, add the cockpit to it
+                if (cameraRig) {
+                    // Add cockpit to the rig so it moves with the player
+                    cameraRig.add(cockpit);
+                    
+                    // Position it just in front of the camera
+                    cockpit.position.z = -0.2;
+                    
+                    // Ensure cockpit renders with proper materials
+                    cockpit.traverse(function(child) {
+                        if (child.isMesh) {
+                            child.material.metalness = 0.3;
+                            child.material.roughness = 0.7;
+                            
+                            // Set renderOrder to ensure cockpit renders after everything else
+                            child.renderOrder = 1000;
+                        }
+                    });
+                    
+                    console.log("X-Wing cockpit model loaded and added to camera rig");
+                } else {
+                    console.error("Camera rig not available, cockpit not attached");
+                }
+                
+                cockpitLoaded = true;
+                resolve(cockpit);
+            },
+            (xhr) => {
+                // Progress callback
+                const percent = (xhr.loaded / xhr.total) * 100;
+                console.log(`Cockpit: ${percent.toFixed(0)}% loaded`);
+            },
+            (error) => {
+                // Error callback
+                console.error('Error loading cockpit model from registry:', error);
+                reject(error);
             }
-        },
-        
-        // Called while loading is in progress
-        function(xhr) {
-            const percent = (xhr.loaded / xhr.total) * 100;
-            console.log('Loading cockpit model: ' + percent.toFixed(0) + '%');
-        },
-        
-        // Called if there's an error
-        function(error) {
-            console.error('Error loading cockpit model:', error);
-        }
-    );
+        );
+    });
+    
+    // Return the promise for future use if needed
+    return loadCockpitPromise;
 }
 
 // Remove all UI elements
