@@ -170,8 +170,8 @@ function loadCockpitModel() {
                     // Add cockpit to the rig so it moves with the player
                     cameraRig.add(cockpit);
                     
-                    // Position it just in front of the camera
-                    cockpit.position.z = -0.2;
+                    // Set camera position relative to cockpit
+                    cockpit.position.set(0, 0.5, -0.2);
                     
                     // Ensure cockpit renders with proper materials
                     cockpit.traverse(function(child) {
