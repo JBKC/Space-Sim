@@ -29,6 +29,10 @@ let scene, camera, renderer;
 let cameraRig; // Reference to the camera rig
 let cockpit; // X-Wing cockpit model
 
+// Debug elements
+let debugTextMesh;
+let debugInfo = {};
+
 let starSystem;
 let initialized = false;
 let lastFrameTime = 0;
@@ -122,6 +126,9 @@ export function init() {
     // Create camera rig for separating head tracking from movement
     cameraRig = setupCameraRig(scene, camera);
     
+    // Create debug text display for VR
+    createDebugDisplay();
+    
     // Load X-Wing cockpit model
     loadCockpitModel();
     
@@ -139,6 +146,123 @@ export function init() {
     console.log("VR test environment initialized");
     
     return { scene, camera, renderer };
+}
+
+// Create a debug display that's visible in VR
+function createDebugDisplay() {
+    // Create debug display canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const context = canvas.getContext('2d');
+    
+    // Clear with transparent background
+    context.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Create texture from canvas
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    
+    // Create material using the canvas texture
+    const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        side: THREE.DoubleSide
+    });
+    
+    // Create plane for debug display
+    const geometry = new THREE.PlaneGeometry(1, 0.5);
+    debugTextMesh = new THREE.Mesh(geometry, material);
+    debugTextMesh.renderOrder = 1001; // Render after cockpit
+    
+    // Store canvas and context for updates
+    debugTextMesh.userData = {
+        canvas,
+        context,
+        updateInterval: 200,
+        lastUpdate: 0
+    };
+    
+    // Don't add to scene yet - will add to camera rig after it's created
+    if (cameraRig) {
+        // Position the debug display in front of the user but below eye level
+        debugTextMesh.position.set(0, -0.4, -0.8);
+        cameraRig.add(debugTextMesh);
+    }
+}
+
+// Update the debug display with current information
+function updateDebugDisplay(timestamp) {
+    if (!debugTextMesh) return;
+    
+    // Only update a few times per second to avoid performance impact
+    if (timestamp - debugTextMesh.userData.lastUpdate < debugTextMesh.userData.updateInterval) {
+        return;
+    }
+    
+    const canvas = debugTextMesh.userData.canvas;
+    const context = debugTextMesh.userData.context;
+    
+    // Clear canvas
+    context.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Set text properties
+    context.font = '20px Arial';
+    context.fillStyle = '#33ff33';
+    context.textAlign = 'left';
+    
+    // Add heading
+    context.fillText('VR DEBUG INFORMATION', 20, 30);
+    
+    // Draw border
+    context.strokeStyle = '#33ff33';
+    context.lineWidth = 2;
+    context.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
+    
+    // Add debug information
+    let y = 60;
+    const lineHeight = 25;
+    
+    // Camera rig position
+    if (cameraRig) {
+        context.fillText(`Position: X:${cameraRig.position.x.toFixed(2)} Y:${cameraRig.position.y.toFixed(2)} Z:${cameraRig.position.z.toFixed(2)}`, 20, y);
+        y += lineHeight;
+    }
+    
+    // Controller status
+    const controllerInfo = getControllerDebugInfo();
+    context.fillText(`Left Controller: ${controllerInfo.leftController.connected ? 'Connected' : 'Disconnected'}`, 20, y);
+    y += lineHeight;
+    
+    context.fillText(`Right Controller: ${controllerInfo.rightController.connected ? 'Connected' : 'Disconnected'}`, 20, y);
+    y += lineHeight;
+    
+    // Show boost status
+    context.fillText(`Boost: ${controllerInfo.leftController.boostActive ? 'ACTIVE' : 'Off'}`, 20, y);
+    y += lineHeight;
+    
+    // Cockpit information
+    if (cockpit) {
+        context.fillText(`Cockpit Y offset: ${cockpit.position.y.toFixed(2)}`, 20, y);
+        y += lineHeight;
+    }
+    
+    // Add any custom debug information that was set
+    for (const [key, value] of Object.entries(debugInfo)) {
+        context.fillText(`${key}: ${value}`, 20, y);
+        y += lineHeight;
+    }
+    
+    // Update texture
+    debugTextMesh.material.map.needsUpdate = true;
+    debugTextMesh.userData.lastUpdate = timestamp;
+}
+
+// Set debug information to display in VR
+export function setDebugInfo(key, value) {
+    debugInfo[key] = value;
 }
 
 // Load X-Wing cockpit model
@@ -204,6 +328,9 @@ function loadCockpitModel() {
                                         // Actually use the measured head height for the cockpit position
                                         // The cockpit will be positioned at the same height as the user's head
                                         cockpit.position.y = headHeight;
+                                        
+                                        // Update debug info with the detected height
+                                        setDebugInfo("Detected Head Height", `${headHeight.toFixed(2)}m`);
                                         
                                         hasInitialHeightCalibration = true;
                                         console.log("Cockpit position calibrated to user's height:", cockpit.position.y);
@@ -379,11 +506,23 @@ export function update(timestamp) {
         spaceGradientSphere.position.copy(cameraRig.position);
     }
     
-    // Log controller state occasionally (for debugging)
-    if (Math.random() < 0.01) { // Only log about 1% of the time to avoid console spam
+    // Update debug display
+    updateDebugDisplay(timestamp);
+    
+    // Update debug info with controller state occasionally
+    if (timestamp % 1000 < 16) { // Approximately once per second
         const debugInfo = getControllerDebugInfo();
+        
+        // Only update if controllers are connected
         if (debugInfo.leftController.connected || debugInfo.rightController.connected) {
-            console.log("VR Controller State:", debugInfo);
+            // Update debug display with controller axes
+            if (debugInfo.leftController.connected) {
+                setDebugInfo("Left Stick", `X:${debugInfo.leftController.axes[2]?.toFixed(2) || 0} Y:${debugInfo.leftController.axes[3]?.toFixed(2) || 0}`);
+            }
+            
+            if (debugInfo.rightController.connected) {
+                setDebugInfo("Right Stick", `X:${debugInfo.rightController.axes[2]?.toFixed(2) || 0} Y:${debugInfo.rightController.axes[3]?.toFixed(2) || 0}`);
+            }
         }
     }
 }
@@ -510,6 +649,16 @@ export function dispose() {
             }
         });
         scene.remove(cockpit);
+    }
+    
+    // Clean up debug display
+    if (debugTextMesh) {
+        if (debugTextMesh.material) {
+            if (debugTextMesh.material.map) debugTextMesh.material.map.dispose();
+            debugTextMesh.material.dispose();
+        }
+        if (debugTextMesh.geometry) debugTextMesh.geometry.dispose();
+        if (debugTextMesh.parent) debugTextMesh.parent.remove(debugTextMesh);
     }
     
     // Reset arrays
