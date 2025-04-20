@@ -243,9 +243,20 @@ function updateDebugDisplay(timestamp) {
     context.fillText(`Boost: ${controllerInfo.leftController.boostActive ? 'ACTIVE' : 'Off'}`, 20, y);
     y += lineHeight;
     
+    // XR Camera raw head height (if available)
+    if (renderer && renderer.xr && renderer.xr.isPresenting) {
+        const xrCamera = renderer.xr.getCamera();
+        if (xrCamera) {
+            context.fillStyle = '#ffff00'; // Highlight this in yellow for emphasis
+            context.fillText(`RAW XR HEAD HEIGHT: ${xrCamera.position.y.toFixed(4)}`, 20, y);
+            context.fillStyle = '#33ff33'; // Back to normal color
+            y += lineHeight;
+        }
+    }
+    
     // Cockpit information
     if (cockpit) {
-        context.fillText(`Cockpit Y offset: ${cockpit.position.y.toFixed(2)}`, 20, y);
+        context.fillText(`Cockpit Y offset: ${cockpit.position.y.toFixed(4)}`, 20, y);
         y += lineHeight;
     }
     
@@ -329,8 +340,9 @@ function loadCockpitModel() {
                                         // The cockpit will be positioned at the same height as the user's head
                                         cockpit.position.y = headHeight;
                                         
-                                        // Update debug info with the detected height
-                                        setDebugInfo("Detected Head Height", `${headHeight.toFixed(2)}m`);
+                                        // Update debug info with the detected height in multiple formats for clarity
+                                        setDebugInfo("DETECTED RAW HEAD HEIGHT", `${headHeight.toFixed(4)}m`);
+                                        setDebugInfo("Cockpit Y Position Set To", `${cockpit.position.y.toFixed(4)}m`);
                                         
                                         hasInitialHeightCalibration = true;
                                         console.log("Cockpit position calibrated to user's height:", cockpit.position.y);
