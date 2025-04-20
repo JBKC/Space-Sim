@@ -34,6 +34,10 @@ let initialized = false;
 let lastFrameTime = 0;
 const COCKPIT_SCALE = 1; // Scale factor for the cockpit model
 
+// Track cockpit position adjustment
+let initialHeadHeight = null;
+let cockpitAdjusted = false;
+
 // Initialize the VR scene
 export function init() {
     console.log("Initializing space VR environment");
@@ -170,8 +174,18 @@ function loadCockpitModel() {
                     // Add cockpit to the rig so it moves with the player
                     cameraRig.add(cockpit);
                     
-                    // Set camera position relative to cockpit
-                    cockpit.position.set(0, 1.1, -0.1);
+                    // Initial cockpit position - will be dynamically adjusted based on head height
+                    cockpit.position.set(0, 0.0, -0.2);
+                    
+                    // Add a listener for XR session start to handle session-specific adjustments
+                    if (renderer && renderer.xr) {
+                        renderer.xr.addEventListener('sessionstart', () => {
+                            console.log("XR session started - cockpit will be adjusted based on head height");
+                            // Reset tracking flag to allow new adjustment
+                            cockpitAdjusted = false;
+                            initialHeadHeight = null;
+                        });
+                    }
                     
                     // Ensure cockpit renders with proper materials
                     cockpit.traverse(function(child) {
@@ -343,6 +357,11 @@ export function startVRMode() {
     
     // Create XR animation loop
     function xrAnimationLoop(timestamp, frame) {
+        // Detect head height on first valid frame and adjust cockpit
+        if (frame && !cockpitAdjusted) {
+            detectHeadHeightAndAdjustCockpit(frame);
+        }
+        
         // Update movement based on controllers
         update(timestamp);
         
@@ -372,6 +391,45 @@ export function startVRMode() {
         
         vrButton.click();
     }, 1000);
+}
+
+// Function to detect head height and adjust cockpit position
+function detectHeadHeightAndAdjustCockpit(frame) {
+    if (!frame || !cockpit) return;
+    
+    // Get the viewer pose from the frame
+    const session = renderer.xr.getSession();
+    if (!session) return;
+    
+    const viewerPose = frame.getViewerPose(renderer.xr.getReferenceSpace());
+    if (!viewerPose) return;
+    
+    // Get the head position from the viewer pose
+    const headPosition = new THREE.Vector3();
+    headPosition.setFromMatrixPosition(viewerPose.transform.matrix);
+    
+    // Store initial head height
+    if (initialHeadHeight === null) {
+        initialHeadHeight = headPosition.y;
+        console.log("Detected initial head height:", initialHeadHeight);
+        
+        // Adjust cockpit position based on detected head height
+        if (cockpit) {
+            // Calculate difference from expected height (1.6m is a common default)
+            const defaultHeight = 1.6;
+            const heightDifference = initialHeadHeight - defaultHeight;
+            
+            // Current cockpit position (typically around y=1.1)
+            const currentY = cockpit.position.y;
+            
+            // Apply adjustment: if user is taller, move cockpit up, if shorter, move down
+            const newY = currentY + heightDifference;
+            cockpit.position.set(cockpit.position.x, newY, cockpit.position.z);
+            
+            console.log(`Adjusted cockpit Y position from ${currentY} to ${newY} based on head height`);
+            cockpitAdjusted = true;
+        }
+    }
 }
 
 // Clean up
