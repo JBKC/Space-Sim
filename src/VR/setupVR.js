@@ -33,6 +33,10 @@ let cockpit; // X-Wing cockpit model
 let debugTextMesh;
 let debugInfo = {};
 
+// Height tracking for cockpit
+let desiredCockpitHeight = null;
+let heightCalibrationComplete = false;
+
 let starSystem;
 let initialized = false;
 let lastFrameTime = 0;
@@ -333,19 +337,36 @@ function loadCockpitModel() {
                                         const headHeight = xrCamera.position.y;
                                         
                                         // Use the user's actual head height for cockpit positioning
-                                        // This adapts the cockpit to the user's seated or standing position
-                                        console.log(`Detected user head height: ${headHeight.toFixed(2)}m, adjusting cockpit position`);
+                                        console.log(`Detected user head height: ${headHeight.toFixed(4)}m, adjusting cockpit position`);
                                         
-                                        // Actually use the measured head height for the cockpit position
-                                        // The cockpit will be positioned at the same height as the user's head
-                                        cockpit.position.y = headHeight;
+                                        // Set the global desired height so it will be continually enforced
+                                        desiredCockpitHeight = headHeight;
+                                        
+                                        // FORCE the cockpit position to match the head height exactly
+                                        cockpit.position.y = desiredCockpitHeight;
+                                        
+                                        console.log(`SETTING COCKPIT Y POSITION to ${desiredCockpitHeight.toFixed(4)}m`);
+                                        
+                                        // Double-check that the position was set
+                                        console.log(`VERIFY: Cockpit Y position is now: ${cockpit.position.y.toFixed(4)}m`);
                                         
                                         // Update debug info with the detected height in multiple formats for clarity
                                         setDebugInfo("DETECTED RAW HEAD HEIGHT", `${headHeight.toFixed(4)}m`);
-                                        setDebugInfo("Cockpit Y Position Set To", `${cockpit.position.y.toFixed(4)}m`);
+                                        setDebugInfo("TARGET COCKPIT HEIGHT", `${desiredCockpitHeight.toFixed(4)}m`);
+                                        setDebugInfo("CURRENT COCKPIT HEIGHT", `${cockpit.position.y.toFixed(4)}m`);
                                         
                                         hasInitialHeightCalibration = true;
-                                        console.log("Cockpit position calibrated to user's height:", cockpit.position.y);
+                                        heightCalibrationComplete = true;
+                                        
+                                        // Store the calibrated height for later use
+                                        setDebugInfo("CALIBRATED HEIGHT", `${desiredCockpitHeight.toFixed(4)}m`);
+                                        
+                                        // Force position update immediately and add a check
+                                        setTimeout(() => {
+                                            setDebugInfo("AFTER DELAY Y POS", `${cockpit.position.y.toFixed(4)}m`);
+                                            // Force it again for good measure
+                                            cockpit.position.y = desiredCockpitHeight;
+                                        }, 200);
                                     }, 500); // Small delay to ensure XR pose is stable
                                 }
                             }
@@ -466,6 +487,19 @@ export function update(timestamp) {
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
     
+    // If we have a calibrated cockpit height, make sure it's enforced every frame
+    if (heightCalibrationComplete && cockpit && desiredCockpitHeight !== null) {
+        // Check if the cockpit height has drifted from our desired value
+        if (Math.abs(cockpit.position.y - desiredCockpitHeight) > 0.001) {
+            // Reset to desired position
+            cockpit.position.y = desiredCockpitHeight;
+            console.log(`Re-enforced cockpit Y position to ${desiredCockpitHeight.toFixed(4)}m`);
+            
+            // Add to debug info
+            setDebugInfo("ENFORCED HEIGHT", `${timestamp.toFixed(0)}ms`);
+        }
+    }
+    
     // Update the time uniform for shaders
     if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {
         directionalLightCone.material.uniforms.time.value = timestamp * 0.001;
@@ -534,6 +568,15 @@ export function update(timestamp) {
             
             if (debugInfo.rightController.connected) {
                 setDebugInfo("Right Stick", `X:${debugInfo.rightController.axes[2]?.toFixed(2) || 0} Y:${debugInfo.rightController.axes[3]?.toFixed(2) || 0}`);
+            }
+        }
+        
+        // Add current cockpit height
+        if (cockpit) {
+            setDebugInfo("CURRENT COCKPIT HEIGHT", `${cockpit.position.y.toFixed(4)}m`);
+            
+            if (desiredCockpitHeight !== null) {
+                setDebugInfo("HEIGHT DIFF", `${(cockpit.position.y - desiredCockpitHeight).toFixed(4)}m`);
             }
         }
     }
