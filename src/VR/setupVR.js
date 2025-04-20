@@ -171,7 +171,7 @@ function loadCockpitModel() {
                     cameraRig.add(cockpit);
                     
                     // Set camera position relative to cockpit
-                    cockpit.position.set(0, 1.0, -0.2);
+                    cockpit.position.set(0, 1.1, -0.1);
                     
                     // Ensure cockpit renders with proper materials
                     cockpit.traverse(function(child) {
