@@ -93,19 +93,14 @@ export function init() {
         document.body.appendChild(renderer.domElement);
     }
     
-    // Add space environment elements to the SCENE (not to the camera rig)
-    // This ensures they stay fixed in world space as the user moves
+    // Add advanced space environment elements
     scene.add(spaceGradientSphere);
     scene.add(nebula);
     scene.add(particleSystem);
     scene.add(directionalLightCone);
     scene.add(galaxyBackdrop);
     
-    // Position space gradient sphere at the world origin (not at camera)
-    // This creates a fixed backdrop around the entire space
-    spaceGradientSphere.position.set(0, 0, 0);
-    
-    // Create stars with dynamic brightness - also fixed in world space
+    // Create stars with dynamic brightness
     starSystem = createStars();
     scene.add(starSystem.stars);
     console.log("Added dynamic star system to VR environment");
@@ -292,7 +287,7 @@ export function update(timestamp) {
     if (starSystem && starSystem.stars) {
         // Use cameraRig position for star updates to ensure proper movement tracking
         const positionForStars = cameraRig ? cameraRig.position : camera.position;
-        updateStars(starSystem.stars, positionForStars);
+        updateStars(starSystem.stars, positionForStars, false); // Pass false to prevent respawning stars relative to camera
     }
     
     // Update galaxy backdrop to slowly rotate
