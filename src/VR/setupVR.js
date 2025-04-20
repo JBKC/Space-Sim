@@ -25,7 +25,7 @@ let cockpit; // X-Wing cockpit model
 let starSystem;
 let initialized = false;
 let lastFrameTime = 0;
-const COCKPIT_SCALE = 0.5; // Scale factor for the cockpit model
+const COCKPIT_SCALE = 1; // Scale factor for the cockpit model
 
 // Initialize the VR scene
 export function init() {
@@ -38,7 +38,7 @@ export function init() {
     
     // Create scene
     scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x000011, 0.00001); // Very subtle exponential fog
+    // scene.fog = new THREE.FogExp2(0x000011, 0.00001); // Very subtle exponential fog
     
     // Create perspective camera with improved near/far planes
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 150000);
@@ -52,7 +52,7 @@ export function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.outputEncoding = THREE.sRGBEncoding;
-    renderer.setClearColor(0x000011);
+    renderer.setClearColor(0x05182b);                   // Main space background color
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.8;
     
@@ -95,7 +95,7 @@ export function init() {
     }
     
     // Add advanced space environment elements
-    scene.add(spaceGradientSphere);
+    // scene.add(spaceGradientSphere);
     scene.add(nebula);
     scene.add(particleSystem);
     scene.add(directionalLightCone);
@@ -116,7 +116,7 @@ export function init() {
     cameraRig = setupCameraRig(scene, camera);
     
     // Load X-Wing cockpit model
-    // loadCockpitModel();
+    loadCockpitModel();
     
     // Add subtle ambient light
     const ambientLight = new THREE.AmbientLight(0x111133, 0.5);
@@ -149,8 +149,11 @@ function loadCockpitModel() {
             // Scale and position the cockpit around the camera
             cockpit.scale.set(COCKPIT_SCALE, COCKPIT_SCALE, COCKPIT_SCALE);
             
-            // Adjust position slightly to position the pilot's seat correctly
-            cockpit.position.set(0, -0.4, 0);
+            // Set camera position within cockpit
+            cockpit.position.set(0, 0, 0);
+            
+            // Rotate cockpit 180 degrees around Y-axis to face forward
+            cockpit.rotation.y = Math.PI; // This is a 180-degree rotation in radians
             
             // Add the cockpit to the camera rig
             if (cameraRig) {
