@@ -58,6 +58,30 @@ export function init() {
     // Enable XR
     renderer.xr.enabled = true;
     
+    // Configure WebXR for high quality rendering across the entire field of view
+    renderer.xr.setFoveation(0); // Disable foveated rendering (0 = no foveation, 1 = maximum foveation)
+    
+    // Set up session initialization event listener to configure XR session when it starts
+    renderer.xr.addEventListener('sessionstart', function() {
+        const session = renderer.xr.getSession();
+        
+        if (session) {
+            // Configure render layers for highest quality
+            session.updateRenderState({
+                baseLayer: new XRWebGLLayer(session, renderer.getContext(), {
+                    framebufferScaleFactor: 1.0, // Set to 1.0 for highest quality
+                    alpha: false,
+                    depth: true,
+                    stencil: false,
+                    antialias: true,
+                    multiview: true // Use multiview when available for better performance
+                })
+            });
+            
+            console.log("WebXR session configured for high quality rendering");
+        }
+    });
+    
     // Initialize VR controllers for movement
     initVRControllers(renderer);
     
