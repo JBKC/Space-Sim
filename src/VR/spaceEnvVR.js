@@ -4,12 +4,9 @@ import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { loadTextureFromRegistry, universalScaleFactor } from '../appConfig/loaders.js';
 
-
 // Advanced space environment elements
 let spaceDustParticles = [];
 let nebulaeClouds = [];
-let galaxyBackdrop;
-let spaceGradientSphere;
 
 const SPACE_RADIUS = 125000; // Scale of the space environment
 
@@ -24,27 +21,6 @@ const COLORS = {
     mutedOrange: new THREE.Color(0xcc6633),
     mutedPink: new THREE.Color(0xcc6688)
 };
-
-
-// Create a cinematic space environment following guidelines
-export function createCinematicSpaceEnvironment() {
-    console.log("Creating cinematic space environment");
-    
-    // 1. Deep Radial Gradient Sphere for background
-    createGradientSphere();
-    
-    // 2. Volumetric Nebulae Clouds
-    createNebulaeClouds();
-    
-    // 3. Space Dust Particles
-    createSpaceDust();
-    
-    // 4. Directional Light Cone / Volumetric Light
-    createLightCone();
-    
-    // 5. Distant Galaxy Backdrop
-    createGalaxyBackdrop();
-}
 
 // 1. Create a sphere with a radial gradient shader for the background
 function createGradientSphere() {
@@ -82,16 +58,18 @@ function createGradientSphere() {
         fog: false
     });
     
-    spaceGradientSphere = new THREE.Mesh(sphereGeometry, gradientMaterial);
+    const spaceGradientSphere = new THREE.Mesh(sphereGeometry, gradientMaterial);
     spaceGradientSphere.renderOrder = -1000; // Render before everything else
-    scene.add(spaceGradientSphere);
     console.log("Created gradient sphere background");
+    
+    return spaceGradientSphere;
 }
 
 // 2. Create volumetric nebulae clouds
 function createNebulaeClouds() {
     const nebulaCount = 8;
     const nebulaTexture = loadTextureFromRegistry('particle', 'nebula_cloud');
+    const createdNebulae = [];
     
     for (let i = 0; i < nebulaCount; i++) {
         // Create a plane for each nebula cloud
@@ -114,7 +92,7 @@ function createNebulaeClouds() {
             depthWrite: false,
             blending: THREE.AdditiveBlending
         });
-        
+                
         const nebula = new THREE.Mesh(geometry, material);
         
         // Position the nebula randomly in space, but far away
@@ -131,8 +109,7 @@ function createNebulaeClouds() {
         nebula.rotation.y = Math.random() * Math.PI;
         nebula.rotation.z = Math.random() * Math.PI;
         
-        scene.add(nebula);
-        nebulaeClouds.push({
+        createdNebulae.push({
             mesh: nebula,
             rotationSpeed: {
                 x: (Math.random() - 0.5) * 0.0001, // Slow rotation
@@ -143,12 +120,16 @@ function createNebulaeClouds() {
     }
     
     console.log(`Created ${nebulaCount} volumetric nebula clouds`);
+    nebulaeClouds = createdNebulae;
+    return createdNebulae[0].mesh; // Return one nebula for export
 }
 
 // 3. Create space dust particles
 function createSpaceDust() {
     const particleCount = 3000;
     const particleTexture = loadTextureFromRegistry('particle', 'glow');
+    const createdDustParticles = [];
+    let particleSystem;
     
     // Create three layers of space dust at different distances
     const layers = [
@@ -214,11 +195,10 @@ function createSpaceDust() {
             );
         };
         
-        const particleSystem = new THREE.Points(particles, material);
+        particleSystem = new THREE.Points(particles, material);
         particleSystem.sortParticles = true;
-        scene.add(particleSystem);
         
-        spaceDustParticles.push({
+        createdDustParticles.push({
             system: particleSystem,
             initialPositions: positions.slice(),
             driftSpeed: 0.0005, // Slow drift speed
@@ -227,6 +207,8 @@ function createSpaceDust() {
     });
     
     console.log("Created space dust particle systems");
+    spaceDustParticles = createdDustParticles;
+    return particleSystem;
 }
 
 // 4. Create directional light cone
@@ -356,14 +338,14 @@ function createLightCone() {
         side: THREE.DoubleSide
     });
     
-    directionalLightCone = new THREE.Mesh(coneGeometry, coneMaterial);
+    const directionalLightCone = new THREE.Mesh(coneGeometry, coneMaterial);
     
     // Position the cone so its tip is at the origin, pointing along -Z
     directionalLightCone.position.z = -SPACE_RADIUS * 0.15;
     directionalLightCone.rotation.x = Math.PI; // Rotate to point backward
     
-    scene.add(directionalLightCone);
     console.log("Created directional light cone");
+    return directionalLightCone;
 }
 
 // 5. Create distant galaxy backdrop
@@ -385,7 +367,7 @@ function createGalaxyBackdrop() {
         color: new THREE.Color(0xff8866) // Warm orange-pink for galaxy core
     });
     
-    galaxyBackdrop = new THREE.Mesh(geometry, material);
+    const galaxyBackdrop = new THREE.Mesh(geometry, material);
     
     // Position the galaxy far in the distance
     galaxyBackdrop.position.set(
@@ -397,6 +379,26 @@ function createGalaxyBackdrop() {
     // Make sure it's facing the camera
     galaxyBackdrop.lookAt(0, 0, 0);
     
-    scene.add(galaxyBackdrop);
     console.log("Created galaxy backdrop");
+    return galaxyBackdrop;
 }
+
+// Create a cinematic space environment element-by-element
+const spaceGradientSphere = createGradientSphere();
+const nebula = createNebulaeClouds();
+const particleSystem = createSpaceDust();
+const directionalLightCone = createLightCone();
+const galaxyBackdrop = createGalaxyBackdrop();
+
+// Export VR space environment elements
+export {
+    SPACE_RADIUS,
+    COLORS,
+    spaceGradientSphere,
+    nebula,
+    nebulaeClouds,
+    particleSystem,
+    spaceDustParticles,
+    directionalLightCone,
+    galaxyBackdrop
+};

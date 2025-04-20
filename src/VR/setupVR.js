@@ -6,35 +6,27 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { loadTextureFromRegistry, universalScaleFactor } from '../appConfig/loaders.js';
 import { initVRControllers, updateVRMovement, getControllerDebugInfo, setupCameraRig } from './movementVR.js';
 import { createStars, updateStars } from './starsVR.js';
-import { createCinematicSpaceEnvironment } from './spaceEnvVR.js';
+import {
+    spaceGradientSphere,
+    nebula,
+    nebulaeClouds,
+    particleSystem,
+    spaceDustParticles,
+    directionalLightCone,
+    galaxyBackdrop
+} from './spaceEnvVR.js';
 
 // Core scene elements
 let scene, camera, renderer;
 let cameraRig; // Reference to the camera rig
 let cockpit; // X-Wing cockpit model
 
-// Advanced space environment elements
-let spaceDustParticles = [];
-let nebulaeClouds = [];
-let galaxyBackdrop;
-let directionalLightCone;
-let spaceGradientSphere;
-
-// Star system
 let starSystem;
-
-// Track if the scene is initialized
 let initialized = false;
-
-// Movement tracking
 let lastFrameTime = 0;
-
-// Constants
 const COCKPIT_SCALE = 0.5; // Scale factor for the cockpit model
 
-// Advanced space environment colors
-
-// Initialize the minimal VR scene
+// Initialize the VR scene
 export function init() {
     console.log("Initializing space VR environment");
     
@@ -77,8 +69,12 @@ export function init() {
         document.body.appendChild(renderer.domElement);
     }
     
-    // Create advanced space environment elements
-    createCinematicSpaceEnvironment();
+    // Add advanced space environment elements
+    scene.add(spaceGradientSphere);
+    scene.add(nebula);
+    scene.add(particleSystem);
+    scene.add(directionalLightCone);
+    scene.add(galaxyBackdrop);
     
     // Create stars with dynamic brightness
     starSystem = createStars();
