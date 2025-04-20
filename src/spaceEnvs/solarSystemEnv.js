@@ -608,7 +608,7 @@ loadModelFromRegistry(
         console.log('First Imperial Star Destroyer loaded successfully from registry');
     },
     (xhr) => {
-        console.log(`Loading Star Destroyer: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
+        // console.log(`Loading Star Destroyer: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
     },
     (error) => {
         console.error('Error loading Star Destroyer from registry:', error);
@@ -632,7 +632,7 @@ loadModelFromRegistry(
         console.log('Second Imperial Star Destroyer loaded successfully from registry');
     },
     (xhr) => {
-        console.log(`Loading Star Destroyer 2: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
+        // console.log(`Loading Star Destroyer 2: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
     },
     (error) => {
         console.error('Error loading Star Destroyer 2 from registry:', error);
