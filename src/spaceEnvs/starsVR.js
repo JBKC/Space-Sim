@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { universalScaleFactor } from '../appConfig/loaders.js';
 
 // Star configuration constants
-const STAR_COUNT = 600000; // Tripled from 200,000 to 600,000 stars
+const STAR_COUNT = 600000; // Tripled from 200,000 to 600,000 for more immersive space environment
 const STAR_SIZE = 25;
 const STAR_RANGE = 250000;
 

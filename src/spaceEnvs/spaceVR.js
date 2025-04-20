@@ -2,16 +2,16 @@
 
 import * as THREE from 'three';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { loadTextureFromRegistry, universalScaleFactor } from '../appConfig/loaders.js';
 import { initVRControllers, updateVRMovement, getControllerDebugInfo, setupCameraRig } from './movementVR.js';
 import { createStars, updateStars } from './starsVR.js';
-import { createCockpit } from './cockpitVR.js';
 
 // Core scene elements
 let scene, camera, renderer;
 let spacebox;
 let cameraRig; // Reference to the camera rig
-let cockpit; // Reference to the cockpit model
+let cockpit; // X-Wing cockpit model
 
 // Star system
 let starSystem;
@@ -24,6 +24,7 @@ let lastFrameTime = 0;
 
 // Constants - reduced size to fix potential draw distance issues
 const SKYBOX_SIZE = 125000; // Reduced to half the original size
+const COCKPIT_SCALE = 0.5; // Scale factor for the cockpit model
 
 // Initialize the minimal VR scene
 export function init() {
@@ -82,16 +83,70 @@ export function init() {
     // Create camera rig for separating head tracking from movement
     cameraRig = setupCameraRig(scene, camera);
     
-    // Create and add cockpit model to camera rig
-    cockpit = createCockpit();
-    cameraRig.add(cockpit);
-    console.log("Added cockpit model to VR environment");
+    // Load X-Wing cockpit model
+    loadCockpitModel();
     
     // Mark as initialized
     initialized = true;
     console.log("VR test environment initialized");
     
     return { scene, camera, renderer };
+}
+
+// Load X-Wing cockpit model
+function loadCockpitModel() {
+    const loader = new GLTFLoader();
+    
+    loader.load(
+        // Path to the model
+        '/src/assets/models/x-wing_cockpit_lowres.glb',
+        
+        // Called when the model is loaded
+        function(gltf) {
+            cockpit = gltf.scene;
+            
+            // Scale and position the cockpit around the camera
+            cockpit.scale.set(COCKPIT_SCALE, COCKPIT_SCALE, COCKPIT_SCALE);
+            
+            // Adjust position slightly to position the pilot's seat correctly
+            cockpit.position.set(0, -0.4, 0);
+            
+            // Add the cockpit to the camera rig
+            if (cameraRig) {
+                // Add cockpit to the rig so it moves with the player
+                cameraRig.add(cockpit);
+                
+                // Position it just in front of the camera
+                cockpit.position.z = -0.2;
+                
+                // Ensure cockpit renders with proper materials
+                cockpit.traverse(function(child) {
+                    if (child.isMesh) {
+                        child.material.metalness = 0.3;
+                        child.material.roughness = 0.7;
+                        
+                        // Set renderOrder to ensure cockpit renders after everything else
+                        child.renderOrder = 1000;
+                    }
+                });
+                
+                console.log("X-Wing cockpit model loaded and added to camera rig");
+            } else {
+                console.error("Camera rig not available, cockpit not attached");
+            }
+        },
+        
+        // Called while loading is in progress
+        function(xhr) {
+            const percent = (xhr.loaded / xhr.total) * 100;
+            console.log('Loading cockpit model: ' + percent.toFixed(0) + '%');
+        },
+        
+        // Called if there's an error
+        function(error) {
+            console.error('Error loading cockpit model:', error);
+        }
+    );
 }
 
 // Create spacebox (skybox)
@@ -262,15 +317,21 @@ export function dispose() {
         }
     }
     
-    // Clean up cockpit
+    // Dispose cockpit model
     if (cockpit) {
-        cockpit.traverse(child => {
-            if (child.geometry) child.geometry.dispose();
-            if (child.material) {
-                if (Array.isArray(child.material)) {
-                    child.material.forEach(material => material.dispose());
-                } else {
-                    child.material.dispose();
+        cockpit.traverse(function(child) {
+            if (child.isMesh) {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(material => {
+                            if (material.map) material.map.dispose();
+                            material.dispose();
+                        });
+                    } else {
+                        if (child.material.map) child.material.map.dispose();
+                        child.material.dispose();
+                    }
                 }
             }
         });
