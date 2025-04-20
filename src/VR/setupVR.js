@@ -186,8 +186,8 @@ function createDebugDisplay() {
     
     // Don't add to scene yet - will add to camera rig after it's created
     if (cameraRig) {
-        // Position the debug display in front of the user but below eye level
-        debugTextMesh.position.set(0, -0.4, -0.8);
+        // Position the debug display in front of the user 
+        debugTextMesh.position.set(0, -0.4, 1.1);
         cameraRig.add(debugTextMesh);
     }
 }

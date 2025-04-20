@@ -23,11 +23,21 @@ let gamepadIndices = {
     }
 };
 
-// Define rotation axes in local space
-const localAxes = {
-    pitch: new THREE.Vector3(1, 0, 0), // Local X axis for pitch
-    roll: new THREE.Vector3(0, 0, 1),  // Local Z axis for roll
-    yaw: new THREE.Vector3(0, 1, 0)    // Local Y axis for yaw
+// Rotation axes for proper spacecraft movement
+const rotationAxes = {
+    pitchAxis: new THREE.Vector3(1, 0, 0),
+    rollAxis: new THREE.Vector3(0, 0, 1),
+    yawAxis: new THREE.Vector3(0, 1, 0)
+};
+
+// Rotation quaternions for each axis
+const rotation = {
+    pitch: new THREE.Quaternion(),
+    roll: new THREE.Quaternion(),
+    yaw: new THREE.Quaternion(),
+    pitchAxis: rotationAxes.pitchAxis,
+    rollAxis: rotationAxes.rollAxis,
+    yawAxis: rotationAxes.yawAxis
 };
 
 // Initialize VR controllers for movement
@@ -38,6 +48,11 @@ export function initVRControllers(renderer) {
     }
     
     console.log("Initializing VR controllers for movement");
+    
+    // Reset rotation quaternions
+    rotation.pitch.identity();
+    rotation.roll.identity();
+    rotation.yaw.identity();
     
     // Function to handle when a controller connects
     function onConnected(event) {
@@ -168,71 +183,58 @@ export function updateVRMovement(camera, deltaTime = 0.016) {
     // If we have a rig, move the rig instead of the camera directly
     // This preserves head tracking while allowing controller-based movement
     if (cameraRig) {
+        // Reset rotation quaternions
+        rotation.pitch.identity();
+        rotation.yaw.identity();
+        rotation.roll.identity();
+        
         // Get controller inputs
-        let pitchAngle = 0;
-        let rollAngle = 0;
-        let yawAngle = 0;
+        let leftGamepad = null;
+        let rightGamepad = null;
+        
+        if (leftController && leftController.gamepad) {
+            leftGamepad = leftController.gamepad;
+        }
+        
+        if (rightController && rightController.gamepad) {
+            rightGamepad = rightController.gamepad;
+        }
         
         // Process left controller input (pitch and roll)
-        if (leftController && leftController.gamepad) {
-            const xAxis = applyDeadzone(leftController.gamepad.axes[gamepadIndices.axes.thumbstickX] || 0, 0.1);
-            const yAxis = applyDeadzone(leftController.gamepad.axes[gamepadIndices.axes.thumbstickY] || 0, 0.1);
+        if (leftGamepad) {
+            const xAxis = applyDeadzone(leftGamepad.axes[gamepadIndices.axes.thumbstickX] || 0, 0.1);
+            const yAxis = applyDeadzone(leftGamepad.axes[gamepadIndices.axes.thumbstickY] || 0, 0.1);
             
-            // Roll (left stick horizontal)
             if (Math.abs(xAxis) > 0) {
-                rollAngle = -xAxis * ROTATION_SPEED;
+                // Roll (left stick horizontal = rotation around Z axis)
+                rotation.roll.setFromAxisAngle(rotation.rollAxis, -xAxis * ROTATION_SPEED);
             }
             
-            // Pitch (left stick vertical)
             if (Math.abs(yAxis) > 0) {
-                // Inverted pitch (yAxis instead of -yAxis)
-                pitchAngle = yAxis * ROTATION_SPEED;
+                // Pitch (left stick vertical = rotation around X axis)
+                // Inverted pitch control (yAxis instead of -yAxis)
+                rotation.pitch.setFromAxisAngle(rotation.pitchAxis, yAxis * ROTATION_SPEED);
             }
         }
         
         // Process right controller input (yaw)
-        if (rightController && rightController.gamepad) {
-            const xAxis = applyDeadzone(rightController.gamepad.axes[gamepadIndices.axes.thumbstickX] || 0, 0.1);
+        if (rightGamepad) {
+            const xAxis = applyDeadzone(rightGamepad.axes[gamepadIndices.axes.thumbstickX] || 0, 0.1);
             
-            // Yaw (right stick horizontal)
             if (Math.abs(xAxis) > 0) {
-                yawAngle = -xAxis * ROTATION_SPEED;
+                // Yaw (right stick horizontal = rotation around Y axis)
+                rotation.yaw.setFromAxisAngle(rotation.yawAxis, -xAxis * ROTATION_SPEED);
             }
         }
         
-        // Apply rotations to the rig in the proper order for intuitive spacecraft control
-        if (rollAngle !== 0) {
-            // Convert world space axis to object local axis
-            const localRollAxis = new THREE.Vector3().copy(localAxes.roll);
-            // Transform the local Z axis to the current rotation frame
-            localRollAxis.applyQuaternion(cameraRig.quaternion);
-            // Apply rotation around this rotated axis
-            cameraRig.quaternion.multiply(
-                new THREE.Quaternion().setFromAxisAngle(localRollAxis.normalize(), rollAngle)
-            );
-        }
-        
-        if (pitchAngle !== 0) {
-            // Convert world space axis to object local axis 
-            const localPitchAxis = new THREE.Vector3().copy(localAxes.pitch);
-            // Transform the local X axis to the current rotation frame
-            localPitchAxis.applyQuaternion(cameraRig.quaternion);
-            // Apply rotation around this rotated axis
-            cameraRig.quaternion.multiply(
-                new THREE.Quaternion().setFromAxisAngle(localPitchAxis.normalize(), pitchAngle)
-            );
-        }
-        
-        if (yawAngle !== 0) {
-            // Convert world space axis to object local axis
-            const localYawAxis = new THREE.Vector3().copy(localAxes.yaw);
-            // Transform the local Y axis to the current rotation frame
-            localYawAxis.applyQuaternion(cameraRig.quaternion);
-            // Apply rotation around this rotated axis
-            cameraRig.quaternion.multiply(
-                new THREE.Quaternion().setFromAxisAngle(localYawAxis.normalize(), yawAngle)
-            );
-        }
+        // Combine all rotations
+        const combinedRotation = new THREE.Quaternion()
+            .copy(rotation.roll)
+            .multiply(rotation.pitch)
+            .multiply(rotation.yaw);
+            
+        // Apply combined rotation to camera rig
+        cameraRig.quaternion.multiply(combinedRotation);
         
         // Move forward in the direction we're facing
         moveForward(cameraRig, currentSpeed * deltaTime);
@@ -303,10 +305,11 @@ export function getControllerDebugInfo() {
             buttons: rightController && rightController.gamepad ? 
                     rightController.gamepad.buttons.map(b => b.pressed) : []
         },
-        cameraRig: cameraRig ? {
-            position: cameraRig.position.toArray(),
-            quaternion: cameraRig.quaternion.toArray()
-        } : null
+        rotation: {
+            pitch: rotation.pitch.toArray(),
+            roll: rotation.roll.toArray(),
+            yaw: rotation.yaw.toArray()
+        }
     };
     
     return info;
