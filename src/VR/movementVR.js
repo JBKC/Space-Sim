@@ -5,14 +5,17 @@ import * as THREE from 'three';
 // Configuration constants
 const FORWARD_SPEED = 1000; // Keeping fast forward speed
 const ROTATION_SPEED = 0.012; // Reduced by 100x (was 0.3) for much less sensitive controls
+const BOOST_MULTIPLIER = 5; // Speed multiplier when boost is active
 
 // Track controller inputs and state
 let leftController = null;
 let rightController = null;
 let cameraRig = null; // NEW: Container for camera to separate head movement from position
+let isBoostActive = false; // Track boost state
 let gamepadIndices = {
     button: {
-        thumbstick: 3 // Thumbstick button
+        thumbstick: 3, // Thumbstick button
+        trigger: 1     // Left trigger button (typically index 1)
     },
     axes: {
         thumbstickX: 2, // Horizontal thumbstick axis
@@ -98,7 +101,8 @@ function detectGamepadLayout(gamepad) {
     if (gamepad.id.includes('Oculus Touch') || gamepad.id.includes('Quest')) {
         gamepadIndices = {
             button: {
-                thumbstick: 3 // Thumbstick press
+                thumbstick: 3, // Thumbstick press
+                trigger: 1     // Trigger (index finger)
             },
             axes: {
                 thumbstickX: 2, // Horizontal thumbstick axis
@@ -111,7 +115,8 @@ function detectGamepadLayout(gamepad) {
     else if (gamepad.id.includes('Index') || gamepad.id.includes('Valve')) {
         gamepadIndices = {
             button: {
-                thumbstick: 3 // Thumbstick press
+                thumbstick: 3, // Thumbstick press
+                trigger: 1     // Trigger (index finger)
             },
             axes: {
                 thumbstickX: 0, // Horizontal thumbstick axis
@@ -124,7 +129,8 @@ function detectGamepadLayout(gamepad) {
     else if (gamepad.id.includes('Vive') || gamepad.id.includes('HTC')) {
         gamepadIndices = {
             button: {
-                thumbstick: 2 // Touchpad press (Vive doesn't have thumbsticks)
+                thumbstick: 2, // Touchpad press (Vive doesn't have thumbsticks)
+                trigger: 1     // Trigger (index finger)
             },
             axes: {
                 thumbstickX: 0, // Touchpad X axis
@@ -144,11 +150,19 @@ export function updateVRMovement(camera, deltaTime = 0.016) {
         setupCameraRig(camera.parent, camera);
     }
     
+    // Check for boost activation (left trigger)
+    updateBoostState();
+    
+    // Calculate the current speed based on boost state
+    const currentSpeed = isBoostActive ? 
+        FORWARD_SPEED * BOOST_MULTIPLIER : 
+        FORWARD_SPEED;
+    
     // If we have a rig, move the rig instead of the camera directly
     // This preserves head tracking while allowing controller-based movement
     if (cameraRig) {
-        // Apply constant forward movement to the rig
-        moveForward(cameraRig, FORWARD_SPEED * deltaTime);
+        // Apply constant forward movement to the rig, with potential boost
+        moveForward(cameraRig, currentSpeed * deltaTime);
         
         // Apply rotation from controller inputs to the rig
         if (leftController && leftController.gamepad) {
@@ -162,7 +176,7 @@ export function updateVRMovement(camera, deltaTime = 0.016) {
         console.warn("No camera rig available for VR movement - headset may override movement");
         
         // Legacy fallback when no rig is available
-        moveForward(camera, FORWARD_SPEED * deltaTime);
+        moveForward(camera, currentSpeed * deltaTime);
         
         // Apply rotation from controller inputs
         if (leftController && leftController.gamepad) {
@@ -171,6 +185,27 @@ export function updateVRMovement(camera, deltaTime = 0.016) {
         
         if (rightController && rightController.gamepad) {
             applyRightControllerRotation(camera, rightController.gamepad);
+        }
+    }
+}
+
+// Check and update the boost state based on left trigger
+function updateBoostState() {
+    if (!leftController || !leftController.gamepad) return;
+    
+    const triggerButton = leftController.gamepad.buttons[gamepadIndices.button.trigger];
+    
+    if (triggerButton) {
+        // Most gamepads report trigger state with a value property between 0 and 1
+        const isTriggerPressed = triggerButton.value > 0.5 || triggerButton.pressed;
+        
+        // Update boost state
+        if (isTriggerPressed && !isBoostActive) {
+            console.log("Speed boost activated!");
+            isBoostActive = true;
+        } else if (!isTriggerPressed && isBoostActive) {
+            console.log("Speed boost deactivated");
+            isBoostActive = false;
         }
     }
 }
@@ -254,7 +289,8 @@ export function getControllerDebugInfo() {
             axes: leftController && leftController.gamepad ? 
                   leftController.gamepad.axes.slice(0, 4) : [],
             buttons: leftController && leftController.gamepad ? 
-                    leftController.gamepad.buttons.map(b => b.pressed) : []
+                    leftController.gamepad.buttons.map(b => b.pressed) : [],
+            boostActive: isBoostActive
         },
         rightController: {
             connected: rightController !== null,
