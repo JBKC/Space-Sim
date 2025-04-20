@@ -607,12 +607,12 @@ loadModelFromRegistry(
         starDestroyerGroup.add(starDestroyer);
         console.log('First Imperial Star Destroyer loaded successfully from registry');
     },
-    (xhr) => {
-        // console.log(`Loading Star Destroyer: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
-    },
-    (error) => {
-        console.error('Error loading Star Destroyer from registry:', error);
-    }
+    // (xhr) => {
+    //     console.log(`Loading Star Destroyer: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
+    // },
+    // (error) => {
+    //     console.error('Error loading Star Destroyer from registry:', error);
+    // }
 );
 
 // Load second Star Destroyer using registry
@@ -631,12 +631,12 @@ loadModelFromRegistry(
         starDestroyerGroup.add(secondStarDestroyer);
         console.log('Second Imperial Star Destroyer loaded successfully from registry');
     },
-    (xhr) => {
-        // console.log(`Loading Star Destroyer 2: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
-    },
-    (error) => {
-        console.error('Error loading Star Destroyer 2 from registry:', error);
-    }
+    // (xhr) => {
+    //     console.log(`Loading Star Destroyer 2: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
+    // },
+    // (error) => {
+    //     console.error('Error loading Star Destroyer 2 from registry:', error);
+    // }
 );
 
 // Add to planet groups between Jupiter and Saturn
@@ -676,12 +676,12 @@ loadModelFromRegistry(
         lucrehulkGroup.add(lucrehulkModel);
         console.log('Lucrehulk battleship loaded successfully from registry');
     },
-    (xhr) => { // onProgress callback (optional)
-        console.log(`Loading Lucrehulk: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
-    },
-    (error) => { // onError callback
-        console.error('Error loading Lucrehulk from registry:', error);
-    }
+    // (xhr) => { // onProgress callback (optional)
+    //     console.log(`Loading Lucrehulk: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
+    // },
+    // (error) => { // onError callback
+    //     console.error('Error loading Lucrehulk from registry:', error);
+    // }
 );
 
 // Add to planet groups between Venus and Earth orbits
@@ -720,12 +720,12 @@ loadModelFromRegistry(
         deathStarGroup.add(deathStarModel);
         console.log('Death Star loaded successfully from registry');
     },
-    (xhr) => { // onProgress callback (optional)
-        console.log(`Loading Death Star: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
-    },
-    (error) => { // onError callback
-        console.error('Error loading Death Star from registry:', error);
-    }
+    // (xhr) => { // onProgress callback (optional)
+    //     console.log(`Loading Death Star: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
+    // },
+    // (error) => { // onError callback
+    //     console.error('Error loading Death Star from registry:', error);
+    // }
 );
 
 // Add to planet groups between Mercury and Venus
@@ -795,12 +795,12 @@ loadModelFromRegistry(
             asteroidBeltGroup.add(asteroid);
         }
     },
-    (xhr) => {
-        console.log(`Loading asteroids: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
-    },
-    (error) => {
-        console.error('Error loading asteroid model from registry:', error);
-    }
+    // (xhr) => {
+    //     console.log(`Loading asteroids: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
+    // },
+    // (error) => {
+    //     console.error('Error loading asteroid model from registry:', error);
+    // }
 );
 
 
