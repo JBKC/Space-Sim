@@ -115,8 +115,8 @@ window.startHyperspace = startHyperspace;
 
 /////////////// VR INITIALIZATION ///////////////
 
-// Global VR state flag
-window.inVRMode = false;
+// Global XR session flag
+window.isInXRSession = false;
 
 // Expose the XR animation loop initializer globally
 window.initXRAnimationLoop = function() {
@@ -174,7 +174,7 @@ function startGame(mode = 'normal') {
     if (mode === 'vr') {
         
         // Set global VR mode flag
-        window.inVRMode = true;
+        window.isInXRSession = true;
 
         console.log('VR mode enabled - asset display will be suppressed');
         
@@ -828,6 +828,7 @@ function animate(currentTime = 0) {
 
 }
 
+
 // Function to setup XR animation loop for space scene
 function initXRAnimationLoop() {
     if (!getSpaceInitialized()) {
@@ -1245,8 +1246,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateAssetDisplay();
 });
 
-// Global XR session flag
-window.isInXRSession = false;
+
 
 
 

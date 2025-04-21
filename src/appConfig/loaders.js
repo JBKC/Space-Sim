@@ -239,14 +239,13 @@ function resetLoadingStats() {
 
 // Function to update the asset counter
 function updateAssetDisplay(loaded, total, type) {
-    
     // Check if we're in VR mode - if so, don't show the asset display
-    if (window.inVRMode === true) {
+    if (window.isInXRSession === true) {
         // If we're in VR, make sure the display is hidden and return early
         let existingDisplay = document.getElementById('asset-display');
         if (existingDisplay) {
             existingDisplay.style.display = 'none';
-            console.log('Asset display suppressed due to VR mode');
+            console.log('Asset display suppressed due to XR session');
         }
         return;
     }
@@ -270,7 +269,7 @@ function updateAssetDisplay(loaded, total, type) {
     }
     
     // Only show the display if we're not in VR mode
-    if (!window.inVRMode) {
+    if (!window.isInXRSession) {
         summaryDisplay.style.display = 'block';
     }
     
