@@ -239,6 +239,17 @@ function resetLoadingStats() {
 
 // Function to update the asset counter
 function updateAssetDisplay(loaded, total, type) {
+    // Check if we're in VR mode - if so, don't show the asset display
+    if (window.inVRMode === true) {
+        // If we're in VR, make sure the display is hidden and return early
+        let existingDisplay = document.getElementById('asset-display');
+        if (existingDisplay) {
+            existingDisplay.style.display = 'none';
+            console.log('Asset display suppressed due to VR mode');
+        }
+        return;
+    }
+
     // Update the appropriate counter
     if (type === 'assets') {
         loadingStats.assets.loaded = loaded;
@@ -248,17 +259,19 @@ function updateAssetDisplay(loaded, total, type) {
         loadingStats.textures.total = total;
     }
 
-    let summaryDisplay = document.getElementById('detailed-asset-display');
+    let summaryDisplay = document.getElementById('asset-display');
     
     if (!summaryDisplay) {
         summaryDisplay = document.createElement('div');
-        summaryDisplay.id = 'detailed-asset-display'; // Keep ID for potential CSS rules
+        summaryDisplay.id = 'asset-display'; // Keep ID for potential CSS rules
         summaryDisplay.style.cssText = 'position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,0.7);color:#fff;font-family:monospace;font-size:14px;font-weight:bold;padding:10px;border-radius:5px;z-index:10000;text-align:right;'; // Removed max-height/width/overflow
         document.body.appendChild(summaryDisplay);
     }
     
-    // Always show the display
-    summaryDisplay.style.display = 'block';
+    // Only show the display if we're not in VR mode
+    if (!window.inVRMode) {
+        summaryDisplay.style.display = 'block';
+    }
     
     // Calculate remaining models and textures
     const totalModels = loadingStats.assets.total;

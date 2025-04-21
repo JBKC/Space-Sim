@@ -5,6 +5,9 @@ import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { createRateLimitedGameLoader } from './appConfig/gameLoader.js';
 import { loadingManager, textureLoadingManager, resetLoadingStats, updateAssetDisplay } from './appConfig/loaders.js';
 
+// Global VR state flag
+window.inVRMode = false;
+
 // Import state environment functions
 import { 
     getEarthSurfaceActive,
@@ -78,6 +81,7 @@ import {
     toggleControlsDropdown,
     earthMsg,
     moonMsg,
+    // import VR-related UI
     createVRStatusIndicator,
     updateVRStatus
 } from './ui.js';
@@ -111,6 +115,8 @@ window.resetMoonInitialized = function() {
 // Expose hyperspace function globally for access from inputControls.js
 window.startHyperspace = startHyperspace;
 
+/////////////// VR INITIALIZATION ///////////////
+
 // Expose the XR animation loop initializer globally
 window.initXRAnimationLoop = function() {
     console.log("Global initXRAnimationLoop function called");
@@ -122,7 +128,6 @@ window.initXRAnimationLoop._cachedCallback = null;
 
 // Expose functions globally
 window.updateVRStatus = updateVRStatus;
-
 
 
 /////////////// INITLIZATION OF HIGH-LEVEL GAME ELEMENTS ///////////////
@@ -150,6 +155,131 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Create a debug panel for WebXR in Quest browser
     createXRDebugPanel();
+});
+
+
+///// FUNCITON THAT LOADS UP GAME DEPENDING WHICH BUTTON IS PRESSED /////
+function startGame(mode = 'normal') {
+    console.log(`Starting game in ${mode} mode`);
+
+    // hide welcome screen 
+    const welcomeScreen = document.getElementById('welcome-screen');
+    if (welcomeScreen) {
+        welcomeScreen.style.display = 'none';
+    }
+    
+    // Handle UI elements differently based on mode
+
+    if (mode === 'vr') {
+        
+        // Set global VR mode flag
+        window.inVRMode = true;
+        console.log('VR mode enabled - asset display will be suppressed');
+        
+        // Hide FPS readout
+        stats.dom.style.display = 'none';
+        fpsDisplay.style.display = 'none';
+        
+        // Hide controls prompt and dropdown
+        const controlsPrompt = document.getElementById('controls-prompt');
+        if (controlsPrompt) {
+            controlsPrompt.style.display = 'none';
+        }
+        
+        const controlsDropdown = document.getElementById('controls-dropdown');
+        if (controlsDropdown) {
+            controlsDropdown.style.display = 'none';
+        }
+        
+        // Hide asset loading display
+        const assetDisplay = document.querySelector('#asset-display');
+        if (assetDisplay) {
+            assetDisplay.style.display = 'none';
+            console.log('Hid asset-display');
+        }
+        
+        // Show only VR-specific UI elements
+        // Initialize VR status indicator
+        createVRStatusIndicator();
+        
+        // Update XR debug info if available
+        if (typeof window.updateXRDebugInfo === 'function') {
+            window.updateXRDebugInfo();
+        }
+        
+        // Make XR debug button visible
+        const xrDebugButton = document.getElementById('xr-debug-button');
+        if (xrDebugButton) {
+            xrDebugButton.style.display = 'block';
+        }
+
+        console.log("Initializing VR test environment");
+        
+        // Initialize the minimal VR test environment
+        initSpaceVR();
+        
+        // Start VR animation loop for the test environment
+        startSpaceVRMode();
+
+
+    } else {
+
+        // Normal, non-VR mode
+        stats.dom.style.display = 'block';
+        fpsDisplay.style.display = 'block';
+        
+        // Show the controls prompt and initialize dropdown state
+        showControlsPrompt();
+        updateControlsDropdown(getEarthSurfaceActive(), getMoonSurfaceActive());
+        
+        // Hide any existing VR UI elements
+        const vrStatusContainer = document.getElementById('vr-status-container');
+        if (vrStatusContainer) {
+            vrStatusContainer.style.display = 'none';
+        }
+        
+        // Hide XR debug button
+        const xrDebugButton = document.getElementById('xr-debug-button');
+        if (xrDebugButton) {
+            xrDebugButton.style.display = 'none';
+        }
+
+        // Start animation loop for normal mode
+        if (!isAnimating) {
+            isAnimating = true;
+            animate();
+        }
+    }
+}
+
+// Use rate limiter to start game
+const rateLimitedStartGame = createRateLimitedGameLoader(startGame);
+
+// Initialize FPS counter
+const stats = new Stats();
+stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
+stats.dom.style.cssText = 'position:absolute;bottom:0;left:0;opacity:0.9;z-index:10000;display:none;'; // Start hidden
+document.body.appendChild(stats.dom);
+// Create a custom FPS display element
+const fpsDisplay = document.createElement('div');
+fpsDisplay.id = 'fps-display';
+fpsDisplay.style.cssText = 'position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.6);color:#0ff;font-family:monospace;font-size:16px;font-weight:bold;padding:5px 10px;border-radius:5px;z-index:10000;display:none;'; // Start hidden
+fpsDisplay.textContent = 'FPS: 0';
+document.body.appendChild(fpsDisplay);
+
+// Initialize variables for FPS calculation
+let frameCount = 0;
+let lastFpsUpdateTime = 0;
+const fpsUpdateInterval = 500; // Update numerical display every 500ms
+
+// Initialize UI elements
+setupControlsDropdown();
+
+// Handle window resize
+window.addEventListener('resize', () => {
+    spaceCamera.aspect = window.innerWidth / window.innerHeight;
+    spaceCamera.updateProjectionMatrix();
+    spaceRenderer.setSize(window.innerWidth, window.innerHeight);
 });
 
 // Function to create a debug panel for WebXR diagnostics
@@ -271,133 +401,6 @@ function createXRDebugPanel() {
             });
     }
 }
-
-///// FUNCITON THAT LOADS UP GAME WHEN EXPLORE BUTTON IS PRESSED /////
-function startGame(mode = 'normal') {
-    console.log(`Starting game in ${mode} mode`);
-
-    // hide welcome screen 
-    const welcomeScreen = document.getElementById('welcome-screen');
-    if (welcomeScreen) {
-        welcomeScreen.style.display = 'none';
-    }
-    
-    // Handle UI elements differently based on mode
-    if (mode === 'vr') {
-        // In VR mode, hide all non-VR UI elements
-        
-        // Hide optimization stats
-        stats.dom.style.display = 'none';
-        fpsDisplay.style.display = 'none';
-        
-        // Hide controls prompt and dropdown
-        const controlsPrompt = document.getElementById('controls-prompt');
-        if (controlsPrompt) {
-            controlsPrompt.style.display = 'none';
-        }
-        
-        const controlsDropdown = document.getElementById('controls-dropdown');
-        if (controlsDropdown) {
-            controlsDropdown.style.display = 'none';
-        }
-        
-        // Hide asset loading display
-        const assetDisplay = document.querySelector('.asset-loading-display');
-        if (assetDisplay) {
-            assetDisplay.style.display = 'none';
-        }
-        
-        // Hide coordinates display
-        const coordinates = document.getElementById('coordinates');
-        if (coordinates) {
-            coordinates.style.display = 'none';
-        }
-        
-        // Show only VR-specific UI elements
-        // Initialize VR status indicator
-        createVRStatusIndicator();
-        
-        // Update XR debug info if available
-        if (typeof window.updateXRDebugInfo === 'function') {
-            window.updateXRDebugInfo();
-        }
-        
-        // Make XR debug button visible
-        const xrDebugButton = document.getElementById('xr-debug-button');
-        if (xrDebugButton) {
-            xrDebugButton.style.display = 'block';
-        }
-    } else {
-        // In normal mode, show standard UI elements
-        stats.dom.style.display = 'block';
-        fpsDisplay.style.display = 'block';
-        
-        // Show the controls prompt and initialize dropdown state
-        showControlsPrompt();
-        updateControlsDropdown(getEarthSurfaceActive(), getMoonSurfaceActive());
-        
-        // Hide any existing VR UI elements
-        const vrStatusContainer = document.getElementById('vr-status-container');
-        if (vrStatusContainer) {
-            vrStatusContainer.style.display = 'none';
-        }
-        
-        // Hide XR debug button
-        const xrDebugButton = document.getElementById('xr-debug-button');
-        if (xrDebugButton) {
-            xrDebugButton.style.display = 'none';
-        }
-    }
-
-    // Initialize different scenes based on mode
-    if (mode === 'vr') {
-        console.log("Initializing VR test environment");
-        
-        // Initialize the minimal VR test environment
-        initSpaceVR();
-        
-        // Start VR animation loop for the test environment
-        startSpaceVRMode();
-    } else {
-        // Start animation loop for normal mode
-        if (!isAnimating) {
-            isAnimating = true;
-            animate();
-        }
-    }
-}
-
-// Use rate limiter to start game
-const rateLimitedStartGame = createRateLimitedGameLoader(startGame);
-
-// Initialize FPS counter
-const stats = new Stats();
-stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
-stats.dom.style.cssText = 'position:absolute;bottom:0;left:0;opacity:0.9;z-index:10000;display:none;'; // Start hidden
-document.body.appendChild(stats.dom);
-// Create a custom FPS display element
-const fpsDisplay = document.createElement('div');
-fpsDisplay.id = 'fps-display';
-fpsDisplay.style.cssText = 'position:absolute;bottom:10px;left:10px;background:rgba(0,0,0,0.6);color:#0ff;font-family:monospace;font-size:16px;font-weight:bold;padding:5px 10px;border-radius:5px;z-index:10000;display:none;'; // Start hidden
-fpsDisplay.textContent = 'FPS: 0';
-document.body.appendChild(fpsDisplay);
-
-// Initialize variables for FPS calculation
-let frameCount = 0;
-let lastFpsUpdateTime = 0;
-const fpsUpdateInterval = 500; // Update numerical display every 500ms
-
-// Initialize UI elements
-setupControlsDropdown();
-
-// Handle window resize
-window.addEventListener('resize', () => {
-    spaceCamera.aspect = window.innerWidth / window.innerHeight;
-    spaceCamera.updateProjectionMatrix();
-    spaceRenderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-
 
 ///////////// ANIMATION FUNCTIONS /////////////
 
