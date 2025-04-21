@@ -38,12 +38,12 @@ let debugInfo = {};
 // Height tracking for cockpit
 let desiredCockpitHeight = null;
 let heightCalibrationComplete = false;
+let headHeight = null; // Global variable to store the initial head height
 
 let starSystem;
 let initialized = false;
 let lastFrameTime = 0;
 const COCKPIT_SCALE = 1; // Scale factor for the cockpit model
-let headHeight = 0;    // Initial height of headset
 
 // Initialize the VR scene
 export function init() {
@@ -203,16 +203,22 @@ function loadCockpitModel() {
                                 
                                 // We need at least one frame to get accurate position
                                 if (!hasInitialHeightCalibration && xrCamera) {
-                                        // Set head height to the current head position
-                                        headHeight = xrCamera.position.y;
+                                    // Wait a short moment for the XR system to stabilize initial pose
+                                    setTimeout(() => {
+                                        // Get the head height (y-coordinate of the camera)
+                                        headHeight = xrCamera.position.y;  // Set the global headHeight variable
                                         
-                                        console.log(`Detected user head height: ${headHeight.toFixed(3)}m, adjusting cockpit position`);
+                                        console.log(`Detected user head height: ${headHeight.toFixed(3)}m, setting as fixed cockpit position`);
                                         
-                                        // Force the cockpit position to match the head height exactly
+                                        // Set the cockpit to this fixed height
                                         cockpit.position.set(0, headHeight, -0.1);
                                         
                                         hasInitialHeightCalibration = true;
                                         heightCalibrationComplete = true;
+                                        
+                                        console.log(`Cockpit fixed at height: ${headHeight.toFixed(3)}m`);
+                                        
+                                    }, 500); // Small delay to ensure XR pose is stable
                                 }
                             }
                             
@@ -278,21 +284,11 @@ export function update(timestamp) {
     // Calculate delta time for smooth movement
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
-
-    // Ensure cockpit stays at the right height - get current head height from XR camera
-    if (cockpit && renderer && heightCalibrationComplete) {
+    
+    // Always set the cockpit to the initial calibrated height if available
+    if (cockpit && headHeight !== null) {
         cockpit.position.set(0, headHeight, -0.1);
     }
-    
-    // // Ensure cockpit stays at the right height - get current head height from XR camera
-    // if (cockpit && renderer && renderer.xr && renderer.xr.isPresenting) {
-    //     const xrCamera = renderer.xr.getCamera();
-    //     if (xrCamera) {
-    //         const currentHeadHeight = xrCamera.position.y;
-    //         // Position cockpit at current head height to follow user
-    //         cockpit.position.set(0, currentHeadHeight, -0.1);
-    //     }
-    // }
 
     // Update the time uniform for shaders
     if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {
@@ -607,8 +603,8 @@ function updateDebugDisplay(timestamp) {
     context.fillRect(0, 0, canvas.width, canvas.height);
     
     // Set text properties
-    context.font = '28px Arial';
-    context.fillStyle = '#ffff00';  // Yellow text
+    context.font = '32px Arial';
+    context.fillStyle = '#ffff00';
     context.textAlign = 'left';
     
     // Draw border
@@ -616,13 +612,11 @@ function updateDebugDisplay(timestamp) {
     context.lineWidth = 2;
     context.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
     
-    // Only display the head height if in VR
-    if (renderer && renderer.xr && renderer.xr.isPresenting) {
-        const xrCamera = renderer.xr.getCamera();
-        if (xrCamera) {
-            // Display only the head height value in large text
-            context.fillText(`headHeight = ${xrCamera.position.y.toFixed(3)}`, 20, canvas.height / 2);
-        }
+    // Show ONLY the headHeight variable
+    if (headHeight !== undefined) {
+        context.fillText(`headHeight = ${headHeight.toFixed(3)}m`, 20, 50);
+    } else {
+        context.fillText(`headHeight = not set yet`, 20, 50);
     }
     
     // Update texture
