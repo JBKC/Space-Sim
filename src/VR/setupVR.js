@@ -203,8 +203,6 @@ function loadCockpitModel() {
                                 
                                 // We need at least one frame to get accurate position
                                 if (!hasInitialHeightCalibration && xrCamera) {
-                                    // Wait a short moment for the XR system to stabilize initial pose
-                                    setTimeout(() => {
                                         // Set head height to the current head position
                                         headHeight = xrCamera.position.y;
                                         
@@ -215,8 +213,6 @@ function loadCockpitModel() {
                                         
                                         hasInitialHeightCalibration = true;
                                         heightCalibrationComplete = true;
-                                        
-                                    }, 500); // Small delay to ensure XR pose is stable
                                 }
                             }
                             
@@ -611,45 +607,21 @@ function updateDebugDisplay(timestamp) {
     context.fillRect(0, 0, canvas.width, canvas.height);
     
     // Set text properties
-    context.font = '24px Arial';
-    context.fillStyle = '#33ff33';
+    context.font = '28px Arial';
+    context.fillStyle = '#ffff00';  // Yellow text
     context.textAlign = 'left';
     
-    // Add heading
-    context.fillText('HEIGHT DATA', 20, 40);
-    
     // Draw border
-    context.strokeStyle = '#33ff33';
+    context.strokeStyle = '#ffff00';
     context.lineWidth = 2;
     context.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
     
-    // Start position for debug text
-    let y = 80;
-    const lineHeight = 35;
-    
-    // XR Camera raw head height (if available)
+    // Only display the head height if in VR
     if (renderer && renderer.xr && renderer.xr.isPresenting) {
         const xrCamera = renderer.xr.getCamera();
         if (xrCamera) {
-            context.font = '28px Arial';
-            context.fillStyle = '#ffff00'; // Yellow for emphasis
-            context.fillText(`HEAD HEIGHT: ${xrCamera.position.y.toFixed(3)}m`, 20, y);
-            y += lineHeight;
-            
-            // Cockpit height 
-            if (cockpit) {
-                context.fillStyle = '#00ffff'; // Cyan for cockpit
-                context.fillText(`COCKPIT HEIGHT: ${cockpit.position.y.toFixed(3)}m`, 20, y);
-                y += lineHeight;
-                
-                // Show difference if we have a target height
-                // if (desiredCockpitHeight !== null) {
-                //     const diff = cockpit.position.y - desiredCockpitHeight;
-                //     const diffColor = Math.abs(diff) < 0.01 ? '#33ff33' : '#ff3333'; // Green if good, red if off
-                //     context.fillStyle = diffColor;
-                //     context.fillText(`DIFFERENCE: ${diff.toFixed(3)}m`, 20, y);
-                // }
-            }
+            // Display only the head height value in large text
+            context.fillText(`headHeight = ${xrCamera.position.y.toFixed(3)}`, 20, canvas.height / 2);
         }
     }
     
