@@ -5,8 +5,6 @@ import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { createRateLimitedGameLoader } from './appConfig/gameLoader.js';
 import { loadingManager, textureLoadingManager, resetLoadingStats, updateAssetDisplay } from './appConfig/loaders.js';
 
-// Global VR state flag
-window.inVRMode = false;
 
 // Import state environment functions
 import { 
@@ -117,6 +115,9 @@ window.startHyperspace = startHyperspace;
 
 /////////////// VR INITIALIZATION ///////////////
 
+// Global VR state flag
+window.inVRMode = false;
+
 // Expose the XR animation loop initializer globally
 window.initXRAnimationLoop = function() {
     console.log("Global initXRAnimationLoop function called");
@@ -174,6 +175,7 @@ function startGame(mode = 'normal') {
         
         // Set global VR mode flag
         window.inVRMode = true;
+
         console.log('VR mode enabled - asset display will be suppressed');
         
         // Hide FPS readout
@@ -252,7 +254,7 @@ function startGame(mode = 'normal') {
     }
 }
 
-// Use rate limiter to start game
+// Use rate limiter to start game (stops multiple game loads from same machine)
 const rateLimitedStartGame = createRateLimitedGameLoader(startGame);
 
 // Initialize FPS counter
@@ -282,7 +284,7 @@ window.addEventListener('resize', () => {
     spaceRenderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Function to create a debug panel for WebXR diagnostics
+// VR only - function to create a debug panel for WebXR diagnostics (bottom right of screen)
 function createXRDebugPanel() {
     const debugPanel = document.createElement('div');
     debugPanel.id = 'xr-debug-panel';
@@ -303,7 +305,7 @@ function createXRDebugPanel() {
         display: none;
     `;
     
-    // Add a button to toggle the panel
+    // Button to toggle the debug panel
     const toggleButton = document.createElement('button');
     toggleButton.id = 'xr-debug-button';
     toggleButton.textContent = 'XR Debug';
@@ -333,18 +335,19 @@ function createXRDebugPanel() {
     
     // Function to update the debug panel with WebXR information
     window.updateXRDebugInfo = function() {
+
         if (debugPanel.style.display === 'none') return;
-        
         const info = [];
         
-        // Basic WebXR availability
+        // Check for basic WebXR availability
+        // NOTE - navigator.xr is built into browsers - no need for module import
         info.push(`navigator.xr: ${navigator.xr ? 'Available' : 'Not Available'}`);
         
         // User agent
         info.push(`User Agent: ${navigator.userAgent}`);
         
         // Device detection
-        const isQuestBrowser = 
+        const isQuestBrowser =  
             navigator.userAgent.includes('Quest') || 
             navigator.userAgent.includes('Oculus') ||
             (navigator.userAgent.includes('Mobile VR') && navigator.userAgent.includes('Android'));

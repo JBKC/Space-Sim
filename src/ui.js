@@ -281,6 +281,10 @@ warningElement.style.opacity = '1';
 warningElement.style.transition = 'opacity 0.5s ease-out';
 
 
+
+///// VR-related UI /////
+
+
 // VR Status Indicator
 export function createVRStatusIndicator() {
     const vrStatusContainer = document.createElement('div');
