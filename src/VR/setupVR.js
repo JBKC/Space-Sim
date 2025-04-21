@@ -116,10 +116,12 @@ export function init() {
     scene.add(starSystem.stars);
     console.log("Added dynamic star system to VR environment");
 
-    // Add directional light
+    // Lighting
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
     directionalLight.position.set(0, 1, -1);
     scene.add(directionalLight);
+    const ambientLight = new THREE.AmbientLight(0x111133, 0.5);
+    scene.add(ambientLight);
 
     // Get space container and append renderer
     const container = document.getElementById('space-container');
@@ -147,12 +149,6 @@ export function init() {
 
     // Create debug text display for VR
     createDebugDisplay();
-    
-    // Add subtle ambient light
-    const ambientLight = new THREE.AmbientLight(0x111133, 0.5);
-    scene.add(ambientLight);
-    
-
 
     // Add window resize handler
     window.addEventListener('resize', onWindowResize, false);
@@ -226,7 +222,7 @@ function loadCockpitModel(headHeight) {
                                         
                                         // Set the cockpit to this fixed height
                                         if (cockpit) {
-                                            cockpit.position.set(0, headHeight, -0.1);
+                                            cockpit.position.set(0, 1.1, -0.1);
                                             console.log(`Cockpit position set to y=${headHeight.toFixed(3)}`);
                                         } else {
                                             console.warn("Cockpit not available to position!");

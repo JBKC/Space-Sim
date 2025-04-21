@@ -103,7 +103,7 @@ export function setupCameraRig(scene, camera, headHeight) {
     cameraRig.add(camera);
     
     // Reset camera's local position
-    camera.position.set(0, headHeight, 0);
+    camera.position.set(0, 0, 0);
     
     console.log("Camera rig system created for VR movement separation");
     
