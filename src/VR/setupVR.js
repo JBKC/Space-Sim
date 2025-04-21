@@ -612,8 +612,8 @@ function updateDebugDisplay(timestamp) {
     context.lineWidth = 2;
     context.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
     
-    // Show ONLY the headHeight variable
-    if (headHeight !== undefined) {
+    // Show ONLY the headHeight variable with proper null check
+    if (headHeight !== null && headHeight !== undefined) {
         context.fillText(`headHeight = ${headHeight.toFixed(3)}m`, 20, 50);
     } else {
         context.fillText(`headHeight = not set yet`, 20, 50);
