@@ -38,7 +38,7 @@ let debugTextMesh;
 let debugInfo = {};
 
 // Height tracking for cockpit
-let headHeight = 0; // Initialize to 0 instead of null so there's always a value
+let headHeight = 0;
 
 let starSystem;
 let initialized = false;
@@ -46,8 +46,9 @@ let lastFrameTime = 0;
 const COCKPIT_SCALE = 1; // Scale factor for the cockpit model
 
 
-// Initialize the VR scene
+// Initialize Space in VR
 export function init() {
+
     console.log("Initializing space VR environment");
     
     if (initialized) {
@@ -55,6 +56,8 @@ export function init() {
         return { scene, camera, renderer };
     }
     
+    ///// Scene Setup /////
+
     // Create scene
     scene = new THREE.Scene();
     // scene.fog = new THREE.FogExp2(0x000011, 0.00001); // Very subtle exponential fog
@@ -77,8 +80,7 @@ export function init() {
     
     // Enable XR
     renderer.xr.enabled = true;
-    
-    // Configure WebXR for high quality rendering across the entire field of view
+
     renderer.xr.setFoveation(0); // Disable foveated rendering (0 = no foveation, 1 = maximum foveation)
     
     // Set up session initialization event listener to configure XR session when it starts
@@ -101,10 +103,24 @@ export function init() {
             console.log("WebXR session configured for high quality rendering");
         }
     });
-    
-    // Initialize VR controllers for movement
-    initVRControllers(renderer);
-    
+
+    // Add advanced space environment elements (inactive for now)
+    // scene.add(spaceGradientSphere);
+    // scene.add(nebula);
+    // scene.add(particleSystem);
+    // scene.add(directionalLightCone);
+    // scene.add(galaxyBackdrop);
+
+    // Create stars with dynamic brightness
+    starSystem = createStars();
+    scene.add(starSystem.stars);
+    console.log("Added dynamic star system to VR environment");
+
+    // Add directional light
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    directionalLight.position.set(0, 1, -1);
+    scene.add(directionalLight);
+
     // Get space container and append renderer
     const container = document.getElementById('space-container');
     if (container) {
@@ -112,42 +128,34 @@ export function init() {
     } else {
         document.body.appendChild(renderer.domElement);
     }
-    
-    // Add advanced space environment elements
-    // scene.add(spaceGradientSphere);
-    scene.add(nebula);
-    scene.add(particleSystem);
-    scene.add(directionalLightCone);
-    scene.add(galaxyBackdrop);
-    
-    // Create stars with dynamic brightness
-    starSystem = createStars();
-    scene.add(starSystem.stars);
-    console.log("Added dynamic star system to VR environment");
-    
-    // Remove any existing planet labels from DOM
-    clearAllUIElements();
-    
-    // Add window resize handler
-    window.addEventListener('resize', onWindowResize, false);
+
+
+    ///// Gameplay Setup /////
+
+    // Initialize VR controllers for movement
+    initVRControllers(renderer);
+
+    // Get inital head position from XR camera
+    const xrCamera = renderer.xr.getCamera();
+    headHeight = xrCamera.position.y; 
     
     // Create camera rig for separating head tracking from movement
-    cameraRig = setupCameraRig(scene, camera);
-    
-    // Create debug text display for VR
-    createDebugDisplay();
+    cameraRig = setupCameraRig(scene, camera, headHeight);
     
     // Load X-Wing cockpit model
-    loadCockpitModel();
+    loadCockpitModel(headHeight);
+
+    // Create debug text display for VR
+    createDebugDisplay();
     
     // Add subtle ambient light
     const ambientLight = new THREE.AmbientLight(0x111133, 0.5);
     scene.add(ambientLight);
     
-    // Add directional light for cockpit illumination
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-    directionalLight.position.set(0, 1, -1);
-    scene.add(directionalLight);
+
+
+    // Add window resize handler
+    window.addEventListener('resize', onWindowResize, false);
     
     // Mark as initialized
     initialized = true;
@@ -157,7 +165,7 @@ export function init() {
 }
 
 // Load X-Wing cockpit model
-function loadCockpitModel() {
+function loadCockpitModel(headHeight) {
     // Create an empty group to hold the cockpit model
     cockpit = new THREE.Group();
     let cockpitLoaded = false;
@@ -200,9 +208,7 @@ function loadCockpitModel() {
                                     console.log("No XR session available for height calibration");
                                     return;
                                 }
-                                
-                                // Get current head position from XR camera
-                                const xrCamera = renderer.xr.getCamera();
+                            
                                 
                                 if (!xrCamera) {
                                     console.log("No XR camera available for height calibration");
@@ -215,8 +221,6 @@ function loadCockpitModel() {
                                 if (!hasInitialHeightCalibration) {
                                     // Wait a short moment for the XR system to stabilize initial pose
                                     setTimeout(() => {
-                                        // Get the head height (y-coordinate of the camera)
-                                        headHeight = xrCamera.position.y;  // Set the global headHeight variable
                                         
                                         console.log(`SUCCESS: Detected user head height: ${headHeight.toFixed(3)}m, setting as fixed cockpit position`);
                                         

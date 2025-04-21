@@ -91,7 +91,7 @@ export function initVRControllers(renderer) {
 }
 
 // Setup a camera rig system to separate head tracking from position movement
-export function setupCameraRig(scene, camera) {
+export function setupCameraRig(scene, camera, headHeight) {
     // Create a container for the camera
     cameraRig = new THREE.Group();
     scene.add(cameraRig);
@@ -102,8 +102,8 @@ export function setupCameraRig(scene, camera) {
     }
     cameraRig.add(camera);
     
-    // Reset camera's local position (head tracking will still work)
-    camera.position.set(0, -1.1, 0);
+    // Reset camera's local position
+    camera.position.set(0, headHeight, 0);
     
     console.log("Camera rig system created for VR movement separation");
     
