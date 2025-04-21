@@ -293,11 +293,7 @@ function loadCockpitModel() {
                 if (cameraRig) {
                     // Add cockpit to the rig so it moves with the player
                     cameraRig.add(cockpit);
-                    
-                    // Set initial position - will be adjusted when XR session starts
-                    // We'll use a default height but this will be adjusted based on the user's actual height
-                    // cockpit.position.set(0, 0, -0.1);
-                    
+                
                     // Create a variable to track if we've done the initial height calibration
                     let hasInitialHeightCalibration = false;
                     
@@ -323,7 +319,8 @@ function loadCockpitModel() {
                                         
                                         console.log(`Detected user head height: ${headHeight.toFixed(3)}m, adjusting cockpit position`);
                                         
-                                        desiredCockpitHeight = headHeight;
+                                        // INTIALIZE POSITION
+                                        cockpit.position.set(0, headHeight, -0.1);
                                         
                                         hasInitialHeightCalibration = true;
                                         heightCalibrationComplete = true;
