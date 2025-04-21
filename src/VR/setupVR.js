@@ -38,7 +38,7 @@ let debugInfo = {};
 // Height tracking for cockpit
 let desiredCockpitHeight = null;
 let heightCalibrationComplete = false;
-let headHeight = null; // Global variable to store the initial head height
+let headHeight = 0; // Initialize to 0 instead of null so there's always a value
 
 let starSystem;
 let initialized = false;
@@ -196,22 +196,37 @@ function loadCockpitModel() {
                             // Function to measure and adjust cockpit height
                             function adjustCockpitHeight() {
                                 const session = renderer.xr.getSession();
-                                if (!session) return;
+                                if (!session) {
+                                    console.log("No XR session available for height calibration");
+                                    return;
+                                }
                                 
                                 // Get current head position from XR camera
                                 const xrCamera = renderer.xr.getCamera();
                                 
+                                if (!xrCamera) {
+                                    console.log("No XR camera available for height calibration");
+                                    return;
+                                }
+                                
+                                console.log("Attempting to get head height from XR camera...");
+                                
                                 // We need at least one frame to get accurate position
-                                if (!hasInitialHeightCalibration && xrCamera) {
+                                if (!hasInitialHeightCalibration) {
                                     // Wait a short moment for the XR system to stabilize initial pose
                                     setTimeout(() => {
                                         // Get the head height (y-coordinate of the camera)
                                         headHeight = xrCamera.position.y;  // Set the global headHeight variable
                                         
-                                        console.log(`Detected user head height: ${headHeight.toFixed(3)}m, setting as fixed cockpit position`);
+                                        console.log(`SUCCESS: Detected user head height: ${headHeight.toFixed(3)}m, setting as fixed cockpit position`);
                                         
                                         // Set the cockpit to this fixed height
-                                        cockpit.position.set(0, headHeight, -0.1);
+                                        if (cockpit) {
+                                            cockpit.position.set(0, headHeight, -0.1);
+                                            console.log(`Cockpit position set to y=${headHeight.toFixed(3)}`);
+                                        } else {
+                                            console.warn("Cockpit not available to position!");
+                                        }
                                         
                                         hasInitialHeightCalibration = true;
                                         heightCalibrationComplete = true;
@@ -219,6 +234,8 @@ function loadCockpitModel() {
                                         console.log(`Cockpit fixed at height: ${headHeight.toFixed(3)}m`);
                                         
                                     }, 500); // Small delay to ensure XR pose is stable
+                                } else {
+                                    console.log(`Height calibration already done. Current headHeight = ${headHeight.toFixed(3)}m`);
                                 }
                             }
                             
@@ -232,9 +249,25 @@ function loadCockpitModel() {
                             
                             function calibrationCheck() {
                                 if (!hasInitialHeightCalibration && calibrationAttempts < maxCalibrationAttempts) {
+                                    console.log(`Calibration attempt ${calibrationAttempts+1}/${maxCalibrationAttempts}...`);
+                                    
+                                    // Direct access to check camera values right now
+                                    const xrCamera = renderer.xr.getCamera();
+                                    if (xrCamera) {
+                                        console.log(`Current camera y position: ${xrCamera.position.y.toFixed(3)}m`);
+                                    } else {
+                                        console.log("XR Camera not available during calibration check");
+                                    }
+                                    
+                                    // Try to adjust height
                                     adjustCockpitHeight();
+                                    
                                     calibrationAttempts++;
                                     requestAnimationFrame(calibrationCheck);
+                                } else if (hasInitialHeightCalibration) {
+                                    console.log(`Calibration successful! headHeight = ${headHeight.toFixed(3)}m`);
+                                } else {
+                                    console.warn(`Calibration failed after ${maxCalibrationAttempts} attempts. Using default height of ${headHeight.toFixed(3)}m`);
                                 }
                             }
                             
