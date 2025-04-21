@@ -103,7 +103,7 @@ export function setupCameraRig(scene, camera) {
     cameraRig.add(camera);
     
     // Reset camera's local position (head tracking will still work)
-    camera.position.set(0, 1.1, 0);
+    camera.position.set(0, -1.1, 0);
     
     console.log("Camera rig system created for VR movement separation");
     
