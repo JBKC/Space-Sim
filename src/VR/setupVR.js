@@ -325,11 +325,16 @@ function loadCockpitModel() {
                                         
                                         console.log(`Detected user head height: ${headHeight.toFixed(3)}m, adjusting cockpit position`);
                                         
+                                        // Store the head height as our calibrated cockpit height
+                                        desiredCockpitHeight = headHeight;
+                                        
                                         // Force the cockpit position to match the head height exactly
-                                        cockpit.position.set(0, headHeight, -0.1);
+                                        cockpit.position.set(0, desiredCockpitHeight, -0.1);
                                         
                                         hasInitialHeightCalibration = true;
                                         heightCalibrationComplete = true;
+                                        
+                                        console.log(`Cockpit position set to ${desiredCockpitHeight.toFixed(3)}m and will remain fixed at this height`);
                                         
                                     }, 500); // Small delay to ensure XR pose is stable
                                 }
@@ -451,15 +456,14 @@ export function update(timestamp) {
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
     
-    // Ensure cockpit stays at the right height - get current head height from XR camera
-    // if (cockpit && renderer && renderer.xr && renderer.xr.isPresenting) {
-    //     const xrCamera = renderer.xr.getCamera();
-    //     if (xrCamera) {
-    //         const currentHeadHeight = xrCamera.position.y;
-    //         // Position cockpit at current head height to follow user
-    //         cockpit.position.set(0, currentHeadHeight, -0.1);
-    //     }
-    // }
+    // If desired cockpit height has been set but cockpit position changed, reset to calibrated height
+    if (heightCalibrationComplete && cockpit && desiredCockpitHeight !== null) {
+        // Check if cockpit has drifted from desired height (with small tolerance)
+        if (Math.abs(cockpit.position.y - desiredCockpitHeight) > 0.001) {
+            // Reset to the initially calibrated height
+            cockpit.position.set(0, desiredCockpitHeight, -0.1);
+        }
+    }
 
     // Update the time uniform for shaders
     if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {
