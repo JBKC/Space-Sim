@@ -452,14 +452,14 @@ export function update(timestamp) {
     lastFrameTime = timestamp;
     
     // Ensure cockpit stays at the right height - get current head height from XR camera
-    if (cockpit && renderer && renderer.xr && renderer.xr.isPresenting) {
-        const xrCamera = renderer.xr.getCamera();
-        if (xrCamera) {
-            const currentHeadHeight = xrCamera.position.y;
-            // Position cockpit at current head height to follow user
-            cockpit.position.set(0, currentHeadHeight, -0.1);
-        }
-    }
+    // if (cockpit && renderer && renderer.xr && renderer.xr.isPresenting) {
+    //     const xrCamera = renderer.xr.getCamera();
+    //     if (xrCamera) {
+    //         const currentHeadHeight = xrCamera.position.y;
+    //         // Position cockpit at current head height to follow user
+    //         cockpit.position.set(0, currentHeadHeight, -0.1);
+    //     }
+    // }
 
     // Update the time uniform for shaders
     if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {
