@@ -26,6 +26,8 @@ import {
 } from './spaceEnvVR.js';
 
 
+/////////////// SCENE INITIALIZATION ///////////////
+
 // Core scene elements
 let scene, camera, renderer;
 let cameraRig; // Reference to the camera rig
@@ -36,14 +38,13 @@ let debugTextMesh;
 let debugInfo = {};
 
 // Height tracking for cockpit
-let desiredCockpitHeight = null;
-let heightCalibrationComplete = false;
 let headHeight = 0; // Initialize to 0 instead of null so there's always a value
 
 let starSystem;
 let initialized = false;
 let lastFrameTime = 0;
 const COCKPIT_SCALE = 1; // Scale factor for the cockpit model
+
 
 // Initialize the VR scene
 export function init() {
@@ -154,7 +155,6 @@ export function init() {
     
     return { scene, camera, renderer };
 }
-
 
 // Load X-Wing cockpit model
 function loadCockpitModel() {
@@ -312,6 +312,49 @@ function loadCockpitModel() {
     return loadCockpitPromise;
 }
 
+
+/////////////// ANIMATION LOOP ///////////////
+
+// Start VR animation loop
+export function startVRMode() {
+    console.log("Starting VR mode animation loop");
+    
+    // Ensure all UI elements are cleared
+    clearAllUIElements();
+    
+    // Create XR animation loop
+    function xrAnimationLoop(timestamp, frame) {
+        // Update movement based on controllers
+        update(timestamp);
+        
+        // Render the scene
+        renderer.render(scene, camera);
+    }
+    
+    // Set the animation loop
+    renderer.setAnimationLoop(xrAnimationLoop);
+    console.log("VR animation loop set");
+    
+    // Automatically enter VR after a short delay
+    setTimeout(() => {
+        // Create and click a VR button
+        const vrButton = VRButton.createButton(renderer);
+        document.body.appendChild(vrButton);
+        
+        // Make sure button is removed from DOM after clicking
+        vrButton.addEventListener('click', () => {
+            // Remove the button right after clicking
+            setTimeout(() => {
+                if (vrButton.parentNode) {
+                    vrButton.parentNode.removeChild(vrButton);
+                }
+            }, 100);
+        });
+        
+        vrButton.click();
+    }, 1000);
+}
+
 // Animation loop - update movement based on VR controller inputs
 function update(timestamp) {
     // Calculate delta time for smooth movement
@@ -380,45 +423,9 @@ function update(timestamp) {
 }
 
 
-// Start VR animation loop
-export function startVRMode() {
-    console.log("Starting VR mode animation loop");
-    
-    // Ensure all UI elements are cleared
-    clearAllUIElements();
-    
-    // Create XR animation loop
-    function xrAnimationLoop(timestamp, frame) {
-        // Update movement based on controllers
-        update(timestamp);
-        
-        // Render the scene
-        renderer.render(scene, camera);
-    }
-    
-    // Set the animation loop
-    renderer.setAnimationLoop(xrAnimationLoop);
-    console.log("VR animation loop set");
-    
-    // Automatically enter VR after a short delay
-    setTimeout(() => {
-        // Create and click a VR button
-        const vrButton = VRButton.createButton(renderer);
-        document.body.appendChild(vrButton);
-        
-        // Make sure button is removed from DOM after clicking
-        vrButton.addEventListener('click', () => {
-            // Remove the button right after clicking
-            setTimeout(() => {
-                if (vrButton.parentNode) {
-                    vrButton.parentNode.removeChild(vrButton);
-                }
-            }, 100);
-        });
-        
-        vrButton.click();
-    }, 1000);
-}
+
+////////////////////////////////////////////////////////////
+
 
 // Clean up
 export function dispose() {
@@ -563,14 +570,6 @@ function clearAllUIElements() {
     console.log("Cleared all UI elements");
 }
 
-// Window resize handler
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
-
 // Create a debug display that's visible in VR
 function createDebugDisplay() {
     // Create debug display canvas
@@ -656,4 +655,11 @@ function updateDebugDisplay(timestamp) {
 // Set debug information to display in VR
 export function setDebugInfo(key, value) {
     debugInfo[key] = value;
+}
+
+// Window resize handler
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
 }
