@@ -323,18 +323,13 @@ function loadCockpitModel() {
                                         // Get the head height (y-coordinate of the camera)
                                         const headHeight = xrCamera.position.y;
                                         
-                                        console.log(`Detected user head height: ${headHeight.toFixed(3)}m, setting as fixed cockpit position`);
+                                        console.log(`Detected user head height: ${headHeight.toFixed(3)}m, adjusting cockpit position`);
                                         
-                                        // Store the initial head height as our fixed cockpit height
-                                        desiredCockpitHeight = headHeight;
-                                        
-                                        // Set the cockpit to this fixed height
-                                        cockpit.position.set(0, desiredCockpitHeight, -0.1);
+                                        // Force the cockpit position to match the head height exactly
+                                        cockpit.position.set(0, headHeight, -0.1);
                                         
                                         hasInitialHeightCalibration = true;
                                         heightCalibrationComplete = true;
-                                        
-                                        console.log(`Cockpit fixed at height: ${desiredCockpitHeight.toFixed(3)}m`);
                                         
                                     }, 500); // Small delay to ensure XR pose is stable
                                 }
@@ -456,9 +451,14 @@ export function update(timestamp) {
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
     
-    // Always set the cockpit to the initial calibrated height if available
-    if (cockpit && heightCalibrationComplete && desiredCockpitHeight !== null) {
-        cockpit.position.set(0, desiredCockpitHeight, -0.1);
+    // Ensure cockpit stays at the right height - get current head height from XR camera
+    if (cockpit && renderer && renderer.xr && renderer.xr.isPresenting) {
+        const xrCamera = renderer.xr.getCamera();
+        if (xrCamera) {
+            const currentHeadHeight = xrCamera.position.y;
+            // Position cockpit at current head height to follow user
+            cockpit.position.set(0, currentHeadHeight, -0.1);
+        }
     }
 
     // Update the time uniform for shaders
