@@ -1,3 +1,5 @@
+ok now its working perfectly by tracking the camera height - BUT i dont actually want it to do this. i want it to find the player's camera height at teh start, and use this as teh frame of reference for the remainder - does that make sense? show me what to change
+
 // setupVR.js - Creates endless VR space sandbox
 
 import * as THREE from 'three';
@@ -293,7 +295,11 @@ function loadCockpitModel() {
                 if (cameraRig) {
                     // Add cockpit to the rig so it moves with the player
                     cameraRig.add(cockpit);
-                
+                    
+                    // Set initial position - will be adjusted when XR session starts
+                    // We'll use a default height but this will be adjusted based on the user's actual height
+                    // cockpit.position.set(0, 0, -0.1);
+                    
                     // Create a variable to track if we've done the initial height calibration
                     let hasInitialHeightCalibration = false;
                     
@@ -319,7 +325,7 @@ function loadCockpitModel() {
                                         
                                         console.log(`Detected user head height: ${headHeight.toFixed(3)}m, adjusting cockpit position`);
                                         
-                                        // INTIALIZE POSITION
+                                        // Force the cockpit position to match the head height exactly
                                         cockpit.position.set(0, headHeight, -0.1);
                                         
                                         hasInitialHeightCalibration = true;
@@ -445,18 +451,15 @@ export function update(timestamp) {
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
     
-    // // Ensure cockpit stays at the right height - get current head height from XR camera
-    // if (cockpit && renderer && renderer.xr && renderer.xr.isPresenting) {
-    //     const xrCamera = renderer.xr.getCamera();
-    //     if (xrCamera) {
-    //         const currentHeadHeight = xrCamera.position.y;
-    //         // Position cockpit ONCE - at the start
-    //         if (!heightCalibrationComplete && desiredCockpitHeight !== null) {
-    //             cockpit.position.set(0, desiredCockpitHeight, -0.1);
-    //             heightCalibrationComplete = true; // Lock it in
-    //         }
-    //     }
-    // }
+    // Ensure cockpit stays at the right height - get current head height from XR camera
+    if (cockpit && renderer && renderer.xr && renderer.xr.isPresenting) {
+        const xrCamera = renderer.xr.getCamera();
+        if (xrCamera) {
+            const currentHeadHeight = xrCamera.position.y;
+            // Position cockpit at current head height to follow user
+            cockpit.position.set(0, currentHeadHeight, -0.1);
+        }
+    }
 
     // Update the time uniform for shaders
     if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {
