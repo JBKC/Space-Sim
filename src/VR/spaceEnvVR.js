@@ -30,8 +30,8 @@ function createGradientSphere() {
     // Create a custom shader material for the gradient
     const gradientMaterial = new THREE.ShaderMaterial({
         uniforms: {
-            colorCenter: { value: 0x000011 },
-            colorEdge: { value: 0x000011 }
+            colorCenter: { value: COLORS.deepPurple },
+            colorEdge: { value: COLORS.deepPurple }
         },
         vertexShader: `
             varying vec3 vPosition;

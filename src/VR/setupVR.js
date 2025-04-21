@@ -245,12 +245,12 @@ function updateDebugDisplay(timestamp) {
                 y += lineHeight;
                 
                 // Show difference if we have a target height
-                if (desiredCockpitHeight !== null) {
-                    const diff = cockpit.position.y - desiredCockpitHeight;
-                    const diffColor = Math.abs(diff) < 0.01 ? '#33ff33' : '#ff3333'; // Green if good, red if off
-                    context.fillStyle = diffColor;
-                    context.fillText(`DIFFERENCE: ${diff.toFixed(3)}m`, 20, y);
-                }
+                // if (desiredCockpitHeight !== null) {
+                //     const diff = cockpit.position.y - desiredCockpitHeight;
+                //     const diffColor = Math.abs(diff) < 0.01 ? '#33ff33' : '#ff3333'; // Green if good, red if off
+                //     context.fillStyle = diffColor;
+                //     context.fillText(`DIFFERENCE: ${diff.toFixed(3)}m`, 20, y);
+                // }
             }
         }
     }
@@ -324,7 +324,7 @@ function loadCockpitModel() {
                                         console.log(`Detected user head height: ${headHeight.toFixed(3)}m, adjusting cockpit position`);
                                         
                                         // Force the cockpit position to match the head height exactly
-                                        cockpit.position.y = (0, headHeight, -0.1);
+                                        cockpit.position.set(0, headHeight, -0.1);
                                         
                                         hasInitialHeightCalibration = true;
                                         heightCalibrationComplete = true;
