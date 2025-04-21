@@ -449,16 +449,16 @@ export function update(timestamp) {
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
     
-    // // If we have a calibrated cockpit height, make sure it's enforced every frame
-    // if (heightCalibrationComplete && cockpit && desiredCockpitHeight !== null) {
-    //     // Check if the cockpit height has drifted from our desired value
-    //     if (Math.abs(cockpit.position.y - desiredCockpitHeight) > 0.001) {
-    //         // Reset to desired position
-    //         cockpit.position.y = desiredCockpitHeight;
-    //         console.log(`Re-enforced cockpit Y position to ${desiredCockpitHeight.toFixed(4)}m`);
-    //     }
-    // }
-    
+    // Ensure cockpit stays at the right height - get current head height from XR camera
+    if (cockpit && renderer && renderer.xr && renderer.xr.isPresenting) {
+        const xrCamera = renderer.xr.getCamera();
+        if (xrCamera) {
+            const currentHeadHeight = xrCamera.position.y;
+            // Position cockpit at current head height to follow user
+            cockpit.position.set(0, currentHeadHeight, -0.1);
+        }
+    }
+
     // Update the time uniform for shaders
     if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {
         directionalLightCone.material.uniforms.time.value = timestamp * 0.001;
