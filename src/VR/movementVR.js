@@ -3,8 +3,8 @@
 import * as THREE from 'three';
 
 // Configuration constants
-const FORWARD_SPEED = 1000; // Keeping fast forward speed
-const ROTATION_SPEED = 0.012; // Doubled from 0.006 for more sensitive controls
+const FORWARD_SPEED = 1000;
+const ROTATION_SPEED = 0.012;
 const BOOST_MULTIPLIER = 5; // Speed multiplier when boost is active
 
 // Track controller inputs and state

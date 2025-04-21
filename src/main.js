@@ -44,8 +44,6 @@ import {
 // Import VR test environment
 import {
     init as initSpaceVR,
-    update as updateSpaceVR,
-    renderScene as renderSpaceVRScene,
     startVRMode as startSpaceVRMode,
     dispose as disposeSpaceVR
 } from './VR/setupVR.js';
@@ -139,6 +137,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const exploreButton = document.querySelector('#explore-button');
     const exploreVRButton = document.querySelector('#explore-vr-button');
     
+    // Initialize relevant game mode
+
     if (exploreButton) {
         // Use rate-limited version for initial game loading in normal mode
         exploreButton.addEventListener('click', () => rateLimitedStartGame('normal'));
@@ -222,6 +222,8 @@ function startGame(mode = 'normal') {
         initSpaceVR();
         
         // Start VR animation loop for the test environment
+        // THIS HANDLES rendering, movement, controls, update etc.
+        // Different layout to normal mode
         startSpaceVRMode();
 
 
@@ -973,8 +975,6 @@ function initXRAnimationLoop() {
             const isBoosting = getBoostState();
             const isHyperspace = getHyperspaceState();
             
-            // Update space scene
-            // updateSpaceVR(isBoosting, isHyperspace, deltaTime);
             
             // Hyperspace-specific updates
             if (isHyperspace) {
@@ -990,9 +990,6 @@ function initXRAnimationLoop() {
                     updateStreaks(deltaTime);
                 }
             }
-            
-            // Get the scene info for rendering
-            // renderSpaceVRScene();
             
             
         } catch (error) {

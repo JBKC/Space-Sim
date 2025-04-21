@@ -313,7 +313,7 @@ function loadCockpitModel() {
 }
 
 // Animation loop - update movement based on VR controller inputs
-export function update(timestamp) {
+function update(timestamp) {
     // Calculate delta time for smooth movement
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
@@ -379,10 +379,6 @@ export function update(timestamp) {
     updateDebugDisplay(timestamp);
 }
 
-// Render function
-export function renderScene() {
-    return { scene, camera };
-}
 
 // Start VR animation loop
 export function startVRMode() {
