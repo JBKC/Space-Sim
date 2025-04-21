@@ -1,10 +1,10 @@
-ok now its working perfectly by tracking the camera height - BUT i dont actually want it to do this. i want it to find the player's camera height at teh start, and use this as teh frame of reference for the remainder - does that make sense? show me what to change
-
 // setupVR.js - Creates endless VR space sandbox
 
 import * as THREE from 'three';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
 import { 
     loadTextureFromRegistry, 
     loadModelFromRegistry, 
