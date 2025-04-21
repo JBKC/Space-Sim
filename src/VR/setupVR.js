@@ -43,7 +43,7 @@ let starSystem;
 let initialized = false;
 let lastFrameTime = 0;
 const COCKPIT_SCALE = 1; // Scale factor for the cockpit model
-const headHeight = 0;    // Initial height of headset
+let headHeight = 0;    // Initial height of headset
 
 // Initialize the VR scene
 export function init() {
@@ -283,20 +283,20 @@ export function update(timestamp) {
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
 
-    // // Ensure cockpit stays at the right height - get current head height from XR camera
-    // if (cockpit && renderer && heightCalibrationComplete) {
-    //     cockpit.position.set(0, headHeight, -0.1);
-    // }
-    
     // Ensure cockpit stays at the right height - get current head height from XR camera
-    if (cockpit && renderer && renderer.xr && renderer.xr.isPresenting) {
-        const xrCamera = renderer.xr.getCamera();
-        if (xrCamera) {
-            const currentHeadHeight = xrCamera.position.y;
-            // Position cockpit at current head height to follow user
-            cockpit.position.set(0, currentHeadHeight, -0.1);
-        }
+    if (cockpit && renderer && heightCalibrationComplete) {
+        cockpit.position.set(0, headHeight, -0.1);
     }
+    
+    // // Ensure cockpit stays at the right height - get current head height from XR camera
+    // if (cockpit && renderer && renderer.xr && renderer.xr.isPresenting) {
+    //     const xrCamera = renderer.xr.getCamera();
+    //     if (xrCamera) {
+    //         const currentHeadHeight = xrCamera.position.y;
+    //         // Position cockpit at current head height to follow user
+    //         cockpit.position.set(0, currentHeadHeight, -0.1);
+    //     }
+    // }
 
     // Update the time uniform for shaders
     if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {
