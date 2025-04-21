@@ -265,130 +265,110 @@ export function setDebugInfo(key, value) {
     debugInfo[key] = value;
 }
 
-// Load X-Wing cockpit model
+
 function loadCockpitModel() {
     // Create an empty group to hold the cockpit model
     cockpit = new THREE.Group();
     let cockpitLoaded = false;
-    
-    // Use loadModelFromRegistry to load the cockpit model
+
     const loadCockpitPromise = new Promise((resolve, reject) => {
         loadModelFromRegistry(
             'spacecraft',
             'xwingCockpit',
             (gltf) => {
                 const model = gltf.scene;
-                
-                // Scale the model properly
+
+                // Scale the model
                 model.scale.set(COCKPIT_SCALE, COCKPIT_SCALE, COCKPIT_SCALE);
-                
-                // Add model to our cockpit group
+
+                // Add model to cockpit group
                 cockpit.add(model);
                 cockpit.name = 'cockpitModel';
-                
-                // Rotate cockpit 180 degrees around Y-axis to face forward
-                cockpit.rotation.y = Math.PI; // This is a 180-degree rotation in radians
-                
-                // If cameraRig exists, add the cockpit to it
+
+                // Rotate cockpit to face forward
+                cockpit.rotation.y = Math.PI;
+
                 if (cameraRig) {
-                    // Add cockpit to the rig so it moves with the player
                     cameraRig.add(cockpit);
-                    
-                    // Set initial position - will be adjusted when XR session starts
-                    // We'll use a default height but this will be adjusted based on the user's actual height
-                    // cockpit.position.set(0, 0, -0.1);
-                    
-                    // Create a variable to track if we've done the initial height calibration
+
                     let hasInitialHeightCalibration = false;
-                    
-                    // Add listener for XR session start to adjust cockpit based on user's height
+
                     if (renderer && renderer.xr) {
                         renderer.xr.addEventListener('sessionstart', () => {
-                            console.log("XR session started - will calibrate cockpit height based on user's head position");
-                            
-                            // Function to measure and adjust cockpit height
+                            console.log("XR session started - calibrating user head height...");
+
                             function adjustCockpitHeight() {
                                 const session = renderer.xr.getSession();
                                 if (!session) return;
-                                
-                                // Get current head position from XR camera
+
                                 const xrCamera = renderer.xr.getCamera();
-                                
-                                // We need at least one frame to get accurate position
+
                                 if (!hasInitialHeightCalibration && xrCamera) {
-                                    // Wait a short moment for the XR system to stabilize initial pose
                                     setTimeout(() => {
-                                        // Get the head height (y-coordinate of the camera)
                                         const headHeight = xrCamera.position.y;
-                                        
-                                        console.log(`Detected user head height: ${headHeight.toFixed(3)}m, adjusting cockpit position`);
-                                        
-                                        // Force the cockpit position to match the head height exactly
-                                        cockpit.position.set(0, headHeight, -0.1);
-                                        
+
+                                        console.log(`Detected head height: ${headHeight.toFixed(3)}m`);
+                                        desiredCockpitHeight = headHeight;
+
                                         hasInitialHeightCalibration = true;
-                                        heightCalibrationComplete = true;
-                                        
-                                    }, 500); // Small delay to ensure XR pose is stable
+                                    }, 500);
                                 }
                             }
-                            
-                            // Initial adjustment
+
                             adjustCockpitHeight();
-                            
-                            // Set up a frame-based callback for initial measurements
-                            // This ensures we get accurate values after the XR system is fully initialized
+
                             let calibrationAttempts = 0;
-                            const maxCalibrationAttempts = 120; // Try for about 2 seconds at 60fps
-                            
+                            const maxAttempts = 120;
+
                             function calibrationCheck() {
-                                if (!hasInitialHeightCalibration && calibrationAttempts < maxCalibrationAttempts) {
+                                if (!hasInitialHeightCalibration && calibrationAttempts < maxAttempts) {
                                     adjustCockpitHeight();
                                     calibrationAttempts++;
                                     requestAnimationFrame(calibrationCheck);
                                 }
                             }
-                            
-                            // Start the calibration check
+
                             calibrationCheck();
                         });
+
+                        renderer.xr.addEventListener('sessionend', () => {
+                            desiredCockpitHeight = null;
+                            heightCalibrationComplete = false;
+                        });
                     }
-                    
-                    // Ensure cockpit renders with proper materials
-                    cockpit.traverse(function(child) {
+
+                    // Set cockpit material properties
+                    cockpit.traverse(child => {
                         if (child.isMesh) {
                             child.material.metalness = 0.3;
                             child.material.roughness = 0.7;
-                            
-                            // Set renderOrder to ensure cockpit renders after everything else
                             child.renderOrder = 1000;
                         }
                     });
-                    
-                    console.log("X-Wing cockpit model loaded and added to camera rig");
+
+                    console.log("X-Wing cockpit model loaded and attached to camera rig");
                 } else {
                     console.error("Camera rig not available, cockpit not attached");
                 }
-                
+
                 cockpitLoaded = true;
                 resolve(cockpit);
             },
             (xhr) => {
-                // Progress callback
                 const percent = (xhr.loaded / xhr.total) * 100;
                 console.log(`Cockpit: ${percent.toFixed(0)}% loaded`);
             },
             (error) => {
-                // Error callback
-                console.error('Error loading cockpit model from registry:', error);
+                console.error('Error loading cockpit model:', error);
                 reject(error);
             }
         );
     });
-    
-    // Return the promise for future use if needed
+
     return loadCockpitPromise;
 }
+
+
 
 // Remove all UI elements
 function clearAllUIElements() {
@@ -445,75 +425,77 @@ function onWindowResize() {
 
 // Animation loop - update movement based on VR controller inputs
 export function update(timestamp) {
-    // Calculate delta time for smooth movement
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
-    
-    // Ensure cockpit stays at the right height - get current head height from XR camera
-    if (cockpit && renderer && renderer.xr && renderer.xr.isPresenting) {
-        const xrCamera = renderer.xr.getCamera();
-        if (xrCamera) {
-            const currentHeadHeight = xrCamera.position.y;
-            // Position cockpit at current head height to follow user
-            cockpit.position.set(0, currentHeadHeight, -0.1);
-        }
+
+    // Apply cockpit height once after calibration
+    if (
+        cockpit &&
+        !heightCalibrationComplete &&
+        desiredCockpitHeight !== null
+    ) {
+        cockpit.position.set(0, desiredCockpitHeight, -0.1);
+        heightCalibrationComplete = true;
     }
 
-    // Update the time uniform for shaders
-    if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {
+    // Shader time uniform
+    if (
+        directionalLightCone &&
+        directionalLightCone.material &&
+        directionalLightCone.material.uniforms
+    ) {
         directionalLightCone.material.uniforms.time.value = timestamp * 0.001;
     }
-    
-    // Slowly rotate nebula clouds
+
+    // Rotate nebulae
     nebulaeClouds.forEach(nebula => {
         nebula.mesh.rotation.x += nebula.rotationSpeed.x;
         nebula.mesh.rotation.y += nebula.rotationSpeed.y;
         nebula.mesh.rotation.z += nebula.rotationSpeed.z;
     });
-    
-    // Animate space dust particles with gentle drift
+
+    // Animate space dust
     spaceDustParticles.forEach(particleSystem => {
         const positions = particleSystem.system.geometry.attributes.position.array;
         const initialPositions = particleSystem.initialPositions;
-        
+
         for (let i = 0; i < positions.length; i += 3) {
-            // Apply a sine wave drift to each particle
             const time = timestamp * particleSystem.driftSpeed;
             const offset = Math.sin(time + i * 0.01) * 200;
-            
+
             positions[i] = initialPositions[i] + offset;
             positions[i + 1] = initialPositions[i + 1] + Math.sin(time * 0.7 + i * 0.02) * 200;
             positions[i + 2] = initialPositions[i + 2] + Math.sin(time * 0.5 + i * 0.03) * 200;
         }
-        
+
         particleSystem.system.geometry.attributes.position.needsUpdate = true;
     });
-    
-    // Apply VR movement and rotation
+
+    // Update VR movement
     if (camera) {
         updateVRMovement(camera, deltaTime);
     }
-    
-    // Update stars brightness based on camera position
+
+    // Update stars
     if (starSystem && starSystem.stars) {
-        // Use cameraRig position for star updates to ensure proper movement tracking
         const positionForStars = cameraRig ? cameraRig.position : camera.position;
         updateStars(starSystem.stars, positionForStars);
     }
-    
-    // Update galaxy backdrop to slowly rotate
+
+    // Rotate galaxy backdrop
     if (galaxyBackdrop) {
         galaxyBackdrop.rotation.z += 0.0001;
     }
-    
-    // Update gradient sphere to follow camera
+
+    // Match gradient sphere to camera rig
     if (spaceGradientSphere && cameraRig) {
         spaceGradientSphere.position.copy(cameraRig.position);
     }
-    
+
     // Update debug display
     updateDebugDisplay(timestamp);
 }
+
 
 // Render function
 export function renderScene() {
