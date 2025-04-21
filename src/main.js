@@ -113,6 +113,7 @@ window.resetMoonInitialized = function() {
 // Expose hyperspace function globally for access from inputControls.js
 window.startHyperspace = startHyperspace;
 
+
 /////////////// VR INITIALIZATION ///////////////
 
 // Global XR session flag
@@ -282,6 +283,12 @@ window.addEventListener('resize', () => {
     spaceCamera.aspect = window.innerWidth / window.innerHeight;
     spaceCamera.updateProjectionMatrix();
     spaceRenderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// Initialize the detailed asset display
+document.addEventListener('DOMContentLoaded', () => {
+    // Call once to create the element
+    updateAssetDisplay();
 });
 
 // VR only - function to create a debug panel for WebXR diagnostics (bottom right of screen)
@@ -519,7 +526,8 @@ function hideSpaceScene() {
 
 }
 
-///// MAIN ANIMATION LOOP - EACH CALL IS A SINGLE FRAME /////
+///// MAIN ANIMATION LOOP - Standard mode /////
+// Each call is a single frame
 function animate(currentTime = 0) {
     if (!isAnimating) {
         console.log("Animation stopped - isAnimating is false");
@@ -828,8 +836,7 @@ function animate(currentTime = 0) {
 
 }
 
-
-// Function to setup XR animation loop for space scene
+/////// VR INITIALIZATION AND ANIMATION LOOP ///////
 function initXRAnimationLoop() {
     if (!getSpaceInitialized()) {
         console.warn("Cannot initialize XR loop - space scene not initialized");
@@ -851,130 +858,6 @@ function initXRAnimationLoop() {
     const usingQuestSpecialMode = isQuestBrowser && !navigator.xr;
     if (usingQuestSpecialMode) {
         console.log("Using Quest special mode for XR animation loop");
-        
-        // Set up special rendering for Quest VR mode
-        // Create stereoscopic effect by offsetting camera for left/right eyes
-        spaceRenderer.autoClear = false;
-        
-        // Adjust canvas for side-by-side stereo
-        spaceRenderer.setSize(window.innerWidth, window.innerHeight);
-        
-        // Create a fullscreen VR mode notification
-        const vrNotification = document.createElement('div');
-        vrNotification.id = 'vr-fullscreen-notification';
-        vrNotification.innerHTML = `
-            <div style="text-align: center; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; max-width: 80%; margin: 0 auto;">
-                <h2 style="color: #00ccff; margin-top: 0;">VR MODE ACTIVATED</h2>
-                <p style="font-size: 20px; margin-bottom: 30px;">For best results:</p>
-                <ol style="text-align: left; font-size: 18px; display: inline-block;">
-                    <li>Hold your Quest in landscape orientation</li>
-                    <li>Center the view on the screen</li>
-                    <li>Look through the lenses normally</li>
-                </ol>
-                <div style="margin-top: 30px; font-size: 24px;">
-                    Stereoscopic 3D is enabled
-                </div>
-            </div>
-        `;
-        vrNotification.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-family: sans-serif;
-            z-index: 10002;
-            background: rgba(0,0,40,0.7);
-            transition: opacity 0.5s ease-in-out;
-        `;
-        document.body.appendChild(vrNotification);
-        
-        // Remove notification after 5 seconds
-        setTimeout(() => {
-            vrNotification.style.opacity = '0';
-            setTimeout(() => vrNotification.remove(), 500);
-        }, 5000);
-        
-        // Create a separate Three.js camera for each eye
-        const leftEyeCamera = spaceCamera.clone();
-        const rightEyeCamera = spaceCamera.clone();
-        
-        // Create a stereo camera setup for our special mode
-        let stereoSeparation = 0.064; // Average human IPD in meters
-        
-        // Add IPD adjustment controls
-        const ipdControls = document.createElement('div');
-        ipdControls.id = 'ipd-controls';
-        ipdControls.style.cssText = `
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 10px;
-            border-radius: 8px;
-            font-family: sans-serif;
-            z-index: 10000;
-            display: none;
-        `;
-        
-        ipdControls.innerHTML = `
-            <div style="text-align: center; margin-bottom: 5px;">IPD Adjustment</div>
-            <div style="display: flex; align-items: center;">
-                <button id="decrease-ipd" style="
-                    background: #333;
-                    color: white;
-                    border: 1px solid #666;
-                    border-radius: 4px;
-                    padding: 5px 10px;
-                    margin-right: 5px;
-                    cursor: pointer;
-                ">−</button>
-                <div id="ipd-value" style="min-width: 40px; text-align: center;">64mm</div>
-                <button id="increase-ipd" style="
-                    background: #333;
-                    color: white;
-                    border: 1px solid #666;
-                    border-radius: 4px;
-                    padding: 5px 10px;
-                    margin-left: 5px;
-                    cursor: pointer;
-                ">+</button>
-            </div>
-        `;
-        
-        document.body.appendChild(ipdControls);
-        
-        // Show IPD controls after VR is activated
-        setTimeout(() => {
-            ipdControls.style.display = 'block';
-        }, 5000); // Show after the full screen notification disappears
-        
-        // Set up IPD adjustment
-        let currentIPD = 64; // Default 64mm
-        
-        document.getElementById('decrease-ipd').addEventListener('click', () => {
-            if (currentIPD > 54) {
-                currentIPD -= 2;
-                stereoSeparation = currentIPD / 1000; // Convert mm to meters
-                document.getElementById('ipd-value').textContent = `${currentIPD}mm`;
-            }
-        });
-        
-        document.getElementById('increase-ipd').addEventListener('click', () => {
-            if (currentIPD < 74) {
-                currentIPD += 2;
-                stereoSeparation = currentIPD / 1000; // Convert mm to meters
-                document.getElementById('ipd-value').textContent = `${currentIPD}mm`;
-            }
-        });
-        
-        // Store the original camera position object for reference
-        const originalCameraPosition = new THREE.Vector3();
         
         // Show VR mode activated message
         const vrActivatedMsg = document.createElement('div');
@@ -1005,7 +888,7 @@ function initXRAnimationLoop() {
         }, 2000);
     }
     
-    // Create animation callback for XR
+    // Core animation loop for VR
     function xrAnimationCallback(timestamp, xrFrame) {
         // Begin stats measurement for this frame
         stats.begin();
@@ -1090,13 +973,8 @@ function initXRAnimationLoop() {
             const isBoosting = getBoostState();
             const isHyperspace = getHyperspaceState();
             
-            // Check if controls toggle is requested
-            if (getControlsToggleRequested()) {
-                toggleControlsDropdown();
-            }
-            
             // Update space scene
-            updateSpace(isBoosting, isHyperspace, deltaTime);
+            // updateSpaceVR(isBoosting, isHyperspace, deltaTime);
             
             // Hyperspace-specific updates
             if (isHyperspace) {
@@ -1113,102 +991,9 @@ function initXRAnimationLoop() {
                 }
             }
             
-            updateControlsDropdown(getEarthSurfaceActive(), getMoonSurfaceActive());
-            
             // Get the scene info for rendering
-            const sceneInfo = renderSpaceScene();
+            // renderSpaceVRScene();
             
-            // If we're using our special Quest mode, handle rendering manually
-            if (usingQuestSpecialMode && sceneInfo) {
-                // Get the original scene and camera
-                const { scene, camera } = sceneInfo;
-                
-                // Log rendering debug info
-                console.log("Rendering stereoscopic view", {
-                    windowWidth: window.innerWidth,
-                    windowHeight: window.innerHeight,
-                    stereoSeparation: stereoSeparation,
-                    camera: camera.position
-                });
-                
-                // Force the canvas to be visible and cover the full screen
-                const canvas = spaceRenderer.domElement;
-                canvas.style.position = 'fixed';
-                canvas.style.top = '0';
-                canvas.style.left = '0';
-                canvas.style.width = '100%';
-                canvas.style.height = '100%';
-                canvas.style.zIndex = '100';
-
-                // Update the camera position and orientation based on game state
-                camera.getWorldPosition(originalCameraPosition);
-                const cameraRotation = camera.quaternion.clone();
-                
-                // Set up for stereoscopic rendering
-                spaceRenderer.setScissorTest(true);
-                
-                // Update both eye cameras to match the main camera's rotation
-                leftEyeCamera.quaternion.copy(cameraRotation);
-                rightEyeCamera.quaternion.copy(cameraRotation);
-                
-                // Calculate eye positions with proper stereo separation
-                // For better stereo effect, we offset perpendicular to the view direction
-                const viewDirection = new THREE.Vector3(0, 0, -1).applyQuaternion(cameraRotation);
-                const rightVector = new THREE.Vector3(1, 0, 0).applyQuaternion(cameraRotation);
-                
-                // Position the left eye camera
-                leftEyeCamera.position.copy(originalCameraPosition);
-                leftEyeCamera.position.addScaledVector(rightVector, -stereoSeparation / 2);
-                
-                // Position the right eye camera
-                rightEyeCamera.position.copy(originalCameraPosition);
-                rightEyeCamera.position.addScaledVector(rightVector, stereoSeparation / 2);
-                
-                // Set up viewports with constants
-                const leftHalf = {
-                    x: 0,
-                    y: 0,
-                    width: Math.floor(window.innerWidth / 2),
-                    height: window.innerHeight
-                };
-                
-                const rightHalf = {
-                    x: Math.floor(window.innerWidth / 2),
-                    y: 0,
-                    width: Math.floor(window.innerWidth / 2),
-                    height: window.innerHeight
-                };
-                
-                // Render left eye
-                spaceRenderer.setScissor(leftHalf.x, leftHalf.y, leftHalf.width, leftHalf.height);
-                spaceRenderer.setViewport(leftHalf.x, leftHalf.y, leftHalf.width, leftHalf.height);
-                spaceRenderer.clear();
-                spaceRenderer.render(scene, leftEyeCamera);
-                
-                // Render right eye
-                spaceRenderer.setScissor(rightHalf.x, rightHalf.y, rightHalf.width, rightHalf.height);
-                spaceRenderer.setViewport(rightHalf.x, rightHalf.y, rightHalf.width, rightHalf.height);
-                spaceRenderer.clear();
-                spaceRenderer.render(scene, rightEyeCamera);
-                
-                // Add a center divider line to help with focusing
-                if (!document.getElementById('vr-center-line')) {
-                    const centerLine = document.createElement('div');
-                    centerLine.id = 'vr-center-line';
-                    centerLine.style.cssText = `
-                        position: fixed;
-                        top: 0;
-                        left: 50%;
-                        width: 1px;
-                        height: 100%;
-                        background-color: rgba(255, 255, 255, 0.3);
-                        z-index: 101;
-                        pointer-events: none;
-                    `;
-                    document.body.appendChild(centerLine);
-                }
-            }
-            // Otherwise let the WebXR API handle it (no explicit render call)
             
         } catch (error) {
             console.error("Error in XR animation loop:", error);
@@ -1239,14 +1024,6 @@ function initXRAnimationLoop() {
     
     console.log("WebXR animation loop initialized for space scene");
 }
-
-// Initialize the detailed asset display
-document.addEventListener('DOMContentLoaded', () => {
-    // Call once to create the element
-    updateAssetDisplay();
-});
-
-
 
 
 

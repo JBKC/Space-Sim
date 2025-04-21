@@ -396,7 +396,7 @@ export function createVRStatusIndicator() {
     return vrStatusContainer;
 }
 
-// Update VR status function (call this when needed)
+// Update VR status (globally accessible via main.js)
 export function updateVRStatus() {
     const statusText = document.getElementById('vr-status-text');
     const statusIcon = document.getElementById('vr-status-indicator')?.querySelector('div');
