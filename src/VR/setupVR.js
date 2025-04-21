@@ -43,6 +43,7 @@ let starSystem;
 let initialized = false;
 let lastFrameTime = 0;
 const COCKPIT_SCALE = 1; // Scale factor for the cockpit model
+const headHeight = 0;    // Initial height of headset
 
 // Initialize the VR scene
 export function init() {
@@ -154,118 +155,6 @@ export function init() {
     return { scene, camera, renderer };
 }
 
-// Create a debug display that's visible in VR
-function createDebugDisplay() {
-    // Create debug display canvas
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 256;
-    const context = canvas.getContext('2d');
-    
-    // Clear with transparent background
-    context.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Create texture from canvas
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.needsUpdate = true;
-    
-    // Create material using the canvas texture
-    const material = new THREE.MeshBasicMaterial({
-        map: texture,
-        transparent: true,
-        side: THREE.DoubleSide
-    });
-    
-    // Create plane for debug display
-    const geometry = new THREE.PlaneGeometry(1, 0.5);
-    debugTextMesh = new THREE.Mesh(geometry, material);
-    debugTextMesh.renderOrder = 1001; // Render after cockpit
-    
-    // Store canvas and context for updates
-    debugTextMesh.userData = {
-        canvas,
-        context,
-        updateInterval: 200,
-        lastUpdate: 0
-    };
-    
-    // Don't add to scene yet - will add to camera rig after it's created
-    if (cameraRig) {
-        // Position the debug display in front of the user
-        debugTextMesh.position.set(0, 1.0, -0.8);
-        cameraRig.add(debugTextMesh);
-    }
-}
-
-// Update the debug display with current information
-function updateDebugDisplay(timestamp) {
-    if (!debugTextMesh) return;
-    
-    // Only update a few times per second to avoid performance impact
-    if (timestamp - debugTextMesh.userData.lastUpdate < debugTextMesh.userData.updateInterval) {
-        return;
-    }
-    
-    const canvas = debugTextMesh.userData.canvas;
-    const context = debugTextMesh.userData.context;
-    
-    // Clear canvas
-    context.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Set text properties
-    context.font = '24px Arial';
-    context.fillStyle = '#33ff33';
-    context.textAlign = 'left';
-    
-    // Add heading
-    context.fillText('HEIGHT DATA', 20, 40);
-    
-    // Draw border
-    context.strokeStyle = '#33ff33';
-    context.lineWidth = 2;
-    context.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
-    
-    // Start position for debug text
-    let y = 80;
-    const lineHeight = 35;
-    
-    // XR Camera raw head height (if available)
-    if (renderer && renderer.xr && renderer.xr.isPresenting) {
-        const xrCamera = renderer.xr.getCamera();
-        if (xrCamera) {
-            context.font = '28px Arial';
-            context.fillStyle = '#ffff00'; // Yellow for emphasis
-            context.fillText(`HEAD HEIGHT: ${xrCamera.position.y.toFixed(3)}m`, 20, y);
-            y += lineHeight;
-            
-            // Cockpit height 
-            if (cockpit) {
-                context.fillStyle = '#00ffff'; // Cyan for cockpit
-                context.fillText(`COCKPIT HEIGHT: ${cockpit.position.y.toFixed(3)}m`, 20, y);
-                y += lineHeight;
-                
-                // Show difference if we have a target height
-                // if (desiredCockpitHeight !== null) {
-                //     const diff = cockpit.position.y - desiredCockpitHeight;
-                //     const diffColor = Math.abs(diff) < 0.01 ? '#33ff33' : '#ff3333'; // Green if good, red if off
-                //     context.fillStyle = diffColor;
-                //     context.fillText(`DIFFERENCE: ${diff.toFixed(3)}m`, 20, y);
-                // }
-            }
-        }
-    }
-    
-    // Update texture
-    debugTextMesh.material.map.needsUpdate = true;
-    debugTextMesh.userData.lastUpdate = timestamp;
-}
-
-// Set debug information to display in VR
-export function setDebugInfo(key, value) {
-    debugInfo[key] = value;
-}
 
 // Load X-Wing cockpit model
 function loadCockpitModel() {
@@ -296,10 +185,6 @@ function loadCockpitModel() {
                     // Add cockpit to the rig so it moves with the player
                     cameraRig.add(cockpit);
                     
-                    // Set initial position - will be adjusted when XR session starts
-                    // We'll use a default height but this will be adjusted based on the user's actual height
-                    // cockpit.position.set(0, 0, -0.1);
-                    
                     // Create a variable to track if we've done the initial height calibration
                     let hasInitialHeightCalibration = false;
                     
@@ -320,8 +205,8 @@ function loadCockpitModel() {
                                 if (!hasInitialHeightCalibration && xrCamera) {
                                     // Wait a short moment for the XR system to stabilize initial pose
                                     setTimeout(() => {
-                                        // Get the head height (y-coordinate of the camera)
-                                        const headHeight = xrCamera.position.y;
+                                        // Set head height to the current head position
+                                        headHeight = xrCamera.position.y;
                                         
                                         console.log(`Detected user head height: ${headHeight.toFixed(3)}m, adjusting cockpit position`);
                                         
@@ -392,74 +277,26 @@ function loadCockpitModel() {
     return loadCockpitPromise;
 }
 
-// Remove all UI elements
-function clearAllUIElements() {
-    // Remove any existing planet labels from DOM
-    const planetLabels = document.querySelectorAll('.planet-label');
-    planetLabels.forEach(label => {
-        if (label.parentNode) {
-            label.parentNode.removeChild(label);
-        }
-    });
-    
-    // Hide any planet info boxes
-    const planetInfoBox = document.querySelector('.planet-info-box');
-    if (planetInfoBox) {
-        planetInfoBox.style.display = 'none';
-    }
-    
-    // Hide any distance indicators
-    const distanceIndicators = document.querySelectorAll('.distance-indicator');
-    distanceIndicators.forEach(indicator => {
-        indicator.style.display = 'none';
-    });
-    
-    // Hide exploration counter if it exists
-    const explorationCounter = document.querySelector('.exploration-counter');
-    if (explorationCounter) {
-        explorationCounter.style.display = 'none';
-    }
-    
-    // Hide hyperspace progress container
-    const progressContainer = document.getElementById('hyperspace-progress-container');
-    if (progressContainer) {
-        progressContainer.style.display = 'none';
-    }
-    
-    // Find and hide any possible black boxes or unexpected elements
-    const allDivs = document.querySelectorAll('div');
-    allDivs.forEach(div => {
-        // Hide any elements that might be positioned in front of the camera
-        if (div.style.zIndex > 1000 && div.id !== 'space-container') {
-            div.style.display = 'none';
-        }
-    });
-    
-    console.log("Cleared all UI elements");
-}
-
-// Window resize handler
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
 // Animation loop - update movement based on VR controller inputs
 export function update(timestamp) {
     // Calculate delta time for smooth movement
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
-    
+
     // Ensure cockpit stays at the right height - get current head height from XR camera
-    if (cockpit && renderer && renderer.xr && renderer.xr.isPresenting) {
-        const xrCamera = renderer.xr.getCamera();
-        if (xrCamera) {
-            const currentHeadHeight = xrCamera.position.y;
-            // Position cockpit at current head height to follow user
-            cockpit.position.set(0, currentHeadHeight, -0.1);
-        }
+    if (cockpit && renderer && heightCalibrationComplete) {
+        cockpit.position.set(0, headHeight, -0.1);
     }
+    
+    // // Ensure cockpit stays at the right height - get current head height from XR camera
+    // if (cockpit && renderer && renderer.xr && renderer.xr.isPresenting) {
+    //     const xrCamera = renderer.xr.getCamera();
+    //     if (xrCamera) {
+    //         const currentHeadHeight = xrCamera.position.y;
+    //         // Position cockpit at current head height to follow user
+    //         cockpit.position.set(0, currentHeadHeight, -0.1);
+    //     }
+    // }
 
     // Update the time uniform for shaders
     if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {
@@ -658,3 +495,170 @@ export function dispose() {
     initialized = false;
     console.log("VR test environment disposed");
 } 
+
+// Remove all UI elements
+function clearAllUIElements() {
+    // Remove any existing planet labels from DOM
+    const planetLabels = document.querySelectorAll('.planet-label');
+    planetLabels.forEach(label => {
+        if (label.parentNode) {
+            label.parentNode.removeChild(label);
+        }
+    });
+    
+    // Hide any planet info boxes
+    const planetInfoBox = document.querySelector('.planet-info-box');
+    if (planetInfoBox) {
+        planetInfoBox.style.display = 'none';
+    }
+    
+    // Hide any distance indicators
+    const distanceIndicators = document.querySelectorAll('.distance-indicator');
+    distanceIndicators.forEach(indicator => {
+        indicator.style.display = 'none';
+    });
+    
+    // Hide exploration counter if it exists
+    const explorationCounter = document.querySelector('.exploration-counter');
+    if (explorationCounter) {
+        explorationCounter.style.display = 'none';
+    }
+    
+    // Hide hyperspace progress container
+    const progressContainer = document.getElementById('hyperspace-progress-container');
+    if (progressContainer) {
+        progressContainer.style.display = 'none';
+    }
+    
+    // Find and hide any possible black boxes or unexpected elements
+    const allDivs = document.querySelectorAll('div');
+    allDivs.forEach(div => {
+        // Hide any elements that might be positioned in front of the camera
+        if (div.style.zIndex > 1000 && div.id !== 'space-container') {
+            div.style.display = 'none';
+        }
+    });
+    
+    console.log("Cleared all UI elements");
+}
+
+// Window resize handler
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+
+// Create a debug display that's visible in VR
+function createDebugDisplay() {
+    // Create debug display canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const context = canvas.getContext('2d');
+    
+    // Clear with transparent background
+    context.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Create texture from canvas
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    
+    // Create material using the canvas texture
+    const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        side: THREE.DoubleSide
+    });
+    
+    // Create plane for debug display
+    const geometry = new THREE.PlaneGeometry(1, 0.5);
+    debugTextMesh = new THREE.Mesh(geometry, material);
+    debugTextMesh.renderOrder = 1001; // Render after cockpit
+    
+    // Store canvas and context for updates
+    debugTextMesh.userData = {
+        canvas,
+        context,
+        updateInterval: 200,
+        lastUpdate: 0
+    };
+    
+    // Don't add to scene yet - will add to camera rig after it's created
+    if (cameraRig) {
+        // Position the debug display in front of the user
+        debugTextMesh.position.set(0, 1.0, -0.8);
+        cameraRig.add(debugTextMesh);
+    }
+}
+
+// Update the debug display with current information
+function updateDebugDisplay(timestamp) {
+    if (!debugTextMesh) return;
+    
+    // Only update a few times per second to avoid performance impact
+    if (timestamp - debugTextMesh.userData.lastUpdate < debugTextMesh.userData.updateInterval) {
+        return;
+    }
+    
+    const canvas = debugTextMesh.userData.canvas;
+    const context = debugTextMesh.userData.context;
+    
+    // Clear canvas
+    context.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Set text properties
+    context.font = '24px Arial';
+    context.fillStyle = '#33ff33';
+    context.textAlign = 'left';
+    
+    // Add heading
+    context.fillText('HEIGHT DATA', 20, 40);
+    
+    // Draw border
+    context.strokeStyle = '#33ff33';
+    context.lineWidth = 2;
+    context.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
+    
+    // Start position for debug text
+    let y = 80;
+    const lineHeight = 35;
+    
+    // XR Camera raw head height (if available)
+    if (renderer && renderer.xr && renderer.xr.isPresenting) {
+        const xrCamera = renderer.xr.getCamera();
+        if (xrCamera) {
+            context.font = '28px Arial';
+            context.fillStyle = '#ffff00'; // Yellow for emphasis
+            context.fillText(`HEAD HEIGHT: ${xrCamera.position.y.toFixed(3)}m`, 20, y);
+            y += lineHeight;
+            
+            // Cockpit height 
+            if (cockpit) {
+                context.fillStyle = '#00ffff'; // Cyan for cockpit
+                context.fillText(`COCKPIT HEIGHT: ${cockpit.position.y.toFixed(3)}m`, 20, y);
+                y += lineHeight;
+                
+                // Show difference if we have a target height
+                // if (desiredCockpitHeight !== null) {
+                //     const diff = cockpit.position.y - desiredCockpitHeight;
+                //     const diffColor = Math.abs(diff) < 0.01 ? '#33ff33' : '#ff3333'; // Green if good, red if off
+                //     context.fillStyle = diffColor;
+                //     context.fillText(`DIFFERENCE: ${diff.toFixed(3)}m`, 20, y);
+                // }
+            }
+        }
+    }
+    
+    // Update texture
+    debugTextMesh.material.map.needsUpdate = true;
+    debugTextMesh.userData.lastUpdate = timestamp;
+}
+
+// Set debug information to display in VR
+export function setDebugInfo(key, value) {
+    debugInfo[key] = value;
+}
