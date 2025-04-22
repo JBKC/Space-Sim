@@ -139,7 +139,7 @@ export function init() {
 
 
     // Create debug text display for VR
-    createDebugDisplay();
+    // createDebugDisplay();
 
     // Add window resize handler
     window.addEventListener('resize', onWindowResize, false);
