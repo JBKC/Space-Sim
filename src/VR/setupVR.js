@@ -142,6 +142,7 @@ export function init() {
     
     // Load X-Wing cockpit model
     loadCockpitModel(headHeight);
+    setDebugInfo('HeadHeight After LoadCockpit', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
 
     // Create debug text display for VR
     createDebugDisplay();
@@ -202,6 +203,7 @@ function loadCockpitModel(headHeight) {
                                 // Update the global headHeight variable ONCE
                                 headHeight = currentHeadHeight; 
                                 hasInitialHeightCalibration = true; // Mark calibration as done
+                                setDebugInfo('Initial HeadHeight Set', headHeight.toFixed(3));
 
                                 // Position the cockpit based on this initial height
                                 // Ensure the cockpit floor aligns roughly with the player's feet
@@ -303,6 +305,9 @@ function update(timestamp) {
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
     
+    // Set debug info for headHeight in update loop
+    setDebugInfo('HeadHeight in Update', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
+
     // Always set the cockpit to the initial calibrated height if available
     if (cockpit) {
         cockpit.position.set(0, headHeight, -0.1);
@@ -558,7 +563,7 @@ function createDebugDisplay() {
 
 // Update the debug display with current information
 function updateDebugDisplay(timestamp) {
-    if (!debugTextMesh) return;
+    if (!debugTextMesh || !renderer || !renderer.xr?.getSession()) return; // Added check for active XR session
     
     // Only update a few times per second to avoid performance impact
     if (timestamp - debugTextMesh.userData.lastUpdate < debugTextMesh.userData.updateInterval) {
@@ -567,13 +572,18 @@ function updateDebugDisplay(timestamp) {
     
     const canvas = debugTextMesh.userData.canvas;
     const context = debugTextMesh.userData.context;
+
+    // Get live head Y position safely
+    const liveHeadY = renderer.xr.getCamera()?.position.y;
+    setDebugInfo('Live Head Y', typeof liveHeadY === 'number' ? liveHeadY.toFixed(3) : 'N/A');
     
     // Clear canvas
     context.fillStyle = 'rgba(0, 0, 0, 0.7)';
     context.fillRect(0, 0, canvas.width, canvas.height);
     
     // Set text properties
-    context.font = '32px Arial';
+    const fontSize = 28; // Slightly smaller font
+    context.font = `${fontSize}px Arial`;
     context.fillStyle = '#ffff00';
     context.textAlign = 'left';
     
@@ -582,11 +592,15 @@ function updateDebugDisplay(timestamp) {
     context.lineWidth = 2;
     context.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
     
-    // Show ONLY the headHeight variable with proper null check
-    if (headHeight !== null && headHeight !== undefined) {
-        context.fillText(`headHeight = ${headHeight.toFixed(3)}m`, 20, 50);
-    } else {
-        context.fillText(`headHeight = not set yet`, 20, 50);
+    // Draw all debug info
+    let yPos = 40; // Starting Y position
+    const lineHeight = fontSize + 8; // Line height based on font size
+
+    for (const [key, value] of Object.entries(debugInfo)) {
+        context.fillText(`${key}: ${value}`, 20, yPos);
+        yPos += lineHeight;
+        // Stop if we run out of space on the canvas
+        if (yPos > canvas.height - 20) break; 
     }
     
     // Update texture
