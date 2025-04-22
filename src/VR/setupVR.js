@@ -137,10 +137,6 @@ export function init() {
     // Initialize VR controllers for movement
     initVRControllers(renderer);
 
-    // Get inital head position from XR camera
-    const xrCamera = renderer.xr.getCamera();
-    headHeight = xrCamera.position.y; 
-    
     // Create camera rig for separating head tracking from movement
     cameraRig = setupCameraRig(scene, camera);
     
