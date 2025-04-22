@@ -137,8 +137,6 @@ export function init() {
     // Initialize VR controllers for movement
     initVRControllers(renderer);
 
-    
-    setDebugInfo('HeadHeight during init', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
 
     // Create debug text display for VR
     createDebugDisplay();
@@ -279,10 +277,13 @@ function update(timestamp) {
     // Once criteria met, break out of loop
     if (!headHeightCalibration && !cockpit && headHeight == 0) {
         headHeight = renderer.xr.getCamera()?.position.y;
-        setDebugInfo('headHeight', headHeight.toFixed(3));
+        setDebugInfo('headHeight in update loop', headHeight.toFixed(3));
     }
     if (headHeightCalibration && !cockpit && headHeight > 0) {
+        setDebugInfo('headHeight pre-cockpit', headHeight.toFixed(3));
         loadCockpitModel(headHeight);
+        setDebugInfo('headHeight post-cockpit', headHeight.toFixed(3));
+
         console.log("Cockpit loaded");
         headHeightCalibration = false;
     }
