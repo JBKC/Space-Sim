@@ -362,7 +362,7 @@ function update(timestamp) {
     lastFrameTime = timestamp;
     
     // Always set the cockpit to the initial calibrated height if available
-    if (cockpit && headHeight !== 0.0) {
+    if (cockpit) {
         cockpit.position.set(0, 1.1, -0.1);
     }
 
