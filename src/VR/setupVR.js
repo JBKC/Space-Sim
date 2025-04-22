@@ -38,8 +38,8 @@ let debugTextMesh;
 let debugInfo = {};
 
 // Height tracking for cockpit
-export let headHeight = 0;
-export let headHeightCalibration = false;
+let headHeight = 0;
+let headHeightCalibration = false;
 
 let starSystem;
 let initialized = false;
@@ -278,15 +278,10 @@ function update(timestamp) {
     if (!headHeightCalibration && !cockpit && headHeight == 0) {
         headHeight = renderer.xr.getCamera()?.position.y;
         setDebugInfo('headHeight in update loop', headHeight.toFixed(3));
-        headHeightCalibration = true;
-    }
-    if (headHeightCalibration && !cockpit && headHeight > 0) {
-        setDebugInfo('headHeight pre-cockpit', headHeight.toFixed(3));
         loadCockpitModel(headHeight);
         setDebugInfo('headHeight post-cockpit', headHeight.toFixed(3));
-
         console.log("Cockpit loaded");
-        headHeightCalibration = false;
+        headHeightCalibration = true;
     }
 
 

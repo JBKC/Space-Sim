@@ -46,9 +46,7 @@ import {
     init as initSpaceVR,
     startVRMode as startSpaceVRMode,
     dispose as disposeSpaceVR,
-    calibrateVR,
-    headHeight,
-    headHeightCalibration
+    calibrateVR
 } from './VR/setupVR.js';
 
 // Earth scene imports (set to San Francisco)
@@ -226,7 +224,6 @@ async function startGame(mode = 'normal') {
         initSpaceVR();
 
         startSpaceVRMode();
-
 
 
     } else {
