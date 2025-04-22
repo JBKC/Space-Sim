@@ -38,206 +38,204 @@ let debugTextMesh;
 let debugInfo = {};
 
 // Height tracking for cockpit
-let headHeight = 0; // This will be set ONCE during calibration
+let headHeight = 0;
+let hasInitialHeightCalibration = false;
 
 let starSystem;
 let initialized = false;
 let lastFrameTime = 0;
 const COCKPIT_SCALE = 1; // Scale factor for the cockpit model
 
-// XR Animation Loop function (defined globally now)
-function xrAnimationLoop(timestamp, frame) {
-    // Update movement based on controllers
-    if (scene && camera) { // Add checks for scene/camera existence
-        update(timestamp);
-    }
-    
-    // Render the scene if ready
-    if (renderer && scene && camera) {
-        renderer.render(scene, camera);
-    } else {
-        // Optional: Log if render skipped due to missing components
-        // console.warn("Skipping render: Renderer, Scene, or Camera not ready.");
-    }
-}
-
-// Function to poll for head height and then trigger scene setup
-function calibrateAndProceed() {
-    // Stop if already calibrated (headHeight is set)
-    if (headHeight > 0) return;
-
-    // Stop polling if XR session ended before calibration
-    if (!renderer || !renderer.xr?.isPresenting) {
-        console.log("XR session not presenting, waiting...");
-        setDebugInfo('Calibration Status', 'Waiting for XR session');
-        requestAnimationFrame(calibrateAndProceed); // Keep trying
-        return;
-    }
-
-    // Session is presenting, try to get camera height
-    const xrCamera = renderer.xr.getCamera();
-    if (!xrCamera) {
-        console.log("XR Camera not available yet, waiting...");
-        setDebugInfo('Calibration Status', 'Waiting for XR Camera');
-        requestAnimationFrame(calibrateAndProceed);
-        return;
-    }
-
-    const currentHeadHeight = xrCamera.position.y;
-
-    // Check if height is valid (e.g., > 0.1m)
-    if (currentHeadHeight > 0.1) {
-        headHeight = currentHeadHeight;
-        console.log(`>>> Head height calibrated: ${headHeight.toFixed(3)} <<<`);
-        setDebugInfo('Calibration Status', `Calibrated: ${headHeight.toFixed(3)}`);
+// Calibrate head height before anything else
+function calibrateHeadHeight() {
+    console.log("Starting head height calibration phase...");
+    return new Promise((resolve) => {
+        // Set up a temporary renderer just for calibration
+        const tempRenderer = new THREE.WebGLRenderer({ antialias: true });
+        tempRenderer.setSize(window.innerWidth, window.innerHeight);
+        tempRenderer.xr.enabled = true;
         
-        // --- Calibration Complete: Proceed with scene setup! ---
-        setupSceneAndLoadAssets(); 
-        // --- Stop Polling --- (by not calling requestAnimationFrame again)
-        return; 
-    } else {
-        // Still waiting for valid height
-        setDebugInfo('Calibration Status', `Waiting for valid height (${currentHeadHeight.toFixed(3)})`);
-        requestAnimationFrame(calibrateAndProceed);
-    }
+        // Set up minimal scene & camera
+        const tempScene = new THREE.Scene();
+        const tempCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10);
+        
+        // Add to DOM temporarily
+        document.body.appendChild(tempRenderer.domElement);
+        
+        // Create and auto-click VR button to enter VR immediately
+        const vrButton = VRButton.createButton(tempRenderer);
+        document.body.appendChild(vrButton);
+        
+        // Handle calibration in XR animation loop
+        function calibrationLoop(timestamp) {
+            if (tempRenderer.xr.isPresenting) {
+                const xrCamera = tempRenderer.xr.getCamera();
+                const currentHeight = xrCamera.position.y;
+                
+                // Once we have valid height data > threshold 
+                if (currentHeight > 0.1) {
+                    console.log(`Valid head height found: ${currentHeight.toFixed(3)}m`);
+                    
+                    // Save the height and mark calibration as complete
+                    headHeight = currentHeight;
+                    hasInitialHeightCalibration = true;
+                    
+                    // Clean up temporary renderer & elements
+                    tempRenderer.setAnimationLoop(null);
+                    if (tempRenderer.domElement.parentNode) {
+                        tempRenderer.domElement.parentNode.removeChild(tempRenderer.domElement);
+                    }
+                    
+                    // Remove the VR button as we're done with it
+                    if (vrButton.parentNode) {
+                        vrButton.parentNode.removeChild(vrButton);
+                    }
+                    
+                    // Resolve the promise with final headHeight
+                    console.log(`Calibration phase complete. Head height: ${headHeight.toFixed(3)}m`);
+                    resolve(headHeight);
+                    return;
+                }
+                
+                // If still waiting, log & keep waiting
+                console.log(`Waiting for valid height... Current: ${currentHeight.toFixed(3)}m`);
+            }
+            
+            // Render the frame
+            tempRenderer.render(tempScene, tempCamera);
+        }
+        
+        // Start the calibration animation loop
+        tempRenderer.setAnimationLoop(calibrationLoop);
+        
+        // Trigger VR entry
+        setTimeout(() => {
+            vrButton.click();
+        }, 500);
+    });
 }
 
-
-// Initialize VR - Phase 1: Setup Renderer and start calibration
+// Initialize Space in VR
 export function init() {
-    console.log("Initializing VR (Phase 1: Renderer Setup & Calibration Start)");
+    console.log("Initializing space VR environment");
     
-    // Only run phase 1 once
-    if (renderer) {
-        console.log("Phase 1 already done.");
-        return;
+    if (initialized) {
+        console.log("VR environment already initialized, skipping");
+        return { scene, camera, renderer };
     }
-
-    // Create renderer with adjusted settings
-    renderer = new THREE.WebGLRenderer({ 
-        antialias: true,
-        logarithmicDepthBuffer: true // Add logarithmic depth buffer
-    });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.outputEncoding = THREE.sRGBEncoding;
-    renderer.setClearColor(0x05182b); // Main space background color
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.8;
     
-    // Enable XR
-    renderer.xr.enabled = true;
-    renderer.xr.setFoveation(0); // Disable foveated rendering
-
-    // Listen for session start to begin calibration
-    renderer.xr.addEventListener('sessionstart', function sessionStartHandler() {
-        console.log("XR session started - beginning head height calibration polling.");
-        setDebugInfo('Calibration Status', 'Session started, polling...');
-        requestAnimationFrame(calibrateAndProceed);
-        // Remove listener after first fire if needed, though polling check handles redundancy
-        // renderer.xr.removeEventListener('sessionstart', sessionStartHandler);
-    });
-
-    // Add renderer to DOM
-    const container = document.getElementById('space-container');
-    if (container) {
-        container.appendChild(renderer.domElement);
-    } else {
-        document.body.appendChild(renderer.domElement);
-    }
-
-    console.log("Phase 1 Complete: Renderer ready, waiting for session start to calibrate.");
-    // Note: Scene, camera, assets are NOT loaded yet.
-}
-
-// Initialize VR - Phase 2: Setup scene, camera, assets AFTER calibration
-function setupSceneAndLoadAssets() {
-    console.log("Initializing VR (Phase 2: Scene Setup & Asset Loading - HeadHeight: " + headHeight.toFixed(3) + ")");
-
-    // Ensure this only runs once
-    if (scene) { // Use scene existence as a flag for phase 2 completion
-        console.log("Phase 2 already done.");
-        return;
-    }
-
-    ///// Scene Setup /////
-
-    // Create scene
-    scene = new THREE.Scene();
-    
-    // Create perspective camera
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 150000);
-    camera.position.set(0, 0, 0); // Camera starts at rig origin
-    
-    // REMOVED: Renderer is created in init()
-    // renderer = new THREE.WebGLRenderer(...);
-    
-    // REMOVED: XR setup is done in init()
-    // renderer.xr.enabled = true;
-    // renderer.xr.addEventListener(...);
-
-    // Set up render quality specifics (can stay here or move to init)
-    const session = renderer.xr.getSession();
-    if (session) {
-        session.updateRenderState({
-            baseLayer: new XRWebGLLayer(session, renderer.getContext(), {
-                framebufferScaleFactor: 1.0,
-                alpha: false, depth: true, stencil: false, antialias: true, multiview: true
-            })
+    // Begin with calibration phase before anything else
+    return calibrateHeadHeight().then(() => {
+        console.log(`Proceeding with initialization using headHeight: ${headHeight.toFixed(3)}m`);
+        
+        ///// Scene Setup /////
+        
+        // Create scene
+        scene = new THREE.Scene();
+        // scene.fog = new THREE.FogExp2(0x000011, 0.00001); // Very subtle exponential fog
+        
+        // Create perspective camera with improved near/far planes
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 150000);
+        camera.position.set(0, 0, 0);
+        
+        // Create renderer with adjusted settings
+        renderer = new THREE.WebGLRenderer({ 
+            antialias: true,
+            logarithmicDepthBuffer: true // Add logarithmic depth buffer to help with draw distance issues
         });
-        console.log("WebXR render state configured for high quality.");
-    }
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        renderer.setClearColor(0x05182b);                   // Main space background color
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 0.8;
+        
+        // Enable XR
+        renderer.xr.enabled = true;
+        renderer.xr.setFoveation(0); // Disable foveated rendering (0 = no foveation, 1 = maximum foveation)
+        
+        // Set up session initialization event listener to configure XR session when it starts
+        renderer.xr.addEventListener('sessionstart', function() {
+            const session = renderer.xr.getSession();
+            
+            if (session) {
+                // Configure render layers for highest quality
+                session.updateRenderState({
+                    baseLayer: new XRWebGLLayer(session, renderer.getContext(), {
+                        framebufferScaleFactor: 1.0, // Set to 1.0 for highest quality
+                        alpha: false,
+                        depth: true,
+                        stencil: false,
+                        antialias: true,
+                        multiview: true // Use multiview when available for better performance
+                    })
+                });
+                
+                console.log("WebXR session configured for high quality rendering");
+            }
+        });
 
-    // Create stars 
-    starSystem = createStars();
-    scene.add(starSystem.stars);
-    console.log("Added dynamic star system.");
+        // Add advanced space environment elements (inactive for now)
+        // scene.add(spaceGradientSphere);
+        // scene.add(nebula);
+        // scene.add(particleSystem);
+        // scene.add(directionalLightCone);
+        // scene.add(galaxyBackdrop);
 
-    // Lighting
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-    directionalLight.position.set(0, 100, -1);
-    scene.add(directionalLight);
-    const ambientLight = new THREE.AmbientLight(0x111133, 1);
-    scene.add(ambientLight);
+        // Create stars with dynamic brightness
+        starSystem = createStars();
+        scene.add(starSystem.stars);
+        console.log("Added dynamic star system to VR environment");
 
-    ///// Gameplay Setup /////
+        // Lighting
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(0, 100, -1);
+        scene.add(directionalLight);
+        const ambientLight = new THREE.AmbientLight(0x111133, 1);
+        scene.add(ambientLight);
 
-    // Initialize VR controllers
-    initVRControllers(renderer);
-    
-    // Create camera rig 
-    // IMPORTANT: Must happen AFTER camera created, BEFORE cockpit loaded
-    cameraRig = setupCameraRig(scene, camera);
-    console.log("Camera rig created.");
-    
-    // Load X-Wing cockpit model (uses global headHeight now)
-    loadCockpitModel(); 
+        // Get space container and append renderer
+        const container = document.getElementById('space-container');
+        if (container) {
+            container.appendChild(renderer.domElement);
+        } else {
+            document.body.appendChild(renderer.domElement);
+        }
 
-    // Create debug text display 
-    // IMPORTANT: Must happen AFTER cameraRig is created
-    createDebugDisplay();
-    console.log("Debug display created.");
 
-    // Add window resize handler
-    window.addEventListener('resize', onWindowResize, false);
-    
-    console.log("Phase 2 Complete: Scene and assets loaded.");
+        ///// Gameplay Setup /////
 
-    // --- Start the Animation Loop NOW that setup is complete --- 
-    if (renderer) {
-        renderer.setAnimationLoop(xrAnimationLoop);
-        console.log("VR animation loop started after successful scene setup.");
-    } else {
-        console.error("Cannot start animation loop: Renderer not found!");
-    }
-    // -----------------------------------------------------------
+        // Initialize VR controllers for movement
+        initVRControllers(renderer);
+
+        // Create camera rig for separating head tracking from movement
+        cameraRig = setupCameraRig(scene, camera);
+        
+        // Load X-Wing cockpit model with pre-calibrated headHeight
+        loadCockpitModel(headHeight);
+        setDebugInfo('HeadHeight From Calibration', headHeight.toFixed(3));
+
+        // Create debug text display for VR
+        createDebugDisplay();
+
+        // Add window resize handler
+        window.addEventListener('resize', onWindowResize, false);
+        
+        // Mark as initialized
+        initialized = true;
+        console.log("VR test environment initialized");
+        
+        return { scene, camera, renderer };
+    });
 }
 
-// Load X-Wing cockpit model (now uses global headHeight)
-function loadCockpitModel() { // REMOVED headHeight parameter
+// Load X-Wing cockpit model
+function loadCockpitModel(headHeight) {
     // Create an empty group to hold the cockpit model
     cockpit = new THREE.Group();
+    let cockpitLoaded = false;
     
+    // Use loadModelFromRegistry to load the cockpit model
     const loadCockpitPromise = new Promise((resolve, reject) => {
         loadModelFromRegistry(
             'spacecraft',
@@ -255,24 +253,17 @@ function loadCockpitModel() { // REMOVED headHeight parameter
                 // Rotate cockpit 180 degrees around Y-axis to face forward
                 cockpit.rotation.y = Math.PI; // This is a 180-degree rotation in radians
                 
-                // Add cockpit to the rig
+                // If cameraRig exists, add the cockpit to it
                 if (cameraRig) {
+                    // Add cockpit to the rig so it moves with the player
                     cameraRig.add(cockpit);
                     
-                    // --- Set Cockpit Position using calibrated headHeight --- 
-                    if (headHeight > 0) {
-                        const cockpitYOffset = -headHeight; // Adjust so floor is near feet
-                        cockpit.position.y = cockpitYOffset;
-                        console.log(`Cockpit position set using calibrated headHeight: ${headHeight.toFixed(3)}, Y: ${cockpitYOffset.toFixed(3)}`);
-                        setDebugInfo('Cockpit Y Pos', cockpitYOffset.toFixed(3));
-                    } else {
-                        // Should not happen if called after calibration, but log if it does
-                        console.error("Cockpit loaded but headHeight is not calibrated! Setting Y to 0.");
-                        cockpit.position.y = 0;
-                        setDebugInfo('Cockpit Y Pos', 'Error - headHeight 0');
-                    }
-                    // ---------------------------------------------------------
-
+                    // Position the cockpit immediately using the calibrated height
+                    // No need to wait for sessionstart as we already have headHeight
+                    const cockpitYOffset = -headHeight; // Adjust so floor is near feet
+                    cockpit.position.y = cockpitYOffset;
+                    console.log(`Cockpit positioned at Y: ${cockpitYOffset.toFixed(3)} based on pre-calibrated headHeight: ${headHeight.toFixed(3)}`);
+                    
                     // Ensure cockpit renders with proper materials
                     cockpit.traverse(function(child) {
                         if (child.isMesh) {
@@ -289,6 +280,7 @@ function loadCockpitModel() { // REMOVED headHeight parameter
                     console.error("Camera rig not available, cockpit not attached");
                 }
                 
+                cockpitLoaded = true;
                 resolve(cockpit);
             },
             (xhr) => {
@@ -311,36 +303,72 @@ function loadCockpitModel() { // REMOVED headHeight parameter
 
 /////////////// ANIMATION LOOP ///////////////
 
-// Start VR mode - Initiates phase 1 and handles automatic VR entry
+// Start VR animation loop
 export function startVRMode() {
-    console.log("Attempting to start VR mode...");
-
-    // Ensure Phase 1 (Renderer setup) is done
-    if (!renderer) {
-        init(); // Run phase 1 if it hasn't run yet
+    console.log("Starting VR mode animation loop");
+    
+    // Ensure all UI elements are cleared
+    clearAllUIElements();
+    
+    // Create XR animation loop
+    function xrAnimationLoop(timestamp, frame) {
+        // Update movement based on controllers
+        update(timestamp);
+        
+        // Render the scene
+        renderer.render(scene, camera);
     }
     
-    // REMOVED: Setting animation loop here was too early
-    // renderer.setAnimationLoop(xrAnimationLoop);
-    // console.log("VR animation loop set");
-
-    // Automatically enter VR after a short delay (this triggers sessionstart -> calibration -> phase 2 -> animation loop start)
-    setTimeout(() => {
-        console.log("Creating and clicking VR button to trigger session start...");
-        const vrButton = VRButton.createButton(renderer);
-        document.body.appendChild(vrButton);
+    // Since we have already calibrated headHeight in init(),
+    // we can directly set up the animation loop
+    if (initialized) {
+        // Set the animation loop
+        renderer.setAnimationLoop(xrAnimationLoop);
+        console.log("VR animation loop set");
         
-        vrButton.addEventListener('click', () => {
-            console.log("VR Button clicked, session should start.");
+        // Create and click VR button
+        setTimeout(() => {
+            const vrButton = VRButton.createButton(renderer);
+            document.body.appendChild(vrButton);
+            
+            // Make sure button is removed from DOM after clicking
+            vrButton.addEventListener('click', () => {
+                setTimeout(() => {
+                    if (vrButton.parentNode) {
+                        vrButton.parentNode.removeChild(vrButton);
+                    }
+                }, 100);
+            });
+            
+            vrButton.click();
+        }, 500);
+    } else {
+        // If not initialized, initialize first
+        console.log("VR environment not initialized yet, initializing...");
+        
+        init().then(() => {
+            // Set the animation loop
+            renderer.setAnimationLoop(xrAnimationLoop);
+            console.log("VR animation loop set");
+            
+            // Create and click VR button
             setTimeout(() => {
-                if (vrButton.parentNode) {
-                    vrButton.parentNode.removeChild(vrButton);
-                }
-            }, 100);
+                const vrButton = VRButton.createButton(renderer);
+                document.body.appendChild(vrButton);
+                
+                // Make sure button is removed from DOM after clicking
+                vrButton.addEventListener('click', () => {
+                    setTimeout(() => {
+                        if (vrButton.parentNode) {
+                            vrButton.parentNode.removeChild(vrButton);
+                        }
+                    }, 100);
+                });
+                
+                vrButton.click();
+            }, 500);
         });
-        
-        vrButton.click();
-    }, 1000);
+    }
 }
 
 // Animation loop - update movement based on VR controller inputs

@@ -219,12 +219,16 @@ function startGame(mode = 'normal') {
         console.log("Initializing VR test environment");
         
         // Initialize the minimal VR test environment
-        initSpaceVR();
-        
-        // Start VR animation loop for the test environment
-        // THIS HANDLES rendering, movement, controls, update etc.
-        // Different layout to normal mode
-        startSpaceVRMode();
+        initSpaceVR().then(() => {
+            console.log("VR environment initialization complete");
+            
+            // Start VR animation loop for the test environment
+            // THIS HANDLES rendering, movement, controls, update etc.
+            // Different layout to normal mode
+            startSpaceVRMode();
+        }).catch(error => {
+            console.error("Error initializing VR environment:", error);
+        });
 
 
     } else {
