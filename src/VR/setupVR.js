@@ -39,7 +39,9 @@ let debugInfo = {};
 
 // Height tracking for cockpit
 let headHeight = 0;
-let hasInitialHeightCalibration = false;
+let hasInitialHeightCalibration = false; // Unified flag - removing headHeightCalibration
+let calibrationPromise = null; // Promise to track calibration status
+let resolveCalibration = null; // Function to resolve the calibration promise
 
 let starSystem;
 let initialized = false;
@@ -67,7 +69,7 @@ export function init() {
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 150000);
     camera.position.set(0, 0, 0);
     
-    // Create renderer with adjusted settings
+    // Create renderer
     renderer = new THREE.WebGLRenderer({ 
         antialias: true,
         logarithmicDepthBuffer: true // Add logarithmic depth buffer to help with draw distance issues
@@ -81,7 +83,6 @@ export function init() {
     
     // Enable XR
     renderer.xr.enabled = true;
-
     renderer.xr.setFoveation(0); // Disable foveated rendering (0 = no foveation, 1 = maximum foveation)
     
     // Set up session initialization event listener to configure XR session when it starts
@@ -102,15 +103,17 @@ export function init() {
             });
             
             console.log("WebXR session configured for high quality rendering");
+            
+            // IMPORTANT: Create the calibration promise that the system will block on
+            calibrationPromise = new Promise((resolve) => {
+                resolveCalibration = resolve;
+                console.log("Head height calibration promise created - waiting for valid height");
+            });
+            
+            // Start monitoring update function to detect valid head height
+            startCalibrationMonitoring();
         }
     });
-
-    // Add advanced space environment elements (inactive for now)
-    // scene.add(spaceGradientSphere);
-    // scene.add(nebula);
-    // scene.add(particleSystem);
-    // scene.add(directionalLightCone);
-    // scene.add(galaxyBackdrop);
 
     // Create stars with dynamic brightness
     starSystem = createStars();
@@ -141,21 +144,88 @@ export function init() {
     // Create camera rig for separating head tracking from movement
     cameraRig = setupCameraRig(scene, camera);
     
-    // Load X-Wing cockpit model
-    loadCockpitModel(headHeight);
-    setDebugInfo('HeadHeight After LoadCockpit', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
-
-    // Create debug text display for VR
-    createDebugDisplay();
-
+    // Load X-Wing cockpit model with blocking wait for head height calibration
+    blockUntilCalibrated().then(() => {
+        console.log(`Initialization proceeding after headHeight calibration. HeadHeight = ${headHeight.toFixed(3)}`);
+        loadCockpitModel(headHeight);
+        setDebugInfo('HeadHeight After LoadCockpit', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
+        
+        // Create debug text display for VR
+        createDebugDisplay();
+        
+        // Mark as fully initialized
+        initialized = true;
+        console.log("VR environment fully initialized after calibration");
+    });
+    
     // Add window resize handler
     window.addEventListener('resize', onWindowResize, false);
     
-    // Mark as initialized
-    initialized = true;
-    console.log("VR test environment initialized");
-    
     return { scene, camera, renderer };
+}
+
+// This function returns a promise that resolves once head height is calibrated
+function blockUntilCalibrated() {
+    if (hasInitialHeightCalibration) {
+        console.log("Head height already calibrated, proceeding immediately");
+        return Promise.resolve();
+    }
+    
+    if (!calibrationPromise && renderer && renderer.xr && renderer.xr.isPresenting) {
+        // If we're in VR but no promise exists yet, create one now
+        calibrationPromise = new Promise((resolve) => {
+            resolveCalibration = resolve;
+            console.log("Late creation of calibration promise");
+        });
+    }
+    
+    return calibrationPromise || Promise.resolve();
+}
+
+// Set up a special monitoring function that runs in the XR animation loop
+function startCalibrationMonitoring() {
+    if (!renderer || !renderer.xr) return;
+    
+    // Store the original animation loop if there is one
+    const originalAnimationLoop = renderer.getAnimationLoop();
+    
+    // Create a temporary animation loop that just checks for valid head height
+    const calibrationLoop = (timestamp, frame) => {
+        if (!hasInitialHeightCalibration && frame) {
+            const xrCamera = renderer.xr.getCamera();
+            const currentHeadHeight = xrCamera.position.y;
+            
+            // Check if we have a valid head height reading (not zero or too small)
+            if (currentHeadHeight > 0.1) {
+                // We have a valid height!
+                headHeight = currentHeadHeight;
+                hasInitialHeightCalibration = true;
+                setDebugInfo('Initial HeadHeight Set', headHeight.toFixed(3));
+                console.log(`Head height calibrated: ${headHeight.toFixed(3)}m`);
+                
+                // Resolve the promise to unblock initialization
+                if (resolveCalibration) {
+                    resolveCalibration();
+                    resolveCalibration = null;
+                }
+                
+                // Restore the original animation loop if there was one
+                if (originalAnimationLoop) {
+                    renderer.setAnimationLoop(originalAnimationLoop);
+                }
+            } else {
+                setDebugInfo('Calibration Status', `Waiting for valid height (${currentHeadHeight.toFixed(3)})`);
+            }
+        }
+        
+        // Call the original animation loop if it exists
+        if (originalAnimationLoop && typeof originalAnimationLoop === 'function') {
+            originalAnimationLoop(timestamp, frame);
+        }
+    };
+    
+    // Set our calibration loop
+    renderer.setAnimationLoop(calibrationLoop);
 }
 
 // Load X-Wing cockpit model
@@ -163,6 +233,8 @@ function loadCockpitModel(headHeight) {
     // Create an empty group to hold the cockpit model
     cockpit = new THREE.Group();
     let cockpitLoaded = false;
+    
+    console.log(`Loading cockpit model with headHeight = ${headHeight.toFixed(3)}m`);
     
     // Use loadModelFromRegistry to load the cockpit model
     const loadCockpitPromise = new Promise((resolve, reject) => {
@@ -187,12 +259,11 @@ function loadCockpitModel(headHeight) {
                     // Add cockpit to the rig so it moves with the player
                     cameraRig.add(cockpit);
                     
-                    // Add listener for XR session start
-                    if (renderer && renderer.xr) {
-                        renderer.xr.addEventListener('sessionstart', () => {
-                            console.log("XR session started - Cockpit height calibration will occur in the first valid update() frame.");
-                        });
-                    }
+                    // Position the cockpit based on the calibrated head height
+                    // Adjust the Y position so the cockpit floor is near the user's feet
+                    const cockpitYOffset = -headHeight; // Negate height to move down from head level
+                    cockpit.position.set(0, cockpitYOffset, -0.1);
+                    console.log(`Cockpit positioned at Y: ${cockpitYOffset.toFixed(3)}m based on headHeight: ${headHeight.toFixed(3)}m`);
                     
                     // Ensure cockpit renders with proper materials
                     cockpit.traverse(function(child) {
@@ -278,36 +349,16 @@ function update(timestamp) {
     // Calculate delta time for smooth movement
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
-
-    // --- Initial Head Height Calibration --- 
-    if (!hasInitialHeightCalibration && renderer.xr.isPresenting && cockpit) {
-        const xrCamera = renderer.xr.getCamera();
-        const currentHeadHeight = xrCamera.position.y;
-
-        // Check if height is valid (e.g., > 0.1m) before calibrating
-        if (currentHeadHeight > 0.1) {
-            headHeight = currentHeadHeight;
-            hasInitialHeightCalibration = true;
-            setDebugInfo('Initial HeadHeight Set', headHeight.toFixed(3));
-
-            // Set cockpit Y position based on calibrated height
-            const cockpitYOffset = -headHeight; // Adjust so floor is near feet
-            cockpit.position.y = cockpitYOffset;
-            console.log(`Cockpit height calibrated. HeadHeight: ${headHeight.toFixed(3)}, Cockpit Y: ${cockpitYOffset.toFixed(3)}`);
-        } else {
-            // Optional: Log if we are waiting for a valid height
-            // console.log(`Waiting for valid head height... Current: ${currentHeadHeight.toFixed(3)}`);
-            setDebugInfo('Initial HeadHeight Set', `Waiting (${currentHeadHeight.toFixed(3)})`);
-        }
-    }
-    // --- End Calibration ---
     
     // Set debug info for headHeight in update loop
     setDebugInfo('HeadHeight in Update', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
-
-    // Always set the cockpit to the initial calibrated height if available
+    
+    // IMPORTANT: Don't reposition cockpit - it's already positioned during initialization
+    // and should remain fixed relative to the cameraRig
+    
+    // Add debug info about the cockpit position too
     if (cockpit) {
-        cockpit.position.set(0, headHeight, -0.1);
+        setDebugInfo('Cockpit Y Position', cockpit.position.y.toFixed(3));
     }
 
     // Update the time uniform for shaders
