@@ -45,7 +45,10 @@ import {
 import {
     init as initSpaceVR,
     startVRMode as startSpaceVRMode,
-    dispose as disposeSpaceVR
+    dispose as disposeSpaceVR,
+    calibrateVR,
+    headHeight,
+    headHeightCalibration
 } from './VR/setupVR.js';
 
 // Earth scene imports (set to San Francisco)
@@ -217,15 +220,16 @@ function startGame(mode = 'normal') {
         }
 
         console.log("Initializing VR test environment");
-        
-        // Initialize the minimal VR test environment
-        initSpaceVR();
-        
-        // Start VR animation loop for the test environment
-        // THIS HANDLES rendering, movement, controls, update etc.
-        // Different layout to normal mode
-        startSpaceVRMode();
 
+        if (!headHeightCalibration && headHeight === 0) {
+            calibrateVR();
+        } else {
+                        // Initialize the minimal VR test environment
+            initSpaceVR();
+            
+            // Start VR animation loop for the test environment
+            startSpaceVRMode();
+        }
 
     } else {
 

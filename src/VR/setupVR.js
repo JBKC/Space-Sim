@@ -38,9 +38,8 @@ let debugTextMesh;
 let debugInfo = {};
 
 // Height tracking for cockpit
-let headHeight = 0;
-let headHeightCalibration = false;
-let hasInitialHeightCalibration = false;
+export let headHeight = 0;
+export let headHeightCalibration = false;
 
 let starSystem;
 let initialized = false;
@@ -49,7 +48,7 @@ const COCKPIT_SCALE = 1; // Scale factor for the cockpit model
 
 
 // Initialize Space in VR
-export function init() {
+export function calibrateVR() {
 
     console.log("Initializing space VR environment");
     
@@ -67,6 +66,9 @@ export function init() {
     // Create perspective camera with improved near/far planes
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 150000);
     camera.position.set(0, 0, 0);
+
+    // Create camera rig for separating head tracking from movement
+    cameraRig = setupCameraRig(scene, camera);
     
     // Create renderer
     renderer = new THREE.WebGLRenderer({ 
@@ -106,21 +108,17 @@ export function init() {
         }
     });
 
-    // // First thing is to calibrate the head height - blocking call until done
-    // if (!hasInitialHeightCalibration && headHeight === 0) {
-    //     const xrCamera = renderer.xr.getCamera();
-    //     const currentHeadHeight = xrCamera.position.y;
-
-    //     headHeight = currentHeadHeight;
+    if (renderer.xr.isPresenting && renderer.xr.getCamera() && headHeight === 0 && !headHeightCalibration) {
+        const xrCamera = renderer.xr.getCamera();
+        const currentHeadHeight = xrCamera.position.y;
+        headHeight = currentHeadHeight;
         
-    //     headHeightCalibration = true;
-    //     console.log("Starting head height calibration");
-    // }
+        headHeightCalibration = true;
+        console.log("Head height calibrated to", headHeight);
+    }
+}
 
-    // // 
-    // else {
-    //     console.log("Head height calibration already done");
-    // }
+export function init() {
 
     // Create stars with dynamic brightness
     starSystem = createStars();
@@ -142,14 +140,11 @@ export function init() {
         document.body.appendChild(renderer.domElement);
     }
 
-
     ///// Gameplay Setup /////
 
     // Initialize VR controllers for movement
     initVRControllers(renderer);
 
-    // Create camera rig for separating head tracking from movement
-    cameraRig = setupCameraRig(scene, camera);
     
     // Load X-Wing cockpit model
     loadCockpitModel(headHeight);
