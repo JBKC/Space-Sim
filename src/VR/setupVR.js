@@ -39,6 +39,7 @@ let debugInfo = {};
 
 // Height tracking for cockpit
 let headHeight = 0;
+let headHeightCalibration = false;
 let hasInitialHeightCalibration = false;
 
 let starSystem;
@@ -82,16 +83,10 @@ export function init() {
     // Enable XR
     renderer.xr.enabled = true;
     renderer.xr.setFoveation(0); // Disable foveated rendering (0 = no foveation, 1 = maximum foveation)
-
-    setDebugInfo('EARLY READ', `${headHeight.toFixed(3)}m at ${Date.now()}`);
-
     
     // Set up session initialization event listener to configure XR session when it starts
     renderer.xr.addEventListener('sessionstart', function() {
         const session = renderer.xr.getSession();
-
-        setDebugInfo('EARLYISH READ', `${headHeight.toFixed(3)}m at ${Date.now()}`);
-
         
         if (session) {
             // Configure render layers for highest quality
@@ -107,51 +102,26 @@ export function init() {
             });
             
             console.log("WebXR session configured for high quality rendering");
-            
-            // Use setTimeout to delay by 1000ms to ensure tracking is initialized
-            setTimeout(() => {
-                const xrCamera = renderer.xr.getCamera();
-                const currentHeadHeight = xrCamera.position.y;
-
-
-                // Ensure we have a valid height (not zero)
-                if (currentHeadHeight > 0.1) {
-                    headHeight = currentHeadHeight;
-                    hasInitialHeightCalibration = true;
-                    console.log(`Head height calibrated to ${headHeight.toFixed(3)}m`);
-                    
-                    // Add debug info to the floating display
-                    setDebugInfo('HeadHeight Calibrated', `${headHeight.toFixed(3)}m at ${Date.now()}`);
-                    
-                    // Update cockpit position if it exists
-                    if (cockpit) {
-                        cockpit.position.set(0, -headHeight, -0.1);
-                        console.log(`Cockpit position adjusted to Y: ${cockpit.position.y.toFixed(3)}`);
-                    }
-                } else {
-                    console.error(`Invalid head height detected: ${currentHeadHeight}.`);
-                    setDebugInfo('HeadHeight Error', `Invalid value: ${currentHeadHeight}`);
-                }
-            }, 1000); // 1000ms delay should be enough for tracking to stabilize
+            setDebugInfo('SESSON STARTED at ${Date.now()}');
         }
     });
 
+    // // First thing is to calibrate the head height - blocking call until done
+    // if (!hasInitialHeightCalibration && headHeight === 0) {
+    //     const xrCamera = renderer.xr.getCamera();
+    //     const currentHeadHeight = xrCamera.position.y;
 
-    // Get space container and append renderer
-    const container = document.getElementById('space-container');
-    if (container) {
-        container.appendChild(renderer.domElement);
-    } else {
-        document.body.appendChild(renderer.domElement);
-    }
+    //     headHeight = currentHeadHeight;
+        
+    //     headHeightCalibration = true;
+    //     console.log("Starting head height calibration");
+    // }
 
-    // Create camera rig for separating head tracking from movement
-    cameraRig = setupCameraRig(scene, camera);
+    // // 
+    // else {
+    //     console.log("Head height calibration already done");
+    // }
 
-    // Load X-Wing cockpit model
-    loadCockpitModel(headHeight);
-    setDebugInfo('HeadHeight After LoadCockpit', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
-    
     // Create stars with dynamic brightness
     starSystem = createStars();
     scene.add(starSystem.stars);
@@ -164,6 +134,13 @@ export function init() {
     const ambientLight = new THREE.AmbientLight(0x111133, 1);
     scene.add(ambientLight);
 
+    // Get space container and append renderer
+    const container = document.getElementById('space-container');
+    if (container) {
+        container.appendChild(renderer.domElement);
+    } else {
+        document.body.appendChild(renderer.domElement);
+    }
 
 
     ///// Gameplay Setup /////
@@ -171,6 +148,12 @@ export function init() {
     // Initialize VR controllers for movement
     initVRControllers(renderer);
 
+    // Create camera rig for separating head tracking from movement
+    cameraRig = setupCameraRig(scene, camera);
+    
+    // Load X-Wing cockpit model
+    loadCockpitModel(headHeight);
+    setDebugInfo('HeadHeight After LoadCockpit', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
 
     // Create debug text display for VR
     createDebugDisplay();
@@ -307,12 +290,36 @@ function update(timestamp) {
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
 
+    // // --- Initial Head Height Calibration --- 
+    // if (!hasInitialHeightCalibration && renderer.xr.isPresenting && cockpit) {
+    //     const xrCamera = renderer.xr.getCamera();
+    //     const currentHeadHeight = xrCamera.position.y;
 
+    //     // Check if height is valid (e.g., > 0.1m) before calibrating
+    //     if (currentHeadHeight > 0.1) {
+    //         headHeight = currentHeadHeight;
+    //         hasInitialHeightCalibration = true;
+    //         setDebugInfo('Initial HeadHeight Set', headHeight.toFixed(3));
+
+    //         // Set cockpit Y position based on calibrated height
+    //         const cockpitYOffset = -headHeight; // Adjust so floor is near feet
+    //         cockpit.position.y = cockpitYOffset;
+    //         console.log(`Cockpit height calibrated. HeadHeight: ${headHeight.toFixed(3)}, Cockpit Y: ${cockpitYOffset.toFixed(3)}`);
+    //     } else {
+    //         // Optional: Log if we are waiting for a valid height
+    //         // console.log(`Waiting for valid head height... Current: ${currentHeadHeight.toFixed(3)}`);
+    //         setDebugInfo('Initial HeadHeight Set', `Waiting (${currentHeadHeight.toFixed(3)})`);
+    //     }
+    // }
+    // // --- End Calibration ---
     
     // Set debug info for headHeight in update loop
     setDebugInfo('HeadHeight in Update', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
 
-
+    // Always set the cockpit to the initial calibrated height if available
+    if (cockpit) {
+        cockpit.position.set(0, headHeight, -0.1);
+    }
 
     // Update the time uniform for shaders
     if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {
