@@ -39,6 +39,7 @@ let debugInfo = {};
 
 // Height tracking for cockpit
 let headHeight = 0;
+let hasInitialHeightCalibration = false;
 
 let starSystem;
 let initialized = false;
@@ -186,37 +187,10 @@ function loadCockpitModel(headHeight) {
                     // Add cockpit to the rig so it moves with the player
                     cameraRig.add(cockpit);
                     
-                    // Create a variable to track if we've done the initial height calibration
-                    let hasInitialHeightCalibration = false;
-                    
-                    // Add listener for XR session start to adjust cockpit based on user's height
+                    // Add listener for XR session start - Calibration logic moved to update()
                     if (renderer && renderer.xr) {
                         renderer.xr.addEventListener('sessionstart', () => {
-                            console.log("XR session started - calibrating cockpit height based on user's head position");
-
-                            if (cockpit && !hasInitialHeightCalibration) {
-                                // Get the current XR camera (user's head pose)
-                                const xrCamera = renderer.xr.getCamera();
-                                const currentHeadHeight = xrCamera.position.y;
-                                console.log(`Initial head height detected: ${currentHeadHeight}`);
-
-                                // Update the global headHeight variable ONCE
-                                headHeight = currentHeadHeight; 
-                                hasInitialHeightCalibration = true; // Mark calibration as done
-                                setDebugInfo('Initial HeadHeight Set', headHeight.toFixed(3));
-
-                                // Position the cockpit based on this initial height
-                                // Ensure the cockpit floor aligns roughly with the player's feet
-                                // Adjust this offset as needed based on the cockpit model's pivot point
-                                const cockpitYOffset = -headHeight; 
-                                cockpit.position.set(0, cockpitYOffset, 0); 
-                                
-                                console.log(`Cockpit initial position set to Y: ${cockpitYOffset} based on head height: ${headHeight}`);
-                            } else if (hasInitialHeightCalibration) {
-                                console.log("Cockpit height already calibrated.");
-                            } else {
-                                console.warn("Cockpit model not loaded when session started, cannot calibrate height.");
-                            }
+                            console.log("XR session started - Cockpit height calibration will occur in the first valid update() frame.");
                         });
                     }
                     
@@ -304,6 +278,29 @@ function update(timestamp) {
     // Calculate delta time for smooth movement
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
+
+    // --- Initial Head Height Calibration --- 
+    if (!hasInitialHeightCalibration && renderer.xr.isPresenting && cockpit) {
+        const xrCamera = renderer.xr.getCamera();
+        const currentHeadHeight = xrCamera.position.y;
+
+        // Check if height is valid (e.g., > 0.1m) before calibrating
+        if (currentHeadHeight > 0.1) {
+            headHeight = currentHeadHeight;
+            hasInitialHeightCalibration = true;
+            setDebugInfo('Initial HeadHeight Set', headHeight.toFixed(3));
+
+            // Set cockpit Y position based on calibrated height
+            const cockpitYOffset = -headHeight; // Adjust so floor is near feet
+            cockpit.position.y = cockpitYOffset;
+            console.log(`Cockpit height calibrated. HeadHeight: ${headHeight.toFixed(3)}, Cockpit Y: ${cockpitYOffset.toFixed(3)}`);
+        } else {
+            // Optional: Log if we are waiting for a valid height
+            // console.log(`Waiting for valid head height... Current: ${currentHeadHeight.toFixed(3)}`);
+            setDebugInfo('Initial HeadHeight Set', `Waiting (${currentHeadHeight.toFixed(3)})`);
+        }
+    }
+    // --- End Calibration ---
     
     // Set debug info for headHeight in update loop
     setDebugInfo('HeadHeight in Update', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
