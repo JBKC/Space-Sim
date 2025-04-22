@@ -278,6 +278,7 @@ function update(timestamp) {
     if (!headHeightCalibration && !cockpit && headHeight == 0) {
         headHeight = renderer.xr.getCamera()?.position.y;
         setDebugInfo('headHeight in update loop', headHeight.toFixed(3));
+        headHeightCalibration = true;
     }
     if (headHeightCalibration && !cockpit && headHeight > 0) {
         setDebugInfo('headHeight pre-cockpit', headHeight.toFixed(3));
