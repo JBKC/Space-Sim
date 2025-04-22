@@ -45,6 +45,21 @@ let initialized = false;
 let lastFrameTime = 0;
 const COCKPIT_SCALE = 1; // Scale factor for the cockpit model
 
+// XR Animation Loop function (defined globally now)
+function xrAnimationLoop(timestamp, frame) {
+    // Update movement based on controllers
+    if (scene && camera) { // Add checks for scene/camera existence
+        update(timestamp);
+    }
+    
+    // Render the scene if ready
+    if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+    } else {
+        // Optional: Log if render skipped due to missing components
+        // console.warn("Skipping render: Renderer, Scene, or Camera not ready.");
+    }
+}
 
 // Function to poll for head height and then trigger scene setup
 function calibrateAndProceed() {
@@ -207,6 +222,15 @@ function setupSceneAndLoadAssets() {
     window.addEventListener('resize', onWindowResize, false);
     
     console.log("Phase 2 Complete: Scene and assets loaded.");
+
+    // --- Start the Animation Loop NOW that setup is complete --- 
+    if (renderer) {
+        renderer.setAnimationLoop(xrAnimationLoop);
+        console.log("VR animation loop started after successful scene setup.");
+    } else {
+        console.error("Cannot start animation loop: Renderer not found!");
+    }
+    // -----------------------------------------------------------
 }
 
 // Load X-Wing cockpit model (now uses global headHeight)
@@ -287,35 +311,27 @@ function loadCockpitModel() { // REMOVED headHeight parameter
 
 /////////////// ANIMATION LOOP ///////////////
 
-// Start VR animation loop
+// Start VR mode - Initiates phase 1 and handles automatic VR entry
 export function startVRMode() {
-    console.log("Starting VR mode animation loop");
-    
-    // Ensure all UI elements are cleared
-    clearAllUIElements();
-    
-    // Create XR animation loop
-    function xrAnimationLoop(timestamp, frame) {
-        // Update movement based on controllers
-        update(timestamp);
-        
-        // Render the scene
-        renderer.render(scene, camera);
+    console.log("Attempting to start VR mode...");
+
+    // Ensure Phase 1 (Renderer setup) is done
+    if (!renderer) {
+        init(); // Run phase 1 if it hasn't run yet
     }
     
-    // Set the animation loop
-    renderer.setAnimationLoop(xrAnimationLoop);
-    console.log("VR animation loop set");
-    
-    // Automatically enter VR after a short delay
+    // REMOVED: Setting animation loop here was too early
+    // renderer.setAnimationLoop(xrAnimationLoop);
+    // console.log("VR animation loop set");
+
+    // Automatically enter VR after a short delay (this triggers sessionstart -> calibration -> phase 2 -> animation loop start)
     setTimeout(() => {
-        // Create and click a VR button
+        console.log("Creating and clicking VR button to trigger session start...");
         const vrButton = VRButton.createButton(renderer);
         document.body.appendChild(vrButton);
         
-        // Make sure button is removed from DOM after clicking
         vrButton.addEventListener('click', () => {
-            // Remove the button right after clicking
+            console.log("VR Button clicked, session should start.");
             setTimeout(() => {
                 if (vrButton.parentNode) {
                     vrButton.parentNode.removeChild(vrButton);
