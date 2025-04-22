@@ -920,6 +920,7 @@ function initXRAnimationLoop() {
                 frameCount = 0;
             }
             
+
             // Process XR input if we have an XR frame with input sources
             if (xrFrame && navigator.xr) {
                 const session = xrFrame.session;

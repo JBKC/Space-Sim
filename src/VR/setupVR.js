@@ -362,9 +362,9 @@ function update(timestamp) {
     lastFrameTime = timestamp;
     
     // Always set the cockpit to the initial calibrated height if available
-    if (cockpit && headHeight !== 0.0) {
-        cockpit.position.set(0, headHeight, -0.1);
-    }
+    // if (cockpit && headHeight !== 0.0) {
+    //     cockpit.position.set(0, 1.1, -0.1);
+    // }
 
     // Update the time uniform for shaders
     if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {
