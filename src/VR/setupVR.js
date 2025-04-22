@@ -37,38 +37,91 @@ let cockpit; // X-Wing cockpit model
 let debugTextMesh;
 let debugInfo = {};
 
-// Global head height - set ONCE after calibration
-let headHeight = 0; 
+// Height tracking for cockpit
+let headHeight = 0; // This will be set ONCE during calibration
 
 let starSystem;
 let initialized = false;
 let lastFrameTime = 0;
 const COCKPIT_SCALE = 1; // Scale factor for the cockpit model
 
-// --- 1. Initial Renderer Setup ---
-export function init() {
-    console.log("Initializing VR Renderer and Entry Point");
-    
-    if (renderer) {
-        console.log("Renderer already initialized, skipping");
-        return { renderer }; // Only return renderer if already done
+
+// Function to poll for head height and then trigger scene setup
+function calibrateAndProceed() {
+    // Stop if already calibrated (headHeight is set)
+    if (headHeight > 0) return;
+
+    // Stop polling if XR session ended before calibration
+    if (!renderer || !renderer.xr?.isPresenting) {
+        console.log("XR session not presenting, waiting...");
+        setDebugInfo('Calibration Status', 'Waiting for XR session');
+        requestAnimationFrame(calibrateAndProceed); // Keep trying
+        return;
     }
+
+    // Session is presenting, try to get camera height
+    const xrCamera = renderer.xr.getCamera();
+    if (!xrCamera) {
+        console.log("XR Camera not available yet, waiting...");
+        setDebugInfo('Calibration Status', 'Waiting for XR Camera');
+        requestAnimationFrame(calibrateAndProceed);
+        return;
+    }
+
+    const currentHeadHeight = xrCamera.position.y;
+
+    // Check if height is valid (e.g., > 0.1m)
+    if (currentHeadHeight > 0.1) {
+        headHeight = currentHeadHeight;
+        console.log(`>>> Head height calibrated: ${headHeight.toFixed(3)} <<<`);
+        setDebugInfo('Calibration Status', `Calibrated: ${headHeight.toFixed(3)}`);
+        
+        // --- Calibration Complete: Proceed with scene setup! ---
+        setupSceneAndLoadAssets(); 
+        // --- Stop Polling --- (by not calling requestAnimationFrame again)
+        return; 
+    } else {
+        // Still waiting for valid height
+        setDebugInfo('Calibration Status', `Waiting for valid height (${currentHeadHeight.toFixed(3)})`);
+        requestAnimationFrame(calibrateAndProceed);
+    }
+}
+
+
+// Initialize VR - Phase 1: Setup Renderer and start calibration
+export function init() {
+    console.log("Initializing VR (Phase 1: Renderer Setup & Calibration Start)");
     
+    // Only run phase 1 once
+    if (renderer) {
+        console.log("Phase 1 already done.");
+        return;
+    }
+
     // Create renderer with adjusted settings
     renderer = new THREE.WebGLRenderer({ 
         antialias: true,
-        logarithmicDepthBuffer: true
+        logarithmicDepthBuffer: true // Add logarithmic depth buffer
     });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.outputEncoding = THREE.sRGBEncoding;
-    renderer.setClearColor(0x05182b);                   
+    renderer.setClearColor(0x05182b); // Main space background color
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.8;
     
     // Enable XR
     renderer.xr.enabled = true;
-    renderer.xr.setFoveation(0); 
+    renderer.xr.setFoveation(0); // Disable foveated rendering
+
+    // Listen for session start to begin calibration
+    renderer.xr.addEventListener('sessionstart', function sessionStartHandler() {
+        console.log("XR session started - beginning head height calibration polling.");
+        setDebugInfo('Calibration Status', 'Session started, polling...');
+        requestAnimationFrame(calibrateAndProceed);
+        // Remove listener after first fire if needed, though polling check handles redundancy
+        // renderer.xr.removeEventListener('sessionstart', sessionStartHandler);
+    });
 
     // Add renderer to DOM
     const container = document.getElementById('space-container');
@@ -78,118 +131,52 @@ export function init() {
         document.body.appendChild(renderer.domElement);
     }
 
-    // Add window resize handler
-    window.addEventListener('resize', onWindowResize, false);
-
-    console.log("Renderer initialized.");
-
-    // Trigger the rest of the process (calibration -> main init)
-    startCalibrationSequence();
-    
-    // Return only the renderer initially
-    return { renderer }; 
+    console.log("Phase 1 Complete: Renderer ready, waiting for session start to calibrate.");
+    // Note: Scene, camera, assets are NOT loaded yet.
 }
 
-// --- 2. Start Calibration Sequence on VR Entry ---
-function startCalibrationSequence() {
-    console.log("Setting up VR session start listener for calibration.");
+// Initialize VR - Phase 2: Setup scene, camera, assets AFTER calibration
+function setupSceneAndLoadAssets() {
+    console.log("Initializing VR (Phase 2: Scene Setup & Asset Loading - HeadHeight: " + headHeight.toFixed(3) + ")");
 
-    // Setup session configuration listener
-    renderer.xr.addEventListener('sessionstart', function handleSessionStart() {
-        console.log("XR session starting - beginning head height polling.");
-        const session = renderer.xr.getSession();
-        if (session) {
-            session.updateRenderState({
-                baseLayer: new XRWebGLLayer(session, renderer.getContext(), {
-                    framebufferScaleFactor: 1.0,
-                    alpha: false,
-                    depth: true,
-                    stencil: false,
-                    antialias: true,
-                    multiview: true
-                })
-            });
-            console.log("WebXR session configured for high quality rendering.");
-            
-            // Start polling for valid head height
-            requestAnimationFrame(pollForHeadHeight);
-
-            // Remove this listener after it runs once to avoid multiple polls
-            renderer.xr.removeEventListener('sessionstart', handleSessionStart);
-        } else {
-            console.error("Session started but getSession() returned null!");
-        }
-    });
-
-    // Auto-start VR (or use VRButton logic)
-    // This will trigger the 'sessionstart' listener above
-    console.log("Attempting to automatically enter VR...");
-    setTimeout(() => {
-        const vrButton = VRButton.createButton(renderer);
-        document.body.appendChild(vrButton);
-        vrButton.addEventListener('click', () => { 
-            setTimeout(() => { vrButton.remove(); }, 100); 
-        });
-        vrButton.click();
-    }, 1000);
-}
-
-// --- 3. Poll for Head Height ---
-let calibrationPollCount = 0;
-const MAX_CALIBRATION_POLLS = 300; // Limit polling (e.g., 5 seconds at 60fps)
-
-function pollForHeadHeight() {
-    if (initialized) return; // Stop if main initialization already completed
-
-    calibrationPollCount++;
-    if (calibrationPollCount > MAX_CALIBRATION_POLLS) {
-        console.error("Head height calibration timed out.");
-        setDebugInfo('Calibration Status', 'Error: Timeout');
+    // Ensure this only runs once
+    if (scene) { // Use scene existence as a flag for phase 2 completion
+        console.log("Phase 2 already done.");
         return;
     }
-
-    if (renderer && renderer.xr?.isPresenting) {
-        const xrCamera = renderer.xr.getCamera();
-        const currentHeight = xrCamera.position.y;
-
-        if (currentHeight > 0.1) {
-            console.log(`Head height calibrated: ${currentHeight.toFixed(3)}m after ${calibrationPollCount} polls.`);
-            setDebugInfo('Calibration Status', `Success: ${currentHeight.toFixed(3)}m`);
-            completeInitialization(currentHeight); // Pass calibrated height
-            return; // Stop polling
-        } else {
-             setDebugInfo('Calibration Status', `Polling (${calibrationPollCount}) - H: ${currentHeight.toFixed(3)}`);
-             requestAnimationFrame(pollForHeadHeight);
-        }
-    } else {
-        // Still waiting for session to be presenting
-        setDebugInfo('Calibration Status', `Polling (${calibrationPollCount}) - Waiting for session...`);
-        requestAnimationFrame(pollForHeadHeight);
-    }
-}
-
-// --- 4. Complete Initialization After Calibration ---
-function completeInitialization(calibratedHeadHeight) {
-    console.log("Completing initialization with calibrated head height.");
-    
-    if (initialized) {
-        console.warn("Initialization sequence called again, skipping.");
-        return;
-    }
-
-    // Set the global headHeight ONCE
-    headHeight = calibratedHeadHeight;
-    console.log(`Global headHeight set to: ${headHeight.toFixed(3)}`);
-    setDebugInfo('Global HeadHeight', headHeight.toFixed(3));
 
     ///// Scene Setup /////
+
+    // Create scene
     scene = new THREE.Scene();
+    
+    // Create perspective camera
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 150000);
     camera.position.set(0, 0, 0); // Camera starts at rig origin
     
+    // REMOVED: Renderer is created in init()
+    // renderer = new THREE.WebGLRenderer(...);
+    
+    // REMOVED: XR setup is done in init()
+    // renderer.xr.enabled = true;
+    // renderer.xr.addEventListener(...);
+
+    // Set up render quality specifics (can stay here or move to init)
+    const session = renderer.xr.getSession();
+    if (session) {
+        session.updateRenderState({
+            baseLayer: new XRWebGLLayer(session, renderer.getContext(), {
+                framebufferScaleFactor: 1.0,
+                alpha: false, depth: true, stencil: false, antialias: true, multiview: true
+            })
+        });
+        console.log("WebXR render state configured for high quality.");
+    }
+
     // Create stars 
     starSystem = createStars();
     scene.add(starSystem.stars);
+    console.log("Added dynamic star system.");
 
     // Lighting
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
@@ -199,198 +186,426 @@ function completeInitialization(calibratedHeadHeight) {
     scene.add(ambientLight);
 
     ///// Gameplay Setup /////
-    initVRControllers(renderer); // Init controllers
-    cameraRig = setupCameraRig(scene, camera); // Create camera rig
-    loadCockpitModel(calibratedHeadHeight); // Load cockpit using calibrated height
-    createDebugDisplay(); // Create debug display (will attach to cameraRig)
 
-    // Mark initialization as complete
-    initialized = true;
-    console.log("Main VR environment initialization complete.");
+    // Initialize VR controllers
+    initVRControllers(renderer);
+    
+    // Create camera rig 
+    // IMPORTANT: Must happen AFTER camera created, BEFORE cockpit loaded
+    cameraRig = setupCameraRig(scene, camera);
+    console.log("Camera rig created.");
+    
+    // Load X-Wing cockpit model (uses global headHeight now)
+    loadCockpitModel(); 
 
-    // Start the main animation loop
-    startVRAnimationLoop(); 
+    // Create debug text display 
+    // IMPORTANT: Must happen AFTER cameraRig is created
+    createDebugDisplay();
+    console.log("Debug display created.");
+
+    // Add window resize handler
+    window.addEventListener('resize', onWindowResize, false);
+    
+    console.log("Phase 2 Complete: Scene and assets loaded.");
 }
 
-// --- 5. Load Cockpit Model (Modified) ---
-function loadCockpitModel(initialHeadHeight) { // Accepts calibrated height
-    console.log(`Loading cockpit model, initial head height: ${initialHeadHeight.toFixed(3)}`);
+// Load X-Wing cockpit model (now uses global headHeight)
+function loadCockpitModel() { // REMOVED headHeight parameter
+    // Create an empty group to hold the cockpit model
     cockpit = new THREE.Group();
     
-    loadModelFromRegistry(
-        'spacecraft',
-        'xwingCockpit',
-        (gltf) => {
-            const model = gltf.scene;
-            model.scale.set(COCKPIT_SCALE, COCKPIT_SCALE, COCKPIT_SCALE);
-            cockpit.add(model);
-            cockpit.name = 'cockpitModel';
-            cockpit.rotation.y = Math.PI;
-            
-            if (cameraRig) {
-                cameraRig.add(cockpit);
+    const loadCockpitPromise = new Promise((resolve, reject) => {
+        loadModelFromRegistry(
+            'spacecraft',
+            'xwingCockpit',
+            (gltf) => {
+                const model = gltf.scene;
                 
-                // Position cockpit based on the INITIAL head height passed in
-                const cockpitYOffset = -initialHeadHeight;
-                cockpit.position.set(0, cockpitYOffset, 0); // Set position ONCE
-                console.log(`Cockpit initial position set to Y: ${cockpitYOffset.toFixed(3)}`);
-                setDebugInfo('Cockpit Y Offset', cockpitYOffset.toFixed(3));
-
-                cockpit.traverse(function(child) {
-                    if (child.isMesh) {
-                        child.material.metalness = 0.3;
-                        child.material.roughness = 0.7;
-                        child.renderOrder = 1000;
+                // Scale the model properly
+                model.scale.set(COCKPIT_SCALE, COCKPIT_SCALE, COCKPIT_SCALE);
+                
+                // Add model to our cockpit group
+                cockpit.add(model);
+                cockpit.name = 'cockpitModel';
+                
+                // Rotate cockpit 180 degrees around Y-axis to face forward
+                cockpit.rotation.y = Math.PI; // This is a 180-degree rotation in radians
+                
+                // Add cockpit to the rig
+                if (cameraRig) {
+                    cameraRig.add(cockpit);
+                    
+                    // --- Set Cockpit Position using calibrated headHeight --- 
+                    if (headHeight > 0) {
+                        const cockpitYOffset = -headHeight; // Adjust so floor is near feet
+                        cockpit.position.y = cockpitYOffset;
+                        console.log(`Cockpit position set using calibrated headHeight: ${headHeight.toFixed(3)}, Y: ${cockpitYOffset.toFixed(3)}`);
+                        setDebugInfo('Cockpit Y Pos', cockpitYOffset.toFixed(3));
+                    } else {
+                        // Should not happen if called after calibration, but log if it does
+                        console.error("Cockpit loaded but headHeight is not calibrated! Setting Y to 0.");
+                        cockpit.position.y = 0;
+                        setDebugInfo('Cockpit Y Pos', 'Error - headHeight 0');
                     }
-                });
-                console.log("X-Wing cockpit model loaded and positioned in camera rig");
-            } else {
-                console.error("Camera rig not available when loading cockpit");
+                    // ---------------------------------------------------------
+
+                    // Ensure cockpit renders with proper materials
+                    cockpit.traverse(function(child) {
+                        if (child.isMesh) {
+                            child.material.metalness = 0.3;
+                            child.material.roughness = 0.7;
+                            
+                            // Set renderOrder to ensure cockpit renders after everything else
+                            child.renderOrder = 1000;
+                        }
+                    });
+                    
+                    console.log("X-Wing cockpit model loaded and added to camera rig");
+                } else {
+                    console.error("Camera rig not available, cockpit not attached");
+                }
+                
+                resolve(cockpit);
+            },
+            (xhr) => {
+                // Progress callback
+                const percent = (xhr.loaded / xhr.total) * 100;
+                console.log(`Cockpit: ${percent.toFixed(0)}% loaded`);
+            },
+            (error) => {
+                // Error callback
+                console.error('Error loading cockpit model from registry:', error);
+                reject(error);
             }
-        },
-        (xhr) => { console.log(`Cockpit: ${((xhr.loaded / xhr.total) * 100).toFixed(0)}% loaded`); },
-        (error) => { console.error('Error loading cockpit model:', error); }
-    );
+        );
+    });
+    
+    // Return the promise for future use if needed
+    return loadCockpitPromise;
 }
 
 
 /////////////// ANIMATION LOOP ///////////////
 
-// Start VR animation loop (Renamed from startVRMode)
-function startVRAnimationLoop() {
-    console.log("Starting VR animation loop");
-    clearAllUIElements(); // Ensure UI elements are cleared
+// Start VR animation loop
+export function startVRMode() {
+    console.log("Starting VR mode animation loop");
     
-    renderer.setAnimationLoop(function xrAnimationLoop(timestamp, frame) {
-        if (!initialized) return; // Don't run update if init not complete
-        update(timestamp, frame);
+    // Ensure all UI elements are cleared
+    clearAllUIElements();
+    
+    // Create XR animation loop
+    function xrAnimationLoop(timestamp, frame) {
+        // Update movement based on controllers
+        update(timestamp);
+        
+        // Render the scene
         renderer.render(scene, camera);
-    });
+    }
+    
+    // Set the animation loop
+    renderer.setAnimationLoop(xrAnimationLoop);
     console.log("VR animation loop set");
+    
+    // Automatically enter VR after a short delay
+    setTimeout(() => {
+        // Create and click a VR button
+        const vrButton = VRButton.createButton(renderer);
+        document.body.appendChild(vrButton);
+        
+        // Make sure button is removed from DOM after clicking
+        vrButton.addEventListener('click', () => {
+            // Remove the button right after clicking
+            setTimeout(() => {
+                if (vrButton.parentNode) {
+                    vrButton.parentNode.removeChild(vrButton);
+                }
+            }, 100);
+        });
+        
+        vrButton.click();
+    }, 1000);
 }
 
 // Animation loop - update movement based on VR controller inputs
-function update(timestamp, frame) {
-    // Calculate delta time
+function update(timestamp) {
+    // Calculate delta time for smooth movement
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
-    
-    // Update debug info for headHeight in update loop (reading the global var)
-    setDebugInfo('Global HeadHeight (Update)', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
-    setDebugInfo('Live Head Y (Update)', typeof renderer?.xr?.getCamera()?.position?.y === 'number' ? renderer.xr.getCamera().position.y.toFixed(3) : 'N/A');
 
-    // Update VR movement
-    updateVRMovement(deltaTime, cameraRig, cockpit);
-    
-    // Update stars
-    if (starSystem) {
-        updateStars(starSystem, timestamp);
+    // Set debug info for headHeight in update loop
+    setDebugInfo('HeadHeight in Update', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
+
+    // Update the time uniform for shaders
+    if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {
+        directionalLightCone.material.uniforms.time.value = timestamp * 0.001;
     }
-
+    
+    // Slowly rotate nebula clouds
+    nebulaeClouds.forEach(nebula => {
+        nebula.mesh.rotation.x += nebula.rotationSpeed.x;
+        nebula.mesh.rotation.y += nebula.rotationSpeed.y;
+        nebula.mesh.rotation.z += nebula.rotationSpeed.z;
+    });
+    
+    // Animate space dust particles with gentle drift
+    spaceDustParticles.forEach(particleSystem => {
+        const positions = particleSystem.system.geometry.attributes.position.array;
+        const initialPositions = particleSystem.initialPositions;
+        
+        for (let i = 0; i < positions.length; i += 3) {
+            // Apply a sine wave drift to each particle
+            const time = timestamp * particleSystem.driftSpeed;
+            const offset = Math.sin(time + i * 0.01) * 200;
+            
+            positions[i] = initialPositions[i] + offset;
+            positions[i + 1] = initialPositions[i + 1] + Math.sin(time * 0.7 + i * 0.02) * 200;
+            positions[i + 2] = initialPositions[i + 2] + Math.sin(time * 0.5 + i * 0.03) * 200;
+        }
+        
+        particleSystem.system.geometry.attributes.position.needsUpdate = true;
+    });
+    
+    // Apply VR movement and rotation
+    if (camera) {
+        updateVRMovement(camera, deltaTime);
+    }
+    
+    // Update stars brightness based on camera position
+    if (starSystem && starSystem.stars) {
+        // Use cameraRig position for star updates to ensure proper movement tracking
+        const positionForStars = cameraRig ? cameraRig.position : camera.position;
+        updateStars(starSystem.stars, positionForStars);
+    }
+    
+    // Update galaxy backdrop to slowly rotate
+    if (galaxyBackdrop) {
+        galaxyBackdrop.rotation.z += 0.0001;
+    }
+    
+    // Update gradient sphere to follow camera
+    if (spaceGradientSphere && cameraRig) {
+        spaceGradientSphere.position.copy(cameraRig.position);
+    }
+    
     // Update debug display
     updateDebugDisplay(timestamp);
 }
 
 
-/////////////// DISPOSAL & UTILITIES ///////////////
 
+////////////////////////////////////////////////////////////
+
+
+// Clean up
 export function dispose() {
-    console.log("Disposing VR resources");
-    initialized = false;
-    headHeight = 0; // Reset head height
-    calibrationPollCount = 0;
-
-    // Stop animation loop
-    if (renderer) {
-        renderer.setAnimationLoop(null);
-    }
-
-    // Remove listeners, dispose geometries, materials, textures
+    renderer.setAnimationLoop(null);
+    
+    // Remove window resize listener
     window.removeEventListener('resize', onWindowResize);
-    // ... extensive disposal logic for scene objects, controllers, etc. ...
-
-    if (scene) {
-        // Remove and dispose all children
-        while(scene.children.length > 0){ 
-            const object = scene.children[0];
-            // Custom disposal logic for specific types if needed
-            if (object.geometry) object.geometry.dispose();
-            if (object.material) { 
-                if (Array.isArray(object.material)) {
-                    object.material.forEach(mat => mat.dispose());
-                } else {
-                    object.material.dispose();
-                }
-            }
-            scene.remove(object); 
-        }
-    }
-
-    // Dispose cockpit if loaded
-    if (cockpit) {
-        // ... dispose cockpit resources ...
-        cockpit = null;
-    }
-    if (cameraRig) {
-         // ... dispose camera rig resources ...
-        cameraRig = null;
+    
+    // Remove renderer from DOM
+    if (renderer.domElement.parentNode) {
+        renderer.domElement.parentNode.removeChild(renderer.domElement);
     }
     
-    // Dispose renderer and remove from DOM
-    if (renderer && renderer.domElement) {
-        if (renderer.domElement.parentNode) {
-            renderer.domElement.parentNode.removeChild(renderer.domElement);
+    // Dispose all geometries and materials
+    
+    // Clean up space gradient sphere
+    if (spaceGradientSphere) {
+        if (spaceGradientSphere.geometry) spaceGradientSphere.geometry.dispose();
+        if (spaceGradientSphere.material) spaceGradientSphere.material.dispose();
+        scene.remove(spaceGradientSphere);
+    }
+    
+    // Clean up nebulae
+    nebulaeClouds.forEach(nebula => {
+        if (nebula.mesh.geometry) nebula.mesh.geometry.dispose();
+        if (nebula.mesh.material) {
+            if (nebula.mesh.material.map) nebula.mesh.material.map.dispose();
+            nebula.mesh.material.dispose();
         }
-        renderer.dispose();
-        renderer = null;
+        scene.remove(nebula.mesh);
+    });
+    
+    // Clean up space dust particles
+    spaceDustParticles.forEach(particleSystem => {
+        if (particleSystem.system.geometry) particleSystem.system.geometry.dispose();
+        if (particleSystem.system.material) {
+            if (particleSystem.system.material.map) particleSystem.system.material.map.dispose();
+            particleSystem.system.material.dispose();
+        }
+        scene.remove(particleSystem.system);
+    });
+    
+    // Clean up directional light cone
+    if (directionalLightCone) {
+        if (directionalLightCone.geometry) directionalLightCone.geometry.dispose();
+        if (directionalLightCone.material) directionalLightCone.material.dispose();
+        scene.remove(directionalLightCone);
     }
-
-    // Clear debug info
-    debugInfo = {};
+    
+    // Clean up galaxy backdrop
+    if (galaxyBackdrop) {
+        if (galaxyBackdrop.geometry) galaxyBackdrop.geometry.dispose();
+        if (galaxyBackdrop.material) {
+            if (galaxyBackdrop.material.map) galaxyBackdrop.material.map.dispose();
+            galaxyBackdrop.material.dispose();
+        }
+        scene.remove(galaxyBackdrop);
+    }
+    
+    // Clean up cockpit model
+    if (cockpit) {
+        cockpit.traverse(function(child) {
+            if (child.isMesh) {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(material => {
+                            if (material.map) material.map.dispose();
+                            material.dispose();
+                        });
+                    } else {
+                        if (child.material.map) child.material.map.dispose();
+                        child.material.dispose();
+                    }
+                }
+            }
+        });
+        scene.remove(cockpit);
+    }
+    
+    // Clean up debug display
     if (debugTextMesh) {
-        // dispose debug text resources
-        debugTextMesh = null;
+        if (debugTextMesh.material) {
+            if (debugTextMesh.material.map) debugTextMesh.material.map.dispose();
+            debugTextMesh.material.dispose();
+        }
+        if (debugTextMesh.geometry) debugTextMesh.geometry.dispose();
+        if (debugTextMesh.parent) debugTextMesh.parent.remove(debugTextMesh);
     }
+    
+    // Reset arrays
+    nebulaeClouds = [];
+    spaceDustParticles = [];
+    
+    initialized = false;
+    console.log("VR test environment disposed");
+} 
 
-    console.log("VR resources disposed");
-}
-
+// Remove all UI elements
 function clearAllUIElements() {
-    // ... (implementation as before) ...
-    console.log("Cleared UI elements");
+    // Remove any existing planet labels from DOM
+    const planetLabels = document.querySelectorAll('.planet-label');
+    planetLabels.forEach(label => {
+        if (label.parentNode) {
+            label.parentNode.removeChild(label);
+        }
+    });
+    
+    // Hide any planet info boxes
+    const planetInfoBox = document.querySelector('.planet-info-box');
+    if (planetInfoBox) {
+        planetInfoBox.style.display = 'none';
+    }
+    
+    // Hide any distance indicators
+    const distanceIndicators = document.querySelectorAll('.distance-indicator');
+    distanceIndicators.forEach(indicator => {
+        indicator.style.display = 'none';
+    });
+    
+    // Hide exploration counter if it exists
+    const explorationCounter = document.querySelector('.exploration-counter');
+    if (explorationCounter) {
+        explorationCounter.style.display = 'none';
+    }
+    
+    // Hide hyperspace progress container
+    const progressContainer = document.getElementById('hyperspace-progress-container');
+    if (progressContainer) {
+        progressContainer.style.display = 'none';
+    }
+    
+    // Find and hide any possible black boxes or unexpected elements
+    const allDivs = document.querySelectorAll('div');
+    allDivs.forEach(div => {
+        // Hide any elements that might be positioned in front of the camera
+        if (div.style.zIndex > 1000 && div.id !== 'space-container') {
+            div.style.display = 'none';
+        }
+    });
+    
+    console.log("Cleared all UI elements");
 }
 
-// Create debug display (will attach to cameraRig when it's ready)
+// Create a debug display that's visible in VR
 function createDebugDisplay() {
-    // ... (implementation mostly as before) ...
-    // Modify attachment logic:
+    // Create debug display canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const context = canvas.getContext('2d');
+    
+    // Clear with transparent background
+    context.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Create texture from canvas
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    
+    // Create material using the canvas texture
+    const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        side: THREE.DoubleSide
+    });
+    
+    // Create plane for debug display
+    const geometry = new THREE.PlaneGeometry(1, 0.5);
+    debugTextMesh = new THREE.Mesh(geometry, material);
+    debugTextMesh.renderOrder = 1001; // Render after cockpit
+    
+    // Store canvas and context for updates
+    debugTextMesh.userData = {
+        canvas,
+        context,
+        updateInterval: 200,
+        lastUpdate: 0
+    };
+    
+    // Don't add to scene yet - will add to camera rig after it's created
     if (cameraRig) {
-        debugTextMesh.position.set(0, 1.0, -0.8); // Adjust position if needed
+        // Position the debug display in front of the user
+        debugTextMesh.position.set(0, 1.0, -0.8);
         cameraRig.add(debugTextMesh);
-        console.log("Debug display created and attached to camera rig.");
-    } else {
-        console.error("Cannot attach debug display: cameraRig not available.");
     }
 }
 
 // Update the debug display with current information
 function updateDebugDisplay(timestamp) {
-    // ... (implementation mostly as before, using debugInfo object) ...
-    if (!debugTextMesh || !renderer || !renderer.xr?.getSession()) return;
+    if (!debugTextMesh || !renderer || !renderer.xr?.getSession()) return; // Added check for active XR session
     
+    // Only update a few times per second to avoid performance impact
     if (timestamp - debugTextMesh.userData.lastUpdate < debugTextMesh.userData.updateInterval) {
         return;
     }
     
     const canvas = debugTextMesh.userData.canvas;
     const context = debugTextMesh.userData.context;
+
+    // Get live head Y position safely
+    const liveHeadY = renderer.xr.getCamera()?.position.y;
+    setDebugInfo('Live Head Y', typeof liveHeadY === 'number' ? liveHeadY.toFixed(3) : 'N/A');
     
     // Clear canvas
     context.fillStyle = 'rgba(0, 0, 0, 0.7)';
     context.fillRect(0, 0, canvas.width, canvas.height);
     
     // Set text properties
-    const fontSize = 28;
+    const fontSize = 28; // Slightly smaller font
     context.font = `${fontSize}px Arial`;
     context.fillStyle = '#ffff00';
     context.textAlign = 'left';
@@ -401,12 +616,13 @@ function updateDebugDisplay(timestamp) {
     context.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
     
     // Draw all debug info
-    let yPos = 40;
-    const lineHeight = fontSize + 8;
+    let yPos = 40; // Starting Y position
+    const lineHeight = fontSize + 8; // Line height based on font size
 
     for (const [key, value] of Object.entries(debugInfo)) {
         context.fillText(`${key}: ${value}`, 20, yPos);
         yPos += lineHeight;
+        // Stop if we run out of space on the canvas
         if (yPos > canvas.height - 20) break; 
     }
     
@@ -422,7 +638,6 @@ export function setDebugInfo(key, value) {
 
 // Window resize handler
 function onWindowResize() {
-    if (!camera || !renderer) return; // Check if camera/renderer exist
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
