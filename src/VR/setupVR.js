@@ -108,15 +108,6 @@ export function calibrateVR() {
         }
     });
 
-    if (renderer.xr.isPresenting && renderer.xr.getCamera() && headHeight === 0 && !headHeightCalibration) {
-        const xrCamera = renderer.xr.getCamera();
-        const currentHeadHeight = xrCamera.position.y;
-        headHeight = currentHeadHeight;
-        
-        headHeightCalibration = true;
-        console.log("Head height calibrated to", headHeight);
-    }
-
 }
 
 export function init() {
@@ -147,7 +138,7 @@ export function init() {
     initVRControllers(renderer);
 
     
-    setDebugInfo('HeadHeight After LoadCockpit', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
+    setDebugInfo('HeadHeight during init', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
 
     // Create debug text display for VR
     createDebugDisplay();
@@ -284,16 +275,17 @@ function update(timestamp) {
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
     
-    // Check for when headHeight is calibrated
+    // Periodically check for when headHeight is calibrated in update loop
+    // Once criteria met, break out of loop
+    if (!headHeightCalibration && !cockpit && headHeight == 0) {
+        headHeight = renderer.xr.getCamera()?.position.y;
+        setDebugInfo('headHeight', headHeight.toFixed(3));
+    }
     if (headHeightCalibration && !cockpit && headHeight > 0) {
-        // Load X-Wing cockpit model
         loadCockpitModel(headHeight);
         console.log("Cockpit loaded");
         headHeightCalibration = false;
     }
-    
-    // Set debug info for headHeight in update loop
-    setDebugInfo('HeadHeight in Update', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
 
 
     // Update the time uniform for shaders
