@@ -275,8 +275,9 @@ function update(timestamp) {
     
     // Periodically check for when headHeight is calibrated in update loop
     // Once criteria met, break out of loop
-    if (!headHeightCalibration && !cockpit) {
-        headHeight = renderer.xr.getCamera()?.position.y;
+    headHeight = renderer.xr.getCamera()?.position.y;
+
+    if (!headHeightCalibration && !cockpit && headHeight != 0) {
         setDebugInfo('headHeight in update loop', headHeight.toFixed(3));
         loadCockpitModel(headHeight);
         setDebugInfo('headHeight post-cockpit', headHeight.toFixed(3));
