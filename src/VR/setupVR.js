@@ -125,17 +125,13 @@ export function init() {
                         console.log(`Cockpit position adjusted to Y: ${cockpit.position.y.toFixed(3)}`);
                     }
                 } else {
-                    console.warn(`Invalid head height detected: ${currentHeadHeight}. Using default.`);
-                    // Set a reasonable default if we couldn't get a valid height
-                    headHeight = 1.6; // Average human height
-                    hasInitialHeightCalibration = true;
+                    console.error(`Invalid head height detected: ${currentHeadHeight}.`);
                 }
             }, 1000); // 1000ms delay should be enough for tracking to stabilize
         }
     });
 
     // Rest of the initalization continues normally
-    // The headHeight will be set by the time it's needed for interactive elements
     
     // Create stars with dynamic brightness
     starSystem = createStars();
@@ -305,37 +301,12 @@ function update(timestamp) {
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
 
-    // // --- Initial Head Height Calibration --- 
-    // if (!hasInitialHeightCalibration && renderer.xr.isPresenting && cockpit) {
-    //     const xrCamera = renderer.xr.getCamera();
-    //     const currentHeadHeight = xrCamera.position.y;
 
-    //     // Check if height is valid (e.g., > 0.1m) before calibrating
-    //     if (currentHeadHeight > 0.1) {
-    //         headHeight = currentHeadHeight;
-    //         hasInitialHeightCalibration = true;
-    //         setDebugInfo('Initial HeadHeight Set', headHeight.toFixed(3));
-
-    //         // Set cockpit Y position based on calibrated height
-    //         const cockpitYOffset = -headHeight; // Adjust so floor is near feet
-    //         cockpit.position.y = cockpitYOffset;
-    //         console.log(`Cockpit height calibrated. HeadHeight: ${headHeight.toFixed(3)}, Cockpit Y: ${cockpitYOffset.toFixed(3)}`);
-    //     } else {
-    //         // Optional: Log if we are waiting for a valid height
-    //         // console.log(`Waiting for valid head height... Current: ${currentHeadHeight.toFixed(3)}`);
-    //         setDebugInfo('Initial HeadHeight Set', `Waiting (${currentHeadHeight.toFixed(3)})`);
-    //     }
-    // }
-    // // --- End Calibration ---
     
     // Set debug info for headHeight in update loop
     setDebugInfo('HeadHeight in Update', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
 
-    // Always set the cockpit to the initial calibrated height if available
-    if (cockpit && hasInitialHeightCalibration) {
-        // Use negative headHeight for positioning (to put the cockpit at feet level)
-        cockpit.position.y = -headHeight;
-    }
+
 
     // Update the time uniform for shaders
     if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {
