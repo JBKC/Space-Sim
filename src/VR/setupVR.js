@@ -47,7 +47,7 @@ let lastFrameTime = 0;
 const COCKPIT_SCALE = 1; // Scale factor for the cockpit model
 
 
-// Initialize Space in VR
+// Calibration / preprep
 export function calibrateVR() {
 
     console.log("Initializing space VR environment");
@@ -116,6 +116,7 @@ export function calibrateVR() {
         headHeightCalibration = true;
         console.log("Head height calibrated to", headHeight);
     }
+
 }
 
 export function init() {
@@ -146,8 +147,6 @@ export function init() {
     initVRControllers(renderer);
 
     
-    // Load X-Wing cockpit model
-    loadCockpitModel(headHeight);
     setDebugInfo('HeadHeight After LoadCockpit', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
 
     // Create debug text display for VR
@@ -284,37 +283,18 @@ function update(timestamp) {
     // Calculate delta time for smooth movement
     const deltaTime = (timestamp - lastFrameTime) / 1000;
     lastFrameTime = timestamp;
-
-    // // --- Initial Head Height Calibration --- 
-    // if (!hasInitialHeightCalibration && renderer.xr.isPresenting && cockpit) {
-    //     const xrCamera = renderer.xr.getCamera();
-    //     const currentHeadHeight = xrCamera.position.y;
-
-    //     // Check if height is valid (e.g., > 0.1m) before calibrating
-    //     if (currentHeadHeight > 0.1) {
-    //         headHeight = currentHeadHeight;
-    //         hasInitialHeightCalibration = true;
-    //         setDebugInfo('Initial HeadHeight Set', headHeight.toFixed(3));
-
-    //         // Set cockpit Y position based on calibrated height
-    //         const cockpitYOffset = -headHeight; // Adjust so floor is near feet
-    //         cockpit.position.y = cockpitYOffset;
-    //         console.log(`Cockpit height calibrated. HeadHeight: ${headHeight.toFixed(3)}, Cockpit Y: ${cockpitYOffset.toFixed(3)}`);
-    //     } else {
-    //         // Optional: Log if we are waiting for a valid height
-    //         // console.log(`Waiting for valid head height... Current: ${currentHeadHeight.toFixed(3)}`);
-    //         setDebugInfo('Initial HeadHeight Set', `Waiting (${currentHeadHeight.toFixed(3)})`);
-    //     }
-    // }
-    // // --- End Calibration ---
+    
+    // Check for when headHeight is calibrated
+    if (headHeightCalibration && !cockpit && headHeight > 0) {
+        // Load X-Wing cockpit model
+        loadCockpitModel(headHeight);
+        console.log("Cockpit loaded");
+        headHeightCalibration = false;
+    }
     
     // Set debug info for headHeight in update loop
     setDebugInfo('HeadHeight in Update', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
 
-    // Always set the cockpit to the initial calibrated height if available
-    if (cockpit) {
-        cockpit.position.set(0, headHeight, -0.1);
-    }
 
     // Update the time uniform for shaders
     if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {

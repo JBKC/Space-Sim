@@ -164,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 ///// FUNCITON THAT LOADS UP GAME DEPENDING WHICH BUTTON IS PRESSED /////
-function startGame(mode = 'normal') {
+async function startGame(mode = 'normal') {
     console.log(`Starting game in ${mode} mode`);
 
     // hide welcome screen 
@@ -221,15 +221,13 @@ function startGame(mode = 'normal') {
 
         console.log("Initializing VR test environment");
 
-        if (!headHeightCalibration && headHeight === 0) {
-            calibrateVR();
-        } else {
-                        // Initialize the minimal VR test environment
-            initSpaceVR();
-            
-            // Start VR animation loop for the test environment
-            startSpaceVRMode();
-        }
+        await calibrateVR();
+
+        initSpaceVR();
+
+        startSpaceVRMode();
+
+
 
     } else {
 
