@@ -82,10 +82,16 @@ export function init() {
     // Enable XR
     renderer.xr.enabled = true;
     renderer.xr.setFoveation(0); // Disable foveated rendering (0 = no foveation, 1 = maximum foveation)
+
+    setDebugInfo('EARLY READ', `${headHeight.toFixed(3)}m at ${Date.now()}`);
+
     
     // Set up session initialization event listener to configure XR session when it starts
     renderer.xr.addEventListener('sessionstart', function() {
         const session = renderer.xr.getSession();
+
+        setDebugInfo('EARLYISH READ', `${headHeight.toFixed(3)}m at ${Date.now()}`);
+
         
         if (session) {
             // Configure render layers for highest quality
@@ -107,7 +113,6 @@ export function init() {
                 const xrCamera = renderer.xr.getCamera();
                 const currentHeadHeight = xrCamera.position.y;
 
-                setDebugInfo('EARLY READ', `${headHeight.toFixed(3)}m at ${Date.now()}`);
 
                 // Ensure we have a valid height (not zero)
                 if (currentHeadHeight > 0.1) {
