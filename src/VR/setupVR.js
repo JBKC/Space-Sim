@@ -39,7 +39,6 @@ let debugInfo = {};
 
 // Height tracking for cockpit
 let headHeight = 0;
-let headHeightCalibration = false;
 let hasInitialHeightCalibration = false;
 
 let starSystem;
@@ -119,6 +118,9 @@ export function init() {
                     hasInitialHeightCalibration = true;
                     console.log(`Head height calibrated to ${headHeight.toFixed(3)}m`);
                     
+                    // Add debug info to the floating display
+                    setDebugInfo('HeadHeight Calibrated', `${headHeight.toFixed(3)}m at ${Date.now()}`);
+                    
                     // Update cockpit position if it exists
                     if (cockpit) {
                         cockpit.position.set(0, -headHeight, -0.1);
@@ -126,12 +128,27 @@ export function init() {
                     }
                 } else {
                     console.error(`Invalid head height detected: ${currentHeadHeight}.`);
+                    setDebugInfo('HeadHeight Error', `Invalid value: ${currentHeadHeight}`);
                 }
             }, 1000); // 1000ms delay should be enough for tracking to stabilize
         }
     });
 
-    // Rest of the initalization continues normally
+
+    // Get space container and append renderer
+    const container = document.getElementById('space-container');
+    if (container) {
+        container.appendChild(renderer.domElement);
+    } else {
+        document.body.appendChild(renderer.domElement);
+    }
+
+    // Create camera rig for separating head tracking from movement
+    cameraRig = setupCameraRig(scene, camera);
+
+    // Load X-Wing cockpit model
+    loadCockpitModel(headHeight);
+    setDebugInfo('HeadHeight After LoadCockpit', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
     
     // Create stars with dynamic brightness
     starSystem = createStars();
@@ -145,13 +162,6 @@ export function init() {
     const ambientLight = new THREE.AmbientLight(0x111133, 1);
     scene.add(ambientLight);
 
-    // Get space container and append renderer
-    const container = document.getElementById('space-container');
-    if (container) {
-        container.appendChild(renderer.domElement);
-    } else {
-        document.body.appendChild(renderer.domElement);
-    }
 
 
     ///// Gameplay Setup /////
@@ -159,12 +169,9 @@ export function init() {
     // Initialize VR controllers for movement
     initVRControllers(renderer);
 
-    // Create camera rig for separating head tracking from movement
-    cameraRig = setupCameraRig(scene, camera);
+
     
-    // Load X-Wing cockpit model
-    loadCockpitModel(headHeight);
-    setDebugInfo('HeadHeight After LoadCockpit', typeof headHeight === 'number' ? headHeight.toFixed(3) : 'N/A');
+
 
     // Create debug text display for VR
     createDebugDisplay();
