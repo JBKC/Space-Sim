@@ -142,7 +142,7 @@ export function init() {
     headHeight = xrCamera.position.y; 
     
     // Create camera rig for separating head tracking from movement
-    cameraRig = setupCameraRig(scene, camera, headHeight);
+    cameraRig = setupCameraRig(scene, camera);
     
     // Load X-Wing cockpit model
     loadCockpitModel(headHeight);
@@ -222,7 +222,7 @@ function loadCockpitModel(headHeight) {
                                         
                                         // Set the cockpit to this fixed height
                                         if (cockpit) {
-                                            cockpit.position.set(0, 1.1, -0.1);
+                                            cockpit.position.set(0, headHeight, -0.1);
                                             console.log(`Cockpit position set to y=${headHeight.toFixed(3)}`);
                                         } else {
                                             console.warn("Cockpit not available to position!");
@@ -363,7 +363,7 @@ function update(timestamp) {
     
     // Always set the cockpit to the initial calibrated height if available
     if (cockpit) {
-        cockpit.position.set(0, 1.1, -0.1);
+        cockpit.position.set(0, headHeight, -0.1);
     }
 
     // Update the time uniform for shaders

@@ -91,7 +91,7 @@ export function initVRControllers(renderer) {
 }
 
 // Setup a camera rig system to separate head tracking from position movement
-export function setupCameraRig(scene, camera, headHeight) {
+export function setupCameraRig(scene, camera) {
     // Create a container for the camera
     cameraRig = new THREE.Group();
     scene.add(cameraRig);
