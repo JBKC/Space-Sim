@@ -102,16 +102,13 @@ export function init() {
             
             console.log("WebXR session configured for high quality rendering");
             
-            // CRITICAL: Immediately set up headHeight calibration
-            // This is a completely blocking approach - we set a simple fixed time delay
-            // to ensure the headset tracking has initialized properly
-            console.log("Starting head height calibration with blocking delay...");
-            
             // Use setTimeout to delay by 1000ms to ensure tracking is initialized
             setTimeout(() => {
                 const xrCamera = renderer.xr.getCamera();
                 const currentHeadHeight = xrCamera.position.y;
-                
+
+                setDebugInfo('EARLY READ', `${headHeight.toFixed(3)}m at ${Date.now()}`);
+
                 // Ensure we have a valid height (not zero)
                 if (currentHeadHeight > 0.1) {
                     headHeight = currentHeadHeight;
@@ -168,9 +165,6 @@ export function init() {
 
     // Initialize VR controllers for movement
     initVRControllers(renderer);
-
-
-    
 
 
     // Create debug text display for VR
