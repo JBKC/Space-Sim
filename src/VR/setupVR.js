@@ -74,11 +74,22 @@ export function calibrateVR() {
     // Create camera rig for separating head tracking from movement
     cameraRig = setupCameraRig(scene, camera);
     
-    // Position the camera rig at the desired starting point looking at center
-    cameraRig.position.set(10000, 10000, 10000);
-    const centerPoint = new THREE.Vector3(0, 0, 0);
-    cameraRig.lookAt(centerPoint);
-    console.log("Initial camera rig position set");
+    // Position the camera rig at starting position looking at center
+    if (cameraRig) {
+        // Position at (20000, 20000, 20000) looking at center (0, 0, 0)
+        cameraRig.position.set(20000, 20000, 20000);
+        const centerPoint = new THREE.Vector3(0, 0, 0);
+        
+        // Make the camera rig face TOWARD the center point (0,0,0)
+        const direction = new THREE.Vector3().subVectors(centerPoint, cameraRig.position).normalize();
+        const lookAtPoint = new THREE.Vector3().copy(cameraRig.position).add(direction.multiplyScalar(1000));
+        cameraRig.lookAt(lookAtPoint);
+        
+        // Rotate the rig 180 degrees to face toward the center instead of away
+        cameraRig.rotateY(Math.PI);
+        
+        console.log("Positioned camera rig at starting coordinates facing toward center");
+    }
     
     // Create renderer
     renderer = new THREE.WebGLRenderer({ 
@@ -305,8 +316,8 @@ function update(timestamp) {
             if (cameraRig) {
                 cameraRig.add(coordinatesDisplay);
                 // Position at the bottom of the view, slightly to the right
-                coordinatesDisplay.position.set(0.3, headHeight-0.2, -0.4);
-                coordinatesDisplay.rotation.set(-0.7, -0.6, 0);
+                coordinatesDisplay.position.set(0.3, headHeight-0.2, -0.35);
+                coordinatesDisplay.rotation.set(0, -0.8, -0.1);
             }
         }
         
