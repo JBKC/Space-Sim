@@ -16,11 +16,19 @@ let rightController = null;
 let cameraRig = null; // Container for camera to separate head movement from position
 let isBoostActive = false; // Track boost state
 let isHyperspaceActive = false; // Track hyperspace state
+let isControlsPopupVisible = false; // Track controls popup visibility
+let controlsPopupMesh = null; // Reference to the controls popup mesh
+let lastXButtonState = false; // Track X button state for toggle
+
 let gamepadIndices = {
     button: {
         thumbstick: 3, // Thumbstick button
-        trigger: 0,     
-        grip: 1        // Grip/squeeze button (for hyperspace)
+        trigger: 0,
+        grip: 1,        // Grip/squeeze button (for hyperspace)
+        xButton: 4,     // X button on left controller
+        yButton: 5,     // Y button on left controller 
+        aButton: 4,     // A button on right controller
+        bButton: 5      // B button on right controller
     },
     axes: {
         thumbstickX: 2, // Horizontal thumbstick axis
@@ -139,23 +147,31 @@ function detectGamepadLayout(gamepad) {
         gamepadIndices = {
             button: {
                 thumbstick: 3, // Thumbstick press
-                trigger: 0,      // Trigger (index finger)
-                grip: 1        // Grip/squeeze button (for hyperspace)
+                trigger: 0,    // Trigger (index finger)
+                grip: 1,       // Grip/squeeze button (for hyperspace)
+                xButton: 4,    // X button on left controller
+                yButton: 5,    // Y button on left controller
+                aButton: 4,    // A button on right controller
+                bButton: 5     // B button on right controller
             },
             axes: {
                 thumbstickX: 2, // Horizontal thumbstick axis
                 thumbstickY: 3  // Vertical thumbstick axis
             }
         };
-        console.log("Detected Oculus Touch controller layout");
+        console.log("Detected Oculus Touch / Meta Quest controller layout");
     }
     // Valve Index controller detection
     else if (gamepad.id.includes('Index') || gamepad.id.includes('Valve')) {
         gamepadIndices = {
             button: {
                 thumbstick: 3, // Thumbstick press
-                trigger: 0,     // Trigger (index finger)
-                grip: 1        // Grip/squeeze button (for hyperspace)
+                trigger: 0,    // Trigger (index finger)
+                grip: 1,       // Grip/squeeze button (for hyperspace)
+                xButton: 2,    // Map to different button on Index
+                yButton: 3,    // Map to different button on Index
+                aButton: 2,    // Map to different button on Index
+                bButton: 3     // Map to different button on Index
             },
             axes: {
                 thumbstickX: 0, // Horizontal thumbstick axis
@@ -169,8 +185,12 @@ function detectGamepadLayout(gamepad) {
         gamepadIndices = {
             button: {
                 thumbstick: 2, // Touchpad press (Vive doesn't have thumbsticks)
-                trigger: 0,     // Trigger (index finger)
-                grip: 1        // Grip/squeeze button (for hyperspace)
+                trigger: 0,    // Trigger (index finger)
+                grip: 1,       // Grip/squeeze button (for hyperspace)
+                xButton: 3,    // Map to available button on Vive
+                yButton: 4,    // Map to available button on Vive
+                aButton: 3,    // Map to available button on Vive
+                bButton: 4     // Map to available button on Vive
             },
             axes: {
                 thumbstickX: 0, // Touchpad X axis
@@ -197,6 +217,9 @@ export function updateVRMovement(camera, deltaTime = 0.016) {
     // Check for boost and hyperspace activation
     updateBoostState();
     updateHyperspaceState();
+    
+    // Check for controls popup toggle
+    updateControlsPopupState();
     
     // Calculate the current speed based on boost and hyperspace state
     let currentSpeed = FORWARD_SPEED;
@@ -322,6 +345,140 @@ function updateHyperspaceState() {
             isHyperspaceActive = false;
         }
     }
+}
+
+/**
+ * Check and update the controls popup state based on X button press
+ */
+function updateControlsPopupState() {
+    if (!leftController || !leftController.gamepad) return;
+    
+    const xButton = leftController.gamepad.buttons[gamepadIndices.button.xButton];
+    
+    if (xButton) {
+        const isXButtonPressed = xButton.pressed;
+        
+        // Toggle on button press (not hold)
+        if (isXButtonPressed && !lastXButtonState) {
+            isControlsPopupVisible = !isControlsPopupVisible;
+            
+            if (isControlsPopupVisible) {
+                showControlsPopup();
+            } else {
+                hideControlsPopup();
+            }
+        }
+        
+        // Update button state for next frame
+        lastXButtonState = isXButtonPressed;
+    }
+}
+
+/**
+ * Create and show the controls popup
+ */
+function showControlsPopup() {
+    if (!cameraRig) return;
+    
+    console.log("Showing VR controls popup");
+    
+    // Create the popup if it doesn't exist
+    if (!controlsPopupMesh) {
+        createControlsPopup();
+    }
+    
+    // Make sure it's in the camera rig
+    if (controlsPopupMesh.parent !== cameraRig) {
+        cameraRig.add(controlsPopupMesh);
+    }
+    
+    // Position in front of the user
+    controlsPopupMesh.position.set(0, 0, -0.75);
+    controlsPopupMesh.rotation.set(0, 0, 0);
+    controlsPopupMesh.visible = true;
+}
+
+/**
+ * Hide the controls popup
+ */
+function hideControlsPopup() {
+    if (controlsPopupMesh) {
+        console.log("Hiding VR controls popup");
+        controlsPopupMesh.visible = false;
+    }
+}
+
+/**
+ * Create the controls popup plane with text
+ */
+function createControlsPopup() {
+    // Create canvas for text
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 1024;
+    const context = canvas.getContext('2d');
+    
+    // Clear the canvas with a semi-transparent dark background
+    context.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Add border
+    context.strokeStyle = '#00aaff';
+    context.lineWidth = 8;
+    context.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+    
+    // Title
+    context.font = 'bold 60px Arial';
+    context.fillStyle = '#ffffff';
+    context.textAlign = 'center';
+    context.fillText('SPACE FLIGHT CONTROLS', canvas.width / 2, 100);
+    
+    // Controls info
+    context.font = '40px Arial';
+    context.textAlign = 'left';
+    const lineHeight = 60;
+    let y = 200;
+    
+    const controls = [
+        "LEFT CONTROLLER:",
+        "• Thumbstick Left/Right: Roll spacecraft",
+        "• Thumbstick Up/Down: Pitch spacecraft",
+        "• Trigger: Boost speed (5x)",
+        "• Grip/Squeeze: Hyperspace (20x)",
+        "• X Button: Toggle this panel",
+        "",
+        "RIGHT CONTROLLER:",
+        "• Thumbstick Left/Right: Yaw spacecraft",
+        "",
+        "Fly through space and explore!"
+    ];
+    
+    controls.forEach(line => {
+        context.fillStyle = line.startsWith('•') ? '#00ffaa' : '#ffffff';
+        context.fillText(line, 80, y);
+        y += lineHeight;
+    });
+    
+    // Create texture from canvas
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    
+    // Create material using the canvas texture
+    const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        side: THREE.DoubleSide
+    });
+    
+    // Create plane for popup
+    const geometry = new THREE.PlaneGeometry(0.8, 0.8);
+    controlsPopupMesh = new THREE.Mesh(geometry, material);
+    controlsPopupMesh.renderOrder = 1002; // Render after cockpit
+    controlsPopupMesh.visible = false;
+    
+    console.log("Created controls popup");
+    
+    return controlsPopupMesh;
 }
 
 /**
