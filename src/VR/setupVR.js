@@ -151,11 +151,11 @@ export function init() {
 
     // Create a point light at the origin to simulate sun-like lighting
     // Because the space radius is so large, we need a huge light source. Found through trial and error
-    const sunLight = new THREE.PointLight(0xffffff, SPACE_RADIUS * 50000, SPACE_RADIUS * 2);
+    const sunLight = new THREE.PointLight(0xffffff, SPACE_RADIUS * 40000, SPACE_RADIUS * 2);
     sunLight.position.set(0, 0, 0); // At the origin
     scene.add(sunLight);
     
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
     scene.add(ambientLight);
 
     ///// Gameplay Setup /////
@@ -201,7 +201,7 @@ function loadCockpitModel(headHeight) {
                 if (cameraRig) {
                     // Add cockpit to the rig so it moves with the player
                     cameraRig.add(cockpit);
-                    cockpit.position.set(0, headHeight, -0.2);
+                    cockpit.position.set(0, headHeight, -0.3);
                     
                     // Add listener for XR session start
                     if (renderer && renderer.xr) {
@@ -671,8 +671,8 @@ import { saturnGroup, saturnCollisionSphere } from '../spaceEnvs/solarSystemEnv.
 import { uranusGroup, uranusCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
 import { neptuneGroup, neptuneCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
 import { asteroidBeltGroup, asteroidCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
-import { starDestroyerGroup, collisionBox1, collisionBox2 } from '../spaceEnvs/solarSystemEnv.js';
-import { lucrehulkGroup, lucrehulkCollisionBox } from '../spaceEnvs/solarSystemEnv.js';
+// import { starDestroyerGroup, collisionBox1, collisionBox2 } from '../spaceEnvs/solarSystemEnv.js';
+// import { lucrehulkGroup, lucrehulkCollisionBox } from '../spaceEnvs/solarSystemEnv.js';
 // import { deathStarGroup, deathStarCollisionSphere } from './solarSystemEnv.js';
 
 // Celestial body animation variables
@@ -690,8 +690,7 @@ function initSolarSystem() {
     scene.add(uranusGroup);
     scene.add(neptuneGroup);
     scene.add(asteroidBeltGroup);
-    scene.add(lucrehulkGroup);
-    scene.add(starDestroyerGroup);
+
     console.log("Solar system initialized in VR environment");
 }
 
