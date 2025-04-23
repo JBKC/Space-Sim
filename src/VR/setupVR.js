@@ -12,7 +12,7 @@ import {
     textureLoadingManager,
     universalScaleFactor 
 } from '../appConfig/loaders.js';
-import { initVRControllers, updateVRMovement, getControllerDebugInfo, setupCameraRig } from './controlsVR.js';
+import { initVRControllers, updateVRMovement, getControllerDebugInfo, setupCameraRig, showControlsPopup } from './controlsVR.js';
 import {
     spaceGradientSphere,
     nebula,
@@ -81,6 +81,9 @@ export function calibrateVR() {
     renderer.setClearColor(0x05182b);                   // Main space background color
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.8;
+    
+    // Make renderer globally available for other modules
+    window.renderer = renderer;
     
     // Enable XR
     renderer.xr.enabled = true;
@@ -282,6 +285,20 @@ function update(timestamp) {
         loadCockpitModel(headHeight);
         setDebugInfo('headHeight post-cockpit', headHeight.toFixed(3));
         console.log("Cockpit loaded");
+        
+        // Initialize controls popup at proper head height after cockpit loads
+        if (typeof showControlsPopup === 'undefined') {
+            // Import the function dynamically if it's not available
+            import('./controlsVR.js').then(module => {
+                if (module.showControlsPopup) {
+                    module.showControlsPopup(headHeight);
+                }
+            });
+        } else {
+            // If the function is already available, call it directly
+            showControlsPopup(headHeight);
+        }
+        
         headHeightCalibration = true;
     }
 

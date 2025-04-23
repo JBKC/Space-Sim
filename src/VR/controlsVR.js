@@ -6,7 +6,7 @@ import * as THREE from 'three';
 // Configuration constants
 const FORWARD_SPEED = 1000;
 const ROTATION_SPEED = 0.012;
-const ROLL_SPEED_MULTIPLIER = 5.0; // Makes roll 5x faster than pitch/yaw
+const ROLL_SPEED_MULTIPLIER = 3.0; // Makes roll faster than pitch/yaw
 const BOOST_MULTIPLIER = 5; // Speed multiplier when boost is active
 const HYPERSPACE_MULTIPLIER = 20; // Speed multiplier when hyperspace is active
 
@@ -363,7 +363,12 @@ function updateControlsPopupState() {
             isControlsPopupVisible = !isControlsPopupVisible;
             
             if (isControlsPopupVisible) {
-                showControlsPopup();
+                // Get current head height from renderer if available
+                let currentHeadHeight = 0;
+                if (window.renderer && window.renderer.xr) {
+                    currentHeadHeight = window.renderer.xr.getCamera()?.position.y || 0;
+                }
+                showControlsPopup(currentHeadHeight);
             } else {
                 hideControlsPopup();
             }
@@ -376,8 +381,9 @@ function updateControlsPopupState() {
 
 /**
  * Create and show the controls popup
+ * @param {number} headHeight - Optional head height for positioning the popup
  */
-function showControlsPopup() {
+export function showControlsPopup(headHeight) {
     if (!cameraRig) return;
     
     console.log("Showing VR controls popup");
@@ -392,8 +398,9 @@ function showControlsPopup() {
         cameraRig.add(controlsPopupMesh);
     }
     
-    // Position in front of the user
-    controlsPopupMesh.position.set(0, 0, -0.75);
+    // Position in front of the user at head height if provided
+    const yPosition = headHeight ? headHeight : 0;
+    controlsPopupMesh.position.set(0, yPosition, -0.75);
     controlsPopupMesh.rotation.set(0, 0, 0);
     controlsPopupMesh.visible = true;
 }
