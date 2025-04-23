@@ -520,3 +520,22 @@ export function updateStars(stars, cameraPosition) {
     stars.geometry.attributes.position.needsUpdate = true;
     stars.geometry.attributes.color.needsUpdate = true;
 } 
+
+
+///// Solar System /////
+
+export const sunGroup = new THREE.Group();
+
+const sunRadius = 1000;
+const sunGeometry = new THREE.SphereGeometry(sunRadius, 64, 64);
+// Use the new explicit texture loading for sun
+const sunTexture = loadTextureFromRegistry('planets', 'sun');
+const sunMaterial = new THREE.MeshStandardMaterial({
+    map: sunTexture,
+    emissive: 0xffffff,
+    emissiveIntensity: 0.3, // Reduced from 0.4 to 0.3
+    side: THREE.FrontSide
+});
+export const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+sunGroup.add(sun);
+

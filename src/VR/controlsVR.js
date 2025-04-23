@@ -398,13 +398,10 @@ export function initControlsPopup(headHeight) {
     // Position it based on head height but keep it invisible
     const yPosition = headHeight ? headHeight : 0;
     
-    // Position it to the left and slightly forward for better visibility
+    // Positioning and rotation to make it feel natural in the cockpit
     controlsPopupMesh.position.set(-0.4, yPosition-0.2, -0.1);
-    
-    // Angle it toward the user (rotate around Y axis) and add a slight tilt (rotate around Z axis)
     controlsPopupMesh.rotation.set(0, 0.8, 0.1);
-    
-    // Set a good size for the popup - slightly wider than tall for better readability
+    // Set size
     controlsPopupMesh.scale.set(0.75, 0.65, 1);
     
     // Keep it invisible until toggled with X button

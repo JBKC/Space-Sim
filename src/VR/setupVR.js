@@ -151,15 +151,6 @@ export function init() {
     // Initialize VR controllers for movement
     initVRControllers(renderer);
 
-    // Position the camera rig at starting position looking at center
-    if (cameraRig) {
-        // Position at (0, 0, 10000) looking at center (0, 0, 0)
-        cameraRig.position.set(0, 0, 10000);
-        const centerPoint = new THREE.Vector3(0, 0, 0);
-        cameraRig.lookAt(centerPoint);
-        console.log("Positioned camera rig at starting coordinates");
-    }
-
     // Create debug text display for VR
     // createDebugDisplay();
 
