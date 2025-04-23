@@ -92,8 +92,8 @@ export function calibrateVR() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.outputEncoding = THREE.sRGBEncoding;
-    // renderer.setClearColor(0x05182b);                   // Main space background color
-    renderer.setClearColor(0x000000);                   
+    // renderer.setClearColor(0x000000);                   // Pure black space
+    renderer.setClearColor(0x01030a);                   
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.8;
     
@@ -292,47 +292,52 @@ function update(timestamp) {
     lastFrameTime = timestamp;
     
     // Periodically check for when headHeight is calibrated in update loop
-    // Once criteria met, break out of loop
+    // Once criteria met, Load Cockpit Model and break out of loop
     headHeight = renderer.xr.getCamera()?.position.y;
 
-    if (!headHeightCalibration && !cockpit && headHeight != 0) {
-        setDebugInfo('headHeight in update loop', headHeight.toFixed(3));
-        loadCockpitModel(headHeight);
-        setDebugInfo('headHeight post-cockpit', headHeight.toFixed(3));
-        console.log("Cockpit loaded");
-        
-        // Initialize coordinates display
-        if (!coordinatesDisplay) {
-            coordinatesDisplay = createCoordinatesDisplay();
-            if (cameraRig) {
-                cameraRig.add(coordinatesDisplay);
-                // Position at the bottom of the view, slightly to the right
-                coordinatesDisplay.position.set(0.3, headHeight-0.2, -0.35);
-                coordinatesDisplay.rotation.set(0, -0.8, -0.1);
-            }
-        }
-        
-        // Initialize controls popup at proper head height after cockpit loads
-        // but don't show it automatically - it will be toggled with X button
-        if (typeof initControlsPopup === 'undefined') {
-            // Import the function dynamically if it's not available
-            import('./controlsVR.js').then(module => {
-                if (module.initControlsPopup) {
-                    module.initControlsPopup(headHeight);
+    if (!cockpit) {
+
+        if (!headHeightCalibration && headHeight != 0) {
+            setDebugInfo('headHeight in update loop', headHeight.toFixed(3));
+            loadCockpitModel(headHeight);
+            setDebugInfo('headHeight post-cockpit', headHeight.toFixed(3));
+            console.log("Cockpit loaded");
+            
+            // Initialize coordinates display
+            if (!coordinatesDisplay) {
+                coordinatesDisplay = createCoordinatesDisplay();
+                if (cameraRig) {
+                    cameraRig.add(coordinatesDisplay);
+                    // Position at the bottom of the view, slightly to the right
+                    coordinatesDisplay.position.set(0.3, headHeight-0.2, -0.35);
+                    coordinatesDisplay.rotation.set(0, -0.8, -0.1);
                 }
-            });
-        } else {
-            // If the function is already available, call it directly
-            initControlsPopup(headHeight);
+            }
+            
+            // Initialize controls popup at proper head height after cockpit loads
+            // but don't show it automatically - it will be toggled with X button
+            if (typeof initControlsPopup === 'undefined') {
+                // Import the function dynamically if it's not available
+                import('./controlsVR.js').then(module => {
+                    if (module.initControlsPopup) {
+                        module.initControlsPopup(headHeight);
+                    }
+                });
+            } else {
+                // If the function is already available, call it directly
+                initControlsPopup(headHeight);
+            }
+            
+            headHeightCalibration = true;
         }
-        
-        headHeightCalibration = true;
     }
 
     // Update the coordinates display
     if (coordinatesDisplay) {
         updateCoordinatesDisplay();
     }
+
+    ///// Environment animations /////
 
     // Update the time uniform for shaders
     if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {
@@ -652,6 +657,8 @@ import { sunGroup, blazingMaterial, blazingEffect } from '../spaceEnvs/solarSyst
 import { mercuryGroup, mercuryCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
 import { venusGroup, venusCollisionSphere, venusCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
 import { earthGroup, earthCollisionSphere, earthCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
+import { moonGroup } from '../spaceEnvs/solarSystemEnv.js';
+import { marsGroup, marsCollisionSphere, marsCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
 
 function initSolarSystem() {
     // Add sun to the scene
@@ -659,23 +666,46 @@ function initSolarSystem() {
     scene.add(mercuryGroup);
     scene.add(venusGroup);
     scene.add(earthGroup);
-
-
-
-    function animateSun() {
-        blazingMaterial.uniforms.time.value += 0.02;
-        blazingEffect.scale.setScalar(0.9 + Math.sin(blazingMaterial.uniforms.time.value * 1.0) * 0.05);
-        requestAnimationFrame(animateSun);
-    }
-    animateSun();
-
-    function animateVenusClouds() {
-        venusCloudMesh.rotation.y += 0.0005;
-        requestAnimationFrame(animateVenusClouds);
-    }
-    animateVenusClouds();
+    scene.add(moonGroup);
+    scene.add(marsGroup);
 
 }
+
+
+// Celestial body animation effects
+
+function animateAllCelestialBodies() {
+    animateSun();
+    animateVenusClouds();
+    animateEarthClouds();
+    animateMarsClouds();
+}
+
+function animateSun() {
+    blazingMaterial.uniforms.time.value += 0.02;
+    blazingEffect.scale.setScalar(0.9 + Math.sin(blazingMaterial.uniforms.time.value * 1.0) * 0.05);
+    requestAnimationFrame(animateSun);
+}
+animateSun();
+
+function animateVenusClouds() {
+    venusCloudMesh.rotation.y += 0.0005;
+    requestAnimationFrame(animateVenusClouds);
+}
+animateVenusClouds();
+
+function animateEarthClouds() {
+    earthCloudMesh.rotation.y += 0.0005;
+    requestAnimationFrame(animateEarthClouds);
+}
+animateEarthClouds();
+
+function animateMarsClouds() {
+    marsCloudMesh.rotation.y += 0.0005;
+    requestAnimationFrame(animateMarsClouds);
+}
+animateMarsClouds();
+
 
 
 
