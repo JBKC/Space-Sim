@@ -402,7 +402,7 @@ export function initControlsPopup(headHeight) {
     controlsPopupMesh.position.set(-0.3, yPosition-0.2, -0.35);
     controlsPopupMesh.rotation.set(0, 0.8, 0.1);
     // Set size
-    controlsPopupMesh.scale.set(0.6, 0.6, 1);
+    controlsPopupMesh.scale.set(0.5, 0.6, 1);
     
     // Keep it invisible until toggled with X button
     controlsPopupMesh.visible = false;
@@ -457,16 +457,16 @@ function createControlsPopup() {
     canvas.height = 800;
     const context = canvas.getContext('2d');
     
-    // Clear the canvas with a semi-transparent dark background (matching original game)
+    // Clear the canvas with a semi-transparent dark background (matching controls-dropdown)
     context.fillStyle = 'rgba(0, 0, 0, 0.9)';
     context.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Add border (blue border like original)
+    // Add border (matching controls-dropdown)
     context.strokeStyle = 'rgba(79, 195, 247, 0.5)';
     context.lineWidth = 4;
     context.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
     
-    // Add outer glow effect
+    // Add outer glow effect (matching controls-dropdown)
     const glowSize = 20;
     const glowColor = 'rgba(79, 195, 247, 0.3)';
     context.shadowBlur = glowSize;
@@ -474,7 +474,7 @@ function createControlsPopup() {
     context.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
     context.shadowBlur = 0;
     
-    // Title styling like the original
+    // Title styling exactly matching the controls-dropdown
     const titleFont = "'Orbitron', Arial, sans-serif";
     const titleSize = 54;
     const titleColor = '#4fc3f7';
@@ -484,12 +484,12 @@ function createControlsPopup() {
     context.textAlign = 'center';
     context.fillText('VR CONTROLS', canvas.width / 2, 80);
     
-    // Set up styles for headings like original
+    // Set up styles for headings exactly matching controls-dropdown h3
     const headingFont = "'Orbitron', Arial, sans-serif";
     const headingSize = 40;
     const headingColor = '#4fc3f7';
     
-    // Set up styles for text like original
+    // Set up styles for text exactly matching controls-dropdown p
     const textFont = "'Orbitron', Arial, sans-serif";
     const textSize = 32;
     const textColor = '#b3e5fc';
@@ -503,7 +503,7 @@ function createControlsPopup() {
     context.fillStyle = headingColor;
     context.fillText('MOVEMENT', 40, y);
     
-    // Draw section heading underline
+    // Draw section heading underline exactly matching controls-dropdown h3
     context.beginPath();
     context.moveTo(40, y + 10);
     context.lineTo(canvas.width - 40, y + 10);
@@ -524,7 +524,7 @@ function createControlsPopup() {
     context.fillStyle = headingColor;
     context.fillText('SPEED', 40, y);
     
-    // Draw section heading underline
+    // Draw section heading underline exactly matching controls-dropdown h3
     context.beginPath();
     context.moveTo(40, y + 10);
     context.lineTo(canvas.width - 40, y + 10);
@@ -544,7 +544,7 @@ function createControlsPopup() {
     context.fillStyle = headingColor;
     context.fillText('ACTIONS', 40, y);
     
-    // Draw section heading underline
+    // Draw section heading underline exactly matching controls-dropdown h3
     context.beginPath();
     context.moveTo(40, y + 10);
     context.lineTo(canvas.width - 40, y + 10);
@@ -579,7 +579,7 @@ function createControlsPopup() {
     controlsPopupMesh.renderOrder = 1002; // Render after cockpit
     controlsPopupMesh.visible = false;
     
-    console.log("Created controls popup with original game styling");
+    console.log("Created controls popup with exact controls-dropdown styling");
     
     return controlsPopupMesh;
 }

@@ -201,7 +201,7 @@ function loadCockpitModel(headHeight) {
                 if (cameraRig) {
                     // Add cockpit to the rig so it moves with the player
                     cameraRig.add(cockpit);
-                    cockpit.position.set(0, headHeight, -0.3);
+                    cockpit.position.set(0, headHeight, -0.25);
                     
                     // Add listener for XR session start
                     if (renderer && renderer.xr) {
@@ -623,16 +623,16 @@ function updateCoordinatesDisplay() {
     const y = Math.round(position.y);
     const z = Math.round(position.z);
     
-    // Clear canvas with a semi-transparent dark background (matching controls popup)
+    // Clear canvas with a semi-transparent dark background (matching controls-dropdown)
     context.fillStyle = 'rgba(0, 0, 0, 0.9)';
     context.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Add border (blue border like original)
+    // Add border (matching controls-dropdown)
     context.strokeStyle = 'rgba(79, 195, 247, 0.5)';
     context.lineWidth = 2;
     context.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
     
-    // Add outer glow effect
+    // Add outer glow effect (matching controls-dropdown)
     const glowSize = 10;
     const glowColor = 'rgba(79, 195, 247, 0.3)';
     context.shadowBlur = glowSize;
@@ -643,13 +643,22 @@ function updateCoordinatesDisplay() {
     // Title
     const titleFont = "'Orbitron', Arial, sans-serif";
     context.font = `bold 28px ${titleFont}`;
-    context.fillStyle = '#4fc3f7';
+    context.fillStyle = '#4fc3f7'; // Exact color from controls-dropdown h3
     context.textAlign = 'center';
     context.fillText('COORDINATES', canvas.width / 2, 30);
     
+    // Add title underline like controls-dropdown h3
+    context.beginPath();
+    context.moveTo(canvas.width * 0.15, 35);
+    context.lineTo(canvas.width * 0.85, 35);
+    context.strokeStyle = 'rgba(79, 195, 247, 0.3)';
+    context.lineWidth = 1;
+    context.stroke();
+    
     // Coordinates text
     context.font = `24px ${titleFont}`;
-    context.fillStyle = '#b3e5fc';
+    context.fillStyle = '#b3e5fc'; // Exact color from controls-dropdown p
+    context.textAlign = 'center';
     context.fillText(`X: ${x}   Y: ${y}   Z: ${z}`, canvas.width / 2, 80);
     
     // Update texture
