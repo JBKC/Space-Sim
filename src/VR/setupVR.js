@@ -22,7 +22,8 @@ import {
     directionalLightCone,
     galaxyBackdrop,
     createStars,
-    updateStars
+    updateStars,
+    sunGroup
 } from './spaceEnvVR.js';
 
 
@@ -69,6 +70,12 @@ export function calibrateVR() {
 
     // Create camera rig for separating head tracking from movement
     cameraRig = setupCameraRig(scene, camera);
+    
+    // Position the camera rig at the desired starting point looking at center
+    cameraRig.position.set(0, 0, 10000);
+    const centerPoint = new THREE.Vector3(0, 0, 0);
+    cameraRig.lookAt(centerPoint);
+    console.log("Initial camera rig position set");
     
     // Create renderer
     renderer = new THREE.WebGLRenderer({ 
@@ -120,6 +127,10 @@ export function init() {
     scene.add(starSystem.stars);
     console.log("Added dynamic star system to VR environment");
 
+    // Add sun to the scene
+    scene.add(sunGroup);
+    console.log("Added sun to VR environment");
+
     // Lighting
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
     directionalLight.position.set(0, 100, -1);
@@ -140,6 +151,14 @@ export function init() {
     // Initialize VR controllers for movement
     initVRControllers(renderer);
 
+    // Position the camera rig at starting position looking at center
+    if (cameraRig) {
+        // Position at (0, 0, 10000) looking at center (0, 0, 0)
+        cameraRig.position.set(0, 0, 10000);
+        const centerPoint = new THREE.Vector3(0, 0, 0);
+        cameraRig.lookAt(centerPoint);
+        console.log("Positioned camera rig at starting coordinates");
+    }
 
     // Create debug text display for VR
     // createDebugDisplay();
