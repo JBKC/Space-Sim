@@ -402,7 +402,7 @@ export function initControlsPopup(headHeight) {
     controlsPopupMesh.position.set(-0.28, yPosition-0.2, -0.35);
     controlsPopupMesh.rotation.set(0, 0.8, 0.1);
     // Set size
-    controlsPopupMesh.scale.set(0.5, 0.5, 1);
+    controlsPopupMesh.scale.set(0.5, 0.4, 1);
     
     // Keep it invisible until toggled with X button
     controlsPopupMesh.visible = false;

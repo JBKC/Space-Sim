@@ -26,21 +26,6 @@ import {
     SPACE_RADIUS
 } from './spaceEnvVR.js';
 
-import { sunGroup, blazingMaterial, blazingEffect } from '../spaceEnvs/solarSystemEnv.js';
-import { mercuryGroup, mercuryCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
-import { venusGroup, venusCollisionSphere, venusCloudMesh as importedVenusCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
-import { earthGroup, earthCollisionSphere, earthCloudMesh as importedEarthCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
-import { moonGroup } from '../spaceEnvs/solarSystemEnv.js';
-import { marsGroup, marsCollisionSphere, marsCloudMesh as importedMarsCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
-import { jupiterGroup, jupiterCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
-import { saturnGroup, saturnCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
-import { uranusGroup, uranusCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
-import { neptuneGroup, neptuneCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
-import { asteroidBeltGroup, asteroidCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
-// import { starDestroyerGroup, collisionBox1, collisionBox2 } from '../spaceEnvs/solarSystemEnv.js';
-// import { lucrehulkGroup, lucrehulkCollisionBox } from '../spaceEnvs/solarSystemEnv.js';
-// import { deathStarGroup, deathStarCollisionSphere } from './solarSystemEnv.js';
-
 
 /////////////// SCENE INITIALIZATION ///////////////
 
@@ -64,9 +49,6 @@ let starSystem;
 let initialized = false;
 let lastFrameTime = 0;
 const COCKPIT_SCALE = 1; // Scale factor for the cockpit model
-
-// Cloud mesh references
-let venusCloudMesh, earthCloudMesh, marsCloudMesh;
 
 // Create scene
 scene = new THREE.Scene();
@@ -157,15 +139,6 @@ export function init() {
         document.body.appendChild(renderer.domElement);
     }
 
-    // Initialize cloud mesh variables with imported ones
-    venusCloudMesh = importedVenusCloudMesh;
-    earthCloudMesh = importedEarthCloudMesh;
-    marsCloudMesh = importedMarsCloudMesh;
-    
-    if (venusCloudMesh) console.log("Venus cloud mesh initialized in VR");
-    if (earthCloudMesh) console.log("Earth cloud mesh initialized in VR");
-    if (marsCloudMesh) console.log("Mars cloud mesh initialized in VR");
-
     // Create stars with dynamic brightness
     starSystem = createStars();
     scene.add(starSystem.stars);
@@ -184,11 +157,6 @@ export function init() {
     
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
     scene.add(ambientLight);
-
-    // Store references to cloud meshes globally for access in VR environment
-    if (!window.venusCloudMesh) window.venusCloudMesh = venusCloudMesh;
-    if (!window.earthCloudMesh) window.earthCloudMesh = earthCloudMesh;
-    if (!window.marsCloudMesh) window.marsCloudMesh = marsCloudMesh;
 
     ///// Gameplay Setup /////
 
@@ -702,6 +670,21 @@ function updateCoordinatesDisplay() {
 
 ///////////////////// Solar System Setup /////////////////////
 
+import { sunGroup, blazingMaterial, blazingEffect } from '../spaceEnvs/solarSystemEnv.js';
+import { mercuryGroup, mercuryCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
+import { venusGroup, venusCollisionSphere, venusCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
+import { earthGroup, earthCollisionSphere, earthCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
+import { moonGroup } from '../spaceEnvs/solarSystemEnv.js';
+import { marsGroup, marsCollisionSphere, marsCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
+import { jupiterGroup, jupiterCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
+import { saturnGroup, saturnCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
+import { uranusGroup, uranusCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
+import { neptuneGroup, neptuneCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
+import { asteroidBeltGroup, asteroidCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
+// import { starDestroyerGroup, collisionBox1, collisionBox2 } from '../spaceEnvs/solarSystemEnv.js';
+// import { lucrehulkGroup, lucrehulkCollisionBox } from '../spaceEnvs/solarSystemEnv.js';
+// import { deathStarGroup, deathStarCollisionSphere } from './solarSystemEnv.js';
+
 // Celestial body animation variables
 let sunTime = 0;
 
@@ -718,23 +701,6 @@ function initSolarSystem() {
     scene.add(neptuneGroup);
     scene.add(asteroidBeltGroup);
 
-    // Extract cloud meshes from planet groups for animation
-    // These are defined in solarSystemEnv.js and imported above
-    try {
-        // Store local references to cloud meshes for animation
-        venusCloudMesh = venusCloudMesh || window.venusCloudMesh;
-        earthCloudMesh = earthCloudMesh || window.earthCloudMesh;
-        marsCloudMesh = marsCloudMesh || window.marsCloudMesh;
-        
-        console.log("Cloud mesh references in VR environment:", {
-            venusCloudMesh: !!venusCloudMesh,
-            earthCloudMesh: !!earthCloudMesh,
-            marsCloudMesh: !!marsCloudMesh
-        });
-    } catch (error) {
-        console.error("Error extracting cloud mesh references:", error);
-    }
-
     console.log("Solar system initialized in VR environment");
 }
 
@@ -742,7 +708,7 @@ function initSolarSystem() {
 function updateCelestialAnimations(deltaTime) {
     // Update sun animation
     if (blazingMaterial && blazingMaterial.uniforms) {
-        sunTime += deltaTime * 5; // Similar speed as before
+        sunTime += deltaTime * 2; 
         blazingMaterial.uniforms.time.value = sunTime;
         
         if (blazingEffect) {
@@ -750,41 +716,10 @@ function updateCelestialAnimations(deltaTime) {
         }
     }
     
-    // Check both local references and window globals
-    const venus = venusCloudMesh || window.venusCloudMesh;
-    const earth = earthCloudMesh || window.earthCloudMesh;
-    const mars = marsCloudMesh || window.marsCloudMesh;
+    venusCloudMesh.rotation.y += 0.0005;
+    earthCloudMesh.rotation.y += 0.0005;
+    marsCloudMesh.rotation.y += 0.0005;
     
-    // Debug cloud mesh existence - only log once if undefined
-    if (!venus && !window._loggedVenus) {
-        console.log("VR: venusCloudMesh is undefined");
-        window._loggedVenus = true;
-    }
-    if (!earth && !window._loggedEarth) {
-        console.log("VR: earthCloudMesh is undefined");
-        window._loggedEarth = true;
-    }
-    if (!mars && !window._loggedMars) {
-        console.log("VR: marsCloudMesh is undefined");
-        window._loggedMars = true;
-    }
-    
-    // Update Venus clouds
-    if (venus) {
-        venus.rotation.y += 0.0005;
-    }
-    
-    // Update Earth clouds
-    if (earth) {
-        earth.rotation.y += 0.0005;
-    }
-    
-    // Update Mars clouds
-    if (mars) {
-        mars.rotation.y += 0.0005;
-    }
 }
-
-
 
 
