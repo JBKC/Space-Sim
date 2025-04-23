@@ -399,7 +399,7 @@ export function initControlsPopup(headHeight) {
     const yPosition = headHeight ? headHeight : 0;
     
     // Positioning and rotation to make it feel natural in the cockpit
-    controlsPopupMesh.position.set(-0.4, yPosition-0.2, -0.1);
+    controlsPopupMesh.position.set(-0.3, yPosition-0.2, -0.1);
     controlsPopupMesh.rotation.set(0, 0.8, 0.1);
     // Set size
     controlsPopupMesh.scale.set(0.75, 0.65, 1);

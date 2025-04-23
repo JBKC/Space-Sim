@@ -305,8 +305,8 @@ function update(timestamp) {
             if (cameraRig) {
                 cameraRig.add(coordinatesDisplay);
                 // Position at the bottom of the view, slightly to the right
-                coordinatesDisplay.position.set(0.3, headHeight - 0.2, -0.75);
-                coordinatesDisplay.rotation.set(0, 0, 0);
+                coordinatesDisplay.position.set(0.3, headHeight-0.2, -0.4);
+                coordinatesDisplay.rotation.set(0.7, 0.6, 0);
             }
         }
         
