@@ -406,8 +406,8 @@ export function showControlsPopup(headHeight) {
     // Position it to the left and slightly forward for better visibility
     controlsPopupMesh.position.set(-0.5, yPosition, -0.9);
     
-    // Angle it slightly toward the user (rotate around Y axis)
-    controlsPopupMesh.rotation.set(0, 0.3, 0);
+    // Angle it toward the user (rotate around Y axis) and add a slight tilt (rotate around Z axis)
+    controlsPopupMesh.rotation.set(0, 0.3, 0.1);
     
     // Set a good size for the popup - slightly wider than tall for better readability
     controlsPopupMesh.scale.set(0.75, 0.65, 1);
@@ -431,8 +431,9 @@ function hideControlsPopup() {
 function createControlsPopup() {
     // Create canvas for text
     const canvas = document.createElement('canvas');
+    // Reduce height to eliminate empty space at the bottom
     canvas.width = 1024;
-    canvas.height = 1024;
+    canvas.height = 800;
     const context = canvas.getContext('2d');
     
     // Clear the canvas with a semi-transparent dark background (matching original game)
@@ -547,8 +548,12 @@ function createControlsPopup() {
         side: THREE.DoubleSide
     });
     
-    // Create plane for popup - adjusting size for better readability
-    const geometry = new THREE.PlaneGeometry(0.8, 0.8);
+    // Create plane for popup with correct aspect ratio
+    const aspectRatio = canvas.width / canvas.height;
+    const width = 0.8;
+    const height = width / aspectRatio;
+    const geometry = new THREE.PlaneGeometry(width, height);
+    
     controlsPopupMesh = new THREE.Mesh(geometry, material);
     controlsPopupMesh.renderOrder = 1002; // Render after cockpit
     controlsPopupMesh.visible = false;
