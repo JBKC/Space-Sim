@@ -16,7 +16,7 @@ let isBoostActive = false; // Track boost state
 let gamepadIndices = {
     button: {
         thumbstick: 3, // Thumbstick button
-        trigger: 0     // Main trigger button (index finger trigger, typically index 0)
+        trigger: 0     
     },
     axes: {
         thumbstickX: 2, // Horizontal thumbstick axis
@@ -135,7 +135,7 @@ function detectGamepadLayout(gamepad) {
         gamepadIndices = {
             button: {
                 thumbstick: 3, // Thumbstick press
-                trigger: 0     // Main trigger (index finger)
+                trigger: 0      // Trigger (index finger)
             },
             axes: {
                 thumbstickX: 2, // Horizontal thumbstick axis
@@ -149,7 +149,7 @@ function detectGamepadLayout(gamepad) {
         gamepadIndices = {
             button: {
                 thumbstick: 3, // Thumbstick press
-                trigger: 0     // Main trigger (index finger)
+                trigger: 0     // Trigger (index finger)
             },
             axes: {
                 thumbstickX: 0, // Horizontal thumbstick axis
@@ -163,7 +163,7 @@ function detectGamepadLayout(gamepad) {
         gamepadIndices = {
             button: {
                 thumbstick: 2, // Touchpad press (Vive doesn't have thumbsticks)
-                trigger: 0     // Main trigger (index finger)
+                trigger: 0     // Trigger (index finger)
             },
             axes: {
                 thumbstickX: 0, // Touchpad X axis
@@ -364,67 +364,4 @@ export function getControllerDebugInfo(xrFrame) {
     }
     
     return info;
-}
-
-/**
- * Process XR input from controllers and map to keyboard-like controls
- * Legacy system that maps controller inputs to a keys object
- * 
- * @param {XRFrame} xrFrame - The current XR frame with input source data
- * @param {Object} keys - The keys object that tracks input state (same as keyboard input)
- * @returns {Object} The updated keys object
- */
-export function processXRInput(xrFrame, keys) {
-    // No processing if we don't have a valid frame
-    if (!xrFrame || !navigator.xr) {
-        return keys;
-    }
-
-    const session = xrFrame.session;
-    if (!session || !session.inputSources) {
-        return keys;
-    }
-
-    // Process each connected input source (controller)
-    for (const inputSource of session.inputSources) {
-        if (inputSource.gamepad) {
-            const gamepad = inputSource.gamepad;
-            
-            // Map controller inputs to keyboard controls
-            // Use button index 0 for the main trigger (index finger)
-            if (gamepad.buttons[0] && gamepad.buttons[0].pressed) {
-                keys.up = true;
-            } else {
-                keys.up = false;
-            }
-            
-            // Thumbstick: Steering
-            if (gamepad.axes && gamepad.axes.length >= 2) {
-                // X-axis for left/right
-                if (gamepad.axes[0] < -0.5) {
-                    keys.left = true;
-                    keys.right = false;
-                } else if (gamepad.axes[0] > 0.5) {
-                    keys.right = true;
-                    keys.left = false;
-                } else {
-                    keys.left = false;
-                    keys.right = false;
-                }
-                
-                // Y-axis for forward/backward
-                if (gamepad.axes[1] < -0.5) {
-                    keys.up = true;
-                    keys.down = false;
-                } else if (gamepad.axes[1] > 0.5) {
-                    keys.down = true;
-                    keys.up = false;
-                } else if (!keys.up) { // Don't override trigger
-                    keys.down = false;
-                }
-            }
-        }
-    }
-    
-    return keys;
 } 

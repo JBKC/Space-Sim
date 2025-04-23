@@ -918,14 +918,6 @@ function initXRAnimationLoop() {
                 frameCount = 0;
             }
             
-            // Process XR input if we have an XR frame with input sources
-            if (xrFrame && navigator.xr) {
-                keys = processXRInput(xrFrame, keys);
-            } else if (usingQuestSpecialMode) {
-                // For our Quest special mode, rely on existing keyboard/touch controls
-                // User can use smartphone touch controls or keyboard if connected
-                console.log("Using standard input controls in Quest mode");
-            }
             
             // Get boost and hyperspace states
             const isBoosting = getBoostState();
