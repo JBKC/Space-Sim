@@ -143,11 +143,9 @@ export function init() {
     scene.add(starSystem.stars);
     console.log("Added dynamic star system to VR environment");
 
-    // Add celestial bodies to the scene
+    // Add all celestial bodies to scene
     initSolarSystem();
-    
-    // Start animation for celestial bodies
-    // Only call animateAllCelestialBodies ONCE
+    // Start animations (only call once, not in update loop)
     animateAllCelestialBodies();
 
     // Lighting
@@ -341,8 +339,6 @@ function update(timestamp) {
         updateCoordinatesDisplay();
     }
 
-    ///// Environment animations /////
-    animateAllCelestialBodies();
 
     // Update the time uniform for shaders
     if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {
@@ -670,49 +666,34 @@ import { venusGroup, venusCollisionSphere, venusCloudMesh } from '../spaceEnvs/s
 import { earthGroup, earthCollisionSphere, earthCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
 import { moonGroup } from '../spaceEnvs/solarSystemEnv.js';
 import { marsGroup, marsCollisionSphere, marsCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
+import { jupiterGroup, jupiterCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
+import { saturnGroup, saturnCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
+import { uranusGroup, uranusCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
+import { neptuneGroup, neptuneCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
+
+
 
 function initSolarSystem() {
-    // Add solar system objects to the scene with proper null checks
-    if (sunGroup) scene.add(sunGroup);
-    if (mercuryGroup) scene.add(mercuryGroup);
-    if (venusGroup) scene.add(venusGroup);
-    if (earthGroup) scene.add(earthGroup);
-    if (moonGroup) scene.add(moonGroup);
-    if (marsGroup) scene.add(marsGroup);
-    
-    console.log("Solar system objects added to scene");
+    // Add sun to the scene
+    scene.add(sunGroup);
+    scene.add(mercuryGroup);
+    scene.add(venusGroup);
+    scene.add(earthGroup);
+    scene.add(moonGroup);
+    scene.add(marsGroup);
+    scene.add(jupiterGroup);
+    scene.add(saturnGroup);
+    scene.add(uranusGroup);
+    scene.add(neptuneGroup);
+
 }
 
 
 // Celestial body animation effects
 
-// Store animation frame IDs so we can cancel them if needed
-let sunAnimationId = null;
-let venusCloudAnimationId = null;
-let earthCloudAnimationId = null;
-let marsCloudAnimationId = null;
 
 function animateAllCelestialBodies() {
-    console.log("Starting celestial body animations");
-    
-    // Clear any existing animation frames first
-    if (sunAnimationId) {
-        cancelAnimationFrame(sunAnimationId);
-        sunAnimationId = null;
-    }
-    if (venusCloudAnimationId) {
-        cancelAnimationFrame(venusCloudAnimationId);
-        venusCloudAnimationId = null;
-    }
-    if (earthCloudAnimationId) {
-        cancelAnimationFrame(earthCloudAnimationId);
-        earthCloudAnimationId = null;
-    }
-    if (marsCloudAnimationId) {
-        cancelAnimationFrame(marsCloudAnimationId);
-        marsCloudAnimationId = null;
-    }
-    
+
     // Start animations
     animateSun();
     animateVenusClouds();
@@ -721,48 +702,26 @@ function animateAllCelestialBodies() {
 }
 
 function animateSun() {
-    // Increment the time value for the blazing effect shader
-    if (blazingMaterial && blazingMaterial.uniforms) {
-        blazingMaterial.uniforms.time.value += 0.02;
-    }
-    
-    // Scale the blazing effect based on a sine wave
-    if (blazingEffect) {
-        blazingEffect.scale.setScalar(0.9 + Math.sin(blazingMaterial.uniforms.time.value * 1.0) * 0.05);
-    }
-    
-    // Request next frame
-    sunAnimationId = requestAnimationFrame(animateSun);
+    blazingMaterial.uniforms.time.value += 0.02;
+    blazingEffect.scale.setScalar(0.9 + Math.sin(blazingMaterial.uniforms.time.value * 1.0) * 0.05);
+    requestAnimationFrame(animateSun);
 }
+
 
 function animateVenusClouds() {
-    // Only rotate if the mesh exists
-    if (venusCloudMesh) {
-        venusCloudMesh.rotation.y += 0.0005;
-    }
-    
-    // Request next frame
-    venusCloudAnimationId = requestAnimationFrame(animateVenusClouds);
+    venusCloudMesh.rotation.y += 0.0005;
+    requestAnimationFrame(animateVenusClouds);
 }
 
+
 function animateEarthClouds() {
-    // Only rotate if the mesh exists
-    if (earthCloudMesh) {
-        earthCloudMesh.rotation.y += 0.0005;
-    }
-    
-    // Request next frame
-    earthCloudAnimationId = requestAnimationFrame(animateEarthClouds);
+    earthCloudMesh.rotation.y += 0.0005;
+    requestAnimationFrame(animateEarthClouds);
 }
 
 function animateMarsClouds() {
-    // Only rotate if the mesh exists
-    if (marsCloudMesh) {
-        marsCloudMesh.rotation.y += 0.0005;
-    }
-    
-    // Request next frame
-    marsCloudAnimationId = requestAnimationFrame(animateMarsClouds);
+    marsCloudMesh.rotation.y += 0.0005;
+    requestAnimationFrame(animateMarsClouds);
 }
 
 

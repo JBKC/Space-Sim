@@ -5,7 +5,7 @@ import * as THREE from 'three';
 
 // Configuration constants
 const FORWARD_SPEED = 1000;
-const ROTATION_SPEED = 0.012;
+const ROTATION_SPEED = 0.02;
 const ROLL_SPEED_MULTIPLIER = 3.0; // Makes roll faster than pitch/yaw
 const BOOST_MULTIPLIER = 5; // Speed multiplier when boost is active
 const HYPERSPACE_MULTIPLIER = 20; // Speed multiplier when hyperspace is active
