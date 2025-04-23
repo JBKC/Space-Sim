@@ -399,9 +399,19 @@ export function showControlsPopup(headHeight) {
     }
     
     // Position in front of the user at head height if provided
+    // The popup should be positioned slightly to the left to avoid blocking the view
+    // and angled slightly toward the user for better readability
     const yPosition = headHeight ? headHeight : 0;
-    controlsPopupMesh.position.set(0, yPosition, -0.75);
-    controlsPopupMesh.rotation.set(0, 0, 0);
+    
+    // Position it to the left and slightly forward for better visibility
+    controlsPopupMesh.position.set(-0.5, yPosition, -0.9);
+    
+    // Angle it slightly toward the user (rotate around Y axis)
+    controlsPopupMesh.rotation.set(0, 0.3, 0);
+    
+    // Set a good size for the popup - slightly wider than tall for better readability
+    controlsPopupMesh.scale.set(0.75, 0.65, 1);
+    
     controlsPopupMesh.visible = true;
 }
 
@@ -425,46 +435,106 @@ function createControlsPopup() {
     canvas.height = 1024;
     const context = canvas.getContext('2d');
     
-    // Clear the canvas with a semi-transparent dark background
-    context.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    // Clear the canvas with a semi-transparent dark background (matching original game)
+    context.fillStyle = 'rgba(0, 0, 0, 0.9)';
     context.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Add border
-    context.strokeStyle = '#00aaff';
-    context.lineWidth = 8;
+    // Add border (blue border like original)
+    context.strokeStyle = 'rgba(79, 195, 247, 0.5)';
+    context.lineWidth = 4;
     context.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
     
-    // Title
-    context.font = 'bold 60px Arial';
-    context.fillStyle = '#ffffff';
+    // Add outer glow effect
+    const glowSize = 20;
+    const glowColor = 'rgba(79, 195, 247, 0.3)';
+    context.shadowBlur = glowSize;
+    context.shadowColor = glowColor;
+    context.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+    context.shadowBlur = 0;
+    
+    // Title styling like the original
+    const titleFont = "'Orbitron', Arial, sans-serif";
+    const titleSize = 54;
+    const titleColor = '#4fc3f7';
+    
+    context.font = `bold ${titleSize}px ${titleFont}`;
+    context.fillStyle = titleColor;
     context.textAlign = 'center';
-    context.fillText('SPACE FLIGHT CONTROLS', canvas.width / 2, 100);
+    context.fillText('VR CONTROLS', canvas.width / 2, 80);
     
-    // Controls info
-    context.font = '40px Arial';
+    // Set up styles for headings like original
+    const headingFont = "'Orbitron', Arial, sans-serif";
+    const headingSize = 40;
+    const headingColor = '#4fc3f7';
+    
+    // Set up styles for text like original
+    const textFont = "'Orbitron', Arial, sans-serif";
+    const textSize = 32;
+    const textColor = '#b3e5fc';
+    
     context.textAlign = 'left';
-    const lineHeight = 60;
-    let y = 200;
+    let y = 140;
+    const sectionPadding = 15;
     
-    const controls = [
-        "LEFT CONTROLLER:",
-        "• Thumbstick Left/Right: Roll spacecraft",
-        "• Thumbstick Up/Down: Pitch spacecraft",
-        "• Trigger: Boost speed (5x)",
-        "• Grip/Squeeze: Hyperspace (20x)",
-        "• X Button: Toggle this panel",
-        "",
-        "RIGHT CONTROLLER:",
-        "• Thumbstick Left/Right: Yaw spacecraft",
-        "",
-        "Fly through space and explore!"
-    ];
+    // MOVEMENT section
+    context.font = `bold ${headingSize}px ${headingFont}`;
+    context.fillStyle = headingColor;
+    context.fillText('MOVEMENT', 40, y);
     
-    controls.forEach(line => {
-        context.fillStyle = line.startsWith('•') ? '#00ffaa' : '#ffffff';
-        context.fillText(line, 80, y);
-        y += lineHeight;
-    });
+    // Draw section heading underline
+    context.beginPath();
+    context.moveTo(40, y + 10);
+    context.lineTo(canvas.width - 40, y + 10);
+    context.strokeStyle = 'rgba(79, 195, 247, 0.3)';
+    context.lineWidth = 2;
+    context.stroke();
+    
+    y += 50; // Space after heading
+    context.font = `${textSize}px ${textFont}`;
+    context.fillStyle = textColor;
+    
+    context.fillText('Left Analog Left/Right: Roll', 50, y); y += 45;
+    context.fillText('Left Analog Up/Down: Pitch', 50, y); y += 45;
+    context.fillText('Right Analog Left/Right: Yaw', 50, y); y += 45 + sectionPadding;
+    
+    // SPEED section
+    context.font = `bold ${headingSize}px ${headingFont}`;
+    context.fillStyle = headingColor;
+    context.fillText('SPEED', 40, y);
+    
+    // Draw section heading underline
+    context.beginPath();
+    context.moveTo(40, y + 10);
+    context.lineTo(canvas.width - 40, y + 10);
+    context.strokeStyle = 'rgba(79, 195, 247, 0.3)';
+    context.lineWidth = 2;
+    context.stroke();
+    
+    y += 50;
+    context.font = `${textSize}px ${textFont}`;
+    context.fillStyle = textColor;
+    
+    context.fillText('Left Trigger: Boost (5x)', 50, y); y += 45;
+    context.fillText('Left Grip: Hyperspace (20x)', 50, y); y += 45 + sectionPadding;
+    
+    // ACTIONS section
+    context.font = `bold ${headingSize}px ${headingFont}`;
+    context.fillStyle = headingColor;
+    context.fillText('ACTIONS', 40, y);
+    
+    // Draw section heading underline
+    context.beginPath();
+    context.moveTo(40, y + 10);
+    context.lineTo(canvas.width - 40, y + 10);
+    context.strokeStyle = 'rgba(79, 195, 247, 0.3)';
+    context.lineWidth = 2;
+    context.stroke();
+    
+    y += 50;
+    context.font = `${textSize}px ${textFont}`;
+    context.fillStyle = textColor;
+    
+    context.fillText('X Button: Toggle this panel', 50, y);
     
     // Create texture from canvas
     const texture = new THREE.CanvasTexture(canvas);
@@ -477,13 +547,13 @@ function createControlsPopup() {
         side: THREE.DoubleSide
     });
     
-    // Create plane for popup
+    // Create plane for popup - adjusting size for better readability
     const geometry = new THREE.PlaneGeometry(0.8, 0.8);
     controlsPopupMesh = new THREE.Mesh(geometry, material);
     controlsPopupMesh.renderOrder = 1002; // Render after cockpit
     controlsPopupMesh.visible = false;
     
-    console.log("Created controls popup");
+    console.log("Created controls popup with original game styling");
     
     return controlsPopupMesh;
 }
