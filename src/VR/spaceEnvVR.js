@@ -524,6 +524,7 @@ export function updateStars(stars, cameraPosition) {
 
 ///// Solar System /////
 
+// --- Sun Setup ---
 export const sunGroup = new THREE.Group();
 
 const sunRadius = 10000;
@@ -591,7 +592,7 @@ const halo = new THREE.Mesh(haloGeometry, haloMaterial);
 sunGroup.add(halo);
 
 // Sun light
-const sunLight = new THREE.PointLight(0xffffdd, 1.2, SUN_LIGHT_RANGE * universalScaleFactor); // Slightly more focused with a warmer color
+const sunLight = new THREE.PointLight(0xffffdd, 1.2, 35000 * universalScaleFactor); // Slightly more focused with a warmer color
 sunLight.castShadow = true; // Enable shadow casting
 sunLight.shadow.bias = -0.0001; // Reduce shadow acne
 sunGroup.add(sunLight);

@@ -22,8 +22,7 @@ import {
     directionalLightCone,
     galaxyBackdrop,
     createStars,
-    updateStars,
-    sunGroup
+    updateStars
 } from './spaceEnvVR.js';
 
 
@@ -50,6 +49,9 @@ let initialized = false;
 let lastFrameTime = 0;
 const COCKPIT_SCALE = 1; // Scale factor for the cockpit model
 
+// Create scene
+scene = new THREE.Scene();
+
 
 // Calibration / preprep
 export function calibrateVR() {
@@ -60,12 +62,7 @@ export function calibrateVR() {
         console.log("VR environment already initialized, skipping");
         return { scene, camera, renderer };
     }
-    
-    ///// Scene Setup /////
 
-    // Create scene
-    scene = new THREE.Scene();
-    // scene.fog = new THREE.FogExp2(0x000011, 0.00001); // Very subtle exponential fog
     
     // Create perspective camera with improved near/far planes
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 150000);
@@ -95,7 +92,8 @@ export function calibrateVR() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.outputEncoding = THREE.sRGBEncoding;
-    renderer.setClearColor(0x05182b);                   // Main space background color
+    // renderer.setClearColor(0x05182b);                   // Main space background color
+    renderer.setClearColor(0x000000);                   
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.8;
     
@@ -132,22 +130,6 @@ export function calibrateVR() {
 
 export function init() {
 
-    // Create stars with dynamic brightness
-    starSystem = createStars();
-    scene.add(starSystem.stars);
-    console.log("Added dynamic star system to VR environment");
-
-    // Add sun to the scene
-    scene.add(sunGroup);
-    console.log("Added sun to VR environment");
-
-    // Lighting
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-    directionalLight.position.set(0, 100, -1);
-    scene.add(directionalLight);
-    const ambientLight = new THREE.AmbientLight(0x111133, 1);
-    scene.add(ambientLight);
-
     // Get space container and append renderer
     const container = document.getElementById('space-container');
     if (container) {
@@ -156,13 +138,25 @@ export function init() {
         document.body.appendChild(renderer.domElement);
     }
 
+    // Create stars with dynamic brightness
+    starSystem = createStars();
+    scene.add(starSystem.stars);
+    console.log("Added dynamic star system to VR environment");
+
+    // Add all the celestial bodies
+    initSolarSystem();
+
+    // Lighting
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(0, 100, -1);
+    scene.add(directionalLight);
+    const ambientLight = new THREE.AmbientLight(0x111133, 1);
+    scene.add(ambientLight);
+
     ///// Gameplay Setup /////
 
     // Initialize VR controllers for movement
     initVRControllers(renderer);
-
-    // Create debug text display for VR
-    // createDebugDisplay();
 
     // Add window resize handler
     window.addEventListener('resize', onWindowResize, false);
@@ -250,7 +244,7 @@ function loadCockpitModel(headHeight) {
 
 /////////////// ANIMATION LOOP ///////////////
 
-// Start VR animation loop
+// Start VR animation loop - called from main.js
 export function startVRMode() {
     console.log("Starting VR mode animation loop");
     
@@ -291,6 +285,7 @@ export function startVRMode() {
 }
 
 // Animation loop - update movement based on VR controller inputs
+// Called from startVRMode()
 function update(timestamp) {
     // Calculate delta time for smooth movement
     const deltaTime = (timestamp - lastFrameTime) / 1000;
@@ -391,13 +386,11 @@ function update(timestamp) {
         spaceGradientSphere.position.copy(cameraRig.position);
     }
     
-    // Update debug display
-    updateDebugDisplay(timestamp);
 }
 
 
 
-////////////////////////////////////////////////////////////
+/////////////// UI ELEMENTS ///////////////
 
 
 // Clean up
@@ -554,96 +547,6 @@ function clearAllUIElements() {
     console.log("Cleared all UI elements");
 }
 
-// Create a debug display that's visible in VR
-function createDebugDisplay() {
-    // Create debug display canvas
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 256;
-    const context = canvas.getContext('2d');
-    
-    // Clear with transparent background
-    context.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Create texture from canvas
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.needsUpdate = true;
-    
-    // Create material using the canvas texture
-    const material = new THREE.MeshBasicMaterial({
-        map: texture,
-        transparent: true,
-        side: THREE.DoubleSide
-    });
-    
-    // Create plane for debug display
-    const geometry = new THREE.PlaneGeometry(1, 0.5);
-    debugTextMesh = new THREE.Mesh(geometry, material);
-    debugTextMesh.renderOrder = 1001; // Render after cockpit
-    
-    // Store canvas and context for updates
-    debugTextMesh.userData = {
-        canvas,
-        context,
-        updateInterval: 200,
-        lastUpdate: 0
-    };
-    
-    // Don't add to scene yet - will add to camera rig after it's created
-    if (cameraRig) {
-        // Position the debug display in front of the user
-        debugTextMesh.position.set(0, 1.0, -0.8);
-        cameraRig.add(debugTextMesh);
-    }
-}
-
-// Update the debug display with current information
-function updateDebugDisplay(timestamp) {
-    if (!debugTextMesh || !renderer || !renderer.xr?.getSession()) return; // Added check for active XR session
-    
-    // Only update a few times per second to avoid performance impact
-    if (timestamp - debugTextMesh.userData.lastUpdate < debugTextMesh.userData.updateInterval) {
-        return;
-    }
-    
-    const canvas = debugTextMesh.userData.canvas;
-    const context = debugTextMesh.userData.context;
-
-    // Get live head Y position safely
-    const liveHeadY = renderer.xr.getCamera()?.position.y;
-    setDebugInfo('Live Head Y', typeof liveHeadY === 'number' ? liveHeadY.toFixed(3) : 'N/A');
-    
-    // Clear canvas
-    context.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Set text properties
-    const fontSize = 28; // Slightly smaller font
-    context.font = `${fontSize}px Arial`;
-    context.fillStyle = '#ffff00';
-    context.textAlign = 'left';
-    
-    // Draw border
-    context.strokeStyle = '#ffff00';
-    context.lineWidth = 2;
-    context.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
-    
-    // Draw all debug info
-    let yPos = 40; // Starting Y position
-    const lineHeight = fontSize + 8; // Line height based on font size
-
-    for (const [key, value] of Object.entries(debugInfo)) {
-        context.fillText(`${key}: ${value}`, 20, yPos);
-        yPos += lineHeight;
-        // Stop if we run out of space on the canvas
-        if (yPos > canvas.height - 20) break; 
-    }
-    
-    // Update texture
-    debugTextMesh.material.map.needsUpdate = true;
-    debugTextMesh.userData.lastUpdate = timestamp;
-}
 
 // Set debug information to display in VR
 export function setDebugInfo(key, value) {
@@ -740,3 +643,26 @@ function updateCoordinatesDisplay() {
     // Update texture
     coordinatesDisplay.userData.texture.needsUpdate = true;
 }
+
+
+
+///////////////////// Solar System Setup /////////////////////
+
+import {
+    sunGroup,
+    blazingMaterial,
+    blazingEffect
+} from './spaceEnvVR.js';
+
+function initSolarSystem() {
+    // Add sun to the scene
+    scene.add(sunGroup);
+    function animateSun() {
+        blazingMaterial.uniforms.time.value += 0.02;
+        blazingEffect.scale.setScalar(0.9 + Math.sin(blazingMaterial.uniforms.time.value * 1.0) * 0.05);
+        requestAnimationFrame(animateSun);
+    }
+    animateSun();
+}
+
+
