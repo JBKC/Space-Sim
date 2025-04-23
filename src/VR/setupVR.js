@@ -22,7 +22,8 @@ import {
     directionalLightCone,
     galaxyBackdrop,
     createStars,
-    updateStars
+    updateStars,
+    SPACE_RADIUS
 } from './spaceEnvVR.js';
 
 
@@ -147,10 +148,13 @@ export function init() {
     initSolarSystem();
 
     // Lighting
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-    directionalLight.position.set(0, 100, -1);
-    scene.add(directionalLight);
-    const ambientLight = new THREE.AmbientLight(0x111133, 1);
+    // Create a point light at the origin to simulate sun-like lighting
+    const sunLight = new THREE.PointLight(0xffffff, 1.5, SPACE_RADIUS * 2);
+    sunLight.position.set(0, 0, 0); // At the origin
+    scene.add(sunLight);
+    
+    // Keep some ambient light for better visibility
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
     scene.add(ambientLight);
 
     ///// Gameplay Setup /////

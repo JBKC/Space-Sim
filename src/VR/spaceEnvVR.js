@@ -11,7 +11,7 @@ import { loadTextureFromRegistry, universalScaleFactor } from '../appConfig/load
 let spaceDustParticles = [];
 let nebulaeClouds = [];
 
-const SPACE_RADIUS = 250000; // Scale of the space environment
+export const SPACE_RADIUS = 250000; // Scale of the space environment
 
 const COLORS = {
     deepPurple: new THREE.Color(0x1a0033),
@@ -509,8 +509,8 @@ export function updateStars(stars, cameraPosition) {
         let brightness = 1.0;
         
         if (newDistance > minDistance) {
-            // Less dramatic falloff - distant stars maintain at least 30% brightness
-            brightness = 1.0 - Math.min(1.0, (newDistance - minDistance) / (maxDistance - minDistance)) * 0.7;
+            // More dramatic falloff - distant stars are barely visible (only 5% brightness)
+            brightness = 1.0 - Math.min(1.0, (newDistance - minDistance) / (maxDistance - minDistance)) * 0.95;
         }
         
         // Apply brightness to RGB values
