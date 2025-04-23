@@ -143,12 +143,11 @@ export function init() {
     scene.add(starSystem.stars);
     console.log("Added dynamic star system to VR environment");
 
-    // Add sun to the scene
-    scene.add(sunGroup);
-    console.log("Added sun to VR environment");
+    // Add celestial bodies to the scene
+    initSolarSystem();
     
-    // Start celestial animations once everything is initialized
-    // This ensures all meshes are loaded before animations begin
+    // Start animation for celestial bodies
+    // Only call animateAllCelestialBodies ONCE
     animateAllCelestialBodies();
 
     // Lighting
@@ -673,14 +672,15 @@ import { moonGroup } from '../spaceEnvs/solarSystemEnv.js';
 import { marsGroup, marsCollisionSphere, marsCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
 
 function initSolarSystem() {
-    // Add sun to the scene
-    scene.add(sunGroup);
-    scene.add(mercuryGroup);
-    scene.add(venusGroup);
-    scene.add(earthGroup);
-    scene.add(moonGroup);
-    scene.add(marsGroup);
-
+    // Add solar system objects to the scene with proper null checks
+    if (sunGroup) scene.add(sunGroup);
+    if (mercuryGroup) scene.add(mercuryGroup);
+    if (venusGroup) scene.add(venusGroup);
+    if (earthGroup) scene.add(earthGroup);
+    if (moonGroup) scene.add(moonGroup);
+    if (marsGroup) scene.add(marsGroup);
+    
+    console.log("Solar system objects added to scene");
 }
 
 
@@ -693,11 +693,25 @@ let earthCloudAnimationId = null;
 let marsCloudAnimationId = null;
 
 function animateAllCelestialBodies() {
+    console.log("Starting celestial body animations");
+    
     // Clear any existing animation frames first
-    if (sunAnimationId) cancelAnimationFrame(sunAnimationId);
-    if (venusCloudAnimationId) cancelAnimationFrame(venusCloudAnimationId);
-    if (earthCloudAnimationId) cancelAnimationFrame(earthCloudAnimationId);
-    if (marsCloudAnimationId) cancelAnimationFrame(marsCloudAnimationId);
+    if (sunAnimationId) {
+        cancelAnimationFrame(sunAnimationId);
+        sunAnimationId = null;
+    }
+    if (venusCloudAnimationId) {
+        cancelAnimationFrame(venusCloudAnimationId);
+        venusCloudAnimationId = null;
+    }
+    if (earthCloudAnimationId) {
+        cancelAnimationFrame(earthCloudAnimationId);
+        earthCloudAnimationId = null;
+    }
+    if (marsCloudAnimationId) {
+        cancelAnimationFrame(marsCloudAnimationId);
+        marsCloudAnimationId = null;
+    }
     
     // Start animations
     animateSun();
@@ -750,9 +764,6 @@ function animateMarsClouds() {
     // Request next frame
     marsCloudAnimationId = requestAnimationFrame(animateMarsClouds);
 }
-
-// The animation will be started from the init() function
-// animateAllCelestialBodies();
 
 
 
