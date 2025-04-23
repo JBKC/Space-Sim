@@ -129,7 +129,6 @@ export function calibrateVR() {
 }
 
 export function init() {
-
     // Get space container and append renderer
     const container = document.getElementById('space-container');
     if (container) {
@@ -145,8 +144,13 @@ export function init() {
 
     // Add all celestial bodies to scene
     initSolarSystem();
+    
     // Start animations (only call once, not in update loop)
-    animateAllCelestialBodies();
+    // Set a short timeout to make sure everything is loaded
+    setTimeout(() => {
+        console.log("Starting celestial animations");
+        animateAllCelestialBodies();
+    }, 500);
 
     // Lighting
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
@@ -252,6 +256,10 @@ export function startVRMode() {
     
     // Ensure all UI elements are cleared
     clearAllUIElements();
+    
+    // Restart celestial body animations to ensure they're running in VR
+    console.log("Restarting celestial animations for VR");
+    animateAllCelestialBodies();
     
     // Create XR animation loop
     function xrAnimationLoop(timestamp, frame) {
@@ -403,9 +411,6 @@ function update(timestamp) {
 export function dispose() {
     // Cancel all animation frames
     if (sunAnimationId) cancelAnimationFrame(sunAnimationId);
-    if (venusCloudAnimationId) cancelAnimationFrame(venusCloudAnimationId);
-    if (earthCloudAnimationId) cancelAnimationFrame(earthCloudAnimationId);
-    if (marsCloudAnimationId) cancelAnimationFrame(marsCloudAnimationId);
     
     renderer.setAnimationLoop(null);
     
@@ -670,11 +675,10 @@ import { jupiterGroup, jupiterCollisionSphere } from '../spaceEnvs/solarSystemEn
 import { saturnGroup, saturnCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
 import { uranusGroup, uranusCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
 import { neptuneGroup, neptuneCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
-
-
+import { asteroidBeltGroup, asteroidCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
 
 function initSolarSystem() {
-    // Add sun to the scene
+
     scene.add(sunGroup);
     scene.add(mercuryGroup);
     scene.add(venusGroup);
@@ -685,43 +689,66 @@ function initSolarSystem() {
     scene.add(saturnGroup);
     scene.add(uranusGroup);
     scene.add(neptuneGroup);
-
+    scene.add(asteroidBeltGroup);
 }
 
 
 // Celestial body animation effects
 
+// Store animation frame IDs
+let sunAnimationId = null;
 
 function animateAllCelestialBodies() {
-
-    // Start animations
+    // Clear existing animation frames
+    if (sunAnimationId) cancelAnimationFrame(sunAnimationId);
+    
+    // Only animate sun for now since we have access to it
     animateSun();
-    animateVenusClouds();
-    animateEarthClouds();
-    animateMarsClouds();
 }
 
 function animateSun() {
-    blazingMaterial.uniforms.time.value += 0.02;
-    blazingEffect.scale.setScalar(0.9 + Math.sin(blazingMaterial.uniforms.time.value * 1.0) * 0.05);
-    requestAnimationFrame(animateSun);
+    // Only animate if the material and effect exist
+    if (blazingMaterial && blazingMaterial.uniforms && blazingEffect) {
+        blazingMaterial.uniforms.time.value += 0.02;
+        blazingEffect.scale.setScalar(0.9 + Math.sin(blazingMaterial.uniforms.time.value * 1.0) * 0.05);
+        
+        // Set rotation on the sun itself
+        if (sunGroup && sunGroup.children && sunGroup.children.length > 0) {
+            // Rotate the sun slightly
+            sunGroup.rotation.y += 0.0005;
+        }
+    } else {
+        // Log what's missing for debugging
+        console.log("Sun animation issue - Missing components:", {
+            blazingMaterial: !!blazingMaterial,
+            uniforms: blazingMaterial ? !!blazingMaterial.uniforms : false,
+            blazingEffect: !!blazingEffect,
+            sunGroup: !!sunGroup,
+            sunChildren: sunGroup ? sunGroup.children?.length : 0
+        });
+    }
+    
+    // Request next frame
+    sunAnimationId = requestAnimationFrame(animateSun);
 }
 
+// We'll need to import other objects properly in the future if we want to animate them
+// For now, focus on getting the sun animation working properly
+// Functions below are placeholders for future implementation
 
 function animateVenusClouds() {
-    venusCloudMesh.rotation.y += 0.0005;
-    requestAnimationFrame(animateVenusClouds);
+    // To be implemented when venusCloudMesh is properly imported
+    console.log("Venus clouds animation - not implemented in VR yet");
 }
 
-
 function animateEarthClouds() {
-    earthCloudMesh.rotation.y += 0.0005;
-    requestAnimationFrame(animateEarthClouds);
+    // To be implemented when earthCloudMesh is properly imported
+    console.log("Earth clouds animation - not implemented in VR yet");
 }
 
 function animateMarsClouds() {
-    marsCloudMesh.rotation.y += 0.0005;
-    requestAnimationFrame(animateMarsClouds);
+    // To be implemented when marsCloudMesh is properly imported
+    console.log("Mars clouds animation - not implemented in VR yet");
 }
 
 
