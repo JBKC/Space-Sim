@@ -350,43 +350,29 @@ function update(timestamp) {
     }
     
     // Slowly rotate nebula clouds
-    if (nebulaeClouds && nebulaeClouds.length > 0) {
-        nebulaeClouds.forEach(nebula => {
-            if (nebula && nebula.mesh) {
-                nebula.mesh.rotation.x += nebula.rotationSpeed.x;
-                nebula.mesh.rotation.y += nebula.rotationSpeed.y;
-                nebula.mesh.rotation.z += nebula.rotationSpeed.z;
-            }
-        });
-    }
+    nebulaeClouds.forEach(nebula => {
+        nebula.mesh.rotation.x += nebula.rotationSpeed.x;
+        nebula.mesh.rotation.y += nebula.rotationSpeed.y;
+        nebula.mesh.rotation.z += nebula.rotationSpeed.z;
+    });
     
     // Animate space dust particles with gentle drift
-    if (spaceDustParticles && spaceDustParticles.length > 0) {
-        spaceDustParticles.forEach(particleSystem => {
-            if (particleSystem && particleSystem.system && 
-                particleSystem.system.geometry && 
-                particleSystem.system.geometry.attributes && 
-                particleSystem.system.geometry.attributes.position) {
-                
-                const positions = particleSystem.system.geometry.attributes.position.array;
-                const initialPositions = particleSystem.initialPositions;
-                
-                if (positions && initialPositions) {
-                    for (let i = 0; i < positions.length; i += 3) {
-                        // Apply a sine wave drift to each particle
-                        const time = timestamp * particleSystem.driftSpeed;
-                        const offset = Math.sin(time + i * 0.01) * 200;
-                        
-                        positions[i] = initialPositions[i] + offset;
-                        positions[i + 1] = initialPositions[i + 1] + Math.sin(time * 0.7 + i * 0.02) * 200;
-                        positions[i + 2] = initialPositions[i + 2] + Math.sin(time * 0.5 + i * 0.03) * 200;
-                    }
-                    
-                    particleSystem.system.geometry.attributes.position.needsUpdate = true;
-                }
-            }
-        });
-    }
+    spaceDustParticles.forEach(particleSystem => {
+        const positions = particleSystem.system.geometry.attributes.position.array;
+        const initialPositions = particleSystem.initialPositions;
+        
+        for (let i = 0; i < positions.length; i += 3) {
+            // Apply a sine wave drift to each particle
+            const time = timestamp * particleSystem.driftSpeed;
+            const offset = Math.sin(time + i * 0.01) * 200;
+            
+            positions[i] = initialPositions[i] + offset;
+            positions[i + 1] = initialPositions[i + 1] + Math.sin(time * 0.7 + i * 0.02) * 200;
+            positions[i + 2] = initialPositions[i + 2] + Math.sin(time * 0.5 + i * 0.03) * 200;
+        }
+        
+        particleSystem.system.geometry.attributes.position.needsUpdate = true;
+    });
     
     // Apply VR movement and rotation based on controller inputs
     if (camera) {
@@ -744,6 +730,7 @@ function updateCelestialAnimations(deltaTime) {
     if (marsCloudMesh) {
         marsCloudMesh.rotation.y += 0.0005;
     }
+    
 }
 
 
