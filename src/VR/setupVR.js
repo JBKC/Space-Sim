@@ -38,6 +38,9 @@ let cockpit; // X-Wing cockpit model
 let debugTextMesh;
 let debugInfo = {};
 
+// UI elements
+let coordinatesDisplay; // Coordinates display mesh
+
 // Height tracking for cockpit
 let headHeight = 0;
 let headHeightCalibration = false;
@@ -296,6 +299,17 @@ function update(timestamp) {
         setDebugInfo('headHeight post-cockpit', headHeight.toFixed(3));
         console.log("Cockpit loaded");
         
+        // Initialize coordinates display
+        if (!coordinatesDisplay) {
+            coordinatesDisplay = createCoordinatesDisplay();
+            if (cameraRig) {
+                cameraRig.add(coordinatesDisplay);
+                // Position at the bottom of the view, slightly to the right
+                coordinatesDisplay.position.set(0.3, headHeight - 0.2, -0.75);
+                coordinatesDisplay.rotation.set(0, 0, 0);
+            }
+        }
+        
         // Initialize controls popup at proper head height after cockpit loads
         // but don't show it automatically - it will be toggled with X button
         if (typeof initControlsPopup === 'undefined') {
@@ -313,6 +327,10 @@ function update(timestamp) {
         headHeightCalibration = true;
     }
 
+    // Update the coordinates display
+    if (coordinatesDisplay) {
+        updateCoordinatesDisplay();
+    }
 
     // Update the time uniform for shaders
     if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {
@@ -394,6 +412,17 @@ export function dispose() {
         if (spaceGradientSphere.geometry) spaceGradientSphere.geometry.dispose();
         if (spaceGradientSphere.material) spaceGradientSphere.material.dispose();
         scene.remove(spaceGradientSphere);
+    }
+    
+    // Clean up coordinates display
+    if (coordinatesDisplay) {
+        if (coordinatesDisplay.geometry) coordinatesDisplay.geometry.dispose();
+        if (coordinatesDisplay.material) {
+            if (coordinatesDisplay.material.map) coordinatesDisplay.material.map.dispose();
+            coordinatesDisplay.material.dispose();
+        }
+        if (coordinatesDisplay.parent) coordinatesDisplay.parent.remove(coordinatesDisplay);
+        coordinatesDisplay = null;
     }
     
     // Clean up nebulae
@@ -619,4 +648,88 @@ function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+/**
+ * Create a coordinates display that shows the player's position in VR
+ */
+function createCoordinatesDisplay() {
+    // Create canvas for text
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 128;
+    const context = canvas.getContext('2d');
+    
+    // Create texture from canvas
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    
+    // Create material using the canvas texture
+    const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        side: THREE.DoubleSide
+    });
+    
+    // Create plane for coordinates display - smaller than controls popup
+    const geometry = new THREE.PlaneGeometry(0.4, 0.1);
+    coordinatesDisplay = new THREE.Mesh(geometry, material);
+    coordinatesDisplay.renderOrder = 1001; // Render after cockpit but before controls popup
+    
+    // Store canvas and context for updates
+    coordinatesDisplay.userData = {
+        canvas,
+        context,
+        texture
+    };
+    
+    return coordinatesDisplay;
+}
+
+/**
+ * Update the coordinates display with current camera rig position
+ */
+function updateCoordinatesDisplay() {
+    if (!coordinatesDisplay || !cameraRig) return;
+    
+    const canvas = coordinatesDisplay.userData.canvas;
+    const context = coordinatesDisplay.userData.context;
+    
+    // Get current position and round to integers for cleaner display
+    const position = cameraRig.position;
+    const x = Math.round(position.x);
+    const y = Math.round(position.y);
+    const z = Math.round(position.z);
+    
+    // Clear canvas with a semi-transparent dark background (matching controls popup)
+    context.fillStyle = 'rgba(0, 0, 0, 0.9)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Add border (blue border like original)
+    context.strokeStyle = 'rgba(79, 195, 247, 0.5)';
+    context.lineWidth = 2;
+    context.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+    
+    // Add outer glow effect
+    const glowSize = 10;
+    const glowColor = 'rgba(79, 195, 247, 0.3)';
+    context.shadowBlur = glowSize;
+    context.shadowColor = glowColor;
+    context.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+    context.shadowBlur = 0;
+    
+    // Title
+    const titleFont = "'Orbitron', Arial, sans-serif";
+    context.font = `bold 28px ${titleFont}`;
+    context.fillStyle = '#4fc3f7';
+    context.textAlign = 'center';
+    context.fillText('COORDINATES', canvas.width / 2, 30);
+    
+    // Coordinates text
+    context.font = `24px ${titleFont}`;
+    context.fillStyle = '#b3e5fc';
+    context.fillText(`X: ${x}   Y: ${y}   Z: ${z}`, canvas.width / 2, 80);
+    
+    // Update texture
+    coordinatesDisplay.userData.texture.needsUpdate = true;
 }
