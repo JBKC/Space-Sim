@@ -145,8 +145,6 @@ export function init() {
 
     // Add all celestial bodies to scene
     initSolarSystem();
-    // No longer needed - we'll update animations in the main update loop
-    // animateAllCelestialBodies();
 
     // Lighting
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
@@ -692,7 +690,7 @@ function initSolarSystem() {
 function updateCelestialAnimations(deltaTime) {
     // Update sun animation
     if (blazingMaterial && blazingMaterial.uniforms) {
-        sunTime += deltaTime * 20; // Similar speed as before
+        sunTime += deltaTime * 5; // Similar speed as before
         blazingMaterial.uniforms.time.value = sunTime;
         
         if (blazingEffect) {

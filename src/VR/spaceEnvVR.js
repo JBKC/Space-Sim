@@ -509,8 +509,8 @@ export function updateStars(stars, cameraPosition) {
         let brightness = 1.0;
         
         if (newDistance > minDistance) {
-            // More dramatic falloff - distant stars are barely visible (only 5% brightness)
-            brightness = 1.0 - Math.min(1.0, (newDistance - minDistance) / (maxDistance - minDistance)) * 0.95;
+            // Less dramatic falloff - distant stars maintain at least 30% brightness
+            brightness = 1.0 - Math.min(1.0, (newDistance - minDistance) / (maxDistance - minDistance)) * 0.7;
         }
         
         // Apply brightness to RGB values
