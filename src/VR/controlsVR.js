@@ -7,16 +7,19 @@ import * as THREE from 'three';
 const FORWARD_SPEED = 1000;
 const ROTATION_SPEED = 0.012;
 const BOOST_MULTIPLIER = 5; // Speed multiplier when boost is active
+const HYPERSPACE_MULTIPLIER = 20; // Speed multiplier when hyperspace is active
 
 // Track controller inputs and state
 let leftController = null;
 let rightController = null;
 let cameraRig = null; // Container for camera to separate head movement from position
 let isBoostActive = false; // Track boost state
+let isHyperspaceActive = false; // Track hyperspace state
 let gamepadIndices = {
     button: {
         thumbstick: 3, // Thumbstick button
-        trigger: 0     
+        trigger: 0,     
+        grip: 1        // Grip/squeeze button (for hyperspace)
     },
     axes: {
         thumbstickX: 2, // Horizontal thumbstick axis
@@ -135,7 +138,8 @@ function detectGamepadLayout(gamepad) {
         gamepadIndices = {
             button: {
                 thumbstick: 3, // Thumbstick press
-                trigger: 0      // Trigger (index finger)
+                trigger: 0,      // Trigger (index finger)
+                grip: 1        // Grip/squeeze button (for hyperspace)
             },
             axes: {
                 thumbstickX: 2, // Horizontal thumbstick axis
@@ -149,7 +153,8 @@ function detectGamepadLayout(gamepad) {
         gamepadIndices = {
             button: {
                 thumbstick: 3, // Thumbstick press
-                trigger: 0     // Trigger (index finger)
+                trigger: 0,     // Trigger (index finger)
+                grip: 1        // Grip/squeeze button (for hyperspace)
             },
             axes: {
                 thumbstickX: 0, // Horizontal thumbstick axis
@@ -163,7 +168,8 @@ function detectGamepadLayout(gamepad) {
         gamepadIndices = {
             button: {
                 thumbstick: 2, // Touchpad press (Vive doesn't have thumbsticks)
-                trigger: 0     // Trigger (index finger)
+                trigger: 0,     // Trigger (index finger)
+                grip: 1        // Grip/squeeze button (for hyperspace)
             },
             axes: {
                 thumbstickX: 0, // Touchpad X axis
@@ -187,13 +193,18 @@ export function updateVRMovement(camera, deltaTime = 0.016) {
         setupCameraRig(camera.parent, camera);
     }
     
-    // Check for boost activation (left trigger)
+    // Check for boost and hyperspace activation
     updateBoostState();
+    updateHyperspaceState();
     
-    // Calculate the current speed based on boost state
-    const currentSpeed = isBoostActive ? 
-        FORWARD_SPEED * BOOST_MULTIPLIER : 
-        FORWARD_SPEED;
+    // Calculate the current speed based on boost and hyperspace state
+    let currentSpeed = FORWARD_SPEED;
+    
+    if (isHyperspaceActive) {
+        currentSpeed *= HYPERSPACE_MULTIPLIER;
+    } else if (isBoostActive) {
+        currentSpeed *= BOOST_MULTIPLIER;
+    }
     
     // If we have a rig, move the rig instead of the camera directly
     // This preserves head tracking while allowing controller-based movement
@@ -285,6 +296,34 @@ function updateBoostState() {
 }
 
 /**
+ * Check and update the hyperspace state based on left grip/squeeze button
+ */
+function updateHyperspaceState() {
+    if (!leftController || !leftController.gamepad) return;
+    
+    const gripButton = leftController.gamepad.buttons[gamepadIndices.button.grip];
+    
+    if (gripButton) {
+        // Most gamepads report button state with a value property between 0 and 1
+        const isGripPressed = gripButton.value > 0.5 || gripButton.pressed;
+        
+        // Update hyperspace state
+        if (isGripPressed && !isHyperspaceActive) {
+            console.log("HYPERSPACE ACTIVATED!");
+            isHyperspaceActive = true;
+            
+            // If hyperspace is active, trigger any hyperspace effects
+            if (window.startHyperspace && typeof window.startHyperspace === 'function') {
+                window.startHyperspace();
+            }
+        } else if (!isGripPressed && isHyperspaceActive) {
+            console.log("Hyperspace deactivated");
+            isHyperspaceActive = false;
+        }
+    }
+}
+
+/**
  * Move the object forward in its current direction
  * @param {THREE.Object3D} object - The object to move
  * @param {number} distance - How far to move
@@ -313,7 +352,6 @@ function applyDeadzone(value, deadzone) {
     return Math.abs(value) < deadzone ? 0 : value;
 }
 
-
 /**
  * Get debug information about the current controller state
  * 
@@ -329,7 +367,8 @@ export function getControllerDebugInfo(xrFrame) {
                   leftController.gamepad.axes.slice(0, 4) : [],
             buttons: leftController && leftController.gamepad ? 
                     leftController.gamepad.buttons.map(b => b.pressed) : [],
-            boostActive: isBoostActive
+            boostActive: isBoostActive,
+            hyperspaceActive: isHyperspaceActive
         },
         rightController: {
             connected: rightController !== null,
