@@ -90,10 +90,6 @@ import {
     getControlsToggleRequested
 } from './inputControls.js';
 
-// Add import at the top of the file with other imports
-import { processXRInput, getControllerDebugInfo } from './VR/controlsVR.js';
-
-
 
 /////////////// GENERAL INITIALIZATION ///////////////
 
@@ -922,19 +918,6 @@ function initXRAnimationLoop() {
                 frameCount = 0;
             }
             
-
-            // Process XR input if we have an XR frame with input sources
-            if (xrFrame && navigator.xr) {
-
-                // CALL CONTROLS
-                keys = processXRInput(xrFrame, keys);
-                
-                
-            } else if (usingQuestSpecialMode) {
-                // For our Quest special mode, rely on existing keyboard/touch controls
-                // User can use smartphone touch controls or keyboard if connected
-                console.log("Using standard input controls in Quest mode");
-            }
             
             // Get boost and hyperspace states
             const isBoosting = getBoostState();

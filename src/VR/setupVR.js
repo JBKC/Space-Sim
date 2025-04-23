@@ -316,7 +316,7 @@ function update(timestamp) {
         particleSystem.system.geometry.attributes.position.needsUpdate = true;
     });
     
-    // Apply VR movement and rotation
+    // Apply VR movement and rotation based on controller inputs
     if (camera) {
         updateVRMovement(camera, deltaTime);
     }

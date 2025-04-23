@@ -1,4 +1,5 @@
 // controlsVR.js - Centralized VR control system for flight, movement and input processing
+// Basically bundles movement and inputControls together
 
 import * as THREE from 'three';
 
@@ -312,68 +313,6 @@ function applyDeadzone(value, deadzone) {
     return Math.abs(value) < deadzone ? 0 : value;
 }
 
-/**
- * Process XR input from controllers and map to keyboard-like controls
- * Legacy system that maps controller inputs to a keys object
- * 
- * @param {XRFrame} xrFrame - The current XR frame with input source data
- * @param {Object} keys - The keys object that tracks input state (same as keyboard input)
- * @returns {Object} The updated keys object
- */
-export function processXRInput(xrFrame, keys) {
-    // No processing if we don't have a valid frame
-    if (!xrFrame || !navigator.xr) {
-        return keys;
-    }
-
-    const session = xrFrame.session;
-    if (!session || !session.inputSources) {
-        return keys;
-    }
-
-    // Process each connected input source (controller)
-    for (const inputSource of session.inputSources) {
-        if (inputSource.gamepad) {
-            const gamepad = inputSource.gamepad;
-            
-            // Map controller inputs to keyboard controls
-            // Trigger: Boost (Up key)
-            if (gamepad.buttons[0] && gamepad.buttons[0].pressed) {
-                keys.up = true;
-            } else {
-                keys.up = false;
-            }
-            
-            // Thumbstick: Steering
-            if (gamepad.axes && gamepad.axes.length >= 2) {
-                // X-axis for left/right
-                if (gamepad.axes[0] < -0.5) {
-                    keys.left = true;
-                    keys.right = false;
-                } else if (gamepad.axes[0] > 0.5) {
-                    keys.right = true;
-                    keys.left = false;
-                } else {
-                    keys.left = false;
-                    keys.right = false;
-                }
-                
-                // Y-axis for forward/backward
-                if (gamepad.axes[1] < -0.5) {
-                    keys.up = true;
-                    keys.down = false;
-                } else if (gamepad.axes[1] > 0.5) {
-                    keys.down = true;
-                    keys.up = false;
-                } else if (!keys.up) { // Don't override trigger
-                    keys.down = false;
-                }
-            }
-        }
-    }
-    
-    return keys;
-}
 
 /**
  * Get debug information about the current controller state
