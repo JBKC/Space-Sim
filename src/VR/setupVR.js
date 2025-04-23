@@ -590,6 +590,7 @@ function createCoordinatesDisplay() {
     const material = new THREE.MeshBasicMaterial({
         map: texture,
         transparent: true,
+        opacity: 0.9, // Make it slightly translucent to match controls popup
         side: THREE.DoubleSide
     });
     
