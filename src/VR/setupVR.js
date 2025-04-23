@@ -201,7 +201,7 @@ function loadCockpitModel(headHeight) {
                 if (cameraRig) {
                     // Add cockpit to the rig so it moves with the player
                     cameraRig.add(cockpit);
-                    cockpit.position.set(0, headHeight, -0.25);
+                    cockpit.position.set(0, headHeight, -0.2);
                     
                     // Add listener for XR session start
                     if (renderer && renderer.xr) {
@@ -716,19 +716,16 @@ function updateCelestialAnimations(deltaTime) {
         }
     }
     
-    // Update Venus clouds with null check
     if (venusCloudMesh) {
-        venusCloudMesh.rotation.y += 0.0005;
+        venusCloudMesh.rotation.y += 0.002;
     }
     
-    // Update Earth clouds with null check
     if (earthCloudMesh) {
-        earthCloudMesh.rotation.y += 0.0005;
+        earthCloudMesh.rotation.y += 0.002;
     }
     
-    // Update Mars clouds with null check
     if (marsCloudMesh) {
-        marsCloudMesh.rotation.y += 0.0005;
+        marsCloudMesh.rotation.y += 0.002;
     }
     
 }
