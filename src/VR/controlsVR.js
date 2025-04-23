@@ -404,10 +404,10 @@ export function showControlsPopup(headHeight) {
     const yPosition = headHeight ? headHeight : 0;
     
     // Position it to the left and slightly forward for better visibility
-    controlsPopupMesh.position.set(-0.5, yPosition, -0.9);
+    controlsPopupMesh.position.set(-0.5, yPosition, 0);
     
     // Angle it toward the user (rotate around Y axis) and add a slight tilt (rotate around Z axis)
-    controlsPopupMesh.rotation.set(0, 0.3, 0.1);
+    controlsPopupMesh.rotation.set(0, 0.8, 0.1);
     
     // Set a good size for the popup - slightly wider than tall for better readability
     controlsPopupMesh.scale.set(0.75, 0.65, 1);
