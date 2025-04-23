@@ -75,7 +75,7 @@ export function calibrateVR() {
     cameraRig = setupCameraRig(scene, camera);
     
     // Position the camera rig at the desired starting point looking at center
-    cameraRig.position.set(0, 0, 10000);
+    cameraRig.position.set(10000, 10000, 10000);
     const centerPoint = new THREE.Vector3(0, 0, 0);
     cameraRig.lookAt(centerPoint);
     console.log("Initial camera rig position set");
@@ -306,7 +306,7 @@ function update(timestamp) {
                 cameraRig.add(coordinatesDisplay);
                 // Position at the bottom of the view, slightly to the right
                 coordinatesDisplay.position.set(0.3, headHeight-0.2, -0.4);
-                coordinatesDisplay.rotation.set(0.7, 0.6, 0);
+                coordinatesDisplay.rotation.set(-0.7, -0.6, 0);
             }
         }
         
