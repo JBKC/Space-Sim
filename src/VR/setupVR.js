@@ -12,7 +12,7 @@ import {
     textureLoadingManager,
     universalScaleFactor 
 } from '../appConfig/loaders.js';
-import { initVRControllers, updateVRMovement, getControllerDebugInfo, setupCameraRig, showControlsPopup } from './controlsVR.js';
+import { initVRControllers, updateVRMovement, getControllerDebugInfo, setupCameraRig, showControlsPopup, initControlsPopup } from './controlsVR.js';
 import {
     spaceGradientSphere,
     nebula,
@@ -287,16 +287,17 @@ function update(timestamp) {
         console.log("Cockpit loaded");
         
         // Initialize controls popup at proper head height after cockpit loads
-        if (typeof showControlsPopup === 'undefined') {
+        // but don't show it automatically - it will be toggled with X button
+        if (typeof initControlsPopup === 'undefined') {
             // Import the function dynamically if it's not available
             import('./controlsVR.js').then(module => {
-                if (module.showControlsPopup) {
-                    module.showControlsPopup(headHeight);
+                if (module.initControlsPopup) {
+                    module.initControlsPopup(headHeight);
                 }
             });
         } else {
             // If the function is already available, call it directly
-            showControlsPopup(headHeight);
+            initControlsPopup(headHeight);
         }
         
         headHeightCalibration = true;

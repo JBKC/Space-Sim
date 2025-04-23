@@ -362,21 +362,53 @@ function updateControlsPopupState() {
         if (isXButtonPressed && !lastXButtonState) {
             isControlsPopupVisible = !isControlsPopupVisible;
             
-            if (isControlsPopupVisible) {
-                // Get current head height from renderer if available
-                let currentHeadHeight = 0;
-                if (window.renderer && window.renderer.xr) {
-                    currentHeadHeight = window.renderer.xr.getCamera()?.position.y || 0;
-                }
-                showControlsPopup(currentHeadHeight);
+            // Only toggle visibility, position is already set during initialization
+            if (controlsPopupMesh) {
+                controlsPopupMesh.visible = isControlsPopupVisible;
+                console.log(`Controls popup visibility toggled to: ${isControlsPopupVisible}`);
             } else {
-                hideControlsPopup();
+                console.warn("Controls popup mesh not initialized yet");
             }
         }
         
         // Update button state for next frame
         lastXButtonState = isXButtonPressed;
     }
+}
+
+/**
+ * Initialize the controls popup without showing it
+ * @param {number} headHeight - Head height for positioning the popup
+ */
+export function initControlsPopup(headHeight) {
+    if (!cameraRig) return;
+    
+    console.log("Initializing VR controls popup (not showing yet)");
+    
+    // Create the popup if it doesn't exist
+    if (!controlsPopupMesh) {
+        createControlsPopup();
+    }
+    
+    // Make sure it's in the camera rig
+    if (controlsPopupMesh.parent !== cameraRig) {
+        cameraRig.add(controlsPopupMesh);
+    }
+    
+    // Position it based on head height but keep it invisible
+    const yPosition = headHeight ? headHeight : 0;
+    
+    // Position it to the left and slightly forward for better visibility
+    controlsPopupMesh.position.set(-0.5, yPosition, 0);
+    
+    // Angle it toward the user (rotate around Y axis) and add a slight tilt (rotate around Z axis)
+    controlsPopupMesh.rotation.set(0, 0.8, 0.1);
+    
+    // Set a good size for the popup - slightly wider than tall for better readability
+    controlsPopupMesh.scale.set(0.75, 0.65, 1);
+    
+    // Keep it invisible until toggled with X button
+    controlsPopupMesh.visible = false;
 }
 
 /**
@@ -398,20 +430,12 @@ export function showControlsPopup(headHeight) {
         cameraRig.add(controlsPopupMesh);
     }
     
-    // Position in front of the user at head height if provided
-    // The popup should be positioned slightly to the left to avoid blocking the view
-    // and angled slightly toward the user for better readability
-    const yPosition = headHeight ? headHeight : 0;
+    // If head height is provided, update position
+    if (headHeight) {
+        controlsPopupMesh.position.y = headHeight;
+    }
     
-    // Position it to the left and slightly forward for better visibility
-    controlsPopupMesh.position.set(-0.5, yPosition, 0);
-    
-    // Angle it toward the user (rotate around Y axis) and add a slight tilt (rotate around Z axis)
-    controlsPopupMesh.rotation.set(0, 0.8, 0.1);
-    
-    // Set a good size for the popup - slightly wider than tall for better readability
-    controlsPopupMesh.scale.set(0.75, 0.65, 1);
-    
+    // Show the popup
     controlsPopupMesh.visible = true;
 }
 
