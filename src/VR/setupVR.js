@@ -179,7 +179,7 @@ function loadCockpitModel(headHeight) {
                 if (cameraRig) {
                     // Add cockpit to the rig so it moves with the player
                     cameraRig.add(cockpit);
-                    cockpit.position.set(0, headHeight, 0);
+                    cockpit.position.set(0, headHeight, -0.1);
                     
                     // Add listener for XR session start
                     if (renderer && renderer.xr) {
