@@ -11,7 +11,7 @@ import { loadTextureFromRegistry, universalScaleFactor } from '../appConfig/load
 let spaceDustParticles = [];
 let nebulaeClouds = [];
 
-export const SPACE_RADIUS = 250000; // Scale of the space environment
+const SPACE_RADIUS = 250000; // Scale of the space environment
 
 const COLORS = {
     deepPurple: new THREE.Color(0x1a0033),
