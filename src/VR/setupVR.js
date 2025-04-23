@@ -74,21 +74,17 @@ export function calibrateVR() {
     // Create camera rig for separating head tracking from movement
     cameraRig = setupCameraRig(scene, camera);
     
-    // Position the camera rig at starting position looking at center
+    // Position the camera rig at starting position looking at center of solar system
     if (cameraRig) {
-        // Position at (20000, 20000, 20000) looking at center (0, 0, 0)
-        cameraRig.position.set(20000, 20000, 20000);
-        const centerPoint = new THREE.Vector3(0, 0, 0);
         
-        // Make the camera rig face TOWARD the center point (0,0,0)
-        const direction = new THREE.Vector3().subVectors(centerPoint, cameraRig.position).normalize();
+        cameraRig.position.set(50000, 50000, 50000);
+        const centerPoint = new THREE.Vector3(0, 0, 0);
+                const direction = new THREE.Vector3().subVectors(centerPoint, cameraRig.position).normalize();
         const lookAtPoint = new THREE.Vector3().copy(cameraRig.position).add(direction.multiplyScalar(1000));
         cameraRig.lookAt(lookAtPoint);
-        
         // Rotate the rig 180 degrees to face toward the center instead of away
         cameraRig.rotateY(Math.PI);
         
-        console.log("Positioned camera rig at starting coordinates facing toward center");
     }
     
     // Create renderer
