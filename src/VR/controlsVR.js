@@ -1,4 +1,4 @@
-// movementVR.js - Handles VR movement controls for the space test environment
+// controlsVR.js - Centralized VR control system for flight, movement and input processing
 
 import * as THREE from 'three';
 
@@ -40,7 +40,10 @@ const rotation = {
     yawAxis: rotationAxes.yawAxis
 };
 
-// Initialize VR controllers for movement
+/**
+ * Initialize VR controllers for movement
+ * @param {THREE.WebGLRenderer} renderer - The Three.js renderer with WebXR enabled
+ */
 export function initVRControllers(renderer) {
     if (!renderer || !renderer.xr) {
         console.error("Cannot initialize VR controllers: renderer or renderer.xr is undefined");
@@ -55,14 +58,12 @@ export function initVRControllers(renderer) {
     rotation.yaw.identity();
     
     // Function to handle when a controller connects
-    // Does not map controls, just locates + tracks controllers
     function onConnected(event) {
         const controller = event.target;
         const gamepad = event.data.gamepad;
         
         if (gamepad) {
             // Determine if this is left or right controller
-            // Most VR systems indicate handedness in the gamepad ID
             const isLeft = (
                 gamepad.id.includes('Left') || 
                 gamepad.id.includes('left') || 
@@ -91,8 +92,13 @@ export function initVRControllers(renderer) {
     console.log("VR controller listeners initialized");
 }
 
-// Setup a camera rig system to separate head tracking from position movement
-export function setupCameraRig(scene, camera, headHeight) {
+/**
+ * Setup a camera rig system to separate head tracking from position movement
+ * @param {THREE.Scene} scene - The Three.js scene
+ * @param {THREE.Camera} camera - The camera for VR view
+ * @returns {THREE.Group} - The camera rig object
+ */
+export function setupCameraRig(scene, camera) {
     // Create a container for the camera
     cameraRig = new THREE.Group();
     scene.add(cameraRig);
@@ -111,7 +117,10 @@ export function setupCameraRig(scene, camera, headHeight) {
     return cameraRig;
 }
 
-// Detect the gamepad layout to ensure correct button mapping
+/**
+ * Detect the gamepad layout to ensure correct button mapping
+ * @param {Gamepad} gamepad - The gamepad object to analyze
+ */
 function detectGamepadLayout(gamepad) {
     if (!gamepad) return;
     
@@ -120,7 +129,7 @@ function detectGamepadLayout(gamepad) {
     console.log("Buttons:", gamepad.buttons.length);
     console.log("Axes:", gamepad.axes.length);
     
-    // Oculus Touch controller detection
+    // Oculus Touch / Meta Quest controller detection
     if (gamepad.id.includes('Oculus Touch') || gamepad.id.includes('Quest')) {
         gamepadIndices = {
             button: {
@@ -166,7 +175,11 @@ function detectGamepadLayout(gamepad) {
     console.log("Using gamepad indices:", gamepadIndices);
 }
 
-// Update movement based on VR controller inputs
+/**
+ * Update movement based on VR controller inputs - FLIGHT CONTROL SYSTEM
+ * @param {THREE.Camera} camera - The VR camera
+ * @param {number} deltaTime - Time elapsed since last frame
+ */
 export function updateVRMovement(camera, deltaTime = 0.016) {
     // If we don't have a camera rig yet and we have a camera, try to set one up
     if (!cameraRig && camera && camera.parent) {
@@ -247,7 +260,9 @@ export function updateVRMovement(camera, deltaTime = 0.016) {
     }
 }
 
-// Check and update the boost state based on left trigger
+/**
+ * Check and update the boost state based on left trigger
+ */
 function updateBoostState() {
     if (!leftController || !leftController.gamepad) return;
     
@@ -268,7 +283,11 @@ function updateBoostState() {
     }
 }
 
-// Move the object forward in its current direction
+/**
+ * Move the object forward in its current direction
+ * @param {THREE.Object3D} object - The object to move
+ * @param {number} distance - How far to move
+ */
 function moveForward(object, distance) {
     // Create a vector pointing forward (negative Z in Three.js)
     const forwardVector = new THREE.Vector3(0, 0, -1);
@@ -283,13 +302,87 @@ function moveForward(object, distance) {
     object.position.add(forwardVector);
 }
 
-// Apply a deadzone to prevent small controller movements from affecting rotation
+/**
+ * Apply a deadzone to prevent small controller movements from affecting rotation
+ * @param {number} value - The input value to check
+ * @param {number} deadzone - The deadzone threshold
+ * @returns {number} 0 if within deadzone, original value otherwise
+ */
 function applyDeadzone(value, deadzone) {
     return Math.abs(value) < deadzone ? 0 : value;
 }
 
-// For debugging: get the current controller state
-export function getControllerDebugInfo() {
+/**
+ * Process XR input from controllers and map to keyboard-like controls
+ * Legacy system that maps controller inputs to a keys object
+ * 
+ * @param {XRFrame} xrFrame - The current XR frame with input source data
+ * @param {Object} keys - The keys object that tracks input state (same as keyboard input)
+ * @returns {Object} The updated keys object
+ */
+export function processXRInput(xrFrame, keys) {
+    // No processing if we don't have a valid frame
+    if (!xrFrame || !navigator.xr) {
+        return keys;
+    }
+
+    const session = xrFrame.session;
+    if (!session || !session.inputSources) {
+        return keys;
+    }
+
+    // Process each connected input source (controller)
+    for (const inputSource of session.inputSources) {
+        if (inputSource.gamepad) {
+            const gamepad = inputSource.gamepad;
+            
+            // Map controller inputs to keyboard controls
+            // Trigger: Boost (Up key)
+            if (gamepad.buttons[0] && gamepad.buttons[0].pressed) {
+                keys.up = true;
+            } else {
+                keys.up = false;
+            }
+            
+            // Thumbstick: Steering
+            if (gamepad.axes && gamepad.axes.length >= 2) {
+                // X-axis for left/right
+                if (gamepad.axes[0] < -0.5) {
+                    keys.left = true;
+                    keys.right = false;
+                } else if (gamepad.axes[0] > 0.5) {
+                    keys.right = true;
+                    keys.left = false;
+                } else {
+                    keys.left = false;
+                    keys.right = false;
+                }
+                
+                // Y-axis for forward/backward
+                if (gamepad.axes[1] < -0.5) {
+                    keys.up = true;
+                    keys.down = false;
+                } else if (gamepad.axes[1] > 0.5) {
+                    keys.down = true;
+                    keys.up = false;
+                } else if (!keys.up) { // Don't override trigger
+                    keys.down = false;
+                }
+            }
+        }
+    }
+    
+    return keys;
+}
+
+/**
+ * Get debug information about the current controller state
+ * 
+ * @param {XRFrame} xrFrame - The current XR frame
+ * @returns {Object} An object with debug information about controllers
+ */
+export function getControllerDebugInfo(xrFrame) {
+    // Default debug info with controller status and rotation
     const info = {
         leftController: {
             connected: leftController !== null,
@@ -312,6 +405,24 @@ export function getControllerDebugInfo() {
             yaw: rotation.yaw.toArray()
         }
     };
+    
+    // If an XR frame was provided, add additional debug info
+    if (xrFrame && xrFrame.session && xrFrame.session.inputSources) {
+        info.controllerCount = xrFrame.session.inputSources.length;
+        
+        // Add information about each controller from the frame
+        xrFrame.session.inputSources.forEach((source, index) => {
+            if (source.gamepad) {
+                info[`inputSource${index}`] = {
+                    handedness: source.handedness,
+                    buttonCount: source.gamepad.buttons.length,
+                    axesCount: source.gamepad.axes.length,
+                    // First few axes values for debugging
+                    axes: source.gamepad.axes.slice(0, 2).map(v => v.toFixed(2))
+                };
+            }
+        });
+    }
     
     return info;
 } 

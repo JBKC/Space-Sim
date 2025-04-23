@@ -12,7 +12,7 @@ import {
     textureLoadingManager,
     universalScaleFactor 
 } from '../appConfig/loaders.js';
-import { initVRControllers, updateVRMovement, getControllerDebugInfo, setupCameraRig } from './movementVR.js';
+import { initVRControllers, updateVRMovement, getControllerDebugInfo, setupCameraRig } from './controlsVR.js';
 import {
     spaceGradientSphere,
     nebula,

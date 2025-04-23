@@ -90,6 +90,9 @@ import {
     getControlsToggleRequested
 } from './inputControls.js';
 
+// Add import at the top of the file with other imports
+import { processXRInput, getControllerDebugInfo } from './VR/controlsVR.js';
+
 
 
 /////////////// GENERAL INITIALIZATION ///////////////
@@ -922,49 +925,11 @@ function initXRAnimationLoop() {
 
             // Process XR input if we have an XR frame with input sources
             if (xrFrame && navigator.xr) {
-                const session = xrFrame.session;
-                if (session && session.inputSources) {
-                    // Process each connected input source (controller)
-                    for (const inputSource of session.inputSources) {
-                        if (inputSource.gamepad) {
-                            const gamepad = inputSource.gamepad;
-                            
-                            // Map controller inputs to keyboard controls
-                            // Trigger: Boost (Up key)
-                            if (gamepad.buttons[0] && gamepad.buttons[0].pressed) {
-                                keys.up = true;
-                            } else {
-                                keys.up = false;
-                            }
-                            
-                            // Thumbstick: Steering
-                            if (gamepad.axes && gamepad.axes.length >= 2) {
-                                // X-axis for left/right
-                                if (gamepad.axes[0] < -0.5) {
-                                    keys.left = true;
-                                    keys.right = false;
-                                } else if (gamepad.axes[0] > 0.5) {
-                                    keys.right = true;
-                                    keys.left = false;
-                                } else {
-                                    keys.left = false;
-                                    keys.right = false;
-                                }
-                                
-                                // Y-axis for forward/backward
-                                if (gamepad.axes[1] < -0.5) {
-                                    keys.up = true;
-                                    keys.down = false;
-                                } else if (gamepad.axes[1] > 0.5) {
-                                    keys.down = true;
-                                    keys.up = false;
-                                } else if (!keys.up) { // Don't override trigger
-                                    keys.down = false;
-                                }
-                            }
-                        }
-                    }
-                }
+
+                // CALL CONTROLS
+                keys = processXRInput(xrFrame, keys);
+                
+                
             } else if (usingQuestSpecialMode) {
                 // For our Quest special mode, rely on existing keyboard/touch controls
                 // User can use smartphone touch controls or keyboard if connected
