@@ -75,8 +75,8 @@ export function calibrateVR() {
     if (cameraRig) {
         
         cameraRig.position.set(50000, 50000, 50000);
-        const centerPoint = new THREE.Vector3(0, 0, 0);
-                const direction = new THREE.Vector3().subVectors(centerPoint, cameraRig.position).normalize();
+        const centerPoint = new THREE.Vector3(0, 0, 10000);
+        const direction = new THREE.Vector3().subVectors(centerPoint, cameraRig.position).normalize();
         const lookAtPoint = new THREE.Vector3().copy(cameraRig.position).add(direction.multiplyScalar(1000));
         cameraRig.lookAt(lookAtPoint);
         // Rotate the rig 180 degrees to face toward the center instead of away
@@ -143,8 +143,13 @@ export function init() {
     scene.add(starSystem.stars);
     console.log("Added dynamic star system to VR environment");
 
-    // Add all the celestial bodies
-    initSolarSystem();
+    // Add sun to the scene
+    scene.add(sunGroup);
+    console.log("Added sun to VR environment");
+    
+    // Start celestial animations once everything is initialized
+    // This ensures all meshes are loaded before animations begin
+    animateAllCelestialBodies();
 
     // Lighting
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
@@ -196,7 +201,7 @@ function loadCockpitModel(headHeight) {
                 if (cameraRig) {
                     // Add cockpit to the rig so it moves with the player
                     cameraRig.add(cockpit);
-                    cockpit.position.set(0, headHeight, -0.1);
+                    cockpit.position.set(0, headHeight, -0.2);
                     
                     // Add listener for XR session start
                     if (renderer && renderer.xr) {
@@ -338,6 +343,7 @@ function update(timestamp) {
     }
 
     ///// Environment animations /////
+    animateAllCelestialBodies();
 
     // Update the time uniform for shaders
     if (directionalLightCone && directionalLightCone.material && directionalLightCone.material.uniforms) {
@@ -400,6 +406,12 @@ function update(timestamp) {
 
 // Clean up
 export function dispose() {
+    // Cancel all animation frames
+    if (sunAnimationId) cancelAnimationFrame(sunAnimationId);
+    if (venusCloudAnimationId) cancelAnimationFrame(venusCloudAnimationId);
+    if (earthCloudAnimationId) cancelAnimationFrame(earthCloudAnimationId);
+    if (marsCloudAnimationId) cancelAnimationFrame(marsCloudAnimationId);
+    
     renderer.setAnimationLoop(null);
     
     // Remove window resize listener
@@ -674,7 +686,20 @@ function initSolarSystem() {
 
 // Celestial body animation effects
 
+// Store animation frame IDs so we can cancel them if needed
+let sunAnimationId = null;
+let venusCloudAnimationId = null;
+let earthCloudAnimationId = null;
+let marsCloudAnimationId = null;
+
 function animateAllCelestialBodies() {
+    // Clear any existing animation frames first
+    if (sunAnimationId) cancelAnimationFrame(sunAnimationId);
+    if (venusCloudAnimationId) cancelAnimationFrame(venusCloudAnimationId);
+    if (earthCloudAnimationId) cancelAnimationFrame(earthCloudAnimationId);
+    if (marsCloudAnimationId) cancelAnimationFrame(marsCloudAnimationId);
+    
+    // Start animations
     animateSun();
     animateVenusClouds();
     animateEarthClouds();
@@ -682,29 +707,52 @@ function animateAllCelestialBodies() {
 }
 
 function animateSun() {
-    blazingMaterial.uniforms.time.value += 0.02;
-    blazingEffect.scale.setScalar(0.9 + Math.sin(blazingMaterial.uniforms.time.value * 1.0) * 0.05);
-    requestAnimationFrame(animateSun);
+    // Increment the time value for the blazing effect shader
+    if (blazingMaterial && blazingMaterial.uniforms) {
+        blazingMaterial.uniforms.time.value += 0.02;
+    }
+    
+    // Scale the blazing effect based on a sine wave
+    if (blazingEffect) {
+        blazingEffect.scale.setScalar(0.9 + Math.sin(blazingMaterial.uniforms.time.value * 1.0) * 0.05);
+    }
+    
+    // Request next frame
+    sunAnimationId = requestAnimationFrame(animateSun);
 }
-animateSun();
 
 function animateVenusClouds() {
-    venusCloudMesh.rotation.y += 0.0005;
-    requestAnimationFrame(animateVenusClouds);
+    // Only rotate if the mesh exists
+    if (venusCloudMesh) {
+        venusCloudMesh.rotation.y += 0.0005;
+    }
+    
+    // Request next frame
+    venusCloudAnimationId = requestAnimationFrame(animateVenusClouds);
 }
-animateVenusClouds();
 
 function animateEarthClouds() {
-    earthCloudMesh.rotation.y += 0.0005;
-    requestAnimationFrame(animateEarthClouds);
+    // Only rotate if the mesh exists
+    if (earthCloudMesh) {
+        earthCloudMesh.rotation.y += 0.0005;
+    }
+    
+    // Request next frame
+    earthCloudAnimationId = requestAnimationFrame(animateEarthClouds);
 }
-animateEarthClouds();
 
 function animateMarsClouds() {
-    marsCloudMesh.rotation.y += 0.0005;
-    requestAnimationFrame(animateMarsClouds);
+    // Only rotate if the mesh exists
+    if (marsCloudMesh) {
+        marsCloudMesh.rotation.y += 0.0005;
+    }
+    
+    // Request next frame
+    marsCloudAnimationId = requestAnimationFrame(animateMarsClouds);
 }
-animateMarsClouds();
+
+// The animation will be started from the init() function
+// animateAllCelestialBodies();
 
 
 
