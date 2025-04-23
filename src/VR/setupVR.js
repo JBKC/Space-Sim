@@ -648,21 +648,34 @@ function updateCoordinatesDisplay() {
 
 ///////////////////// Solar System Setup /////////////////////
 
-import {
-    sunGroup,
-    blazingMaterial,
-    blazingEffect
-} from './spaceEnvVR.js';
+import { sunGroup, blazingMaterial, blazingEffect } from '../spaceEnvs/solarSystemEnv.js';
+import { mercuryGroup, mercuryCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
+import { venusGroup, venusCollisionSphere, venusCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
+import { earthGroup, earthCollisionSphere, earthCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
 
 function initSolarSystem() {
     // Add sun to the scene
     scene.add(sunGroup);
+    scene.add(mercuryGroup);
+    scene.add(venusGroup);
+    scene.add(earthGroup);
+
+
+
     function animateSun() {
         blazingMaterial.uniforms.time.value += 0.02;
         blazingEffect.scale.setScalar(0.9 + Math.sin(blazingMaterial.uniforms.time.value * 1.0) * 0.05);
         requestAnimationFrame(animateSun);
     }
     animateSun();
+
+    function animateVenusClouds() {
+        venusCloudMesh.rotation.y += 0.0005;
+        requestAnimationFrame(animateVenusClouds);
+    }
+    animateVenusClouds();
+
 }
+
 
 

@@ -1,4 +1,7 @@
 // Contains design / aesthetic elements for the VR space environment
+// Contains ONLY elements that are VR-specific
+// All celestial bodies etc. are in spaceEnvs/solarSystemEnv.js
+
 import * as THREE from 'three';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -522,77 +525,4 @@ export function updateStars(stars, cameraPosition) {
 } 
 
 
-///// Solar System /////
-
-// --- Sun Setup ---
-export const sunGroup = new THREE.Group();
-
-const sunRadius = 10000;
-const sunGeometry = new THREE.SphereGeometry(sunRadius, 64, 64);
-// Use the new explicit texture loading for sun
-const sunTexture = loadTextureFromRegistry('planets', 'sun');
-const sunMaterial = new THREE.MeshStandardMaterial({
-    map: sunTexture,
-    emissive: 0xffffff,
-    emissiveIntensity: 0.3, // Reduced from 0.4 to 0.3
-    side: THREE.FrontSide
-});
-export const sun = new THREE.Mesh(sunGeometry, sunMaterial);
-sunGroup.add(sun);
-
-// Blazing effect
-export const blazingMaterial = new THREE.ShaderMaterial({
-    uniforms: {
-        time: { value: 0 },
-        intensity: { value: 0.4 }, // Reduced from 0.5 to 0.4
-        baseColor: { value: new THREE.Vector3(1.0, 0.5, 0.0) },
-        noiseScale: { value: 2.0 }
-    },
-    vertexShader: `
-        varying vec3 vNormal;
-        varying vec3 vPosition;
-        void main() {
-            vNormal = normalize(normal);
-            vPosition = position;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-    `,
-    fragmentShader: `
-        uniform float time;
-        uniform float intensity;
-        uniform vec3 baseColor;
-        uniform float noiseScale;
-        varying vec3 vNormal;
-        varying vec3 vPosition;
-        float noise(vec3 p) {
-            return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
-        }
-        void main() {
-            vec3 pos = vPosition * noiseScale;
-            float n = noise(pos + time * 0.5);
-            float glow = sin(time * 5.0 + length(vPosition) * 2.0) * 0.5 + 0.5;
-            float pulse = (n * 0.5 + glow * 0.5) * intensity * 0.5;
-            vec3 color = baseColor * (1.0 + pulse * 0.5);
-            float alpha = clamp(pulse * 0.8, 0.2, 0.9);
-            gl_FragColor = vec4(color, alpha);
-        }
-    `,
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending
-});
-const blazingGeometry = new THREE.SphereGeometry(sunRadius * 1.2, 64, 64);
-export const blazingEffect = new THREE.Mesh(blazingGeometry, blazingMaterial);
-sunGroup.add(blazingEffect);
-
-// Halo
-const haloGeometry = new THREE.SphereGeometry(sunRadius * 1.2, 32, 32);
-const haloMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.5 });
-const halo = new THREE.Mesh(haloGeometry, haloMaterial);
-sunGroup.add(halo);
-
-// Sun light
-const sunLight = new THREE.PointLight(0xffffdd, 1.2, 35000 * universalScaleFactor); // Slightly more focused with a warmer color
-sunLight.castShadow = true; // Enable shadow casting
-sunLight.shadow.bias = -0.0001; // Reduce shadow acne
-sunGroup.add(sunLight);
+////////////////////////////////////////////////
