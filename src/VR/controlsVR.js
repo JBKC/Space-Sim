@@ -6,6 +6,7 @@ import * as THREE from 'three';
 // Configuration constants
 const FORWARD_SPEED = 1000;
 const ROTATION_SPEED = 0.012;
+const ROLL_SPEED_MULTIPLIER = 5.0; // Makes roll 5x faster than pitch/yaw
 const BOOST_MULTIPLIER = 5; // Speed multiplier when boost is active
 const HYPERSPACE_MULTIPLIER = 20; // Speed multiplier when hyperspace is active
 
@@ -233,7 +234,7 @@ export function updateVRMovement(camera, deltaTime = 0.016) {
             
             if (Math.abs(xAxis) > 0) {
                 // Roll (left stick horizontal = rotation around Z axis)
-                rotation.roll.setFromAxisAngle(rotation.rollAxis, -xAxis * ROTATION_SPEED);
+                rotation.roll.setFromAxisAngle(rotation.rollAxis, -xAxis * ROTATION_SPEED * ROLL_SPEED_MULTIPLIER);
             }
             
             if (Math.abs(yAxis) > 0) {
