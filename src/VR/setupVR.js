@@ -324,12 +324,12 @@ function update(timestamp) {
                 'hologram',
                 (gltf) => {
                     const hologramModel = gltf.scene;
-                    hologramModel.scale.set(0.02, 0.02, 0.02); // Adjust scale as needed
+                    hologramModel.scale.set(0.1, 0.1, 0.1); // Adjust scale as needed
                     hologramModel.name = 'hologramModel';
                     
                     if (cameraRig) {
                         cameraRig.add(hologramModel);
-                        hologramModel.position.set(0.3, headHeight, -0.4);
+                        hologramModel.position.set(0, headHeight, -0.2);
                         hologramModel.rotation.set(0, 0, 0); // Adjust rotation as needed
                         console.log("Hologram model loaded and added to camera rig");
                     } else {
