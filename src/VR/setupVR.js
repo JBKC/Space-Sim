@@ -302,45 +302,32 @@ function update(timestamp) {
 
     if (!cockpit) {
 
-        // ADD CODE HERE
         // Create a loading popup if it doesn't exist yet
         if (!window.cockpitLoadingPopup) {
             // Create a loading message popup
             const canvas = document.createElement('canvas');
-            canvas.width = 1024;
-            canvas.height = 256;
+            canvas.width = 600; // Reduced width
+            canvas.height = 100; // Reduced height
             const context = canvas.getContext('2d');
             
-            // Clear canvas with semi-transparent dark background (matching the style of other popups)
-            context.fillStyle = 'rgba(0, 0, 0, 0.9)';
+            // Clear canvas with translucent white background
+            context.fillStyle = 'rgba(255, 255, 255, 0.3)';
             context.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Add border
-            context.strokeStyle = 'rgba(79, 195, 247, 0.5)';
-            context.lineWidth = 4;
-            context.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
-            
-            // Add outer glow effect
-            const glowSize = 20;
-            const glowColor = 'rgba(79, 195, 247, 0.3)';
-            context.shadowBlur = glowSize;
-            context.shadowColor = glowColor;
-            context.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
-            context.shadowBlur = 0;
+            // Add subtle border
+            context.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+            context.lineWidth = 2;
+            context.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
             
             // Style for text
             const font = "'Orbitron', Arial, sans-serif";
             
-            // Title
-            context.font = `bold 48px ${font}`;
-            context.fillStyle = '#4fc3f7';
+            // Just the instructions text in white
+            context.font = `24px ${font}`; // Smaller font
+            context.fillStyle = '#ffffff'; // White text
             context.textAlign = 'center';
-            context.fillText('COCKPIT LOADING', canvas.width / 2, 80);
-            
-            // Instructions text
-            context.font = `36px ${font}`;
-            context.fillStyle = '#b3e5fc';
-            context.fillText('Press X (Meta Quest) for controls', canvas.width / 2, 160);
+            context.textBaseline = 'middle';
+            context.fillText('Press X (Meta Quest) for controls', canvas.width / 2, canvas.height / 2);
             
             // Create texture from canvas
             const texture = new THREE.CanvasTexture(canvas);
@@ -353,15 +340,15 @@ function update(timestamp) {
                 side: THREE.DoubleSide
             });
             
-            // Create plane for popup
-            const geometry = new THREE.PlaneGeometry(0.8, 0.2);
+            // Create plane for popup with smaller size
+            const geometry = new THREE.PlaneGeometry(0.4, 0.067); // Reduced size with same aspect ratio
             const loadingPopup = new THREE.Mesh(geometry, material);
             loadingPopup.renderOrder = 1001; // Render in front
             
-            // Position it in front of the user
+            // Position it in front of the user, slightly lower
             if (cameraRig) {
                 cameraRig.add(loadingPopup);
-                loadingPopup.position.set(0, 0, -0.5);
+                loadingPopup.position.set(0, -0.1, -0.5);
                 loadingPopup.rotation.set(0, 0, 0);
             }
             
