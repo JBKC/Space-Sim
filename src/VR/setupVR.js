@@ -691,7 +691,6 @@ import { jupiterGroup, jupiterCollisionSphere } from '../spaceEnvs/solarSystemEn
 import { saturnGroup, saturnCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
 import { uranusGroup, uranusCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
 import { neptuneGroup, neptuneCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
-import { asteroidBeltGroup, asteroidCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
 // import { starDestroyerGroup, collisionBox1, collisionBox2 } from '../spaceEnvs/solarSystemEnv.js';
 // import { lucrehulkGroup, lucrehulkCollisionBox } from '../spaceEnvs/solarSystemEnv.js';
 // import { deathStarGroup, deathStarCollisionSphere } from './solarSystemEnv.js';
@@ -741,4 +740,76 @@ function updateCelestialAnimations(deltaTime) {
     
 }
 
+// Different asteroid setup for VR (simpler, lower res)
 
+// Asteroid belt properties
+const ASTEROID_BELT_RADIUS = 55000;
+const ASTEROID_BASE_SCALE = 200;
+const ASTEROID_COUNT = 100;
+const ASTEROID_HEIGHT_VARIATION = 5000;
+
+export const asteroidBeltGroup = new THREE.Group();
+asteroidBeltGroup.name = "asteroidBelt";
+
+// Collision box removed for now
+
+// Asteroid properties
+const asteroidCount = ASTEROID_COUNT;
+const radius = ASTEROID_BELT_RADIUS * universalScaleFactor;           // Radius of the belt
+const asteroidScale = ASTEROID_BASE_SCALE * universalScaleFactor;
+asteroidBeltGroup.position.set(0, 0, 0);
+
+// Load asteroid models
+console.log('Loading asteroids from registry');
+
+// Use the model registry for asteroid loading
+loadModelFromRegistry(
+    'environment',
+    'asteroidPackVR',
+    (gltf) => {
+        console.log('Asteroid pack loaded successfully from registry');
+        const asteroidModel = gltf.scene;
+
+        // Apply random orientation to give impression of dense belt
+        const tiltX = (Math.random() * Math.PI * 2) - Math.PI;
+        const tiltZ = (Math.random() * Math.PI * 2) - Math.PI;
+
+        for (let i = 0; i < asteroidCount; i++) {
+
+            // Positon in a ring with slight random variation around a defined radius
+            const angle = (i / asteroidCount) * Math.PI * 2;
+            const randomRadius = radius * (0.9 + Math.random() * 0.2);
+
+            const xFlat = Math.cos(angle) * randomRadius;
+            const zFlat = Math.sin(angle) * randomRadius;
+            const yFlat = (Math.random() - 0.5) * ASTEROID_HEIGHT_VARIATION * universalScaleFactor;
+
+            // Apply tilt around X
+            const yTiltX = yFlat * Math.cos(tiltX) - zFlat * Math.sin(tiltX);
+            const zTiltX = yFlat * Math.sin(tiltX) + zFlat * Math.cos(tiltX);
+
+            // Then tilt around Z
+            const xTilt = xFlat * Math.cos(tiltZ) - yTiltX * Math.sin(tiltZ);
+            const yTilt = xFlat * Math.sin(tiltZ) + yTiltX * Math.cos(tiltZ);
+            const zTilt = zTiltX;
+
+            const asteroid = asteroidModel.clone();
+            const scale = asteroidScale * (0.5 + Math.random());
+
+            asteroid.scale.set(scale, scale, scale);
+            asteroid.rotation.set(
+                Math.random() * Math.PI * 2,
+                Math.random() * Math.PI * 2,
+                Math.random() * Math.PI * 2
+            );
+            asteroid.position.set(xTilt, yTilt, zTilt);
+            asteroidBeltGroup.add(asteroid);
+        }
+    },
+    // (xhr) => {
+    //     console.log(`Loading asteroids: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
+    // },
+    // (error) => {
+    //     console.error('Error loading asteroid model from registry:', error);
+    // }
+);
