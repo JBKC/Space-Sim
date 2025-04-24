@@ -26,20 +26,6 @@ import {
     SPACE_RADIUS
 } from './spaceEnvVR.js';
 
-import { sunGroup, blazingMaterial, blazingEffect } from '../spaceEnvs/solarSystemEnv.js';
-import { mercuryGroup, mercuryCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
-import { venusGroup, venusCollisionSphere, venusCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
-import { earthGroup, earthCollisionSphere, earthCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
-import { moonGroup } from '../spaceEnvs/solarSystemEnv.js';
-import { marsGroup, marsCollisionSphere, marsCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
-import { jupiterGroup, jupiterCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
-import { saturnGroup, saturnCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
-import { uranusGroup, uranusCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
-import { neptuneGroup, neptuneCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
-import { updateCelestialAnimations } from '../spaceEnvs/solarSystemEnv.js';
-// import { starDestroyerGroup, collisionBox1, collisionBox2 } from '../spaceEnvs/solarSystemEnv.js';
-// import { lucrehulkGroup, lucrehulkCollisionBox } from '../spaceEnvs/solarSystemEnv.js';
-// import { deathStarGroup, deathStarCollisionSphere } from './solarSystemEnv.js';
 
 /////////////// SCENE INITIALIZATION ///////////////
 
@@ -808,6 +794,23 @@ function updateCoordinatesDisplay() {
 
 ///////////////////// Solar System Setup /////////////////////
 
+import { sunGroup, blazingMaterial, blazingEffect } from '../spaceEnvs/solarSystemEnv.js';
+import { mercuryGroup, mercuryCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
+import { venusGroup, venusCollisionSphere, venusCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
+import { earthGroup, earthCollisionSphere, earthCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
+import { moonGroup } from '../spaceEnvs/solarSystemEnv.js';
+import { marsGroup, marsCollisionSphere, marsCloudMesh } from '../spaceEnvs/solarSystemEnv.js';
+import { jupiterGroup, jupiterCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
+import { saturnGroup, saturnCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
+import { uranusGroup, uranusCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
+import { neptuneGroup, neptuneCollisionSphere } from '../spaceEnvs/solarSystemEnv.js';
+// import { starDestroyerGroup, collisionBox1, collisionBox2 } from '../spaceEnvs/solarSystemEnv.js';
+// import { lucrehulkGroup, lucrehulkCollisionBox } from '../spaceEnvs/solarSystemEnv.js';
+// import { deathStarGroup, deathStarCollisionSphere } from './solarSystemEnv.js';
+
+// Celestial body animation variables
+let sunTime = 0;
+
 function initSolarSystem() {
     scene.add(sunGroup);
     scene.add(mercuryGroup);
@@ -822,6 +825,32 @@ function initSolarSystem() {
     scene.add(asteroidBeltGroup);
 
     console.log("Solar system initialized in VR environment");
+}
+
+// Update celestial body animations from main update loop
+function updateCelestialAnimations(deltaTime) {
+    // Update sun animation
+    if (blazingMaterial && blazingMaterial.uniforms) {
+        sunTime += deltaTime * 2; 
+        blazingMaterial.uniforms.time.value = sunTime;
+        
+        if (blazingEffect) {
+            blazingEffect.scale.setScalar(0.9 + Math.sin(sunTime * 1.0) * 0.05);
+        }
+    }
+    
+    if (venusCloudMesh) {
+        venusCloudMesh.rotation.y += 0.002;
+    }
+    
+    if (earthCloudMesh) {
+        earthCloudMesh.rotation.y += 0.002;
+    }
+    
+    if (marsCloudMesh) {
+        marsCloudMesh.rotation.y += 0.002;
+    }
+    
 }
 
 // Different asteroid setup for VR (simpler, lower res)

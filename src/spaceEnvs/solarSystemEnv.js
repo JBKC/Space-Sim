@@ -540,58 +540,7 @@ const uranusCollisionGeometry = new THREE.SphereGeometry(uranusRadius * 1.5, 16,
 export const uranusCollisionSphere = new THREE.Mesh(uranusCollisionGeometry, collisionMaterialInvisible);
 uranusGroup.add(uranusCollisionSphere);
 
-// Uranus ring
-
-const uranusRingOuterRadius = SATURN_RING_OUTER * 0.9;
-const uranusRingInnerRadius = uranusRingOuterRadius * 0.88; // Thinner ring than Saturn's
-
-// Create a buffer geometry for particle-based rings
-const uranusRingCount = 20000; 
-const uranusRingPositions = new Float32Array(uranusRingCount * 3);
-
-// Fill the buffer with particle positions distributed in a thin ring
-for (let i = 0; i < uranusRingCount; i++) {
-    const theta = Math.random() * Math.PI * 2;
-    
-    // Random radius within the ring's bounds
-    const radius = THREE.MathUtils.randFloat(uranusRingInnerRadius, uranusRingOuterRadius);
-    
-    // Add very little thickness to the ring (much thinner than Saturn's)
-    const y = THREE.MathUtils.randFloatSpread(50 * universalScaleFactor);
-    
-    // Calculate x and z positions based on radius and angle
-    const x = radius * Math.cos(theta);
-    const z = radius * Math.sin(theta);
-
-    // Set the position values in the array
-    uranusRingPositions[i * 3] = x;
-    uranusRingPositions[i * 3 + 1] = y;
-    uranusRingPositions[i * 3 + 2] = z;
-}
-
-// Create geometry and set position attribute
-const uranusRingGeometry = new THREE.BufferGeometry();
-uranusRingGeometry.setAttribute('position', new THREE.BufferAttribute(uranusRingPositions, 3));
-
-// Create material for ring particles
-const uranusRingMaterial = new THREE.PointsMaterial({
-    size: 20 * universalScaleFactor, // Smaller particles than Saturn's rings
-    sizeAttenuation: true,
-    transparent: true,
-    opacity: 0.2,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    // map: ringTexture, 
-    alphaTest: 0.01,
-    color: 0xc4f1ff // Light blue color for Uranus ring
-});
-
-// Create the points system
-const uranusRings = new THREE.Points(uranusRingGeometry, uranusRingMaterial);
-uranusGroup.add(uranusRings);
-
 planetGroups.push({ group: uranusGroup, z: URANUS_ORBIT * universalScaleFactor });
-
 
 // --- Neptune Setup ---
 export const neptuneGroup = new THREE.Group();
