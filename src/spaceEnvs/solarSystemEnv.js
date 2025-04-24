@@ -468,23 +468,23 @@ const ringOuterRadius2 = SATURN_RING_OUTER2 * universalScaleFactor;
 const ringInnerRadius2 = SATURN_RING_INNER2 * universalScaleFactor;
 
 // Create a buffer geometry for particle-based rings
-const count = 10000;
+const count = 15000; // Increased count for more particles
 const positions = new Float32Array(count * 3);
 
 // Fill the buffer with particle positions distributed in the ring
 for (let i = 0; i < count; i++) {
     const theta = Math.random() * Math.PI * 2;
     
-    // 70% of particles in the outer ring, 30% in the inner ring
-    const useOuterRing = Math.random() < 0.7;
+    // 67% of particles in the outer ring, 33% in the inner ring (2:1 ratio)
+    const useOuterRing = Math.random() < 0.67;
     const minRadius = useOuterRing ? ringInnerRadius : ringInnerRadius2;
     const maxRadius = useOuterRing ? ringOuterRadius : ringOuterRadius2;
     
     // Random radius within the ring's bounds
     const radius = THREE.MathUtils.randFloat(minRadius, maxRadius);
     
-    // Add some thickness to the ring (spread on Y axis)
-    const y = THREE.MathUtils.randFloatSpread(1000 * universalScaleFactor);
+    // Add some thickness to the ring (spread on Y axis) - reduced for flatter rings
+    const y = THREE.MathUtils.randFloatSpread(200 * universalScaleFactor);
     
     // Calculate x and z positions based on radius and angle
     const x = radius * Math.cos(theta);
@@ -502,7 +502,7 @@ ringGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
 // Create material for ring particles
 const ringMaterial = new THREE.PointsMaterial({
-    size: 300 * universalScaleFactor,
+    size: 30 * universalScaleFactor, // 2x smaller (was 60)
     sizeAttenuation: true,
     transparent: true,
     opacity: 0.6,
