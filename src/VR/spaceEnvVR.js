@@ -410,148 +410,108 @@ export {
 
 ///// STARS /////
 
-// starsVR.js - Handles star generation and updates for VR environment
-
 // Star configuration constants
-const STAR_COUNT = 1000000; // Tripled from 200,000 to 600,000 for more immersive space environment
-const STAR_SIZE = 50;
+const STAR_COUNT = 600000;
+const STAR_SIZE = 25;
+const STAR_SPHERE_RADIUS = 30000; // Visibility radius around camera
 
-// Create stars
 export function createStars() {
+    // Create a universe-sized volume of stars
+    const universeSize = SPACE_RADIUS;
     const starGeometry = new THREE.BufferGeometry();
     const starPositions = new Float32Array(STAR_COUNT * 3);
     const starColors = new Float32Array(STAR_COUNT * 3);
-    const starOpacities = new Float32Array(STAR_COUNT);
 
+    // Create stars in fixed positions throughout the universe
     for (let i = 0; i < STAR_COUNT; i++) {
         const i3 = i * 3;
 
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(2 * Math.random() - 1);
-        const radius = SPACE_RADIUS * Math.pow(Math.random(), 1 / 3);
-
-        starPositions[i3] = radius * Math.sin(phi) * Math.cos(theta);
-        starPositions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-        starPositions[i3 + 2] = radius * Math.cos(phi);
-
-        starColors[i3] = 1.0;
-        starColors[i3 + 1] = 1.0;
-        starColors[i3 + 2] = 1.0;
-
-        starOpacities[i] = 1.0;
+        // Random position in a large cube around the origin
+        starPositions[i3] = (Math.random() - 0.5) * universeSize;     // X
+        starPositions[i3 + 1] = (Math.random() - 0.5) * universeSize; // Y
+        starPositions[i3 + 2] = (Math.random() - 0.5) * universeSize; // Z
+        
+        // Initial colors (will be adjusted based on distance to camera)
+        starColors[i3] = 1.0;     // R
+        starColors[i3 + 1] = 1.0; // G
+        starColors[i3 + 2] = 1.0; // B
     }
 
     starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
     starGeometry.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
-    starGeometry.setAttribute('opacity', new THREE.BufferAttribute(starOpacities, 1));
 
-    const starMaterial = new THREE.ShaderMaterial({
+    const starMaterial = new THREE.PointsMaterial({
+        color: 0xffffff,
+        size: STAR_SIZE * universalScaleFactor,
         vertexColors: true,
+        sizeAttenuation: true,
         transparent: true,
-        blending: THREE.AdditiveBlending,
+        opacity: 1.0,
         depthWrite: false,
-        uniforms: {
-            size: { value: STAR_SIZE }
-        },
-        vertexShader: `
-            attribute float opacity;
-            varying float vOpacity;
-            varying vec3 vColor;
-            uniform float size;
-
-            void main() {
-                vColor = color;
-                vOpacity = opacity;
-
-                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                gl_PointSize = size * (300.0 / -mvPosition.z);
-                gl_Position = projectionMatrix * mvPosition;
-            }
-        `,
-        fragmentShader: `
-            varying vec3 vColor;
-            varying float vOpacity;
-
-            void main() {
-                float d = distance(gl_PointCoord, vec2(0.5));
-                if (d > 0.5) discard;
-                gl_FragColor = vec4(vColor, vOpacity);
-            }
-        `
+        blending: THREE.AdditiveBlending
     });
 
     const stars = new THREE.Points(starGeometry, starMaterial);
-    console.log(`VR stars created: ${STAR_COUNT} points`);
+    stars.frustumCulled = false; // Ensure stars are always rendered
 
+    console.log(`Fixed star field created: ${STAR_COUNT} points across space`);
     return {
         stars,
-        count: STAR_COUNT,
-        range: SPACE_RADIUS
+        geometry: starGeometry
     };
 }
 
-
-// Update stars opacity based on distance to camera
-export function updateStars(stars, cameraPosition) {
-    if (!stars || !stars.geometry) return;
+// Update stars brightness based on distance to camera
+export function updateStars(starsObject, cameraPosition) {
+    if (!starsObject || !starsObject.stars) return;
     
-    const positions = stars.geometry.attributes.position.array;
-    const colors = stars.geometry.attributes.color.array;
-    const opacities = stars.geometry.attributes.opacity.array;
+    const stars = starsObject.stars;
     
-    // Update star opacity based on distance to camera
-    for (let i = 0, j = 0; i < STAR_COUNT * 3; i += 3, j++) {
-        // Calculate distance from camera to this star
-        const dx = positions[i] - cameraPosition.x;
-        const dy = positions[i + 1] - cameraPosition.y;
-        const dz = positions[i + 2] - cameraPosition.z;
-        const distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+    // Don't move the stars - they stay fixed in space
+    // Instead, only update their visibility/brightness based on camera proximity
+    
+    if (stars.geometry) {
+        const positions = stars.geometry.attributes.position.array;
+        const colors = stars.geometry.attributes.color.array;
         
-        // Check if star is too far from the camera (beyond view range)
-        if (distance > SPACE_RADIUS * 0.8) {
-            // Respawn the star in a new random position in a full sphere around the camera
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.acos(2 * Math.random() - 1);
-            const radius = SPACE_RADIUS * 0.4 * Math.pow(Math.random(), 1/3);
+        // Update each star's brightness based on its distance to the camera
+        for (let i = 0; i < STAR_COUNT * 3; i += 3) {
+            const x = positions[i];
+            const y = positions[i + 1];
+            const z = positions[i + 2];
             
-            // Position relative to camera
-            positions[i] = cameraPosition.x + radius * Math.sin(phi) * Math.cos(theta);
-            positions[i + 1] = cameraPosition.y + radius * Math.sin(phi) * Math.sin(theta);
-            positions[i + 2] = cameraPosition.z + radius * Math.cos(phi);
+            // Calculate distance from this star to camera
+            const dx = x - cameraPosition.x;
+            const dy = y - cameraPosition.y;
+            const dz = z - cameraPosition.z;
+            const distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+            
+            // Set brightness based on distance to camera
+            let brightness = 0; // Default: invisible
+            
+            if (distance <= STAR_SPHERE_RADIUS) {
+                // Stars closer than 20% of visibility radius are at full brightness
+                // Stars at the edge of visibility are barely visible
+                const minDistance = STAR_SPHERE_RADIUS * 0.2;
+                
+                if (distance < minDistance) {
+                    brightness = 1.0; // Full brightness for closest stars
+                } else {
+                    // Linear falloff from full brightness to invisible
+                    brightness = 1.0 - (distance - minDistance) / (STAR_SPHERE_RADIUS - minDistance);
+                }
+            }
+            
+            // Apply brightness to RGB values
+            colors[i] = brightness;     // R
+            colors[i + 1] = brightness; // G
+            colors[i + 2] = brightness; // B
         }
         
-        // Recalculate distance after possible respawn
-        const newDx = positions[i] - cameraPosition.x;
-        const newDy = positions[i + 1] - cameraPosition.y;
-        const newDz = positions[i + 2] - cameraPosition.z;
-        const newDistance = Math.sqrt(newDx*newDx + newDy*newDy + newDz*newDz);
-        
-        // More extreme interpolation based on distance
-        // Stars closer than 8% of range are at full opacity
-        // Stars further than 25% of range are at minimum opacity
-        const minDistance = SPACE_RADIUS * 0.08;
-        const maxDistance = SPACE_RADIUS * 0.25;
-        let opacity = 1.0;
-        
-        if (newDistance > minDistance) {
-            // More dramatic falloff - distant stars are barely visible (only 5% opacity)
-            opacity = 1.0 - Math.min(1.0, (newDistance - minDistance) / (maxDistance - minDistance)) * 0.95;
-        }
-        
-        // Apply opacity
-        opacities[j] = opacity;
-        
-        // Keep colors at full brightness
-        colors[i] = 1.0;     // R
-        colors[i + 1] = 1.0; // G
-        colors[i + 2] = 1.0; // B
+        stars.geometry.attributes.color.needsUpdate = true;
     }
-    
-    // Update the geometry attributes
-    stars.geometry.attributes.position.needsUpdate = true;
-    stars.geometry.attributes.color.needsUpdate = true;
-    stars.geometry.attributes.opacity.needsUpdate = true;
-} 
+}
+
 
 
 ////////////////////////////////////////////////

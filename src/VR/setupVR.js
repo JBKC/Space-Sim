@@ -318,33 +318,6 @@ function update(timestamp) {
                 }
             }
             
-            // Load and initialize in-cockpit hologram
-            loadModelFromRegistry(
-                'hologram',
-                'hologram',
-                (gltf) => {
-                    const hologramModel = gltf.scene;
-                    hologramModel.scale.set(0.1, 0.1, 0.1); // Adjust scale as needed
-                    hologramModel.name = 'hologramModel';
-                    
-                    if (cameraRig) {
-                        cameraRig.add(hologramModel);
-                        hologramModel.position.set(0, headHeight, -0.2);
-                        hologramModel.rotation.set(0, 0, 0); // Adjust rotation as needed
-                        console.log("Hologram model loaded and added to camera rig");
-                    } else {
-                        console.error("Camera rig not available, hologram not attached");
-                    }
-                },
-                (xhr) => {
-                    const percent = (xhr.loaded / xhr.total) * 100;
-                    console.log(`Hologram: ${percent.toFixed(0)}% loaded`);
-                },
-                (error) => {
-                    console.error('Error loading hologram model from registry:', error);
-                }
-            );
-            
             // Initialize controls popup at proper head height after cockpit loads
             // but don't show it automatically - it will be toggled with X button
             if (typeof initControlsPopup === 'undefined') {
@@ -410,7 +383,18 @@ function update(timestamp) {
     if (starSystem && starSystem.stars) {
         // Use cameraRig position for star updates to ensure proper movement tracking
         const positionForStars = cameraRig ? cameraRig.position : camera.position;
-        updateStars(starSystem.stars, positionForStars);
+        
+        // Debug stars position at intervals
+        if (timestamp % 3000 < 20) {  // Log every 3 seconds to reduce spam
+            console.log("Adjusting star visibility based on camera at:", 
+                positionForStars.x.toFixed(0), 
+                positionForStars.y.toFixed(0), 
+                positionForStars.z.toFixed(0), 
+                "- Stars within 30,000 units are visible"
+            );
+        }
+        
+        updateStars(starSystem, positionForStars);
     }
     
     // Update galaxy backdrop to slowly rotate
@@ -520,30 +504,6 @@ export function dispose() {
             }
         });
         scene.remove(cockpit);
-    }
-    
-    // Clean up hologram model
-    if (cameraRig) {
-        const hologramModel = cameraRig.getObjectByName('hologramModel');
-        if (hologramModel) {
-            hologramModel.traverse(function(child) {
-                if (child.isMesh) {
-                    if (child.geometry) child.geometry.dispose();
-                    if (child.material) {
-                        if (Array.isArray(child.material)) {
-                            child.material.forEach(material => {
-                                if (material.map) material.map.dispose();
-                                material.dispose();
-                            });
-                        } else {
-                            if (child.material.map) child.material.map.dispose();
-                            child.material.dispose();
-                        }
-                    }
-                }
-            });
-            cameraRig.remove(hologramModel);
-        }
     }
     
     // Clean up debug display
