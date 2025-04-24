@@ -14,7 +14,8 @@ import lucrehulkModel from '@models/lucrehulk.glb';
 import deathStarModel from '@models/death_star_highres.glb';
 
 // Environment / Other
-import asteroidPackModel from '@models/asteroids_highres.glb';
+import asteroidPackModel from '@models/asteroids_lowres.glb';
+import asteroidPackModelVR from '@models/asteroids_highres_vr.glb';
 import hologramModel from '@models/earth_hologram.glb';
 
 // Group into categories
