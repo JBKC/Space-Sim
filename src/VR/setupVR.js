@@ -324,7 +324,7 @@ function update(timestamp) {
                 'hologram',
                 (gltf) => {
                     const hologramModel = gltf.scene;
-                    hologramModel.scale.set(10, 10, 10); // Adjust scale as needed
+                    hologramModel.scale.set(0.02, 0.02, 0.02); // Adjust scale as needed
                     hologramModel.name = 'hologramModel';
                     
                     if (cameraRig) {
