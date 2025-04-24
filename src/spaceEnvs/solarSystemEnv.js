@@ -459,123 +459,62 @@ saturnGroup.add(saturnCollisionSphere);
 // Create 2 concentric Saturn rings
 // Use the new explicit texture loading for Saturn's rings
 const ringTexture = loadTextureFromRegistry('planets', 'saturnRing');
-const particleTexture = loadTextureFromRegistry('particle', 'glow');
 
-// Convert the existing rings to a particle-based system
-// Define the ring dimensions
+// Create particle-based rings for Saturn
+// We'll use the existing ring dimensions to define the particle distribution
 const ringOuterRadius = SATURN_RING_OUTER * universalScaleFactor;
 const ringInnerRadius = SATURN_RING_INNER * universalScaleFactor;
 const ringOuterRadius2 = SATURN_RING_OUTER2 * universalScaleFactor;
 const ringInnerRadius2 = SATURN_RING_INNER2 * universalScaleFactor;
 
-// Create rings using particles for a fine dust-like appearance
-function createRingParticles(innerRadius, outerRadius, density, color, opacity) {
-    // Calculate number of particles based on the ring area and desired density
-    const ringArea = Math.PI * (outerRadius * outerRadius - innerRadius * innerRadius);
-    const particleCount = Math.floor(ringArea * density); 
+// Create a buffer geometry for particle-based rings
+const count = 10000;
+const positions = new Float32Array(count * 3);
+
+// Fill the buffer with particle positions distributed in the ring
+for (let i = 0; i < count; i++) {
+    const theta = Math.random() * Math.PI * 2;
     
-    // Create geometry for the ring particles
-    const ringGeometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(particleCount * 3);
-    const colors = new Float32Array(particleCount * 3);
-    const sizes = new Float32Array(particleCount);
+    // 70% of particles in the outer ring, 30% in the inner ring
+    const useOuterRing = Math.random() < 0.7;
+    const minRadius = useOuterRing ? ringInnerRadius : ringInnerRadius2;
+    const maxRadius = useOuterRing ? ringOuterRadius : ringOuterRadius2;
     
-    // Create particles distributed in a ring pattern
-    for (let i = 0; i < particleCount; i++) {
-        const i3 = i * 3;
-        
-        // Calculate random angle and radius within the ring
-        const angle = Math.random() * Math.PI * 2;
-        const radius = innerRadius + Math.random() * (outerRadius - innerRadius);
-        
-        // Position particles in a flat disc (Saturn's rings are very thin)
-        positions[i3] = Math.cos(angle) * radius;     // X
-        positions[i3 + 1] = (Math.random() - 0.5) * (outerRadius - innerRadius) * 0.01; // Y (tiny variance for thickness)
-        positions[i3 + 2] = Math.sin(angle) * radius; // Z
-        
-        // Add slight variance to particle color
-        const variance = 0.9 + Math.random() * 0.2; // 0.9-1.1 variance
-        colors[i3] = color.r * variance;
-        colors[i3 + 1] = color.g * variance;
-        colors[i3 + 2] = color.b * variance;
-        
-        // Add variance to particle size
-        sizes[i] = (0.5 + Math.random() * 1.0) * (outerRadius - innerRadius) * 0.0015;
-    }
+    // Random radius within the ring's bounds
+    const radius = THREE.MathUtils.randFloat(minRadius, maxRadius);
     
-    // Add attributes to geometry
-    ringGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    ringGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    ringGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+    // Add some thickness to the ring (spread on Y axis)
+    const y = THREE.MathUtils.randFloatSpread(1000 * universalScaleFactor);
     
-    // Create material for the ring particles
-    const ringMaterial = new THREE.PointsMaterial({
-        size: 1, // Will be overridden by size attribute
-        map: particleTexture,
-        transparent: true,
-        opacity: opacity,
-        vertexColors: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        sizeAttenuation: true
-    });
-    
-    // Use custom shader to apply size attribute
-    ringMaterial.onBeforeCompile = (shader) => {
-        shader.vertexShader = shader.vertexShader.replace(
-            'void main() {',
-            `attribute float size;
-            void main() {`
-        );
-        
-        shader.vertexShader = shader.vertexShader.replace(
-            'gl_PointSize = size;',
-            'gl_PointSize = size * ( 300.0 / -mvPosition.z );'
-        );
-    };
-    
-    // Create points object
-    const ringParticles = new THREE.Points(ringGeometry, ringMaterial);
-    ringParticles.rotation.x = Math.PI / 2; // Align with Saturn's equator
-    
-    return ringParticles;
+    // Calculate x and z positions based on radius and angle
+    const x = radius * Math.cos(theta);
+    const z = radius * Math.sin(theta);
+
+    // Set the position values in the array
+    positions[i * 3] = x;
+    positions[i * 3 + 1] = y;
+    positions[i * 3 + 2] = z;
 }
 
-// Create three rings with different densities and colors to create depth
-// Main outer ring (most visible, slightly yellowish)
-const mainRing = createRingParticles(
-    ringInnerRadius, 
-    ringOuterRadius, 
-    0.05, // Higher density for main ring
-    new THREE.Color(0xf7e8c3), // Slightly yellowish
-    0.8 // More opaque
-);
-saturnGroup.add(mainRing);
+// Create geometry and set position attribute
+const ringGeometry = new THREE.BufferGeometry();
+ringGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
-// Middle ring (thinner)
-const middleRing = createRingParticles(
-    ringInnerRadius2,
-    ringOuterRadius2,
-    0.04, // Medium density
-    new THREE.Color(0xe0e0e0), // Whiter
-    0.6 // Medium opacity
-);
-saturnGroup.add(middleRing);
+// Create material for ring particles
+const ringMaterial = new THREE.PointsMaterial({
+    size: 300 * universalScaleFactor,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0.6,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    map: ringTexture,
+    alphaTest: 0.01
+});
 
-// Inner thin ring (subtle)
-const innerRing = createRingParticles(
-    ringInnerRadius2 * 0.85,
-    ringInnerRadius2 * 0.95,
-    0.02, // Lower density
-    new THREE.Color(0xd0d0d0), // Slightly darker
-    0.4 // More transparent
-);
-saturnGroup.add(innerRing);
-
-// Store references for animation
-saturnGroup.userData = {
-    rings: [mainRing, middleRing, innerRing]
-};
+// Create the points system
+const saturnRings = new THREE.Points(ringGeometry, ringMaterial);
+saturnGroup.add(saturnRings);
 
 planetGroups.push({ group: saturnGroup, z: SATURN_ORBIT * universalScaleFactor });
 
@@ -874,29 +813,3 @@ loadModelFromRegistry(
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Function to animate celestial bodies with specific rotations
-export function updateCelestialAnimations(deltaTime) {
-    // Rotate Saturn rings at different speeds to create a dynamic effect
-    if (saturnGroup && saturnGroup.userData && saturnGroup.userData.rings) {
-        // Get the rings array
-        const rings = saturnGroup.userData.rings;
-        
-        // Rotate each ring slightly to simulate orbital motion of particles
-        // Outer rings move slower than inner rings (Keplerian motion)
-        if (rings[0]) rings[0].rotation.z += deltaTime * 0.01; // Main ring - slowest
-        if (rings[1]) rings[1].rotation.z += deltaTime * 0.015; // Middle ring
-        if (rings[2]) rings[2].rotation.z += deltaTime * 0.02; // Inner ring - fastest
-        
-        // Also apply slight wobble to the rings
-        rings.forEach(ring => {
-            if (ring) {
-                // Add a very subtle tilt wobble
-                ring.rotation.x = Math.PI / 2 + Math.sin(Date.now() * 0.0001) * 0.005;
-            }
-        });
-    }
-    
-    // Rotate planets
-    // ... existing planet rotation code ...
-}
