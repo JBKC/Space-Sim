@@ -301,6 +301,74 @@ function update(timestamp) {
     headHeight = renderer.xr.getCamera()?.position.y;
 
     if (!cockpit) {
+
+        // ADD CODE HERE
+        // Create a loading popup if it doesn't exist yet
+        if (!window.cockpitLoadingPopup) {
+            // Create a loading message popup
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 256;
+            const context = canvas.getContext('2d');
+            
+            // Clear canvas with semi-transparent dark background (matching the style of other popups)
+            context.fillStyle = 'rgba(0, 0, 0, 0.9)';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Add border
+            context.strokeStyle = 'rgba(79, 195, 247, 0.5)';
+            context.lineWidth = 4;
+            context.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+            
+            // Add outer glow effect
+            const glowSize = 20;
+            const glowColor = 'rgba(79, 195, 247, 0.3)';
+            context.shadowBlur = glowSize;
+            context.shadowColor = glowColor;
+            context.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+            context.shadowBlur = 0;
+            
+            // Style for text
+            const font = "'Orbitron', Arial, sans-serif";
+            
+            // Title
+            context.font = `bold 48px ${font}`;
+            context.fillStyle = '#4fc3f7';
+            context.textAlign = 'center';
+            context.fillText('COCKPIT LOADING', canvas.width / 2, 80);
+            
+            // Instructions text
+            context.font = `36px ${font}`;
+            context.fillStyle = '#b3e5fc';
+            context.fillText('Press X (Meta Quest) for controls', canvas.width / 2, 160);
+            
+            // Create texture from canvas
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            
+            // Create material using the canvas texture
+            const material = new THREE.MeshBasicMaterial({
+                map: texture,
+                transparent: true,
+                side: THREE.DoubleSide
+            });
+            
+            // Create plane for popup
+            const geometry = new THREE.PlaneGeometry(0.8, 0.2);
+            const loadingPopup = new THREE.Mesh(geometry, material);
+            loadingPopup.renderOrder = 1001; // Render in front
+            
+            // Position it in front of the user
+            if (cameraRig) {
+                cameraRig.add(loadingPopup);
+                loadingPopup.position.set(0, 0, -0.5);
+                loadingPopup.rotation.set(0, 0, 0);
+            }
+            
+            // Store reference
+            window.cockpitLoadingPopup = loadingPopup;
+        }
+
         if (!headHeightCalibration && headHeight != 0) {
             setDebugInfo('headHeight in update loop', headHeight.toFixed(3));
             loadCockpitModel(headHeight);
@@ -333,6 +401,26 @@ function update(timestamp) {
             }
             
             headHeightCalibration = true;
+            
+            // Remove cockpit loading popup if it exists
+            if (window.cockpitLoadingPopup) {
+                if (window.cockpitLoadingPopup.parent) {
+                    window.cockpitLoadingPopup.parent.remove(window.cockpitLoadingPopup);
+                }
+                
+                // Clean up resources
+                if (window.cockpitLoadingPopup.material) {
+                    if (window.cockpitLoadingPopup.material.map) {
+                        window.cockpitLoadingPopup.material.map.dispose();
+                    }
+                    window.cockpitLoadingPopup.material.dispose();
+                }
+                if (window.cockpitLoadingPopup.geometry) {
+                    window.cockpitLoadingPopup.geometry.dispose();
+                }
+                
+                window.cockpitLoadingPopup = null;
+            }
         }
     }
 
@@ -514,6 +602,23 @@ export function dispose() {
         }
         if (debugTextMesh.geometry) debugTextMesh.geometry.dispose();
         if (debugTextMesh.parent) debugTextMesh.parent.remove(debugTextMesh);
+    }
+    
+    // Clean up cockpit loading popup if it exists
+    if (window.cockpitLoadingPopup) {
+        if (window.cockpitLoadingPopup.parent) {
+            window.cockpitLoadingPopup.parent.remove(window.cockpitLoadingPopup);
+        }
+        if (window.cockpitLoadingPopup.material) {
+            if (window.cockpitLoadingPopup.material.map) {
+                window.cockpitLoadingPopup.material.map.dispose();
+            }
+            window.cockpitLoadingPopup.material.dispose();
+        }
+        if (window.cockpitLoadingPopup.geometry) {
+            window.cockpitLoadingPopup.geometry.dispose();
+        }
+        window.cockpitLoadingPopup = null;
     }
     
     // Reset arrays
