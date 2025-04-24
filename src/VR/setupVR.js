@@ -310,14 +310,30 @@ function update(timestamp) {
             canvas.height = 100; // Reduced height
             const context = canvas.getContext('2d');
             
-            // Clear canvas with translucent white background
+            // Clear canvas with translucent white background with rounded corners
             context.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            context.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Add subtle border
-            context.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-            context.lineWidth = 2;
-            context.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
+            // Create rounded rectangle
+            const radius = 10;
+            const width = canvas.width - 10;
+            const height = canvas.height - 10;
+            const x = 5;
+            const y = 5;
+            
+            context.beginPath();
+            context.moveTo(x + radius, y);
+            context.lineTo(x + width - radius, y);
+            context.quadraticCurveTo(x + width, y, x + width, y + radius);
+            context.lineTo(x + width, y + height - radius);
+            context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            context.lineTo(x + radius, y + height);
+            context.quadraticCurveTo(x, y + height, x, y + height - radius);
+            context.lineTo(x, y + radius);
+            context.quadraticCurveTo(x, y, x + radius, y);
+            context.closePath();
+            context.fill();
+            
+            // No border - removed
             
             // Style for text
             const font = "'Orbitron', Arial, sans-serif";
