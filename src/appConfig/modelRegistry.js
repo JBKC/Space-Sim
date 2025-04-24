@@ -13,8 +13,9 @@ import starDestroyerIIModel from '@models/imperial_star_destroyer_highres.glb';
 import lucrehulkModel from '@models/lucrehulk.glb';
 import deathStarModel from '@models/death_star_highres.glb';
 
-// Environment
+// Environment / Other
 import asteroidPackModel from '@models/asteroids_highres.glb';
+import hologramModel from '@models/earth_hologram.glb';
 
 // Group into categories
 export const models = {
@@ -29,7 +30,8 @@ export const models = {
     deathStar: deathStarModel
   },
   environment: {
-    asteroidPack: asteroidPackModel
+    asteroidPack: asteroidPackModel,
+    hologram: hologramModel
   }
 };
 
