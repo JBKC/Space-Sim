@@ -307,7 +307,7 @@ function update(timestamp) {
             // Create a loading message popup
             const canvas = document.createElement('canvas');
             canvas.width = 600; // Reduced width
-            canvas.height = 100; // Reduced height
+            canvas.height = 150; // Increased height for two lines
             const context = canvas.getContext('2d');
             
             // Clear canvas with translucent white background with rounded corners
@@ -343,7 +343,12 @@ function update(timestamp) {
             context.fillStyle = '#ffffff'; // White text
             context.textAlign = 'center';
             context.textBaseline = 'middle';
-            context.fillText('Press X (Meta Quest) for controls', canvas.width / 2, canvas.height / 2);
+            
+            // First line - Go to this page in browser
+            context.fillText('Go to this page in browser on VR headset', canvas.width / 2, canvas.height / 2 - 15);
+            
+            // Second line - Press X for controls
+            context.fillText('Press X (Meta Quest) for controls', canvas.width / 2, canvas.height / 2 + 15);
             
             // Create texture from canvas
             const texture = new THREE.CanvasTexture(canvas);
@@ -357,7 +362,7 @@ function update(timestamp) {
             });
             
             // Create plane for popup with smaller size
-            const geometry = new THREE.PlaneGeometry(0.4, 0.067); // Reduced size with same aspect ratio
+            const geometry = new THREE.PlaneGeometry(0.4, 0.1); // Adjusted height for aspect ratio
             const loadingPopup = new THREE.Mesh(geometry, material);
             loadingPopup.renderOrder = 1001; // Render in front
             
