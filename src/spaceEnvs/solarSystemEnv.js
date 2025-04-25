@@ -502,7 +502,7 @@ ringGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
 // Create material for ring particles
 const ringMaterial = new THREE.PointsMaterial({
-    size: 30 * universalScaleFactor, // 2x smaller (was 60)
+    size: 30, 
     sizeAttenuation: true,
     transparent: true,
     opacity: 0.2,
@@ -515,6 +515,22 @@ const ringMaterial = new THREE.PointsMaterial({
 
 // Create the points system
 const saturnRings = new THREE.Points(ringGeometry, ringMaterial);
+// Add a function to update opacity/size based on distance
+saturnRings.userData.updateDistanceEffects = function(cameraPosition) {
+    const distanceToRings = saturnGroup.position.distanceTo(cameraPosition);
+    // Scale opacity based on distance - reduce opacity when far away
+    const baseOpacity = 0.2;
+    const distanceThreshold = 15000 * universalScaleFactor;
+    
+    if (distanceToRings > distanceThreshold) {
+        // Reduce opacity as distance increases beyond threshold
+        const distanceFactor = Math.min(1, distanceThreshold / distanceToRings);
+        ringMaterial.opacity = baseOpacity * distanceFactor;
+    } else {
+        // Use base opacity for close viewing
+        ringMaterial.opacity = baseOpacity;
+    }
+};
 saturnGroup.add(saturnRings);
 
 planetGroups.push({ group: saturnGroup, z: SATURN_ORBIT * universalScaleFactor });
@@ -575,7 +591,7 @@ uranusRingGeometry.setAttribute('position', new THREE.BufferAttribute(uranusRing
 
 // Create material for Uranus ring particles - bluish tint to match planet
 const uranusRingMaterial = new THREE.PointsMaterial({
-    size: 20 * universalScaleFactor, // Smaller particles than Saturn
+    size: 20, // Smaller particles than Saturn
     sizeAttenuation: true,
     transparent: true,
     opacity: 0.15, // More transparent than Saturn's rings
@@ -589,6 +605,22 @@ const uranusRingMaterial = new THREE.PointsMaterial({
 const uranusRings = new THREE.Points(uranusRingGeometry, uranusRingMaterial);
 uranusRings.rotation.x = Math.PI / 2; // Start with rings in XZ plane
 uranusRings.rotation.z = (97.8 / 180) * Math.PI; // Then rotate to match Uranus' extreme axial tilt
+// Add distance-based opacity adjustment
+uranusRings.userData.updateDistanceEffects = function(cameraPosition) {
+    const distanceToRings = uranusGroup.position.distanceTo(cameraPosition);
+    // Scale opacity based on distance - reduce opacity when far away
+    const baseOpacity = 0.2;
+    const distanceThreshold = 15000 * universalScaleFactor;
+    
+    if (distanceToRings > distanceThreshold) {
+        // Reduce opacity as distance increases beyond threshold
+        const distanceFactor = Math.min(1, distanceThreshold / distanceToRings);
+        uranusRingMaterial.opacity = baseOpacity * distanceFactor;
+    } else {
+        // Use base opacity for close viewing
+        uranusRingMaterial.opacity = baseOpacity;
+    }
+};
 uranusGroup.add(uranusRings);
 
 planetGroups.push({ group: uranusGroup, z: URANUS_ORBIT * universalScaleFactor });

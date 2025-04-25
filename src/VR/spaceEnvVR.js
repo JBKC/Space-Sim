@@ -413,7 +413,7 @@ export {
 // Star configuration constants
 const STAR_COUNT = 1000000;
 const STAR_SIZE = 25;
-const STAR_SPHERE_RADIUS = 40000; // Visibility radius around camera
+const STAR_SPHERE_RADIUS = 70000; // Visibility radius around camera
 
 export function createStars() {
     // Create a universe-sized volume of stars

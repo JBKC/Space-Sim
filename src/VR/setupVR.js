@@ -493,49 +493,6 @@ function update(timestamp) {
         updateStars(starSystem, positionForStars);
     }
     
-    // Update ring opacity based on camera distance to prevent being too bright from a distance
-    if (saturnGroup && cameraRig) {
-        // Find Saturn rings in saturnGroup
-        saturnGroup.traverse(child => {
-            if (child instanceof THREE.Points && child.material) {
-                // Calculate distance from camera to Saturn
-                const distanceToSaturn = saturnGroup.position.distanceTo(cameraRig.position);
-                
-                // Define distance thresholds (adjust as needed)
-                const maxVisibleDistance = 100000 * universalScaleFactor;
-                const normalOpacity = 0.2; // Base opacity when close
-                
-                // Reduce opacity as distance increases
-                if (distanceToSaturn > maxVisibleDistance * 0.2) {
-                    // Linear fade from normal opacity to very transparent based on distance
-                    const fadeRatio = Math.max(0, 1 - (distanceToSaturn - maxVisibleDistance * 0.2) / (maxVisibleDistance * 0.8));
-                    child.material.opacity = normalOpacity * fadeRatio;
-                } else {
-                    // Reset to normal opacity when close
-                    child.material.opacity = normalOpacity;
-                }
-            }
-        });
-    }
-    
-    // Same for Uranus rings
-    if (uranusGroup && cameraRig) {
-        uranusGroup.traverse(child => {
-            if (child instanceof THREE.Points && child.material) {
-                const distanceToUranus = uranusGroup.position.distanceTo(cameraRig.position);
-                const maxVisibleDistance = 100000 * universalScaleFactor;
-                const normalOpacity = 0.15; // Base opacity when close
-                
-                if (distanceToUranus > maxVisibleDistance * 0.2) {
-                    const fadeRatio = Math.max(0, 1 - (distanceToUranus - maxVisibleDistance * 0.2) / (maxVisibleDistance * 0.8));
-                    child.material.opacity = normalOpacity * fadeRatio;
-                } else {
-                    child.material.opacity = normalOpacity;
-                }
-            }
-        });
-    }
-    
     // Update galaxy backdrop to slowly rotate
     if (galaxyBackdrop) {
         galaxyBackdrop.rotation.z += 0.0001;
