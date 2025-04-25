@@ -180,14 +180,14 @@ let wingsOpen = true;
 let wingAnimation = 0;
 const wingTransitionFrames = 30;
 export { spacecraft, topRightWing, bottomRightWing, topLeftWing, bottomLeftWing, wingsOpen, wingAnimation, updateEngineEffects };
+scene.background = new THREE.Color(0x000000);
 
 // Lighting
-const directionalLight = new THREE.DirectionalLight(0xffffff, 10);
-directionalLight.position.set(-1, -1, -1,);
-scene.add(directionalLight);
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+const sunLight = new THREE.PointLight(0xffffff, SKYBOX_SIZE * 40000, SKYBOX_SIZE * 2);
+sunLight.position.set(0, 0, 0);
+scene.add(sunLight);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
 scene.add(ambientLight);
-scene.background = new THREE.Color(0x000000);
 
 
 
@@ -841,7 +841,7 @@ export function updateStreaks(deltaTimeInSeconds) {
 
 ///////////////////// Solar System Setup /////////////////////
 
-import { skybox } from './solarSystemEnv.js';
+import { skybox, SKYBOX_SIZE } from './solarSystemEnv.js';
 import { stars, starCount, starRange } from './solarSystemEnv.js';
 import { sunGroup, blazingMaterial, blazingEffect } from './solarSystemEnv.js';
 import { planetGroups, updateMoonPosition } from './solarSystemEnv.js';
