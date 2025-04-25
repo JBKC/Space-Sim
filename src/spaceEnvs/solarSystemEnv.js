@@ -18,7 +18,7 @@ import {
 /////////////////////////////////////////////////////////////////////////
 
 // Global scales
-const SKYBOX_SIZE = 250000;
+export const SKYBOX_SIZE = 250000;
 const STAR_SIZE = 25;
 const STAR_RANGE = 500000;
 const STAR_COUNT = 1000000;
@@ -540,7 +540,59 @@ const uranusCollisionGeometry = new THREE.SphereGeometry(uranusRadius * 1.5, 16,
 export const uranusCollisionSphere = new THREE.Mesh(uranusCollisionGeometry, collisionMaterialInvisible);
 uranusGroup.add(uranusCollisionSphere);
 
+// Add thin rings to Uranus using particles similar to Saturn's rings
+// Using the same outer diameter as Saturn's rings but much thinner
+const uranusRingOuterRadius = SATURN_RING_OUTER * 0.9;
+const uranusRingInnerRadius = uranusRingOuterRadius * 0.88; // Thin band of rings
+
+// Create buffer geometry for Uranus rings
+const uranusRingCount = 40000;
+const uranusRingPositions = new Float32Array(uranusRingCount * 3);
+
+// Fill the buffer with particle positions distributed in a thin ring
+for (let i = 0; i < uranusRingCount; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    
+    // Random radius within the ring's bounds
+    const radius = THREE.MathUtils.randFloat(uranusRingInnerRadius, uranusRingOuterRadius);
+    
+    // Very thin Y spread for Uranus rings
+    const y = THREE.MathUtils.randFloatSpread(50 * universalScaleFactor);
+    
+    // Calculate x and z positions based on radius and angle
+    const x = radius * Math.cos(theta);
+    const z = radius * Math.sin(theta);
+
+    // Set the position values in the array
+    uranusRingPositions[i * 3] = x;
+    uranusRingPositions[i * 3 + 1] = y;
+    uranusRingPositions[i * 3 + 2] = z;
+}
+
+// Create geometry and set position attribute
+const uranusRingGeometry = new THREE.BufferGeometry();
+uranusRingGeometry.setAttribute('position', new THREE.BufferAttribute(uranusRingPositions, 3));
+
+// Create material for Uranus ring particles - bluish tint to match planet
+const uranusRingMaterial = new THREE.PointsMaterial({
+    size: 20 * universalScaleFactor, // Smaller particles than Saturn
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0.15, // More transparent than Saturn's rings
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    alphaTest: 0.01,
+    color: 0xc4f3ff // Light blue tint matching Uranus
+});
+
+// Create the points system and rotate to match Uranus' axial tilt (97.8 degrees)
+const uranusRings = new THREE.Points(uranusRingGeometry, uranusRingMaterial);
+uranusRings.rotation.x = Math.PI / 2; // Start with rings in XZ plane
+uranusRings.rotation.z = (97.8 / 180) * Math.PI; // Then rotate to match Uranus' extreme axial tilt
+uranusGroup.add(uranusRings);
+
 planetGroups.push({ group: uranusGroup, z: URANUS_ORBIT * universalScaleFactor });
+
 
 // --- Neptune Setup ---
 export const neptuneGroup = new THREE.Group();
