@@ -20,9 +20,6 @@ let isControlsPopupVisible = false; // Track controls popup visibility
 let controlsPopupMesh = null; // Reference to the controls popup mesh
 let lastXButtonState = false; // Track X button state for toggle
 
-// Export isHyperspaceActive for use in other modules
-export { isHyperspaceActive };
-
 let gamepadIndices = {
     button: {
         thumbstick: 3, // Thumbstick button
@@ -343,19 +340,9 @@ function updateHyperspaceState() {
             if (window.startHyperspace && typeof window.startHyperspace === 'function') {
                 window.startHyperspace();
             }
-            
-            // Call local VR hyperspace trigger if available
-            if (window.startVRHyperspace && typeof window.startVRHyperspace === 'function') {
-                window.startVRHyperspace();
-            }
         } else if (!isGripPressed && isHyperspaceActive) {
             console.log("Hyperspace deactivated");
             isHyperspaceActive = false;
-            
-            // Trigger hyperspace deactivation if available
-            if (window.stopVRHyperspace && typeof window.stopVRHyperspace === 'function') {
-                window.stopVRHyperspace();
-            }
         }
     }
 }

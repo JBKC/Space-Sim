@@ -12,7 +12,7 @@ import {
     textureLoadingManager,
     universalScaleFactor 
 } from '../appConfig/loaders.js';
-import { initVRControllers, updateVRMovement, getControllerDebugInfo, setupCameraRig, showControlsPopup, initControlsPopup, isHyperspaceActive } from './controlsVR.js';
+import { initVRControllers, updateVRMovement, getControllerDebugInfo, setupCameraRig, showControlsPopup, initControlsPopup } from './controlsVR.js';
 import {
     spaceGradientSphere,
     nebula,
@@ -23,9 +23,7 @@ import {
     galaxyBackdrop,
     createStars,
     updateStars,
-    SPACE_RADIUS,
-    createHyperspaceStreaks,
-    updateHyperspaceStreaks
+    SPACE_RADIUS
 } from './spaceEnvVR.js';
 
 
@@ -51,10 +49,6 @@ let starSystem;
 let initialized = false;
 let lastFrameTime = 0;
 const COCKPIT_SCALE = 1; // Scale factor for the cockpit model
-
-// Hyperspace effect elements
-let hyperspaceStreaks = null;
-let hyperspaceInitialized = false;
 
 // Create scene
 scene = new THREE.Scene();
@@ -149,24 +143,6 @@ export function init() {
     starSystem = createStars();
     scene.add(starSystem.stars);
     console.log("Added dynamic star system to VR environment");
-
-    // Initialize hyperspace streaks (but don't display yet)
-    hyperspaceStreaks = createHyperspaceStreaks(scene, camera);
-    console.log("Initialized hyperspace streaks for VR");
-    hyperspaceInitialized = true;
-    
-    // Add global hyperspace functions for VR
-    window.startVRHyperspace = function() {
-        console.log("VR Hyperspace effect activated");
-        if (!hyperspaceInitialized) {
-            hyperspaceStreaks = createHyperspaceStreaks(scene, camera);
-            hyperspaceInitialized = true;
-        }
-    };
-    
-    window.stopVRHyperspace = function() {
-        console.log("VR Hyperspace effect deactivated");
-    };
 
     // Add all celestial bodies to scene
     initSolarSystem();
@@ -499,11 +475,6 @@ function update(timestamp) {
         updateVRMovement(camera, deltaTime);
     }
     
-    // Update hyperspace streaks if initialized
-    if (hyperspaceInitialized) {
-        updateHyperspaceStreaks(deltaTime, camera, isHyperspaceActive);
-    }
-    
     // Update stars brightness based on camera position
     if (starSystem && starSystem.stars) {
         // Use cameraRig position for star updates to ensure proper movement tracking
@@ -547,10 +518,6 @@ export function dispose() {
     
     // Remove window resize listener
     window.removeEventListener('resize', onWindowResize);
-    
-    // Clean up global functions
-    window.startVRHyperspace = null;
-    window.stopVRHyperspace = null;
     
     // Remove renderer from DOM
     if (renderer.domElement.parentNode) {
@@ -662,19 +629,6 @@ export function dispose() {
         window.cockpitLoadingPopup = null;
     }
     
-    // Clean up hyperspace streaks
-    if (hyperspaceStreaks && hyperspaceStreaks.length > 0) {
-        hyperspaceStreaks.forEach(streak => {
-            if (streak.line) {
-                if (streak.line.geometry) streak.line.geometry.dispose();
-                if (streak.line.material) streak.line.material.dispose();
-                scene.remove(streak.line);
-            }
-        });
-        hyperspaceStreaks = [];
-        hyperspaceInitialized = false;
-    }
-    
     // Reset arrays
     nebulaeClouds = [];
     spaceDustParticles = [];
@@ -740,11 +694,6 @@ function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    
-    // If hyperspace is active, adjust streak positions
-    if (hyperspaceInitialized && isHyperspaceActive) {
-        createHyperspaceStreaks(scene, camera);
-    }
 }
 
 /**
