@@ -28,6 +28,10 @@ export default defineConfig({
     sourcemap: true,
     assetsInlineLimit: 0,
     rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        games: resolve(__dirname, 'games/index.html'),
+      },
       external: [
         /^src\/assets\/.*/,
       ],

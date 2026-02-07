@@ -4,6 +4,79 @@ body {
     font-family: 'Orbitron', sans-serif;
 }
 
+/* ---------------------------
+   Shared site navigation
+---------------------------- */
+
+.top-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 0 16px;
+    z-index: 20000;
+    background: rgba(0, 0, 0, 0.75);
+    border-bottom: 1px solid rgba(79, 195, 247, 0.25);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.top-nav a {
+    color: #b3e5fc;
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-size: 14px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.top-nav a:hover {
+    background: rgba(79, 195, 247, 0.08);
+    border-color: rgba(79, 195, 247, 0.25);
+    color: #4fc3f7;
+}
+
+.top-nav a.active {
+    background: rgba(79, 195, 247, 0.12);
+    border-color: rgba(79, 195, 247, 0.45);
+    color: #4fc3f7;
+}
+
+/* ---------------------------
+   Home page scaffold
+---------------------------- */
+
+body.home {
+    overflow: auto;
+    background: #000000;
+    color: #b3e5fc;
+}
+
+.home-page {
+    min-height: 100vh;
+    padding-top: 56px; /* keep content below the top nav */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.home-page h1 {
+    margin: 0;
+    font-size: 64px;
+    letter-spacing: 8px;
+    text-transform: uppercase;
+    color: #4fc3f7;
+    text-shadow: 0 0 20px rgba(79, 195, 247, 0.5);
+}
+
 canvas {
     display: block;
     position: absolute;

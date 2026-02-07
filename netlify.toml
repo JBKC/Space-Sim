@@ -5,7 +5,20 @@
 [build.environment]
   NODE_VERSION = "18" # Or whatever Node version you're using
 
-# Redirects for the SPA
+# Redirects:
+# - Allow the multi-page build to serve /games/* as real files
+# - Keep SPA-style fallback for everything else (safe if you later add in-app routes)
+[[redirects]]
+  from = "/games"
+  to = "/games/"
+  status = 301
+
+[[redirects]]
+  from = "/games/*"
+  to = "/games/:splat"
+  status = 200
+
+# Fallback for the SPA
 [[redirects]]
   from = "/*"
   to = "/index.html"
