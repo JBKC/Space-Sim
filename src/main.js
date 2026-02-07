@@ -164,6 +164,13 @@ document.addEventListener('DOMContentLoaded', () => {
 async function startGame(mode = 'normal') {
     console.log(`Starting game in ${mode} mode`);
 
+    // Hide the top navigation once the user enters the actual game/VR mode.
+    // This nav is only meant for the landing pages (Home + Games welcome screen).
+    const topNav = document.querySelector('.top-nav');
+    if (topNav) {
+        topNav.style.display = 'none';
+    }
+
     // hide welcome screen 
     const welcomeScreen = document.getElementById('welcome-screen');
     if (welcomeScreen) {

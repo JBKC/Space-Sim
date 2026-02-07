@@ -3,7 +3,7 @@
 /**
  * Environment switching script
  * This script makes it easy to switch between development and production environments
- * Usage: node switch-env.js [dev|prod]
+ * Usage: node scripts/switch-env.js [dev|prod]
  */
 
 import fs from 'fs';
@@ -17,7 +17,7 @@ const targetEnv = process.argv[2]?.toLowerCase();
 
 if (!targetEnv || (targetEnv !== 'dev' && targetEnv !== 'prod')) {
   console.error('Please specify an environment: "dev" or "prod"');
-  console.log('Usage: node switch-env.js [dev|prod]');
+  console.log('Usage: node scripts/switch-env.js [dev|prod]');
   process.exit(1);
 }
 

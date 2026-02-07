@@ -3,8 +3,9 @@
 # Define paths
 BLENDER_APP="/Applications/Blender.app/Contents/MacOS/Blender"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-PYTHON_SCRIPT="$SCRIPT_DIR/blender_export_fixed.py"
-BLEND_FILE="$SCRIPT_DIR/blender_templates/mars_procedural_1.blend"
+TERRAIN_ENV_DIR="$SCRIPT_DIR/../terrain/terrain_generation/terrain_env"
+PYTHON_SCRIPT="$TERRAIN_ENV_DIR/export_glb.py"
+BLEND_FILE="$TERRAIN_ENV_DIR/blender_templates/mars_procedural_1.blend"
 
 # Check if Blender exists
 if [ ! -f "$BLENDER_APP" ]; then

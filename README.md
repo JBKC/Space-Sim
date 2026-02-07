@@ -72,10 +72,10 @@ A helper script is included to easily switch between environments:
 
 ```bash
 # Switch to development environment
-node switch-env.js dev
+node scripts/switch-env.js dev
 
 # Switch to production environment
-node switch-env.js prod
+node scripts/switch-env.js prod
 ```
 
 This script will build the appropriate version and set up environment indicators.
@@ -84,6 +84,9 @@ This script will build the appropriate version and set up environment indicators
 
 ```
 planetary/
+├── docs/                 # Project documentation
+├── scripts/              # Helper scripts (build/dev utilities)
+├── tools/                # Non-runtime tooling (legacy, generators, pipelines)
 ├── public/               # Static assets that don't need processing
 ├── src/                  # Source code
 │   ├── assets/           # Assets that need processing

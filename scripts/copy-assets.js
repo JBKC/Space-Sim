@@ -16,8 +16,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Paths
-const SOURCE_DIR = path.resolve(__dirname, 'src/assets');
-const TARGET_DIR = path.resolve(__dirname, 'public/assets');
+// This script lives in ./scripts but needs to operate relative to the repo root.
+const REPO_ROOT = path.resolve(__dirname, '..');
+const SOURCE_DIR = path.resolve(REPO_ROOT, 'src/assets');
+const TARGET_DIR = path.resolve(REPO_ROOT, 'public/assets');
 
 // Ensure target directory exists
 if (!fs.existsSync(TARGET_DIR)) {
@@ -57,8 +59,8 @@ function copyDirectory(source, target) {
 }
 
 // Copy styles.css file to the dist directory
-const stylesSourcePath = path.resolve(__dirname, 'styles.css');
-const stylesTargetPath = path.resolve(__dirname, 'public/styles.css');
+const stylesSourcePath = path.resolve(REPO_ROOT, 'styles.css');
+const stylesTargetPath = path.resolve(REPO_ROOT, 'public/styles.css');
 
 if (fs.existsSync(stylesSourcePath)) {
   fs.copyFileSync(stylesSourcePath, stylesTargetPath);
