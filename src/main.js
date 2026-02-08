@@ -135,8 +135,7 @@ window.updateVRStatus = updateVRStatus;
 
 /////////////// INITLIZATION OF HIGH-LEVEL GAME ELEMENTS ///////////////
 
-// Initialize main menu screen
-document.addEventListener('DOMContentLoaded', () => {
+function initMainMenuScreen() {
     const exploreButton = document.querySelector('#explore-button');
     const exploreVRButton = document.querySelector('#explore-vr-button');
     
@@ -160,7 +159,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Create a debug panel for WebXR in Quest browser
     createXRDebugPanel();
-});
+}
+
+// Initialize main menu screen (works even if script loads after DOMContentLoaded)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMainMenuScreen);
+} else {
+    initMainMenuScreen();
+}
 
 
 ///// FUNCITON THAT LOADS UP GAME DEPENDING WHICH BUTTON IS PRESSED /////

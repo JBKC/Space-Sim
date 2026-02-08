@@ -7,10 +7,39 @@
     <link rel="icon" type="image/x-icon" href="/src/assets/favicon.png">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/styles.css">
-    <!-- Keep this line for Vite to process the JS -->
-    <script type="module" src="/src/main.js"></script>
+    <!-- Mobile guard: do NOT load the game JS on mobile (prevents background asset downloads & crashes) -->
+    <script type="module">
+        const isMobile = window.matchMedia?.('(pointer:coarse)')?.matches || window.innerWidth <= 820;
+
+        if (isMobile) {
+            window.__PLANETARY_MOBILE_BLOCKED__ = true;
+            // Defer DOM touching until body exists
+            window.addEventListener('DOMContentLoaded', () => {
+                document.body.classList.add('mobile-blocked');
+
+                const blocker = document.getElementById('mobile-blocker');
+                if (blocker) blocker.style.display = 'flex';
+
+                // Disable buttons so users can't start downloads/crash the page
+                for (const id of ['explore-button', 'explore-vr-button']) {
+                    const btn = document.getElementById(id);
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.setAttribute('aria-disabled', 'true');
+                        btn.style.opacity = '0.45';
+                        btn.style.cursor = 'not-allowed';
+                    }
+                }
+            });
+        } else {
+            const script = document.createElement('script');
+            script.type = 'module';
+            script.src = '/src/main.js';
+            document.head.appendChild(script);
+        }
+    </script>
     <style>
-        body { margin: 0; overflow: hidden; }
+        html, body { margin: 0; overflow: hidden; background: #000; }
         #space-container { width: 100vw; height: 100vh; }
         #welcome-screen {
             position: absolute;
@@ -337,6 +366,9 @@
             #welcome-screen {
                 align-items: flex-start;
                 padding-top: 80px; /* room for fixed nav */
+                padding-bottom: 80px; /* extra space so content isn't clipped */
+                box-sizing: border-box;
+                height: 100dvh;
                 overflow: auto;
                 -webkit-overflow-scrolling: touch;
             }
@@ -396,6 +428,45 @@
                 letter-spacing: 1.5px;
             }
         }
+
+        /* Mobile blocker overlay */
+        #mobile-blocker {
+            position: fixed;
+            inset: 0;
+            z-index: 25000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.92);
+            border-top: 1px solid rgba(79, 195, 247, 0.15);
+            color: #b3e5fc;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        #mobile-blocker .panel {
+            width: min(92vw, 560px);
+            border: 1px solid rgba(79, 195, 247, 0.35);
+            border-radius: 12px;
+            padding: 18px 16px;
+            background: rgba(0, 0, 0, 0.35);
+            box-shadow: 0 0 30px rgba(79, 195, 247, 0.14);
+        }
+
+        #mobile-blocker .title {
+            font-size: 16px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #4fc3f7;
+            margin-bottom: 10px;
+        }
+
+        #mobile-blocker .body {
+            font-size: 14px;
+            line-height: 1.6;
+            letter-spacing: 0.5px;
+        }
     </style>
 </head>
 <body class="games">
@@ -403,6 +474,16 @@
         <a href="/">Home</a>
         <a class="active" href="/games/">Games</a>
     </nav>
+
+    <div id="mobile-blocker" role="dialog" aria-modal="true" aria-label="Mobile not supported">
+        <div class="panel">
+            <div class="title">Not optimised for mobile</div>
+            <div class="body">
+                This experience is currently desktop-only. Mobile browsers may crash due to large asset downloads.
+                Please open on a desktop/laptop.
+            </div>
+        </div>
+    </div>
 
     <div id="space-container"></div>
     <div id="earth-transition"></div>
