@@ -331,6 +331,71 @@
             right: 25%;
             transform: translateY(-50%);
         }
+
+        /* Mobile fixes for the welcome screen (this file's inline styles override styles.css) */
+        @media (max-width: 720px) {
+            #welcome-screen {
+                align-items: flex-start;
+                padding-top: 80px; /* room for fixed nav */
+                overflow: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .welcome-content {
+                width: min(92vw, 560px);
+                padding: 0 16px 40px;
+            }
+
+            .welcome-content h1 {
+                font-size: 34px;
+                letter-spacing: 3px;
+                margin-bottom: 18px;
+            }
+
+            .instructions {
+                margin: 24px 0;
+            }
+
+            .instructions h2 {
+                font-size: 18px;
+                letter-spacing: 2px;
+                margin: 14px 0 10px;
+            }
+
+            .instructions p {
+                font-size: 14px;
+            }
+
+            .control-columns {
+                flex-direction: column;
+                max-width: 520px;
+                gap: 12px;
+            }
+
+            .control-column {
+                padding: 10px 12px;
+            }
+
+            .control-column h3 {
+                font-size: 16px;
+                letter-spacing: 1.5px;
+                margin: 10px 0;
+            }
+
+            .mode-buttons {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+                margin-top: 22px;
+            }
+
+            .mode-button {
+                width: 100%;
+                padding: 14px 16px;
+                font-size: 16px;
+                letter-spacing: 1.5px;
+            }
+        }
     </style>
 </head>
 <body class="games">

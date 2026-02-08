@@ -81,10 +81,24 @@ body.home {
     padding: 64px 20px 80px;
 }
 
-.home-hero h1 {
-    font-size: 44px;
-    letter-spacing: 4px;
-    line-height: 1.1;
+.home-hero {
+    text-align: center;
+}
+
+.home-title {
+    font-size: 54px;
+    letter-spacing: 6px;
+    line-height: 1.05;
+}
+
+.home-tagline {
+    margin: 10px 0 0;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 18px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: rgba(179, 229, 252, 0.92);
+    text-shadow: 0 0 14px rgba(79, 195, 247, 0.25);
 }
 
 .home-video {
@@ -285,9 +299,21 @@ canvas {
     }
 
     .home-hero h1 {
+        /* Back-compat (in case of cached markup) */
         font-size: 28px;
         letter-spacing: 1.2px;
         line-height: 1.2;
+    }
+
+    .home-title {
+        font-size: 34px;
+        letter-spacing: 2px;
+        line-height: 1.15;
+    }
+
+    .home-tagline {
+        font-size: 14px;
+        letter-spacing: 2px;
     }
 
     .home-body p,
