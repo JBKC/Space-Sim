@@ -122,6 +122,23 @@ body.home {
     background: #000;
 }
 
+.home-video-copy {
+    margin: 14px 0 18px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    color: rgba(179, 229, 252, 0.85);
+}
+
+.home-video-header {
+    margin: 18px 0 10px;
+    font-size: 18px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #81d4fa;
+    font-family: 'Orbitron', sans-serif;
+}
+
 .home-body {
     font-family: 'Space Grotesk', sans-serif;
 }
