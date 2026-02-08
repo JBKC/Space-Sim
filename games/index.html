@@ -433,7 +433,7 @@
         #mobile-blocker {
             position: fixed;
             inset: 0;
-            z-index: 25000;
+            z-index: 15000; /* keep below .top-nav so nav is clickable on mobile */
             display: none;
             align-items: center;
             justify-content: center;
@@ -479,8 +479,7 @@
         <div class="panel">
             <div class="title">Not optimised for mobile</div>
             <div class="body">
-                This experience is currently desktop-only. Mobile browsers may crash due to large asset downloads.
-                Please open on a desktop/laptop.
+                This experience is currently desktop-only. Please open on a desktop/laptop.
             </div>
         </div>
     </div>

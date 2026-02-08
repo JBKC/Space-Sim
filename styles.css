@@ -154,6 +154,61 @@ body.home {
     text-shadow: 0 0 16px rgba(79, 195, 247, 0.35);
 }
 
+.home-footer {
+    margin-top: 46px;
+    padding-top: 22px;
+    border-top: 1px solid rgba(79, 195, 247, 0.18);
+}
+
+.home-footer-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.home-footer .creator {
+    font-family: 'Orbitron', sans-serif;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-size: 13px;
+    color: rgba(179, 229, 252, 0.9);
+}
+
+.home-footer .creator .name {
+    color: #4fc3f7;
+}
+
+.home-footer .social {
+    display: flex;
+    gap: 10px;
+}
+
+.home-footer .icon {
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    border: 1px solid rgba(79, 195, 247, 0.25);
+    background: rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.home-footer .icon:hover {
+    transform: translateY(-1px);
+    border-color: rgba(79, 195, 247, 0.45);
+    background: rgba(79, 195, 247, 0.08);
+}
+
+.home-footer .icon svg {
+    width: 20px;
+    height: 20px;
+    fill: #b3e5fc;
+}
+
 canvas {
     display: block;
     position: absolute;
@@ -330,6 +385,11 @@ canvas {
     .home-release {
         font-size: 16px;
         letter-spacing: 2px;
+    }
+
+    .home-footer-row {
+        flex-direction: column;
+        align-items: flex-start;
     }
 
     /* Games intro */
