@@ -63,9 +63,7 @@ body.home {
 .home-page {
     min-height: 100vh;
     padding-top: 56px; /* keep content below the top nav */
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: block;
 }
 
 .home-page h1 {
@@ -75,6 +73,66 @@ body.home {
     text-transform: uppercase;
     color: #4fc3f7;
     text-shadow: 0 0 20px rgba(79, 195, 247, 0.5);
+}
+
+.home-content {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 64px 20px 80px;
+}
+
+.home-hero h1 {
+    font-size: 44px;
+    letter-spacing: 4px;
+    line-height: 1.1;
+}
+
+.home-video {
+    margin: 28px 0 30px;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 12px;
+    border: 1px solid rgba(79, 195, 247, 0.35);
+    background:
+        radial-gradient(circle at 30% 20%, rgba(79, 195, 247, 0.18), rgba(0, 0, 0, 0) 55%),
+        rgba(0, 0, 0, 0.35);
+    box-shadow: 0 0 30px rgba(79, 195, 247, 0.12);
+}
+
+.home-body p {
+    margin: 18px 0;
+    font-size: 16px;
+    line-height: 1.8;
+    color: rgba(179, 229, 252, 0.95);
+    letter-spacing: 0.2px;
+}
+
+.home-body h2 {
+    margin: 26px 0 10px;
+    font-size: 18px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #81d4fa;
+}
+
+.home-body ul {
+    margin: 8px 0 0;
+    padding-left: 22px;
+}
+
+.home-body li {
+    margin: 10px 0;
+    line-height: 1.7;
+    color: rgba(179, 229, 252, 0.92);
+}
+
+.home-release {
+    margin-top: 34px;
+    font-size: 18px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #4fc3f7;
+    text-shadow: 0 0 16px rgba(79, 195, 247, 0.35);
 }
 
 canvas {
