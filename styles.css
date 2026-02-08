@@ -99,6 +99,10 @@ body.home {
     box-shadow: 0 0 30px rgba(79, 195, 247, 0.12);
 }
 
+.home-body {
+    font-family: 'Roboto', system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+}
+
 .home-body p {
     margin: 18px 0;
     font-size: 16px;
@@ -113,6 +117,7 @@ body.home {
     letter-spacing: 3px;
     text-transform: uppercase;
     color: #81d4fa;
+    font-family: 'Orbitron', sans-serif;
 }
 
 .home-body ul {
@@ -254,4 +259,113 @@ canvas {
     background: rgba(79, 195, 247, 0.1);
     box-shadow: 0 0 20px rgba(79, 195, 247, 0.3);
     transform: scale(1.05);
+}
+
+/* ---------------------------
+   Mobile responsiveness
+---------------------------- */
+
+@media (max-width: 720px) {
+    .top-nav {
+        height: auto;
+        padding: 10px 12px;
+        gap: 10px;
+        justify-content: space-between;
+    }
+
+    .top-nav a {
+        padding: 8px 10px;
+        font-size: 13px;
+        letter-spacing: 1.2px;
+    }
+
+    /* Home */
+    .home-content {
+        padding: 26px 16px 56px;
+    }
+
+    .home-hero h1 {
+        font-size: 28px;
+        letter-spacing: 1.2px;
+        line-height: 1.2;
+    }
+
+    .home-body p,
+    .home-body li {
+        font-size: 15px;
+        line-height: 1.75;
+    }
+
+    .home-body h2 {
+        font-size: 16px;
+        letter-spacing: 2px;
+    }
+
+    .home-release {
+        font-size: 16px;
+        letter-spacing: 2px;
+    }
+
+    /* Games intro */
+    #welcome-screen {
+        align-items: flex-start;
+        padding-top: 80px; /* leave room for fixed nav */
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .welcome-content {
+        width: min(92vw, 560px);
+        padding: 0 16px 40px;
+    }
+
+    .welcome-content h1 {
+        font-size: 34px;
+        letter-spacing: 3px;
+        margin-bottom: 18px;
+    }
+
+    .instructions {
+        margin: 24px 0;
+    }
+
+    .instructions h2 {
+        font-size: 18px;
+        letter-spacing: 2px;
+        margin: 14px 0 10px;
+    }
+
+    .instructions p {
+        font-size: 14px;
+    }
+
+    .control-columns {
+        flex-direction: column;
+        max-width: 520px;
+        gap: 12px;
+    }
+
+    .control-column {
+        padding: 10px 12px;
+    }
+
+    .control-column h3 {
+        font-size: 16px;
+        letter-spacing: 1.5px;
+        margin: 10px 0;
+    }
+
+    .mode-buttons {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        margin-top: 22px;
+    }
+
+    .mode-button {
+        width: 100%;
+        padding: 14px 16px;
+        font-size: 16px;
+        letter-spacing: 1.5px;
+    }
 }
