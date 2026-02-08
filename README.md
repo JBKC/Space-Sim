@@ -115,8 +115,3 @@ The application uses environment variables to handle differences between develop
 - `VITE_API_URL` - API URL for any backend services
 
 These variables are defined in the `.env.development` and `.env.production` files and accessed through the `config.js` module.
-
-## License
-
-[Add your license information here]
-# Additional note about large files
