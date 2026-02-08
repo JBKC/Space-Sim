@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { loadingManager, textureLoadingManager, resetLoadingStats, configureTextureCompressionSupport } from '../appConfig/loaders.js';
+import { loadingManager, textureLoadingManager, resetLoadingStats } from '../appConfig/loaders.js';
 import config from '../appConfig/config.js';
 
 import { updateSpaceMovement, resetMovementInputs } from '../movement.js';
@@ -65,9 +65,6 @@ renderer.setPixelRatio(window.devicePixelRatio);
 renderer.autoClear = true;
 renderer.sortObjects = false;
 renderer.physicallyCorrectLights = false;
-
-// Enable KTX2Loader support detection (safe even if you don't have .ktx2 textures yet)
-configureTextureCompressionSupport(renderer);
 
 // Camera setup
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 250000);
@@ -275,9 +272,6 @@ export function init() {
 
     // Add spacecraft (and reticle) to scene
     initSpacecraft();
-
-    // Start progressively loading the rest of the solar system (skybox -> planets -> asteroids -> big ships)
-    startSolarSystemStaging();
 
     onWindowResize();
     window.addEventListener('resize', onWindowResize, false);
@@ -847,56 +841,25 @@ export function updateStreaks(deltaTimeInSeconds) {
 
 ///////////////////// Solar System Setup /////////////////////
 
-import {
-    SKYBOX_SIZE,
-    starCount,
-    starRange,
-    skybox,
-    stars,
-    sunGroup,
-    blazingMaterial,
-    blazingEffect,
-    planetGroups,
-    updateMoonPosition,
-    mercuryGroup,
-    mercuryCollisionSphere,
-    venusGroup,
-    venusCollisionSphere,
-    venusCloudMesh,
-    earthGroup,
-    earthCollisionSphere,
-    earthCloudMesh,
-    earthRadius,
-    moonGroup,
-    moonCollisionSphere,
-    moonRadius,
-    moonAngle,
-    moonOrbitRadius,
-    marsGroup,
-    marsCollisionSphere,
-    marsCloudMesh,
-    jupiterGroup,
-    jupiterCollisionSphere,
-    saturnGroup,
-    saturnCollisionSphere,
-    uranusGroup,
-    uranusCollisionSphere,
-    neptuneGroup,
-    neptuneCollisionSphere,
-    starDestroyerGroup,
-    collisionBox1,
-    collisionBox2,
-    lucrehulkGroup,
-    lucrehulkCollisionBox,
-    deathStarGroup,
-    deathStarCollisionSphere,
-    asteroidBeltGroup,
-    asteroidCollisionSphere,
-    initStageSkyboxAndStars,
-    initStageSunAndPlanets,
-    initStageAsteroids,
-    initStageBigShips,
-} from './solarSystemEnvStaged.js';
+import { skybox, SKYBOX_SIZE } from './solarSystemEnv.js';
+import { stars, starCount, starRange } from './solarSystemEnv.js';
+import { sunGroup, blazingMaterial, blazingEffect } from './solarSystemEnv.js';
+import { planetGroups, updateMoonPosition } from './solarSystemEnv.js';
+
+import { mercuryGroup, mercuryCollisionSphere } from './solarSystemEnv.js';
+import { venusGroup, venusCollisionSphere, venusCloudMesh } from './solarSystemEnv.js';
+import { earthGroup, earthCollisionSphere, earthCloudMesh, earthRadius } from './solarSystemEnv.js';
+import { moonGroup, moon, moonCollisionSphere, moonRadius, moonAngle, moonOrbitRadius } from './solarSystemEnv.js';
+import { marsGroup, marsCollisionSphere, marsCloudMesh } from './solarSystemEnv.js';
+import { jupiterGroup, jupiterCollisionSphere } from './solarSystemEnv.js';
+import { saturnGroup, saturnCollisionSphere } from './solarSystemEnv.js';
+import { uranusGroup, uranusCollisionSphere } from './solarSystemEnv.js';
+import { neptuneGroup, neptuneCollisionSphere } from './solarSystemEnv.js';
+import { starDestroyerGroup, collisionBox1, collisionBox2 } from './solarSystemEnv.js';
+import { lucrehulkGroup, lucrehulkCollisionBox } from './solarSystemEnv.js';
+import { deathStarGroup, deathStarCollisionSphere } from './solarSystemEnv.js';
+
+import { asteroidBeltGroup, asteroidCollisionSphere } from './solarSystemEnv.js';
 
 
 // Define all celestial objects that can be discovered
@@ -915,52 +878,26 @@ const celestialObjects = [
     'death star'
 ];
 
-// Progressive loading: we only add solar system objects after gameplay starts (ship first).
-// This keeps initial load snappy and defers the heaviest assets (Star Wars ships) until later.
-let solarSystemStagingStarted = false;
-function startSolarSystemStaging() {
-    if (solarSystemStagingStarted) return;
-    solarSystemStagingStarted = true;
+// Add all elements to scene
+scene.add(skybox);
+scene.add(stars);
+scene.add(sunGroup);
 
-    const yieldToMainThread = () => new Promise((r) => setTimeout(r, 0));
+scene.add(mercuryGroup);
+scene.add(venusGroup);
+scene.add(earthGroup);
+scene.add(moonGroup);
+scene.add(marsGroup);
+scene.add(jupiterGroup);
+scene.add(saturnGroup);
+scene.add(uranusGroup);
+scene.add(neptuneGroup);
+scene.add(starDestroyerGroup);
+scene.add(lucrehulkGroup);
+scene.add(deathStarGroup);
 
-    (async () => {
-        // Stage 2: Skybox + stars
-        await initStageSkyboxAndStars();
-        if (skybox) scene.add(skybox);
-        if (stars) scene.add(stars);
-
-        await yieldToMainThread();
-
-        // Stage 3: Sun + planets (textures/materials) + rings/clouds
-        await initStageSunAndPlanets();
-        scene.add(sunGroup);
-        scene.add(mercuryGroup);
-        scene.add(venusGroup);
-        scene.add(earthGroup);
-        scene.add(moonGroup);
-        scene.add(marsGroup);
-        scene.add(jupiterGroup);
-        scene.add(saturnGroup);
-        scene.add(uranusGroup);
-        scene.add(neptuneGroup);
-        randomizePlanetPositionsOnce();
-
-        await yieldToMainThread();
-
-        // Stage 3 (continued): Asteroids
-        await initStageAsteroids();
-        scene.add(asteroidBeltGroup); // Asteroid belt is NOT part of planetGroups
-
-        await yieldToMainThread();
-
-        // Stage 4: Big imported assets (Star Wars ships)
-        await initStageBigShips();
-        scene.add(starDestroyerGroup);
-        scene.add(lucrehulkGroup);
-        scene.add(deathStarGroup);
-    })().catch((e) => console.error('Solar system staging failed:', e));
-}
+// Asteroid belt NOT a part of the planetGroups array
+scene.add(asteroidBeltGroup);
 
 
 
@@ -968,7 +905,6 @@ function startSolarSystemStaging() {
 
 // Update stars with brightness interpolation and even distribution
 function updateStars() {
-    if (!stars || !stars.geometry || !spacecraft) return;
     const spacecraftPosition = spacecraft.position.clone();
     const positions = stars.geometry.attributes.position.array;
     const colors = stars.geometry.attributes.color.array;
@@ -1026,53 +962,53 @@ function updateStars() {
 }
 
 function animateSun() {
-    if (blazingMaterial && blazingEffect && blazingMaterial.uniforms?.time) {
-        blazingMaterial.uniforms.time.value += 0.02;
-        blazingEffect.scale.setScalar(0.9 + Math.sin(blazingMaterial.uniforms.time.value * 1.0) * 0.05);
-    }
+    blazingMaterial.uniforms.time.value += 0.02;
+    blazingEffect.scale.setScalar(0.9 + Math.sin(blazingMaterial.uniforms.time.value * 1.0) * 0.05);
     requestAnimationFrame(animateSun);
 }
 animateSun();
 
 
 function animateVenusClouds() {
-    if (venusCloudMesh) venusCloudMesh.rotation.y += 0.0005;
+    venusCloudMesh.rotation.y += 0.0005;
     requestAnimationFrame(animateVenusClouds);
 }
 animateVenusClouds();
 
 
 function animateEarthClouds() {
-    if (earthCloudMesh) earthCloudMesh.rotation.y += 0.0005;
+    earthCloudMesh.rotation.y += 0.0005;
     requestAnimationFrame(animateEarthClouds);
 }
 animateEarthClouds();
 
 function animateMarsClouds() {
-    if (marsCloudMesh) marsCloudMesh.rotation.y += 0.0005;
+    marsCloudMesh.rotation.y += 0.0005;
     requestAnimationFrame(animateMarsClouds);
 }
 animateMarsClouds();
 
 
-let randomizedPlanetPositions = false;
-function randomizePlanetPositionsOnce() {
-    if (randomizedPlanetPositions) return;
-    if (!planetGroups || planetGroups.length === 0) return;
+// Randomize planet positions (around fixed orbital radius)
+planetGroups.forEach(planet => {
+    const angle = Math.random() * Math.PI * 2; // Random angle in radians
+    const radius = planet.z; // Use original Z as radius
+    planet.group.position.set(
+        Math.cos(angle) * radius, // X
+        Math.sin(angle) * radius, // Y
+        0                         // Z = 0, XY plane
+    );
+    console.log(`${planet.group.name || 'Planet'} position:`, planet.group.position); // Debug
+});
 
-    planetGroups.forEach(planet => {
-        const angle = Math.random() * Math.PI * 2; // Random angle in radians
-        const radius = planet.z; // Use original Z as radius
-        planet.group.position.set(
-            Math.cos(angle) * radius, // X
-            Math.sin(angle) * radius, // Y
-            0                         // Z = 0, XY plane
-        );
-    });
+// Once Earth position is set, update Moon's position
+updateMoonPosition();
 
-    // Once Earth position is set, update Moon's position
-    updateMoonPosition();
-    randomizedPlanetPositions = true;
+// Center the asteroid belt at the origin (0,0,0)
+const asteroidBelt = planetGroups.find(planet => planet.group.name === "asteroidBelt");
+if (asteroidBelt) {
+    asteroidBelt.group.position.set(0, 0, 0);
+    console.log("Asteroid belt centered at origin:", asteroidBelt.group.position);
 }
 
 

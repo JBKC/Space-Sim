@@ -54,17 +54,6 @@ This creates a production build in the `dist` directory with:
 - Console logs removed
 - Environment-specific variables from `.env.production`
 
-## Asset loading + compression
-
-- **Staged loading**: the browser game now loads assets in stages (ship → skybox → planets+asteroids → big ships) to improve perceived performance.
-- **Compression support**: runtime support for Meshopt-compressed glTF and KTX2 textures is in place. See `docs/ASSET_COMPRESSION.md`.
-
-You can generate a size report for all assets referenced by the registries:
-
-```bash
-npm run assets:report
-```
-
 ## Previewing Builds
 
 After building, you can preview the builds using:
