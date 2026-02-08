@@ -41,6 +41,9 @@ import {
     updatePlanetLabels
 } from './spaceEnvs/setup.js';
 
+// Startup warmup helpers (normal mode only)
+import { deathStarGroup, deathStarLoaded } from './spaceEnvs/solarSystemEnv.js';
+
 // Import VR test environment
 import {
     init as initSpaceVR,
@@ -171,11 +174,9 @@ async function startGame(mode = 'normal') {
         topNav.style.display = 'none';
     }
 
-    // hide welcome screen 
+    // We'll hide the welcome screen after any startup warmups complete (normal mode),
+    // so we can do heavy one-time GPU work behind an overlay.
     const welcomeScreen = document.getElementById('welcome-screen');
-    if (welcomeScreen) {
-        welcomeScreen.style.display = 'none';
-    }
     
     // Handle UI elements differently based on mode
 
@@ -254,11 +255,115 @@ async function startGame(mode = 'normal') {
             xrDebugButton.style.display = 'none';
         }
 
+        // Startup warmup: compile/render heavy assets (e.g. Death Star) once before gameplay begins
+        // to avoid the first-time-in-view stutter.
+        const startupOverlay = ensureStartupOverlay();
+        startupOverlay.show('Loading...');
+
+        try {
+            // Initialize space scene immediately (instead of waiting for first animation frame)
+            if (!getSpaceInitialized()) {
+                resetLoadingStats();
+                initSpace();
+                setSpaceInitialized(true);
+            }
+
+            // Wait until the Death Star is loaded, then warm it up.
+            await deathStarLoaded;
+            await warmupGroupOnce(deathStarGroup);
+        } catch (e) {
+            console.warn('Startup warmup failed (continuing anyway):', e);
+        } finally {
+            startupOverlay.hide();
+            if (welcomeScreen) {
+                welcomeScreen.style.display = 'none';
+            }
+        }
+
         // Start animation loop for normal mode
         if (!isAnimating) {
             isAnimating = true;
-            animate();
+            lastFrameTime = performance.now();
+            animate(lastFrameTime);
         }
+    }
+}
+
+function ensureStartupOverlay() {
+    let overlay = document.getElementById('startup-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'startup-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.92);
+            z-index: 30000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Orbitron', sans-serif;
+            color: #4fc3f7;
+            text-shadow: 0 0 20px rgba(79, 195, 247, 0.5);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            user-select: none;
+        `;
+        const label = document.createElement('div');
+        label.id = 'startup-overlay-label';
+        label.style.cssText = 'font-size: 20px; padding: 16px 20px; border: 1px solid rgba(79,195,247,0.35); border-radius: 8px; background: rgba(0,0,0,0.3);';
+        overlay.appendChild(label);
+        document.body.appendChild(overlay);
+    }
+
+    const label = overlay.querySelector('#startup-overlay-label');
+    return {
+        show: (text = 'Loading...') => {
+            if (label) label.textContent = text;
+            overlay.style.display = 'flex';
+        },
+        hide: () => {
+            overlay.style.display = 'none';
+        }
+    };
+}
+
+async function warmupGroupOnce(group) {
+    if (!group || !spaceRenderer || !spaceScene || !spaceCamera) return;
+    if (group.userData && group.userData.__warmedUp) return;
+
+    // Save transform + visibility
+    const prevVisible = group.visible;
+    const prevPos = group.position.clone();
+    const prevQuat = group.quaternion.clone();
+    const prevScale = group.scale.clone();
+
+    try {
+        group.visible = true;
+
+        // Move the object in front of the camera (behind the loading overlay),
+        // so renderer will actually render it and trigger shader compilation + GPU uploads.
+        const dir = new THREE.Vector3();
+        spaceCamera.getWorldDirection(dir); // camera forward (-Z in three.js coords)
+        group.position.copy(spaceCamera.position).add(dir.multiplyScalar(200));
+
+        // Keep it small so it doesn't blow out depth/precision
+        group.scale.copy(prevScale).multiplyScalar(0.001);
+
+        // Compile + render a couple frames to ensure GPU work is done
+        spaceRenderer.compile(spaceScene, spaceCamera);
+        spaceRenderer.render(spaceScene, spaceCamera);
+        await new Promise(requestAnimationFrame);
+        spaceRenderer.render(spaceScene, spaceCamera);
+
+        group.userData = group.userData || {};
+        group.userData.__warmedUp = true;
+    } finally {
+        // Restore
+        group.visible = prevVisible;
+        group.position.copy(prevPos);
+        group.quaternion.copy(prevQuat);
+        group.scale.copy(prevScale);
     }
 }
 

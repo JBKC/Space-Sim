@@ -783,6 +783,12 @@ planetGroups.push({ group: lucrehulkGroup, z: LUCREHULK_POSITION * universalScal
 export const deathStarGroup = new THREE.Group();
 deathStarGroup.name = "deathStar"; // Add name for reference
 
+// Promise that resolves when the Death Star model has finished loading and has been added to the group.
+let _resolveDeathStarLoaded;
+export const deathStarLoaded = new Promise((resolve) => {
+    _resolveDeathStarLoaded = resolve;
+});
+
 // Create collision sphere for the Death Star (for efficient raycast detection)
 const deathStarCollisionGeometry = new THREE.SphereGeometry(
     DEATH_STAR_RADIUS * universalScaleFactor * 0.5, // Using half of the dimension as radius
@@ -810,6 +816,12 @@ loadModelFromRegistry(
         deathStarModel.rotation.y = Math.PI * 0.7;
         deathStarGroup.add(deathStarModel);
         console.log('Death Star loaded successfully from registry');
+        
+        // Signal to any warmup/boot code that the model is ready for first render.
+        if (_resolveDeathStarLoaded) {
+            _resolveDeathStarLoaded();
+            _resolveDeathStarLoaded = null;
+        }
     },
     // (xhr) => { // onProgress callback (optional)
     //     console.log(`Loading Death Star: ${(xhr.loaded / xhr.total * 100).toFixed(2)}% loaded`);
