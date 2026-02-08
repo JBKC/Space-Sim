@@ -16,7 +16,7 @@ dist-prod/
 .env.production.local
 
 # Marketing media (keep source videos out of git; commit only web-ready exports if needed)
-marketing/
+/marketing/
 public/marketing/*.mov
 
 # Debug logs
