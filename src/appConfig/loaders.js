@@ -233,6 +233,18 @@ function resetLoadingStats() {
     updateAssetDisplay(0, 0, 'assets');
     updateAssetDisplay(0, 0, 'textures');
     updateAssetDisplay();
+
+    // Notify any listeners (e.g. startup overlay) that counters reset
+    try {
+        window.dispatchEvent(new CustomEvent('planetary-loading-progress', {
+            detail: {
+                models: { loaded: 0, total: 0, remaining: 0 },
+                textures: { loaded: 0, total: 0, remaining: 0 }
+            }
+        }));
+    } catch (_) {
+        // ignore
+    }
     
     console.log("Loading stats reset for new scene - created new loading managers");
 }
@@ -246,6 +258,15 @@ function updateAssetDisplay(loaded, total, type) {
         if (existingDisplay) {
             existingDisplay.style.display = 'none';
             console.log('Asset display suppressed due to XR session');
+        }
+        return;
+    }
+    
+    // Hide asset display during active gameplay (keep it for intro/loading screens)
+    if (window.isGameplayActive === true) {
+        const existingDisplay = document.getElementById('asset-display');
+        if (existingDisplay) {
+            existingDisplay.style.display = 'none';
         }
         return;
     }
@@ -316,6 +337,26 @@ function updateAssetDisplay(loaded, total, type) {
     // Update the display
     summaryDisplay.innerHTML = displayText;
     summaryDisplay.style.color = displayColor;
+
+    // Emit a small progress event so other UI (e.g. the startup overlay) can display counters
+    try {
+        window.dispatchEvent(new CustomEvent('planetary-loading-progress', {
+            detail: {
+                models: {
+                    loaded: loadingStats.assets.loaded,
+                    total: loadingStats.assets.total,
+                    remaining: remainingModels
+                },
+                textures: {
+                    loaded: loadingStats.textures.loaded,
+                    total: loadingStats.textures.total,
+                    remaining: remainingTextures
+                }
+            }
+        }));
+    } catch (_) {
+        // ignore
+    }
     
 }
 

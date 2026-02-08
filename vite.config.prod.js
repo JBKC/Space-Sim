@@ -2,9 +2,10 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import dotenv from 'dotenv';
+import { existsSync } from 'fs';
 
-// Load the environment variables from .env.production
-dotenv.config({ path: '.env.production' });
+// Load environment variables (prefer local secrets, fallback to committed defaults)
+dotenv.config({ path: existsSync('.env.production.local') ? '.env.production.local' : '.env.production' });
 
 export default defineConfig({
   build: {

@@ -4,8 +4,8 @@ import dotenv from 'dotenv';
 import { copyFileSync, mkdirSync, existsSync } from 'fs';
 import { dirname } from 'path';
 
-// Load the environment variables from .env.development
-dotenv.config({ path: '.env.development' });
+// Load environment variables (prefer local secrets, fallback to committed defaults)
+dotenv.config({ path: existsSync('.env.development.local') ? '.env.development.local' : '.env.development' });
 
 // Function to ensure directory exists
 function ensureDirectoryExistence(filePath) {

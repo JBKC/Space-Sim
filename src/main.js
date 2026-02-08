@@ -280,6 +280,15 @@ async function startGame(mode = 'normal') {
             }
         }
 
+        // Mark gameplay as active (used to hide certain HUD/debug readouts)
+        window.isGameplayActive = true;
+
+        // Hide the asset display HUD now that gameplay is active
+        const assetDisplay = document.getElementById('asset-display');
+        if (assetDisplay) {
+            assetDisplay.style.display = 'none';
+        }
+
         // Start animation loop for normal mode
         if (!isAnimating) {
             isAnimating = true;
@@ -311,19 +320,52 @@ function ensureStartupOverlay() {
         `;
         const label = document.createElement('div');
         label.id = 'startup-overlay-label';
-        label.style.cssText = 'font-size: 20px; padding: 16px 20px; border: 1px solid rgba(79,195,247,0.35); border-radius: 8px; background: rgba(0,0,0,0.3);';
+        label.style.cssText = 'text-align:center; padding: 16px 20px; border: 1px solid rgba(79,195,247,0.35); border-radius: 8px; background: rgba(0,0,0,0.3);';
+
+        const primary = document.createElement('div');
+        primary.id = 'startup-overlay-primary';
+        primary.style.cssText = 'font-size: 20px; margin-bottom: 10px;';
+
+        const secondary = document.createElement('div');
+        secondary.id = 'startup-overlay-secondary';
+        secondary.style.cssText = 'font-size: 14px; color: rgba(179, 229, 252, 0.95); letter-spacing: 2px;';
+
+        label.appendChild(primary);
+        label.appendChild(secondary);
         overlay.appendChild(label);
         document.body.appendChild(overlay);
     }
 
     const label = overlay.querySelector('#startup-overlay-label');
+    const primary = overlay.querySelector('#startup-overlay-primary');
+    const secondary = overlay.querySelector('#startup-overlay-secondary');
+
+    // Subscribe to loader progress while overlay is visible
+    let subscribed = false;
+    const onProgress = (event) => {
+        const remaining = event?.detail?.models?.remaining;
+        const total = event?.detail?.models?.total;
+        if (typeof remaining === 'number' && typeof total === 'number' && total > 0 && secondary) {
+            secondary.textContent = `Models remaining: ${Math.max(0, remaining)}`;
+        } else if (secondary) {
+            secondary.textContent = '';
+        }
+    };
     return {
         show: (text = 'Loading...') => {
-            if (label) label.textContent = text;
+            if (primary) primary.textContent = text;
+            if (!subscribed) {
+                window.addEventListener('planetary-loading-progress', onProgress);
+                subscribed = true;
+            }
             overlay.style.display = 'flex';
         },
         hide: () => {
             overlay.style.display = 'none';
+            if (subscribed) {
+                window.removeEventListener('planetary-loading-progress', onProgress);
+                subscribed = false;
+            }
         }
     };
 }

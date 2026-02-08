@@ -114,4 +114,10 @@ The application uses environment variables to handle differences between develop
 - `VITE_DRACO_PATH` - Path to Draco decoder files
 - `VITE_API_URL` - API URL for any backend services
 
+### Secrets / API keys (safe for public repos)
+
+- Commit **`.env.example`** as a template.
+- Keep real secrets in **`.env.development.local`** and/or **`.env.production.local`** (these are gitignored).
+- In Netlify, set secrets in the site’s **Environment variables** UI instead of committing them.
+
 These variables are defined in the `.env.development` and `.env.production` files and accessed through the `config.js` module.
