@@ -9,18 +9,19 @@
     <link rel="stylesheet" href="/styles.css">
     <!-- Mobile guard: do NOT load the game JS on mobile (prevents background asset downloads & crashes) -->
     <script type="module">
-        const isMobile = window.matchMedia?.('(hover: none) and (pointer: coarse)')?.matches || window.innerWidth <= 720;
+        const isCoarse = window.matchMedia?.('(hover: none) and (pointer: coarse)')?.matches || window.innerWidth <= 720;
 
-        if (isMobile) {
+        const showBlocker = ({ title, message }) => {
             window.__PLANETARY_MOBILE_BLOCKED__ = true;
-            // Defer DOM touching until body exists
             window.addEventListener('DOMContentLoaded', () => {
                 document.body.classList.add('mobile-blocked');
-
                 const blocker = document.getElementById('mobile-blocker');
                 if (blocker) blocker.style.display = 'flex';
+                const titleEl = blocker?.querySelector?.('.title');
+                if (titleEl && title) titleEl.textContent = title;
+                const body = blocker?.querySelector?.('.body');
+                if (body && message) body.textContent = message;
 
-                // Disable buttons so users can't start downloads/crash the page
                 for (const id of ['explore-button', 'explore-vr-button']) {
                     const btn = document.getElementById(id);
                     if (btn) {
@@ -31,20 +32,35 @@
                     }
                 }
             });
-        } else {
+        };
+
+        const loadGame = () => {
             // IMPORTANT: use a real ESM import so Vite can bundle this for production builds.
             import('/src/main.js').catch((e) => {
                 console.error('Failed to load game module', e);
-                // Provide a basic fallback message
-                window.addEventListener('DOMContentLoaded', () => {
-                    const blocker = document.getElementById('mobile-blocker');
-                    if (blocker) {
-                        blocker.style.display = 'flex';
-                        const body = blocker.querySelector('.body');
-                        if (body) body.textContent = 'Failed to load the game. Please refresh the page.';
-                    }
-                });
+                showBlocker({ title: 'Error', message: 'Failed to load the game. Please refresh the page.' });
             });
+        };
+
+        if (!isCoarse) {
+            // Desktop / non-coarse pointer: always load game
+            loadGame();
+        } else {
+            // Coarse pointer (phones/tablets/VR headsets). Only allow if immersive VR is supported.
+            // This prevents phone browsers from downloading large assets in the background.
+            if (navigator.xr?.isSessionSupported) {
+                navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+                    if (supported) {
+                        loadGame();
+                    } else {
+                        showBlocker({ title: 'Not optimised for mobile', message: 'This experience is currently desktop-only. Please open on a desktop/laptop.' });
+                    }
+                }).catch(() => {
+                    showBlocker({ title: 'Not optimised for mobile', message: 'This experience is currently desktop-only. Please open on a desktop/laptop.' });
+                });
+            } else {
+                showBlocker({ title: 'Not optimised for mobile', message: 'This experience is currently desktop-only. Please open on a desktop/laptop.' });
+            }
         }
     </script>
     <style>

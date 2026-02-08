@@ -150,8 +150,11 @@ function initMainMenuScreen() {
     }
     
     if (exploreVRButton) {
-        // Use rate-limited version for initial game loading in VR mode
-        exploreVRButton.addEventListener('click', () => rateLimitedStartGame('vr'));
+        // IMPORTANT: VR entry must run in a direct user gesture (no rate limiter / scheduling),
+        // otherwise browsers will block the WebXR session request.
+        exploreVRButton.addEventListener('click', () => {
+            startGame('vr').catch((e) => console.error('Failed to start VR mode', e));
+        });
         console.log('VR mode button initialized');
     } else {
         console.error('Explore VR button not found!');
@@ -187,11 +190,7 @@ async function startGame(mode = 'normal') {
     // Handle UI elements differently based on mode
 
     if (mode === 'vr') {
-        
-        // Set global VR mode flag
-        window.isInXRSession = true;
-
-        console.log('VR mode enabled - asset display will be suppressed');
+        console.log('Starting VR mode...');
         
         // Hide FPS readout
         stats.dom.style.display = 'none';
@@ -215,24 +214,15 @@ async function startGame(mode = 'normal') {
             console.log('Hid asset-display');
         }
         
-        // Show only VR-specific UI elements
-        // Initialize VR status indicator
-        createVRStatusIndicator();
-        
-        // Update XR debug info if available
-        if (typeof window.updateXRDebugInfo === 'function') {
-            window.updateXRDebugInfo();
-        }
-        
-        // Make XR debug button visible
-        const xrDebugButton = document.getElementById('xr-debug-button');
-        if (xrDebugButton) {
-            xrDebugButton.style.display = 'block';
+        // Hide the welcome screen now that the user chose a mode
+        if (welcomeScreen) {
+            welcomeScreen.style.display = 'none';
         }
 
         console.log("Initializing VR test environment");
 
-        await calibrateVR();
+        // NOTE: Do NOT await before the XR session request path, or user activation is lost.
+        calibrateVR();
 
         initSpaceVR();
 

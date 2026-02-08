@@ -256,37 +256,52 @@ export function startVRMode() {
     // Ensure all UI elements are cleared
     clearAllUIElements();
     
-    // Create XR animation loop
-    function xrAnimationLoop(timestamp, frame) {
-        // Update movement based on controllers
+    const xrAnimationLoop = (timestamp, frame) => {
         update(timestamp);
-        
-        // Render the scene
         renderer.render(scene, camera);
-    }
-    
-    // Set the animation loop
-    renderer.setAnimationLoop(xrAnimationLoop);
-    console.log("VR animation loop set");
-    
-    // Automatically enter VR after a short delay
-    setTimeout(() => {
-        // Create and click a VR button
-        const vrButton = VRButton.createButton(renderer);
-        document.body.appendChild(vrButton);
-        
-        // Make sure button is removed from DOM after clicking
-        vrButton.addEventListener('click', () => {
-            // Remove the button right after clicking
-            setTimeout(() => {
-                if (vrButton.parentNode) {
-                    vrButton.parentNode.removeChild(vrButton);
-                }
-            }, 100);
+    };
+
+    const startLoop = () => {
+        renderer.setAnimationLoop(xrAnimationLoop);
+        console.log("VR animation loop set");
+    };
+
+    // Try to enter immersive VR immediately. This MUST run from a user gesture (button click),
+    // so do not delay with setTimeout.
+    if (navigator.xr?.requestSession) {
+        const sessionInit = {
+            optionalFeatures: [
+                'local-floor',
+                'bounded-floor',
+                'hand-tracking',
+                'layers'
+            ]
+        };
+
+        navigator.xr.requestSession('immersive-vr', sessionInit).then((session) => {
+            renderer.xr.setSession(session);
+            startLoop();
+        }).catch((err) => {
+            console.warn('Failed to start immersive VR session:', err);
+            showDesktopVRMessage();
         });
-        
-        vrButton.click();
-    }, 1000);
+    } else {
+        showDesktopVRMessage();
+    }
+}
+
+function showDesktopVRMessage() {
+    // On non-headset devices, don't "fake enter" VR. Just show a clear message.
+    const blocker = document.getElementById('mobile-blocker');
+    if (blocker) {
+        blocker.style.display = 'flex';
+        const title = blocker.querySelector('.title');
+        if (title) title.textContent = 'Not optimised for desktop';
+        const body = blocker.querySelector('.body');
+        if (body) body.textContent = 'VR is not available in this browser/device. Open this page in a VR headset browser (or a desktop with a connected headset).';
+    } else {
+        console.warn('VR not available on this device.');
+    }
 }
 
 // Animation loop - update movement based on VR controller inputs
