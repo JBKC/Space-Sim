@@ -4,6 +4,12 @@ import * as THREE from 'three';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { createRateLimitedGameLoader } from './appConfig/gameLoader.js';
 import { loadingManager, textureLoadingManager, resetLoadingStats, updateAssetDisplay } from './appConfig/loaders.js';
+import {
+    preloadStageShip,
+    preloadStageSkybox,
+    preloadStagePlanetsAndAsteroids,
+    preloadStageBigShips
+} from './appConfig/assetStaging.js';
 
 
 // Import state environment functions
@@ -237,6 +243,26 @@ async function startGame(mode = 'normal') {
         // Normal, non-VR mode
         stats.dom.style.display = 'block';
         fpsDisplay.style.display = 'block';
+
+        // Stage 1: ensure the ship (3rd + 1st-person cockpit) is loaded first.
+        // This keeps the "click -> flying" path smooth, while the rest streams in later.
+        try {
+            await preloadStageShip();
+        } catch (e) {
+            console.error('Failed to preload ship assets:', e);
+        }
+        
+        // Kick off staged preloads for the remaining assets in the background.
+        // (Skybox -> planets+asteroids -> big ships)
+        (async () => {
+            try {
+                await preloadStageSkybox();
+                await preloadStagePlanetsAndAsteroids();
+                await preloadStageBigShips();
+            } catch (e) {
+                console.warn('Background asset staging preload failed:', e);
+            }
+        })();
         
         // Show the controls prompt and initialize dropdown state
         showControlsPrompt();

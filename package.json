@@ -10,6 +10,7 @@
     "prebuild:prod": "node scripts/copy-assets.js",
     "build:prod": "vite build --mode production --config vite.config.prod.js",
     "build:full": "vite build && mkdir -p dist/src/assets && cp -r src/assets/* dist/src/assets/ && mkdir -p dist/assets && cp -r src/assets/* dist/assets/",
+    "assets:report": "node scripts/report-assets.js",
     "preview": "vite preview",
     "preview:dev": "vite preview --outDir dist-dev",
     "preview:prod": "vite preview --outDir dist",

@@ -3,6 +3,8 @@
 import * as THREE from 'three';
 import config from './config.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
 import { getTexture } from './textureRegistry.js';
 import { getModel } from './modelRegistry.js'; // Import model registry helper
 
@@ -12,8 +14,45 @@ export let universalScaleFactor = 1.0;
 // Initialize THREE.js loading managers to track progress
 let loadingManager = new THREE.LoadingManager();
 let textureLoadingManager = new THREE.LoadingManager();
-// Create GLTF loader instance outside the function
-const gltfLoader = new GLTFLoader(loadingManager);
+
+// Caches to avoid re-downloading + re-parsing assets when we stage loads.
+// Keyed by `${category}:${name}`.
+const modelPromiseCache = new Map();
+const texturePromiseCache = new Map();
+
+// Loader instances (recreated when managers reset)
+let gltfLoader = createGLTFLoader();
+let textureLoader = createTextureLoader();
+let ktx2Loader = createKTX2Loader();
+
+function createGLTFLoader() {
+    const loader = new GLTFLoader(loadingManager);
+    // Meshopt support (requires models to be meshopt-compressed; harmless otherwise)
+    loader.setMeshoptDecoder(MeshoptDecoder);
+    return loader;
+}
+
+function createTextureLoader() {
+    return new THREE.TextureLoader(textureLoadingManager);
+}
+
+function createKTX2Loader() {
+    const loader = new KTX2Loader(textureLoadingManager);
+    // Transcoder files should live under /basis/ in production (copied in prebuild).
+    loader.setTranscoderPath('/basis/');
+    // WebGLRenderer is not available here; detectSupport() will be called once renderer exists.
+    return loader;
+}
+
+// Call this once you have a renderer (e.g. in initSpace) to allow KTX2Loader to pick the right format.
+export function configureTextureCompressionSupport(renderer) {
+    if (!renderer) return;
+    try {
+        ktx2Loader.detectSupport(renderer);
+    } catch (e) {
+        console.warn('KTX2Loader detectSupport failed (texture compression will fallback):', e);
+    }
+}
 
 // Store loading stats
 const loadingStats = {
@@ -26,28 +65,30 @@ const loadingStats = {
 
 ///// ASSET LOADERS /////
 
-// Standard texture loader using explicit imports
+// Standard texture loader using explicit imports (cached)
 function loadTextureFromRegistry(category, name, onLoad) {
-    const texture = getTexture(category, name);
-    
-    if (!texture) {
+    const texturePath = getTexture(category, name);
+    if (!texturePath) {
         console.error(`Texture not found: ${category}/${name}`);
         return new THREE.Texture(); // Return empty texture
     }
-    
-    console.log(`Loading texture: ${category}/${name} from registry`);
-    
-    // If we're using the direct import, we don't need textureLoader.load
-    // Just create a THREE.js texture from the imported URL
-    const threeTexture = new THREE.TextureLoader(textureLoadingManager).load(
-        texture, 
-        onLoad
-    );
-    
-    return threeTexture;
+
+    // Kick off (or reuse) the cached async load, but return a Texture immediately for backwards compatibility.
+    // If the caller passed onLoad, we invoke it once resolved.
+    loadTextureFromRegistryAsync(category, name)
+        .then((tex) => {
+            if (typeof onLoad === 'function') onLoad(tex);
+        })
+        .catch((err) => console.error('Error loading texture:', err));
+
+    // Return a placeholder texture immediately; most call sites only need a `Texture` reference.
+    // Once the cached texture resolves, any materials referencing it will render correctly.
+    const placeholder = new THREE.Texture();
+    placeholder.needsUpdate = true;
+    return placeholder;
 }
 
-// Standard model loader using explicit imports
+// Standard model loader using explicit imports (cached)
 function loadModelFromRegistry(category, name, onSuccess, onProgress, onError) {
     const modelPath = getModel(category, name);
 
@@ -57,19 +98,71 @@ function loadModelFromRegistry(category, name, onSuccess, onProgress, onError) {
         return;
     }
 
-    console.log(`Loading model from registry: ${category}/${name} from ${modelPath}`);
-    
-    // Check if this is a gltf file inside a directory
-    if (modelPath.endsWith('scene.gltf')) {
-        // Extract the base directory from the path
-        const basePath = modelPath.substring(0, modelPath.lastIndexOf('/') + 1);
-        console.log(`Setting resource path for GLTF model: ${basePath}`);
-        
-        // Set the resource path for the loader to correctly resolve referenced files
-        gltfLoader.setResourcePath(basePath);
+    loadModelFromRegistryAsync(category, name, onProgress)
+        .then((gltf) => {
+            if (typeof onSuccess === 'function') onSuccess(gltf);
+        })
+        .catch((err) => {
+            if (typeof onError === 'function') onError(err);
+            else console.error('Error loading model:', err);
+        });
+}
+
+// Async helpers (used for staged preloading)
+export function loadModelFromRegistryAsync(category, name, onProgress) {
+    const cacheKey = `${category}:${name}`;
+    if (modelPromiseCache.has(cacheKey)) return modelPromiseCache.get(cacheKey);
+
+    const promise = new Promise((resolve, reject) => {
+        const modelPath = getModel(category, name);
+        if (!modelPath) {
+            reject(new Error(`Model not found in registry: ${category}/${name}`));
+            return;
+        }
+
+        // For gltf models in directories, set resource path so embedded texture refs resolve.
+        if (modelPath.endsWith('scene.gltf')) {
+            const basePath = modelPath.substring(0, modelPath.lastIndexOf('/') + 1);
+            gltfLoader.setResourcePath(basePath);
+        }
+
+        gltfLoader.load(modelPath, resolve, onProgress, reject);
+    });
+
+    modelPromiseCache.set(cacheKey, promise);
+    return promise;
+}
+
+export function loadTextureFromRegistryAsync(category, name) {
+    const cacheKey = `${category}:${name}`;
+    if (texturePromiseCache.has(cacheKey)) return texturePromiseCache.get(cacheKey);
+
+    const texturePath = getTexture(category, name);
+    if (!texturePath) {
+        return Promise.reject(new Error(`Texture not found: ${category}/${name}`));
     }
-    
-    gltfLoader.load(modelPath, onSuccess, onProgress, onError);
+
+    const promise = new Promise((resolve, reject) => {
+        const isKtx2 = typeof texturePath === 'string' && texturePath.toLowerCase().endsWith('.ktx2');
+        const loader = isKtx2 ? ktx2Loader : textureLoader;
+        loader.load(texturePath, resolve, undefined, reject);
+    });
+
+    texturePromiseCache.set(cacheKey, promise);
+    return promise;
+}
+
+// Best-effort sync access for code paths that still expect immediate availability.
+export function hasModelCached(category, name) {
+    return modelPromiseCache.has(`${category}:${name}`);
+}
+
+export async function getModelCached(category, name) {
+    return await loadModelFromRegistryAsync(category, name);
+}
+
+export async function getTextureCached(category, name) {
+    return await loadTextureFromRegistryAsync(category, name);
 }
 
 
@@ -218,6 +311,11 @@ function resetLoadingStats() {
     // Create brand new loading managers for the new scene
     loadingManager = new THREE.LoadingManager();
     textureLoadingManager = new THREE.LoadingManager();
+
+    // Recreate loader instances so they attach to the fresh managers
+    gltfLoader = createGLTFLoader();
+    textureLoader = createTextureLoader();
+    ktx2Loader = createKTX2Loader();
     
     // Set up the event handlers for the new managers
     setupLoadingManagerHandlers();

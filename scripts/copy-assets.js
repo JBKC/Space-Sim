@@ -20,6 +20,8 @@ const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..');
 const SOURCE_DIR = path.resolve(REPO_ROOT, 'src/assets');
 const TARGET_DIR = path.resolve(REPO_ROOT, 'public/assets');
+const BASIS_SOURCE_DIR = path.resolve(REPO_ROOT, 'node_modules/three/examples/jsm/libs/basis');
+const BASIS_TARGET_DIR = path.resolve(REPO_ROOT, 'public/basis');
 
 // Ensure target directory exists
 if (!fs.existsSync(TARGET_DIR)) {
@@ -72,4 +74,25 @@ if (fs.existsSync(stylesSourcePath)) {
 // Start copying
 console.log('Starting asset copy process...');
 copyDirectory(SOURCE_DIR, TARGET_DIR);
+
+// Copy Basis/KTX2 transcoder files for KTX2Loader (texture compression)
+try {
+  if (!fs.existsSync(BASIS_TARGET_DIR)) {
+    fs.mkdirSync(BASIS_TARGET_DIR, { recursive: true });
+  }
+  const basisFiles = ['basis_transcoder.js', 'basis_transcoder.wasm'];
+  for (const f of basisFiles) {
+    const src = path.join(BASIS_SOURCE_DIR, f);
+    const dst = path.join(BASIS_TARGET_DIR, f);
+    if (fs.existsSync(src)) {
+      fs.copyFileSync(src, dst);
+      console.log(`Copied: ${src} -> ${dst}`);
+    } else {
+      console.warn(`Basis transcoder file not found: ${src}`);
+    }
+  }
+} catch (e) {
+  console.warn('Failed to copy Basis transcoders (KTX2 textures may not work):', e);
+}
+
 console.log('Assets copied successfully to public directory!'); 
