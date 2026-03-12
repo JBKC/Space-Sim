@@ -122,6 +122,23 @@ body.home {
     background: #000;
 }
 
+.home-callout {
+    margin: 14px 0 22px;
+    padding: 16px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(79, 195, 247, 0.25);
+    background: rgba(0, 0, 0, 0.35);
+    box-shadow: 0 0 26px rgba(79, 195, 247, 0.10);
+}
+
+.home-callout p {
+    margin: 0;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    color: rgba(179, 229, 252, 0.88);
+}
+
 .home-video-copy {
     margin: 14px 0 18px;
     font-family: 'Space Grotesk', sans-serif;
